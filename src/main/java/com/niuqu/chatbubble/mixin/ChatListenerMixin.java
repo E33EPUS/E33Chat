@@ -42,7 +42,8 @@ public class ChatListenerMixin {
                     senderId != null ? senderId : new UUID(0, 0),
                     Component.literal(displayName),
                     Component.literal(cleanContent),
-                    false
+                    false,
+                    name
                 ));
                 return;
             }
@@ -52,7 +53,8 @@ public class ChatListenerMixin {
             senderId != null ? senderId : new UUID(0, 0),
             Component.literal(gameProfile.getName()),
             raw,
-            false
+            false,
+            gameProfile.getName()
         ));
     }
 
@@ -69,7 +71,8 @@ public class ChatListenerMixin {
             new UUID(0, 0),
             hasSender ? bound.name() : Component.translatable("e33chat.sender.system"),
             message,
-            !hasSender
+            !hasSender,
+            hasSender ? bound.name().getString() : null
         ));
     }
 
@@ -103,7 +106,8 @@ public class ChatListenerMixin {
                     senderId,
                     Component.literal(displayName),
                     Component.literal(cleanContent),
-                    false
+                    false,
+                    foundName
                 ));
                 return;
             }
@@ -112,7 +116,8 @@ public class ChatListenerMixin {
                 new UUID(0, 0),
                 Component.translatable("e33chat.sender.system"),
                 message,
-                isSystem
+                isSystem,
+                null
             ));
             return;
         }
@@ -122,7 +127,8 @@ public class ChatListenerMixin {
             new UUID(0, 0),
             Component.translatable("e33chat.sender.system"),
             message,
-            isSystem
+            isSystem,
+            null
         ));
     }
 }

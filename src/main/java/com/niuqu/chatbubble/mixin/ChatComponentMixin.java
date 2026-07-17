@@ -56,7 +56,8 @@ public class ChatComponentMixin {
                 new UUID(0, 0),
                 Component.translatable("e33chat.sender.system"),
                 finalComponent,
-                true
+                true,
+                null
             );
         }
 
@@ -72,6 +73,6 @@ public class ChatComponentMixin {
             content = finalComponent;
         }
 
-        ChatMessageStore.addMessage(content, meta.senderUUID(), meta.senderName(), meta.isSystem());
+        ChatMessageStore.addMessage(content, meta.senderUUID(), meta.senderName(), meta.isSystem(), meta.rawPlayerName());
     }
 }

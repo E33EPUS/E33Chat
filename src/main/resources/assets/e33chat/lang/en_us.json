@@ -26,6 +26,7 @@
   "e33chat.config.time_separator.disable": "Off",
   "e33chat.context.copy": "Copy",
   "e33chat.context.quote": "Quote",
+  "e33chat.context.tp": "Teleport",
   "e33chat.toast.copied": "Copied",
   "e33chat.config.mention_highlight": "Mention Highlight",
   "e33chat.config.mention_highlight_color": "Highlight Border Color",

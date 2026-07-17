@@ -26,6 +26,7 @@
   "e33chat.config.time_separator.disable": "关闭",
   "e33chat.context.copy": "复制",
   "e33chat.context.quote": "引用",
+  "e33chat.context.tp": "传送",
   "e33chat.toast.copied": "已复制",
   "e33chat.config.mention_highlight": "被@时高亮",
   "e33chat.config.mention_highlight_color": "@高亮边框色",

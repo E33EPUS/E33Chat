@@ -146,6 +146,8 @@ public class ChatBubbleScreen extends Screen {
     private int contextX, contextY;
     private static final int CTX_W = 80;
     private static final int CTX_ITEM_H = 18;
+    private int contextAvatarIndex = -1;
+    private int contextAvatarX, contextAvatarY;
 
     // Bubble hit tracking
     private final List<int[]> bubbleRects = new ArrayList<>();
@@ -364,6 +366,12 @@ public class ChatBubbleScreen extends Screen {
         }
 
         // Context menu clicks must be handled before dismiss
+        if (button == 0 && contextAvatarIndex >= 0) {
+            handleAvatarContextClick((int) mouseX, (int) mouseY);
+            return true;
+        }
+        if (contextAvatarIndex >= 0) { contextAvatarIndex = -1; return true; }
+
         if (button == 0 && contextMsgIndex >= 0) {
             handleContextClick((int) mouseX, (int) mouseY);
             return true;
@@ -453,12 +461,29 @@ public class ChatBubbleScreen extends Screen {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem()) continue;
                 int avatarX = r[0] - AVATAR - 4;
-                int avatarY = r[1] - 6;
+                int avatarY = msg.replyContent() != null ? r[1] - font.lineHeight - 2 : r[1] - NAME_H;
                 if (mouseX >= avatarX && mouseX <= avatarX + AVATAR
                     && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
                     String mention = "@" + msg.senderName().getString() + " ";
                     input.setValue(input.getValue() + mention);
                     input.moveCursorToEnd(false);
+                    return true;
+                }
+            }
+        }
+
+        if (button == 1) {
+            for (int[] r : bubbleRects) {
+                ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
+                if (msg == null || msg.isSystem() || msg.isOwn()) continue;
+                if (msg.rawPlayerName() == null || msg.rawPlayerName().isEmpty()) continue;
+                int avatarX = r[0] - AVATAR - 4;
+                int avatarY = msg.replyContent() != null ? r[1] - font.lineHeight - 2 : r[1] - NAME_H;
+                if (mouseX >= avatarX && mouseX <= avatarX + AVATAR
+                    && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
+                    contextAvatarIndex = r[4];
+                    contextAvatarX = (int) mouseX;
+                    contextAvatarY = (int) mouseY;
                     return true;
                 }
             }
@@ -481,6 +506,15 @@ public class ChatBubbleScreen extends Screen {
                 net.minecraft.network.chat.ClickEvent click = style.getClickEvent();
                 if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.SUGGEST_COMMAND) {
                     input.setValue(click.getValue());
+                    return true;
+                }
+                if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.OPEN_FILE) {
+                    java.io.File file = new java.io.File(click.getValue());
+                    net.minecraft.Util.getPlatform().openFile(file);
+                    return true;
+                }
+                if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.OPEN_URL) {
+                    handleComponentClicked(style);
                     return true;
                 }
                 handleComponentClicked(style);
@@ -611,6 +645,21 @@ public class ChatBubbleScreen extends Screen {
         contextMsgIndex = -1;
     }
 
+    private void handleAvatarContextClick(int mx, int my) {
+        int menuH = CTX_ITEM_H + 2;
+        int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
+        int menuY = contextAvatarY - menuH;
+        if (menuY < msgTop) menuY = contextAvatarY + 4;
+
+        if (mx >= menuX && mx <= menuX + CTX_W && my >= menuY && my <= menuY + menuH) {
+            ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextAvatarIndex);
+            if (msg != null && msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty()) {
+                minecraft.player.connection.sendCommand("tp " + msg.rawPlayerName());
+            }
+        }
+        contextAvatarIndex = -1;
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         float anim = getAnimProgress();
@@ -636,6 +685,7 @@ public class ChatBubbleScreen extends Screen {
         renderNotificationBar(g, mouseX, mouseY);
         renderReplyBar(g, mouseX, mouseY);
         renderContextMenu(g, mouseX, mouseY);
+        renderAvatarContextMenu(g, mouseX, mouseY);
         renderToast(g);
         renderBottomBar(g, mouseX, mouseY);
 
@@ -865,9 +915,10 @@ public class ChatBubbleScreen extends Screen {
         if (msg.isSystem()) {
             List<FormattedCharSequence> lines = font.split(msg.content(), panelW - PAD * 2 - 20);
             int yy = baseY + 2;
+            net.minecraft.network.chat.Style fb = findClickStyle(msg.content());
             for (var line : lines) {
                 int lw = font.width(line);
-                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, 0xFF888888);
+                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, 0xFF888888, fb);
                 yy += font.lineHeight;
             }
             return;
@@ -928,9 +979,10 @@ public class ChatBubbleScreen extends Screen {
 
         g.fill(bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH, bg);
 
+        net.minecraft.network.chat.Style fbP = findClickStyle(msg.content());
         for (int li = 0; li < lines.size(); li++)
             renderLineWithClicks(g, lines.get(li), bubbleX + BUBBLE_PAD_X,
-                bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fg);
+                bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fg, fbP);
 
         ResourceLocation skin = getSkin(msg.senderUUID());
         PlayerFaceRenderer.draw(g, skin, avatarX, avatarY, AVATAR);
@@ -952,11 +1004,18 @@ public class ChatBubbleScreen extends Screen {
 
     private void renderLineWithClicks(GuiGraphics g, FormattedCharSequence line,
                                        int x, int y, int color) {
+        renderLineWithClicks(g, line, x, y, color, null);
+    }
+
+    private void renderLineWithClicks(GuiGraphics g, FormattedCharSequence line,
+                                       int x, int y, int color,
+                                       net.minecraft.network.chat.Style fallback) {
         g.drawString(font, line, x, y, color, false);
 
         final int[] pos = {0};
         final int[] spanStart = {-1};
         final net.minecraft.network.chat.Style[] spanStyle = {null};
+        final int beforeCount = clickableSpans.size();
 
         line.accept((index, style, codePoint) -> {
             int charW = font.width(new String(Character.toChars(codePoint)));
@@ -982,6 +1041,9 @@ public class ChatBubbleScreen extends Screen {
             clickableSpans.add(new ClickableSpan(x + spanStart[0], y,
                 pos[0] - spanStart[0], font.lineHeight, spanStyle[0]));
         }
+        if (clickableSpans.size() == beforeCount && fallback != null && fallback.getClickEvent() != null) {
+            clickableSpans.add(new ClickableSpan(x, y, pos[0], font.lineHeight, fallback.withUnderlined(true)));
+        }
     }
 
     private net.minecraft.network.chat.Style getHoveredStyle(double mouseX, double mouseY) {
@@ -989,6 +1051,16 @@ public class ChatBubbleScreen extends Screen {
             if (mouseX >= s.x && mouseX <= s.x + s.w
                 && mouseY >= s.y && mouseY <= s.y + s.h)
                 return s.style;
+        }
+        return null;
+    }
+
+    private net.minecraft.network.chat.Style findClickStyle(net.minecraft.network.chat.Component c) {
+        net.minecraft.network.chat.Style s = c.getStyle();
+        if (s != null && s.getClickEvent() != null) return s;
+        for (net.minecraft.network.chat.Component child : c.getSiblings()) {
+            s = findClickStyle(child);
+            if (s != null) return s;
         }
         return null;
     }
@@ -1045,6 +1117,26 @@ public class ChatBubbleScreen extends Screen {
         int quoteBg = hoverQuote ? 0xFF4A4A4A : 0xFF3A3A3A;
         g.fill(menuX + 1, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 1, menuY + menuH - 1, quoteBg);
         g.drawString(font, Component.translatable("e33chat.context.quote"), menuX + 8, menuY + CTX_ITEM_H + 5, 0xFFFFFFFF, false);
+    }
+
+    private void renderAvatarContextMenu(GuiGraphics g, int mouseX, int mouseY) {
+        if (contextAvatarIndex < 0) return;
+        int menuH = CTX_ITEM_H + 2;
+        int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
+        int menuY = contextAvatarY - menuH;
+        if (menuY < msgTop) menuY = contextAvatarY + 4;
+
+        g.fill(menuX, menuY, menuX + CTX_W, menuY + menuH, 0xEE2A2A2A);
+        g.fill(menuX, menuY, menuX + CTX_W, menuY + 1, COLOR_DIVIDER);
+        g.fill(menuX, menuY + menuH - 1, menuX + CTX_W, menuY + menuH, COLOR_DIVIDER);
+        g.fill(menuX, menuY, menuX + 1, menuY + menuH, COLOR_DIVIDER);
+        g.fill(menuX + CTX_W - 1, menuY, menuX + CTX_W, menuY + menuH, COLOR_DIVIDER);
+
+        boolean hover = mouseX >= menuX && mouseX <= menuX + CTX_W
+            && mouseY >= menuY && mouseY <= menuY + menuH;
+        int bg = hover ? 0xFF4A4A4A : 0xFF3A3A3A;
+        g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + menuH - 1, bg);
+        g.drawString(font, Component.translatable("e33chat.context.tp"), menuX + 8, menuY + 4, 0xFFFFFFFF, false);
     }
 
     private static final int REPLY_BAR_H = 18;
@@ -1231,7 +1323,8 @@ public class ChatBubbleScreen extends Screen {
         ChatMessageStore.addMessage(Component.literal(text),
             minecraft.player.getUUID(),
             Component.literal(minecraft.player.getName().getString()),
-            false);
+            false,
+            minecraft.player.getName().getString());
         ChatMessageStore.incrementPendingEcho(text);
 
         savedInput = "";

@@ -35,7 +35,8 @@ public class ChatMessageStore {
     private static final Map<String, PendingMeta> pendingMetas = new HashMap<>();
 
     public record SenderMeta(UUID senderUUID, Component senderName,
-                             Component rawContent, boolean isSystem) {}
+                             Component rawContent, boolean isSystem,
+                             String rawPlayerName) {}
 
     private static final ThreadLocal<SenderMeta> PENDING_META = new ThreadLocal<>();
 
@@ -112,7 +113,8 @@ public class ChatMessageStore {
         String replyContent,
         String replySender,
         String messageHash,
-        int duplicateCount
+        int duplicateCount,
+        String rawPlayerName
     ) {}
 
     public static class PreviewEntry {
@@ -124,7 +126,7 @@ public class ChatMessageStore {
         }
     }
 
-    public static void addMessage(Component content, UUID senderUUID, Component senderName, boolean isSystem) {
+    public static void addMessage(Component content, UUID senderUUID, Component senderName, boolean isSystem, String rawPlayerName) {
         content = addUnderlineToClicks(content);
         String messageHash = content.getString().hashCode() + ":" + System.currentTimeMillis();
 
@@ -145,7 +147,8 @@ public class ChatMessageStore {
                     LocalTime.now(),
                     last.isOwn(), last.isSystem(),
                     last.replyContent(), last.replySender(), last.messageHash(),
-                    last.duplicateCount() + 1
+                    last.duplicateCount() + 1,
+                    last.rawPlayerName()
                 ));
                 return;
             }
@@ -178,7 +181,8 @@ public class ChatMessageStore {
             replyContent,
             replySender,
             messageHash,
-            1
+            1,
+            rawPlayerName
         ));
 
         while (messages.size() > MAX)
@@ -376,6 +380,9 @@ public class ChatMessageStore {
                 obj.put("replyContent", msg.replyContent());
                 obj.put("replySender", msg.replySender());
             }
+            if (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty()) {
+                obj.put("rawPlayerName", msg.rawPlayerName());
+            }
             list.add(obj);
         }
         try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) {
@@ -408,8 +415,9 @@ public class ChatMessageStore {
                     boolean isSystem = (Boolean) obj.getOrDefault("isSystem", false);
                     String replyContent = (String) obj.get("replyContent");
                     String replySender = (String) obj.get("replySender");
+                    String rawPlayerName = (String) obj.get("rawPlayerName");
                     messages.add(new ChatMessage(uuid, senderName, content, time,
-                        isOwn, isSystem, replyContent, replySender, "", 1));
+                        isOwn, isSystem, replyContent, replySender, "", 1, rawPlayerName));
                 } catch (Exception ignored) {}
             }
             while (messages.size() > MAX) messages.remove(0);
@@ -451,7 +459,7 @@ public class ChatMessageStore {
                     messages.set(i, new ChatMessage(
                         msg.senderUUID(), msg.senderName(), msg.content(), msg.time(),
                         msg.isOwn(), msg.isSystem(), quoteContent, quoteSender, msg.messageHash(),
-                        msg.duplicateCount()));
+                        msg.duplicateCount(), msg.rawPlayerName()));
                     String playerName = Minecraft.getInstance().player != null
                         ? Minecraft.getInstance().player.getName().getString() : "";
                     if (!msg.isOwn() && !playerName.isEmpty()
