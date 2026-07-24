@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.2
+
+**修复**
+- 指令补全：修复 `windowActive` 未启用导致补全窗口不显示
+- 指令补全：修复补全窗口 Y 轴位置（提到输入框上方）
+- 指令补全：修复宽建议（如实体 ID）X 轴溢出到负数被裁切
+- HUD 红点：修复 `drawIcon()` 手动 GL 状态调用泄漏，导致红点渲染在图标下方
+- CI：JDK 25 → 21，修复 Fabric 1.21.1 + Gradle 8.8 不兼容
+
+**Fix**
+- Command suggestion: fix `windowActive` not enabled causing suggestion window to never appear
+- Command suggestion: fix Y position (place above input field)
+- Command suggestion: fix X clamping for wide suggestions (entity IDs) causing negative offset
+- HUD red dot: fix `drawIcon()` manual GL state leak pushing red dot behind icon
+- CI: JDK 25 → 21, fix Fabric 1.21.1 + Gradle 8.8 incompatibility
+
 ## v2.1.0
 
 **架构重构（三版本统一）**
