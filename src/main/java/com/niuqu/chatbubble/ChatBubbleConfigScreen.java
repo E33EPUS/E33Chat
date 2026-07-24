@@ -34,9 +34,10 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean strongHintEnabled, mentionStrongHintEnabled, systemChatAsBubble;
     private boolean antiSpam, chatHistoryEnabled;
     private boolean previewEnabled, soundPublic, soundSystem, soundMention, soundWhisper;
-    private boolean debugLog;
+    private boolean debugLog, preserveInput, colorCodes;
     private int previewLines, previewWidth, timeSeparatorMinutes, panelWidth, bubbleCornerRadius;
     private String theme, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
+    private List<String> sidebarHidePatterns;
 
     private record Cat(String key, List<String> optKeys) {}
     private List<Cat> cats;
@@ -51,12 +52,15 @@ public class ChatBubbleConfigScreen extends Screen {
         previewEnabled = cfg.previewEnabled(); soundPublic = cfg.soundPublic();
         soundSystem = cfg.soundSystem(); soundMention = cfg.soundMention();
         soundWhisper = cfg.soundWhisper(); debugLog = cfg.debugLog();
+        preserveInput = cfg.preserveInput();
+        colorCodes = cfg.colorCodes();
         previewLines = cfg.previewLines(); previewWidth = cfg.previewWidth();
         timeSeparatorMinutes = cfg.timeSeparatorMinutes(); panelWidth = cfg.panelWidth();
         bubbleCornerRadius = cfg.bubbleCornerRadius();
         theme = cfg.theme(); ownBubbleColor = cfg.ownBubbleColor();
         otherBubbleColor = cfg.otherBubbleColor(); ownTextColor = cfg.ownTextColor();
         otherTextColor = cfg.otherTextColor();
+        sidebarHidePatterns = new ArrayList<>(cfg.sidebarHidePatterns());
     }
 
     private void saveToConfig() {
@@ -65,25 +69,30 @@ public class ChatBubbleConfigScreen extends Screen {
             strongHintEnabled, mentionStrongHintEnabled, systemChatAsBubble, antiSpam,
             chatHistoryEnabled, previewEnabled, previewLines, previewWidth, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
-            soundPublic, soundSystem, soundMention, soundWhisper, debugLog,
+            soundPublic, soundSystem, soundMention, soundWhisper, debugLog, preserveInput, colorCodes,
+            sidebarHidePatterns,
             ChatBubbleClientSetup.config().quickChatPhrases()));
     }
 
     private void buildCats() {
         if (cats != null) return;
         cats = new ArrayList<>();
+        // Appearance: overall look + colors grouped own/other
         cats.add(new Cat("e33chat.config.cat.appearance", List.of(
-            "theme", "own_bubble_color", "other_bubble_color", "own_text_color", "other_text_color",
-            "bubble_corner_radius", "animation", "panel_width")));
+            "theme", "animation", "panel_width", "bubble_corner_radius",
+            "own_bubble_color", "other_bubble_color", "own_text_color", "other_text_color")));
+        // Notifications & Sound: HUD icon, preview (toggle→params), strong hints, then sounds
         cats.add(new Cat("e33chat.config.cat.notifications", List.of(
             "red_dot", "hide_chat_icon", "preview_enabled", "preview_lines", "preview_width",
-            "strong_hint", "mention_strong_hint")));
+            "strong_hint", "mention_strong_hint",
+            "sound_mention", "sound_whisper", "sound_system", "sound_public")));
+        // Behavior: master toggle first, then message handling
         cats.add(new Cat("e33chat.config.cat.behavior", List.of(
-            "enabled", "anti_spam", "chat_history", "time_separator", "system_chat_as_bubble")));
-        cats.add(new Cat("e33chat.config.cat.sound", List.of(
-            "sound_system", "sound_mention", "sound_whisper", "sound_public")));
-        cats.add(new Cat("e33chat.config.cat.compat", List.of(
-            "chat_report_compat", "debug_log")));
+            "enabled", "anti_spam", "chat_history", "preserve_input", "color_codes",
+            "system_chat_as_bubble", "time_separator", "sidebar_hide_patterns")));
+        // Advanced: debug/dev-only
+        cats.add(new Cat("e33chat.config.cat.advanced", List.of(
+            "debug_log")));
     }
 
     public ChatBubbleConfigScreen(Screen lastScreen) {
@@ -137,6 +146,8 @@ public class ChatBubbleConfigScreen extends Screen {
             case "sound_whisper" -> mkBoolBtn(y, soundWhisper, v -> soundWhisper = v);
             case "sound_public" -> mkBoolBtn(y, soundPublic, v -> soundPublic = v);
             case "debug_log" -> mkBoolBtn(y, debugLog, v -> debugLog = v);
+            case "preserve_input" -> mkBoolBtn(y, preserveInput, v -> preserveInput = v);
+            case "color_codes" -> mkBoolBtn(y, colorCodes, v -> colorCodes = v);
             case "preview_lines" -> ButtonWidget.builder(Text.literal(String.valueOf(previewLines)), btn -> {
                 previewLines = previewLines >= 8 ? 1 : previewLines + 1;
                 btn.setMessage(Text.literal(String.valueOf(previewLines)));
@@ -163,6 +174,7 @@ public class ChatBubbleConfigScreen extends Screen {
             case "other_bubble_color" -> mkHexBox(y, otherBubbleColor, v -> otherBubbleColor = v);
             case "own_text_color" -> mkHexBox(y, ownTextColor, v -> ownTextColor = v);
             case "other_text_color" -> mkHexBox(y, otherTextColor, v -> otherTextColor = v);
+            case "sidebar_hide_patterns" -> mkPatternBox(y, sidebarHidePatterns, v -> sidebarHidePatterns = v);
             default -> null;
         };
     }
@@ -194,6 +206,23 @@ public class ChatBubbleConfigScreen extends Screen {
         box.setChangedListener(s -> {
             if (!s.matches("\\d*")) return;
             try { onChange.accept(MathHelper.clamp(Integer.parseInt(s), min, max)); } catch (NumberFormatException ignored) {}
+        });
+        return box;
+    }
+
+    private TextFieldWidget mkPatternBox(int y, List<String> patterns, java.util.function.Consumer<List<String>> onChange) {
+        TextFieldWidget box = new TextFieldWidget(textRenderer, inputX, y, INPUT_W, 20, Text.literal(""));
+        box.setText(String.join(", ", patterns));
+        box.setMaxLength(200);
+        box.setChangedListener(s -> {
+            List<String> newPatterns = new ArrayList<>();
+            if (!s.isBlank()) {
+                for (String part : s.split(",")) {
+                    String trimmed = part.trim();
+                    if (!trimmed.isEmpty()) newPatterns.add(trimmed);
+                }
+            }
+            onChange.accept(newPatterns);
         });
         return box;
     }

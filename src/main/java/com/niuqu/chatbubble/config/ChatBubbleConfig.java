@@ -28,6 +28,9 @@ public record ChatBubbleConfig(
     boolean soundMention,
     boolean soundWhisper,
     boolean debugLog,
+    boolean preserveInput,
+    boolean colorCodes,
+    List<String> sidebarHidePatterns,
     List<String> quickChatPhrases
 ) {
     public static ChatBubbleConfig defaults() {
@@ -36,8 +39,8 @@ public record ChatBubbleConfig(
             true, true, false, false,
             false, true, 3, 200, 5, 1000, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
-            false, false, true, true, false,
-            List.of()
+            false, false, true, true, false, true, false,
+            List.of(), List.of()
         );
     }
 
@@ -57,7 +60,7 @@ public record ChatBubbleConfig(
             strongHintEnabled, mentionStrongHintEnabled, systemChatAsBubble, antiSpam,
             chatHistoryEnabled, previewEnabled, previewLines, previewWidth, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
-            soundPublic, soundSystem, soundMention, soundWhisper, debugLog, quickChatPhrases);
+            soundPublic, soundSystem, soundMention, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, quickChatPhrases);
     }
 
     public ChatBubbleConfig withQuickChatPhrases(List<String> phrases) {
@@ -65,6 +68,27 @@ public record ChatBubbleConfig(
             strongHintEnabled, mentionStrongHintEnabled, systemChatAsBubble, antiSpam,
             chatHistoryEnabled, previewEnabled, previewLines, previewWidth, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
-            soundPublic, soundSystem, soundMention, soundWhisper, debugLog, phrases);
+            soundPublic, soundSystem, soundMention, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, phrases);
+    }
+
+    public ChatBubbleConfig withSidebarHidePatterns(List<String> patterns) {
+        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
+            strongHintEnabled, mentionStrongHintEnabled, systemChatAsBubble, antiSpam,
+            chatHistoryEnabled, previewEnabled, previewLines, previewWidth, timeSeparatorMinutes,
+            panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
+            soundPublic, soundSystem, soundMention, soundWhisper, debugLog, preserveInput, colorCodes, patterns, quickChatPhrases);
+    }
+
+    public boolean isSidebarHidden(String playerName) {
+        if (sidebarHidePatterns == null || sidebarHidePatterns.isEmpty()) return false;
+        String lowerName = playerName.toLowerCase();
+        for (String pattern : sidebarHidePatterns) {
+            if (pattern == null || pattern.isEmpty()) continue;
+            String regex = "^" + pattern.toLowerCase()
+                .replace("*", ".*")
+                .replace("?", ".") + "$";
+            if (lowerName.matches(regex)) return true;
+        }
+        return false;
     }
 }

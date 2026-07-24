@@ -5,8 +5,8 @@ import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.DynamicTexture;
 import net.minecraft.text.Text;
 import net.minecraft.text.StringVisitable;
@@ -61,7 +61,7 @@ public class ChatBubbleHudOverlay {
         int textY = iconY + ICON_S + 1;
 
         if (cfg().previewEnabled()) {
-            List<ChatRuntimeState.PreviewEntry> previews = ChatMessageStore.getPreviews();
+            List<ChatMessageStore.PreviewEntry> previews = ChatMessageStore.getPreviews();
             if (previews != null && !previews.isEmpty()) {
                 int maxW = cfg().previewWidth();
                 int lineH = mc.textRenderer.fontHeight;
@@ -140,8 +140,7 @@ public class ChatBubbleHudOverlay {
         int alpha = Animation.fadeInOut(ticks, 10, 40, 10);
         int bgAlpha = alpha / 2;
         int bgColor = (bgAlpha << 24) | 0x000000;
-        int baseColor = ChatMessageStore.isStrongHintMention() ? 0xFFFFFF55 : 0xFFFFFFFF;
-        int textColor = (alpha << 24) | baseColor;
+        int textColor = (alpha << 24) | 0xFFFFFF;
         g.fill(hintX - 6, hintY - 3, hintX + hintW + 6, hintY + mc.textRenderer.fontHeight + 3, bgColor);
         g.drawText(mc.textRenderer, hint, hintX, hintY, textColor, false);
     }
@@ -177,9 +176,14 @@ public class ChatBubbleHudOverlay {
             loadIconTexture();
             abstractTex = mc.getTextureManager().getTexture(chatIconTex());
         }
+        // Flush any batched geometry (preview, hint) before switching shaders so it
+        // renders with its own state, then flush the icon before the red dot fill so
+        // the icon shader doesn't leak into the fill.
+        g.draw();
         RenderSystem.setShaderTexture(0, abstractTex.getGlId());
         RenderSystem.setShader(GameRenderer::getPositionTexProgram);
         RenderSystem.enableBlend();
         g.drawTexture(chatIconTex(), x, y, 0, 0, ICON_S, ICON_S, ICON_S, ICON_S);
+        g.draw();
     }
 }

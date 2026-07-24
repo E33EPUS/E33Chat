@@ -3,6 +3,7 @@ package com.niuqu.chatbubble;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.config.ConfigManager;
 import com.niuqu.chatbubble.network.ChatMetaPayload;
+import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.HistoryPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -19,16 +20,15 @@ import net.minecraft.util.Identifier;
 import java.nio.file.Path;
 
 public class ChatBubbleClientSetup implements ClientModInitializer {
-    private static ChatBubbleConfig config;
+    private static ChatBubbleConfig config = ChatBubbleConfig.defaults();
     private static Path configPath;
     private static boolean leftWasDown;
-    private static ClientLifecycleState lifecycle;
 
     public static ChatBubbleConfig config() { return config; }
-    public static ClientLifecycleState lifecycle() { return lifecycle; }
 
     public static void saveConfig(ChatBubbleConfig newConfig) {
         config = newConfig;
+        com.mojang.logging.LogUtils.getLogger().info("[e33chat] Saving config | soundPublic=" + newConfig.soundPublic() + " | soundSystem=" + newConfig.soundSystem());
         ConfigManager.save(configPath, config);
     }
 
@@ -36,15 +36,17 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
     public void onInitializeClient() {
         configPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat.json");
         config = ConfigManager.load(configPath);
-        lifecycle = new ClientLifecycleState();
 
         ClientPlayNetworking.registerGlobalReceiver(ChatMetaPayload.ID, (payload, context) -> {
-            context.client().execute(() -> lifecycle.receiveMetadata(
+            context.client().execute(() -> ChatMessageStore.applyChatMeta(
                 payload.senderUUID(), payload.messageHash(),
                 payload.quoteSender(), payload.quoteContent(), payload.mentionTargets()));
         });
         ClientPlayNetworking.registerGlobalReceiver(HistoryPayload.ID, (payload, context) -> {
             context.client().execute(() -> ChatMessageStore.addHistoryMessages(payload.entries()));
+        });
+        ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPayload.ID, (payload, context) -> {
+            context.client().execute(() -> ConfigSyncPayload.handle(payload));
         });
 
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
@@ -55,18 +57,17 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!config.enabled()) return;
 
-            String conn;
+            String key;
             if (client.world == null || client.player == null) {
-                conn = null;
+                key = null;
             } else if (client.getServer() != null) {
-                conn = "SP:" + client.getServer().getSaveProperties().getLevelName();
+                key = "SP:" + client.getServer().getSaveProperties().getLevelName();
             } else if (client.getCurrentServerEntry() != null) {
-                conn = "MP:" + client.getCurrentServerEntry().name;
+                key = "MP:" + client.getCurrentServerEntry().name;
             } else {
-                conn = "world";
+                key = "world";
             }
-            String dim = client.world != null ? client.world.getRegistryKey().getValue().toString() : "unknown";
-            lifecycle.setCurrentWorld(conn, dim);
+            ChatMessageStore.setCurrentWorld(key);
             ChatMessageStore.tickPreview();
             ChatMessageStore.tickStrongHint();
 

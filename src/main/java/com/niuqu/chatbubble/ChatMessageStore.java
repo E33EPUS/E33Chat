@@ -2,12 +2,12 @@ package com.niuqu.chatbubble;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.niuqu.chatbubble.chat.ChatMessage;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -16,168 +16,330 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class ChatMessageStore {
+    private static final int MAX = 10000;
+    private static final List<ChatMessage> messages = new ArrayList<>();
+    private static int unreadCount;
+    private static boolean screenOpen;
+    private static String pendingReplyContent;
+    private static String pendingReplySender;
+    private static final List<PreviewEntry> previews = new ArrayList<>();
+    private static final int PREVIEW_TICKS = 100;
+    private record HintEntry(Text text, boolean isMention) {}
+    private static final LinkedList<HintEntry> strongHintQueue = new LinkedList<>();
+    private static int strongHintTicks;
     public static final int STRONG_HINT_DURATION = 60;
 
-    private static volatile ChatMessageStore INSTANCE;
+    private static String currentWorldKey;
+    private static final Map<String, String> worldTitles = new HashMap<>();
+    private static final Gson GSON = new Gson();
+    private static boolean titlesLoaded;
+    private static final Map<String, PendingMeta> pendingMetas = new HashMap<>();
 
-    String currentWorldKey;
-    String historyKey;
-    int sessionToken = new Random().nextInt();
-    static final Gson GSON = new Gson();
+    private static volatile boolean serverUseTpa;
+    public static void setServerUseTpa(boolean v) { serverUseTpa = v; }
+    public static boolean useTpa() { return serverUseTpa; }
 
-    final ChatRuntimeState rt;
+    // Seen-player cache: tracks players we've encountered to help with name resolution
+    public record SeenPlayer(UUID uuid, String profileName, String displayName) {}
+    private static final Map<UUID, SeenPlayer> seenPlayers = new LinkedHashMap<>();
+    private static final int MAX_SEEN_PLAYERS = 500;
 
-    private static final ThreadLocal<SenderMeta> PENDING_META = new ThreadLocal<>();
+    public static void rememberPlayer(UUID uuid, String profileName, String displayName) {
+        if (uuid == null || profileName == null) return;
+        seenPlayers.put(uuid, new SeenPlayer(uuid, profileName, displayName));
+        if (seenPlayers.size() > MAX_SEEN_PLAYERS) {
+            var firstKey = seenPlayers.keySet().iterator().next();
+            seenPlayers.remove(firstKey);
+        }
+    }
+
+    public static UUID findSeenUuid(String displayName) {
+        if (displayName == null) return null;
+        String lower = displayName.toLowerCase();
+        for (var seen : seenPlayers.values()) {
+            if (seen.displayName() != null && seen.displayName().toLowerCase().equals(lower)) {
+                return seen.uuid();
+            }
+            if (seen.profileName().toLowerCase().equals(lower)) {
+                return seen.uuid();
+            }
+        }
+        return null;
+    }
+
+    public static List<String> getKnownNameVariants(UUID uuid) {
+        var seen = seenPlayers.get(uuid);
+        if (seen == null) return Collections.emptyList();
+        List<String> variants = new ArrayList<>();
+        variants.add(seen.profileName());
+        if (seen.displayName() != null && !seen.displayName().equals(seen.profileName())) {
+            variants.add(seen.displayName());
+        }
+        return variants;
+    }
 
     public record SenderMeta(UUID senderUUID, Text senderName,
                              Text rawContent, boolean isSystem,
                              String rawPlayerName,
                              boolean whisper, String whisperPartner) {}
 
-    ChatMessageStore(ChatRuntimeState rt) { this.rt = rt; }
+    private static final ThreadLocal<SenderMeta> PENDING_META = new ThreadLocal<>();
 
-    // --- singleton (delegates through lifecycle when available) ---
-    public static ChatMessageStore getInstance() {
-        var lifecycle = ChatBubbleClientSetup.lifecycle();
-        if (lifecycle != null) return lifecycle.messageStore();
-        if (INSTANCE == null) INSTANCE = new ChatMessageStore(new ChatRuntimeState());
-        return INSTANCE;
-    }
-    public static void resetInstance() { INSTANCE = null; }
+    public static void setPendingMeta(SenderMeta meta) { PENDING_META.set(meta); }
 
-    void clearMessages() { rt.messages.clear(); }
-    void tryLoad(String key) {
-        if (key == null) return;
-        historyKey = key;
-        tryLoadMessages();
+    public static SenderMeta consumePendingMeta() {
+        SenderMeta m = PENDING_META.get();
+        PENDING_META.remove();
+        return m;
     }
 
-    // ===== public API (static bridges) =====
+    private record PendingEcho(String text, long time) {}
+    private static final List<PendingEcho> pendingEchoes = new ArrayList<>();
+
+    private static long pendingWhisperEchoTime;
+    private static boolean suppressNextCapture;
+
+    public static void markPendingWhisperEcho() { pendingWhisperEchoTime = System.currentTimeMillis(); }
+    public static void markSuppressCapture() { suppressNextCapture = true; }
+
+    public static boolean hasPendingWhisperEcho() {
+        return pendingWhisperEchoTime != 0 && System.currentTimeMillis() - pendingWhisperEchoTime < 10_000;
+    }
+    public static void consumeWhisperEcho() { pendingWhisperEchoTime = 0; }
+
+    public static boolean consumeSuppressCapture() {
+        if (suppressNextCapture) { suppressNextCapture = false; return true; }
+        return false;
+    }
+
+    private static void purgeStaleEchoes() {
+        long cutoff = System.currentTimeMillis() - 10_000;
+        pendingEchoes.removeIf(e -> e.time() < cutoff);
+    }
+
+    public static void incrementPendingEcho(String sentText) {
+        purgeStaleEchoes();
+        pendingEchoes.add(new PendingEcho(sentText, System.currentTimeMillis()));
+    }
+
+    public static boolean consumeEchoBySystemChat(String incomingText) {
+        purgeStaleEchoes();
+        for (int i = 0; i < pendingEchoes.size(); i++) {
+            if (incomingText.equals(pendingEchoes.get(i).text())) {
+                pendingEchoes.remove(i);
+                return true;
+            }
+        }
+        return false;
+    }
 
     public static void debugLog(String msg) {
         var cfg = ChatBubbleClientSetup.config();
-        if (cfg != null && cfg.debugLog()) com.mojang.logging.LogUtils.getLogger().info(msg);
+        if (cfg.debugLog())
+            com.mojang.logging.LogUtils.getLogger().info(msg);
     }
 
-    public static void setPendingMeta(SenderMeta meta) { PENDING_META.set(meta); }
-    public static SenderMeta consumePendingMeta() { SenderMeta m = PENDING_META.get(); PENDING_META.remove(); return m; }
-
-    public static void addMessage(Text content, UUID senderUUID, Text senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner) {
-        getInstance().addMessageImpl(content, senderUUID, senderName, isSystem, rawPlayerName, whisper, whisperPartner);
-    }
-    public static List<ChatMessage> getMessages() { return getInstance().rt.messages; }
-    public static List<ChatMessage> getWhisperMessages(String partner) {
-        ChatRuntimeState r = getInstance().rt;
-        List<ChatMessage> out = new ArrayList<>();
-        for (ChatMessage m : r.messages) if (m.whisper() && partner.equals(m.whisperPartner())) out.add(m);
-        return out;
-    }
-    public static List<ChatMessage> getPublicMessages() {
-        ChatRuntimeState r = getInstance().rt;
-        List<ChatMessage> out = new ArrayList<>();
-        for (ChatMessage m : r.messages) if (!m.whisper()) out.add(m);
-        return out;
-    }
-    public static ChatMessage getLatestWhisperWith(String partner) {
-        List<ChatMessage> msgs = getInstance().rt.messages;
-        for (int i = msgs.size() - 1; i >= 0; i--) { ChatMessage m = msgs.get(i); if (m.whisper() && partner.equals(m.whisperPartner())) return m; }
-        return null;
-    }
-    public static ChatMessage getLatestPublicMessage() {
-        List<ChatMessage> msgs = getInstance().rt.messages;
-        for (int i = msgs.size() - 1; i >= 0; i--) { ChatMessage m = msgs.get(i); if (!m.whisper()) return m; }
-        return null;
-    }
-
-    public static int getUnreadCount() { return getInstance().rt.unreadCount; }
-    public static void setScreenOpen(boolean open) {
-        ChatRuntimeState r = getInstance().rt;
-        r.screenOpen = open;
-        if (open) r.unreadCount = 0;
-    }
-    public static boolean hasUnreadMention(String playerName) {
-        if (playerName == null || playerName.isEmpty()) return false;
-        ChatRuntimeState r = getInstance().rt;
-        for (int i = r.messages.size() - r.unreadCount; i < r.messages.size(); i++) {
-            if (i < 0) continue;
-            if (r.messages.get(i).content().getString().contains("@" + playerName)) return true;
-        }
-        return false;
-    }
-
-    public static void markWhisperUnread(String partner) { if (partner != null) getInstance().rt.markWhisperUnread(partner); }
-    public static void clearUnreadWhisper(String partner) { getInstance().rt.clearWhisperUnread(partner); }
-    public static boolean hasUnreadWhisper(String partner) { return getInstance().rt.hasWhisperUnread(partner); }
-
-    public static void markPendingWhisperEcho() { getInstance().rt.pendingWhisperEchoTime = System.currentTimeMillis(); }
-    public static void markSuppressCapture() { getInstance().rt.suppressNextCapture = true; }
-    public static boolean hasPendingWhisperEcho() {
-        ChatRuntimeState r = getInstance().rt;
-        return r.pendingWhisperEchoTime != 0 && System.currentTimeMillis() - r.pendingWhisperEchoTime < 10_000;
-    }
-    public static void consumeWhisperEcho() { getInstance().rt.pendingWhisperEchoTime = 0; }
-    public static boolean consumeSuppressCapture() {
-        ChatRuntimeState r = getInstance().rt;
-        if (r.suppressNextCapture) { r.suppressNextCapture = false; return true; }
-        return false;
-    }
-    public static void incrementPendingEcho(String sentText) { getInstance().rt.incrementPendingEcho(sentText); }
-    public static boolean consumeEchoBySystemChat(String incomingText) { return getInstance().rt.consumeEchoBySystemChat(incomingText); }
-    public static boolean isRecentDuplicate(String content) { return getInstance().rt.isRecentDuplicate(content); }
-    public static boolean consumeEchoIfSenderMatches(Text senderName) { return getInstance().consumeEchoIfSenderMatchesImpl(senderName); }
-
-    public static void setPendingReply(String content, String sender) {
-        ChatRuntimeState r = getInstance().rt;
-        r.pendingReplyContent = content;
-        r.pendingReplySender = sender;
-    }
-
-    public static List<ChatRuntimeState.PreviewEntry> getPreviews() {
-        List<ChatRuntimeState.PreviewEntry> p = getInstance().rt.previews;
-        return p.isEmpty() ? null : p;
-    }
-    public static void tickPreview() {
-        ChatRuntimeState r = getInstance().rt;
-        var it = r.previews.iterator();
-        while (it.hasNext()) { ChatRuntimeState.PreviewEntry e = it.next(); if (--e.ticks <= 0) it.remove(); }
-    }
-    public static Text getStrongHintText() {
-        ChatRuntimeState r = getInstance().rt;
-        if (r.strongHintQueue.isEmpty()) return null;
-        return r.strongHintTicks > 0 ? r.strongHintQueue.peek().text() : null;
-    }
-    public static boolean isStrongHintMention() {
-        ChatRuntimeState r = getInstance().rt;
-        if (r.strongHintQueue.isEmpty()) return false;
-        return r.strongHintQueue.peek().isMention();
-    }
-    public static int getStrongHintTicks() { return getInstance().rt.strongHintTicks; }
-    public static void tickStrongHint() {
-        ChatRuntimeState r = getInstance().rt;
-        if (r.strongHintTicks > 0) {
-            r.strongHintTicks--;
-            if (r.strongHintTicks <= 0) {
-                r.strongHintQueue.poll();
-                if (!r.strongHintQueue.isEmpty()) r.strongHintTicks = STRONG_HINT_DURATION;
+    public static boolean consumeEchoIfSenderMatches(Text senderName) {
+        purgeStaleEchoes();
+        if (pendingEchoes.isEmpty()) return false;
+        var player = MinecraftClient.getInstance().player;
+        if (player == null) return false;
+        String s = senderName.getString();
+        boolean match = s.contains(player.getName().getString());
+        if (!match && player.networkHandler != null) {
+            var info = player.networkHandler.getPlayerListEntry(player.getUuid());
+            if (info != null && info.getDisplayName() != null) {
+                String tab = info.getDisplayName().getString().trim();
+                match = !tab.isEmpty() && s.contains(tab);
             }
         }
+        if (match) {
+            pendingEchoes.remove(0);
+            updateLatestOwnSenderName(senderName);
+            return true;
+        }
+        return false;
     }
 
-    public static void setCurrentWorld(String conn, String dim) { getInstance().setCurrentWorldImpl(conn, dim); }
-
-    public static void addHistoryMessages(List<HistoryEntry> entries) { getInstance().addHistoryMessagesImpl(entries); }
-    public record HistoryEntry(UUID senderUUID, String senderName, String content,
-                               LocalTime time, boolean isSystem, String replyContent, String replySender) {}
-
-    public static void applyChatMeta(UUID senderUUID, String messageHash, String quoteSender,
-                                      String quoteContent, List<String> mentionTargets) {
-        getInstance().applyChatMetaImpl(senderUUID, messageHash, quoteSender, quoteContent, mentionTargets);
+    private static void updateLatestOwnSenderName(Text senderName) {
+        for (int i = messages.size() - 1; i >= 0 && i >= messages.size() - 5; i--) {
+            ChatMessage m = messages.get(i);
+            if (!m.isOwn()) continue;
+            if (!m.senderName().getString().equals(senderName.getString())) {
+                messages.set(i, new ChatMessage(
+                    m.senderUUID(), senderName, m.content(), m.time(),
+                    m.isOwn(), m.isSystem(), m.replyContent(), m.replySender(),
+                    m.messageHash(), m.duplicateCount(), m.rawPlayerName(),
+                    m.whisper(), m.whisperPartner()));
+            }
+            return;
+        }
     }
 
-    public static ChatMessage getMessageAt(int index) {
-        List<ChatMessage> msgs = getInstance().rt.messages;
-        return (index < 0 || index >= msgs.size()) ? null : msgs.get(index);
+    public static boolean isRecentDuplicate(String content) {
+        int size = messages.size();
+        for (int i = size - 1; i >= 0 && i >= size - 2; i--) {
+            if (messages.get(i).content().getString().equals(content)) return true;
+        }
+        return false;
     }
+
+    private record PendingMeta(UUID senderUUID, String quoteSender, String quoteContent,
+                               List<String> mentionTargets, LocalTime createdAt) {}
+
+    public record ChatMessage(
+        UUID senderUUID,
+        Text senderName,
+        Text content,
+        LocalTime time,
+        boolean isOwn,
+        boolean isSystem,
+        String replyContent,
+        String replySender,
+        String messageHash,
+        int duplicateCount,
+        String rawPlayerName,
+        boolean whisper,
+        String whisperPartner
+    ) {}
+
+    public static class PreviewEntry {
+        public final Text text;
+        public int ticks;
+        public PreviewEntry(Text text, int ticks) {
+            this.text = text;
+            this.ticks = ticks;
+        }
+    }
+
+    private static boolean isSameSender(ChatMessage last, Text senderName, String rawPlayerName) {
+        if (rawPlayerName != null && !rawPlayerName.isEmpty()
+            && last.rawPlayerName() != null && !last.rawPlayerName().isEmpty()) {
+            return rawPlayerName.equals(last.rawPlayerName());
+        }
+        return last.senderName().getString().equals(senderName.getString());
+    }
+
+    public static void addMessage(Text content, UUID senderUUID, Text senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner) {
+        String messageHash = String.valueOf(content.getString().hashCode());
+
+        if (content.getString().isBlank()) return;
+
+        var client = MinecraftClient.getInstance();
+        String playerName = client.player != null
+            ? client.player.getName().getString() : "";
+        boolean own = (rawPlayerName != null && !rawPlayerName.isEmpty())
+            ? rawPlayerName.equals(playerName)
+            : senderName != null && senderName.getString().equals(playerName);
+
+        var cfg = ChatBubbleClientSetup.config();
+        if (cfg.antiSpam() && !messages.isEmpty()) {
+            ChatMessage last = messages.get(messages.size() - 1);
+            if (!last.isSystem() && isSameSender(last, senderName, rawPlayerName)
+                && last.content().getString().equals(content.getString())) {
+                if (own && pendingReplyContent != null) {
+                    pendingReplyContent = null;
+                    pendingReplySender = null;
+                }
+                messages.set(messages.size() - 1, new ChatMessage(
+                    last.senderUUID(), last.senderName(), last.content(),
+                    LocalTime.now(),
+                    last.isOwn(), last.isSystem(),
+                    last.replyContent(), last.replySender(), last.messageHash(),
+                    last.duplicateCount() + 1,
+                    last.rawPlayerName(),
+                    last.whisper(), last.whisperPartner()
+                ));
+                return;
+            }
+        }
+
+        PendingMeta pending = pendingMetas.remove(messageHash);
+        if (pending != null && pending.createdAt().isBefore(LocalTime.now().minusSeconds(10))) {
+            pending = null;
+        }
+
+        String replyContent = null;
+        String replySender = null;
+        if (own && pendingReplyContent != null) {
+            replyContent = pendingReplyContent;
+            replySender = pendingReplySender;
+            pendingReplyContent = null;
+            pendingReplySender = null;
+        } else if (pending != null && !pending.quoteContent().isEmpty()) {
+            replyContent = pending.quoteContent();
+            replySender = pending.quoteSender();
+        }
+
+        messages.add(new ChatMessage(
+            senderUUID,
+            senderName != null ? senderName : Text.literal(""),
+            content,
+            LocalTime.now(),
+            own,
+            isSystem,
+            replyContent,
+            replySender,
+            messageHash,
+            1,
+            rawPlayerName,
+            whisper,
+            whisperPartner
+        ));
+
+        while (messages.size() > MAX)
+            messages.remove(0);
+
+        boolean isMentionOrQuote = !own && !isSystem
+            && (content.getString().contains("@" + playerName)
+                || (replySender != null && replySender.equals(playerName)));
+
+        boolean systemToHint = isSystem && cfg.strongHintEnabled();
+        boolean mentionToHint = isMentionOrQuote && cfg.mentionStrongHintEnabled();
+
+        if (cfg.previewEnabled() && !systemToHint && !mentionToHint) {
+            Text sName = senderName != null ? senderName : Text.literal("");
+            Text pt = buildPreviewText(content, sName, isSystem);
+            if (!pt.getString().isBlank()) {
+                previews.add(new PreviewEntry(pt, PREVIEW_TICKS));
+                while (previews.size() > cfg.previewLines()) previews.remove(0);
+            }
+        }
+
+        boolean playSound = false;
+        if (!own && client.player != null) {
+            if (isMentionOrQuote && cfg.soundMention()) playSound = true;
+            else if (whisper && cfg.soundWhisper()) playSound = true;
+            else if (isSystem && cfg.soundSystem()) playSound = true;
+            else if (!isSystem && !whisper && cfg.soundPublic()) playSound = true;
+        }
+        if (playSound) {
+            debugLog("[e33chat] Sound trigger | mention=" + isMentionOrQuote + " | whisper=" + whisper + " | system=" + isSystem);
+            client.player.playSound(
+                net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F, 1.0F);
+        }
+
+        if (mentionToHint) {
+            strongHintQueue.add(new HintEntry(
+                Text.translatable("e33chat.notif.mention").formatted(Formatting.YELLOW), true));
+            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
+        }
+
+        if (systemToHint && !mentionToHint) {
+            strongHintQueue.removeIf(e -> !e.isMention());
+            strongHintQueue.add(new HintEntry(singleLineComponent(content), false));
+            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
+        }
+
+        if (!screenOpen) {
+            unreadCount++;
+        }
+
+        if (whisper && whisperPartner != null && !own) {
+            markWhisperUnread(whisperPartner);
+        }
+    }
+
     public static Text sliceStyled(Text src, int start, int end) {
         MutableText out = Text.empty();
         int[] pos = {0};
@@ -185,234 +347,284 @@ public class ChatMessageStore {
             int s = pos[0], e = s + text.length();
             pos[0] = e;
             int from = Math.max(start, s), to = Math.min(end, e);
-            if (from < to) out.append(Text.literal(text.substring(from - s, to - s)).fillStyle(style));
+            if (from < to)
+                out.append(Text.literal(text.substring(from - s, to - s)).fillStyle(style));
             return Optional.empty();
         }, Style.EMPTY);
         return out;
     }
 
-    // ===== instance methods =====
+    private static Text singleLineComponent(Text c) {
+        MutableText out = Text.empty();
+        c.visit((style, text) -> {
+            String cleaned = stripControls(text);
+            if (!cleaned.isEmpty()) out.append(Text.literal(cleaned).fillStyle(style));
+            return Optional.empty();
+        }, Style.EMPTY);
+        return out;
+    }
 
-    private boolean consumeEchoIfSenderMatchesImpl(Text senderName) {
-        rt.purgeStaleEchoes();
-        if (rt.pendingEchoes.isEmpty()) return false;
-        var player = MinecraftClient.getInstance().player;
-        if (player == null) return false;
-        String s = senderName.getString();
-        String name = player.getName().getString();
-        boolean match = wordContains(s, name);
-        if (!match && player.networkHandler != null) {
-            var info = player.networkHandler.getPlayerListEntry(player.getUuid());
-            if (info != null && info.getDisplayName() != null) {
-                String tab = info.getDisplayName().getString().trim();
-                match = !tab.isEmpty() && wordContains(s, tab);
-            }
+    static String singleLine(String s) {
+        return stripControls(s);
+    }
+
+    private static String stripControls(String s) {
+        StringBuilder sb = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            sb.append(c < 0x20 || c == 0x7F ? ' ' : c);
         }
-        if (match) {
-            int best = -1;
-            for (int i = 0; i < rt.pendingEchoes.size(); i++) {
-                String echoText = rt.pendingEchoes.get(i).text();
-                if (s.contains(echoText) || echoText.contains(s)) { best = i; break; }
-            }
-            if (best >= 0) rt.pendingEchoes.remove(best);
-            else rt.pendingEchoes.remove(0);
-            updateLatestOwnSenderName(senderName);
-            return true;
+        return sb.toString();
+    }
+
+    public static List<ChatMessage> getMessages() { return messages; }
+
+    public static List<ChatMessage> getWhisperMessages(String partnerName) {
+        List<ChatMessage> result = new ArrayList<>();
+        for (ChatMessage msg : messages) {
+            if (msg.whisper() && partnerName.equals(msg.whisperPartner())) result.add(msg);
+        }
+        return result;
+    }
+
+    public static List<ChatMessage> getPublicMessages() {
+        List<ChatMessage> result = new ArrayList<>();
+        for (ChatMessage msg : messages) {
+            if (!msg.whisper()) result.add(msg);
+        }
+        return result;
+    }
+
+    public static ChatMessage getLatestWhisperWith(String partnerName) {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            ChatMessage msg = messages.get(i);
+            if (msg.whisper() && partnerName.equals(msg.whisperPartner())) return msg;
+        }
+        return null;
+    }
+
+    public static ChatMessage getLatestPublicMessage() {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            ChatMessage msg = messages.get(i);
+            if (!msg.whisper()) return msg;
+        }
+        return null;
+    }
+
+    private static final Set<String> unreadWhisperPartners = new HashSet<>();
+
+    public static void markWhisperUnread(String partner) {
+        if (partner != null) unreadWhisperPartners.add(partner);
+    }
+
+    public static void clearUnreadWhisper(String partner) {
+        unreadWhisperPartners.remove(partner);
+    }
+
+    public static boolean hasUnreadWhisper(String partner) {
+        return unreadWhisperPartners.contains(partner);
+    }
+
+    public static int getUnreadCount() { return unreadCount; }
+
+    public static void markAllRead() { unreadCount = 0; }
+
+    public static void setScreenOpen(boolean open) {
+        screenOpen = open;
+        if (open) unreadCount = 0;
+    }
+
+    public static boolean hasUnreadMention(String playerName) {
+        if (playerName == null || playerName.isEmpty()) return false;
+        for (int i = messages.size() - unreadCount; i < messages.size(); i++) {
+            if (i < 0) continue;
+            if (messages.get(i).content().getString().contains("@" + playerName)) return true;
         }
         return false;
     }
 
-    private static boolean wordContains(String text, String word) {
-        int idx = text.indexOf(word);
-        if (idx < 0) return false;
-        boolean beforeOk = idx == 0 || !Character.isLetterOrDigit(text.charAt(idx - 1));
-        int end = idx + word.length();
-        boolean afterOk = end >= text.length() || !Character.isLetterOrDigit(text.charAt(end));
-        return beforeOk && afterOk;
+    public static Text quoteMessage(int index) {
+        if (index < 0 || index >= messages.size()) return Text.literal("");
+        ChatMessage msg = messages.get(index);
+        String qName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
+            ? msg.rawPlayerName() : msg.senderName().getString();
+        MutableText quote = Text.literal("> " + qName + ": ");
+        quote.append(msg.content());
+        return quote;
     }
 
-    private void updateLatestOwnSenderName(Text senderName) {
-        for (int i = rt.messages.size() - 1; i >= 0 && i >= rt.messages.size() - 5; i--) {
-            ChatMessage m = rt.messages.get(i);
-            if (!m.isOwn()) continue;
-            if (!m.senderName().getString().equals(senderName.getString())) {
-                rt.messages.set(i, new ChatMessage(m.senderUUID(), senderName, m.content(), m.time(),
-                    m.isOwn(), m.isSystem(), m.replyContent(), m.replySender(),
-                    m.messageHash(), m.duplicateCount(), m.rawPlayerName(), m.whisper(), m.whisperPartner()));
+    public static ChatMessage getMessageAt(int index) {
+        if (index < 0 || index >= messages.size()) return null;
+        return messages.get(index);
+    }
+
+    public static void setPendingReply(String content, String sender) {
+        pendingReplyContent = content;
+        pendingReplySender = sender;
+    }
+
+    public static List<PreviewEntry> getPreviews() { return previews; }
+
+    private static Text buildPreviewText(Text content, Text name, boolean isSystem) {
+        Text body = singleLineComponent(content);
+        return name.getString().isEmpty()
+            ? (isSystem
+                ? Text.translatable("e33chat.sender.system").copy().append(Text.literal(": ")).append(body)
+                : body)
+            : Text.empty().append(name).append(Text.literal(": ")).append(body);
+    }
+
+    public static void tickPreview() {
+        var it = previews.iterator();
+        while (it.hasNext()) {
+            if (--it.next().ticks <= 0) it.remove();
+        }
+    }
+
+    public static Text getStrongHintText() {
+        if (strongHintQueue.isEmpty()) return null;
+        return strongHintTicks > 0 ? strongHintQueue.peek().text() : null;
+    }
+
+    public static int getStrongHintTicks() { return strongHintTicks; }
+
+    public static void tickStrongHint() {
+        if (strongHintTicks > 0) {
+            strongHintTicks--;
+            if (strongHintTicks <= 0) {
+                strongHintQueue.poll();
+                if (!strongHintQueue.isEmpty()) strongHintTicks = STRONG_HINT_DURATION;
             }
+        }
+    }
+
+    public static int size() { return messages.size(); }
+
+    public static String getCustomTitle() {
+        if (currentWorldKey == null) return null;
+        loadWorldTitles();
+        String v = worldTitles.get(currentWorldKey);
+        return (v != null && !v.isEmpty()) ? v : null;
+    }
+
+    public static void setCustomTitle(String title) {
+        if (currentWorldKey == null) return;
+        loadWorldTitles();
+        String v = (title != null && !title.isEmpty()) ? title : "";
+        if (v.isEmpty()) worldTitles.remove(currentWorldKey);
+        else worldTitles.put(currentWorldKey, v);
+        saveWorldTitles();
+    }
+
+    public static void setCurrentWorld(String name) {
+        if (Objects.equals(name, currentWorldKey)) return;
+        boolean wasFallback = "world".equals(currentWorldKey);
+        boolean isSpecific = name != null && (name.startsWith("SP:") || name.startsWith("MP:"));
+        boolean isRefinement = wasFallback && isSpecific;
+        boolean hasPendingMessages = currentWorldKey == null && isSpecific && !messages.isEmpty();
+        var cfg = ChatBubbleClientSetup.config();
+        if (cfg.chatHistoryEnabled() && isWorldSpecific(currentWorldKey))
+            saveMessages(currentWorldKey);
+        currentWorldKey = name;
+        if (isRefinement || hasPendingMessages) {
+            if (cfg.chatHistoryEnabled() && isWorldSpecific(currentWorldKey))
+                loadMessages(currentWorldKey);
             return;
         }
+        messages.clear();
+        unreadCount = 0;
+        previews.clear();
+        if (cfg.chatHistoryEnabled() && isWorldSpecific(currentWorldKey))
+            loadMessages(currentWorldKey);
     }
 
-    private static boolean isSameSender(ChatMessage last, Text senderName, String rawPlayerName) {
-        if (rawPlayerName != null && !rawPlayerName.isEmpty()
-            && last.rawPlayerName() != null && !last.rawPlayerName().isEmpty())
-            return rawPlayerName.equals(last.rawPlayerName());
-        if (rawPlayerName != null && !rawPlayerName.isEmpty()
-            && (last.rawPlayerName() == null || last.rawPlayerName().isEmpty()))
-            return false;
-        return last.senderName().getString().equals(senderName.getString());
+    private static boolean isWorldSpecific(String key) {
+        return key != null && (key.startsWith("SP:") || key.startsWith("MP:"));
     }
 
-    void addMessageImpl(Text content, UUID senderUUID, Text senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner) {
-        String messageHash = String.valueOf(content.getString().hashCode());
-        var client = MinecraftClient.getInstance();
-        String playerName = client.player != null ? client.player.getName().getString() : "";
-        boolean own = (rawPlayerName != null && !rawPlayerName.isEmpty())
-            ? rawPlayerName.equals(playerName)
-            : senderName != null && senderName.getString().equals(playerName);
-
-        var cfg = ChatBubbleClientSetup.config();
-        boolean antiSpam = cfg != null && cfg.antiSpam();
-
-        if (antiSpam && !rt.messages.isEmpty()) {
-            ChatMessage last = rt.messages.get(rt.messages.size() - 1);
-            if (!last.isSystem() && isSameSender(last, senderName, rawPlayerName)
-                && last.content().getString().equals(content.getString())) {
-                if (own && rt.pendingReplyContent != null) { rt.pendingReplyContent = null; rt.pendingReplySender = null; }
-                rt.messages.set(rt.messages.size() - 1, new ChatMessage(last.senderUUID(), last.senderName(), last.content(),
-                    LocalTime.now(), last.isOwn(), last.isSystem(), last.replyContent(), last.replySender(),
-                    last.messageHash(), last.duplicateCount() + 1, last.rawPlayerName(), last.whisper(), last.whisperPartner()));
-                return;
-            }
-        }
-
-        ChatRuntimeState.PendingMeta pending = rt.pendingMetas.remove(messageHash);
-        if (pending != null && pending.createdAt().isBefore(LocalTime.now().minusSeconds(10))) pending = null;
-
-        String replyContent = null, replySender = null;
-        if (own && rt.pendingReplyContent != null) {
-            replyContent = rt.pendingReplyContent; replySender = rt.pendingReplySender;
-            rt.pendingReplyContent = null; rt.pendingReplySender = null;
-        } else if (pending != null && !pending.quoteContent().isEmpty()) {
-            replyContent = pending.quoteContent(); replySender = pending.quoteSender();
-        }
-
-        rt.messages.add(new ChatMessage(senderUUID, senderName != null ? senderName : Text.literal(""), content,
-            LocalTime.now(), own, isSystem, replyContent, replySender, messageHash, 1, rawPlayerName, whisper, whisperPartner));
-        while (rt.messages.size() > ChatRuntimeState.MAX_MESSAGES) rt.messages.remove(0);
-
-        boolean isMentionOrQuote = !own && !isSystem
-            && (content.getString().contains("@" + playerName) || (replySender != null && replySender.equals(playerName)));
-
-        boolean playSound = false;
-        if (!own && client.player != null) {
-            if (isMentionOrQuote && cfg != null && cfg.soundMention()) playSound = true;
-            else if (whisper && cfg != null && cfg.soundWhisper()) playSound = true;
-            else if (isSystem && cfg != null && cfg.soundSystem()) playSound = true;
-            else if (!isSystem && !whisper && cfg != null && cfg.soundPublic()) playSound = true;
-        }
-        if (playSound) client.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F, 1.0F);
-
-        if (!rt.screenOpen) {
-            rt.unreadCount++;
-            boolean mentionHint = cfg != null && HintPolicy.shouldShow(HintPolicy.Kind.MENTION_OR_QUOTE, cfg.strongHintEnabled(), cfg.mentionStrongHintEnabled());
-            boolean sysHint = cfg != null && HintPolicy.shouldShow(HintPolicy.Kind.SYSTEM, cfg.strongHintEnabled(), cfg.mentionStrongHintEnabled());
-
-            if (mentionHint && isMentionOrQuote) {
-                rt.strongHintQueue.add(new ChatRuntimeState.HintEntry(Text.translatable("e33chat.notif.mention"), true));
-                if (rt.strongHintTicks <= 0) rt.strongHintTicks = STRONG_HINT_DURATION;
-            }
-            if (cfg != null && cfg.previewEnabled() && !sysHint && !(mentionHint && isMentionOrQuote)) {
-                Text pc;
-                if (senderName == null || senderName.getString().isEmpty()) {
-                    pc = isSystem ? Text.translatable("e33chat.sender.system").copy().append(Text.literal(": ")).append(content) : content;
-                } else {
-                    pc = Text.empty().append(senderName).append(Text.literal(": ")).append(content);
-                }
-                rt.previews.add(new ChatRuntimeState.PreviewEntry(pc, ChatRuntimeState.PREVIEW_TICKS));
-                while (rt.previews.size() > (cfg != null ? cfg.previewLines() : 3)) rt.previews.remove(0);
-            }
-            if (sysHint && isSystem && !(mentionHint && isMentionOrQuote)) {
-                rt.strongHintQueue.removeIf(e -> !e.isMention());
-                rt.strongHintQueue.add(new ChatRuntimeState.HintEntry(content, false));
-                if (rt.strongHintTicks <= 0) rt.strongHintTicks = STRONG_HINT_DURATION;
-            }
-        }
-        if (whisper && whisperPartner != null && !own) rt.markWhisperUnread(whisperPartner);
+    private static File getHistoryFile(String worldKey) {
+        String safe = worldKey.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
+        String hash = Integer.toHexString(worldKey.hashCode());
+        return new File(MinecraftClient.getInstance().runDirectory, "e33chat/history/" + safe + "_" + hash + ".json");
     }
 
-    // ===== world management =====
-
-    void setCurrentWorldImpl(String conn, String dim) {
-        String newKey = conn == null ? null : WorldIdentity.key(conn, dim, sessionToken);
-        if (Objects.equals(newKey, currentWorldKey)) return;
-        String oldConn = historyKey != null && historyKey.contains("|DIM:") ? historyKey.substring(0, historyKey.indexOf("|DIM:")) : null;
-        boolean sameConnection = Objects.equals(oldConn, conn);
-        boolean wasFallback = currentWorldKey == null || currentWorldKey.equals("world");
-        boolean isSpecific = conn != null && (conn.startsWith("SP:") || conn.startsWith("MP:"));
-        boolean isRefinement = wasFallback && isSpecific;
-        boolean hasPending = currentWorldKey == null && isSpecific && !rt.messages.isEmpty();
-        var cfg = ChatBubbleClientSetup.config();
-        if (cfg != null && cfg.chatHistoryEnabled() && historyKey != null) saveMessages();
-        currentWorldKey = newKey;
-        historyKey = conn == null ? null : WorldIdentity.historyKey(conn, dim);
-        if (conn != null && !sameConnection) sessionToken = new Random().nextInt();
-        if (isRefinement || hasPending || sameConnection) { tryLoadMessages(); return; }
-        rt.clear();
-        tryLoadMessages();
+    private static net.minecraft.registry.RegistryWrapper.WrapperLookup registries() {
+        var world = MinecraftClient.getInstance().world;
+        if (world != null) return world.getRegistryManager();
+        var conn = MinecraftClient.getInstance().getNetworkHandler();
+        if (conn != null) return conn.getRegistryManager();
+        return net.minecraft.registry.BuiltinRegistries.createWrapperLookup();
     }
 
-    // ===== persistence =====
+    private static String toJsonSafe(Text c) {
+        try {
+            return Text.Serialization.toJsonString(c, registries());
+        } catch (Exception e) {
+            try {
+                return Text.Serialization.toJsonString(Text.literal(c.getString()), registries());
+            } catch (Exception e2) {
+                return c.getString();
+            }
+        }
+    }
 
-    private void saveMessages() {
-        if (historyKey == null || rt.messages.isEmpty()) return;
-        File f = historyFile(historyKey);
+    private static Text fromJsonSafe(String json) {
+        if (json == null) return null;
+        try {
+            return Text.Serialization.fromJson(json, registries());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static void saveMessages(String worldKey) {
+        if (messages.isEmpty()) return;
+        File f = getHistoryFile(worldKey);
         f.getParentFile().mkdirs();
         List<Object> list = new ArrayList<>();
-        for (ChatMessage msg : rt.messages) {
+        for (ChatMessage msg : messages) {
             try {
                 var obj = new HashMap<String, Object>();
                 obj.put("senderUUID", msg.senderUUID().toString());
                 obj.put("senderName", msg.senderName().getString());
-                obj.put("content", msg.content().getString());
-                var registries = MinecraftClient.getInstance().getNetworkHandler() != null
-                    ? MinecraftClient.getInstance().getNetworkHandler().getRegistryManager() : null;
-                if (registries != null) {
-                    try { obj.put("senderNameJson", Text.Serialization.toJsonString(msg.senderName(), registries)); } catch (Exception ignored) {}
-                    try { obj.put("contentJson", Text.Serialization.toJsonString(msg.content(), registries)); } catch (Exception ignored) {}
-                }
+                obj.put("senderNameJson", toJsonSafe(msg.senderName()));
+                obj.put("content", toJsonSafe(msg.content()));
                 obj.put("time", msg.time().format(DateTimeFormatter.ISO_LOCAL_TIME));
-                obj.put("isOwn", msg.isOwn()); obj.put("isSystem", msg.isSystem());
-                if (msg.replyContent() != null) { obj.put("replyContent", msg.replyContent()); obj.put("replySender", msg.replySender()); }
-                if (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty()) obj.put("rawPlayerName", msg.rawPlayerName());
-                if (msg.whisper()) { obj.put("whisper", true); if (msg.whisperPartner() != null) obj.put("whisperPartner", msg.whisperPartner()); }
+                obj.put("isOwn", msg.isOwn());
+                obj.put("isSystem", msg.isSystem());
+                if (msg.replyContent() != null) {
+                    obj.put("replyContent", msg.replyContent());
+                    obj.put("replySender", msg.replySender());
+                }
+                if (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty()) {
+                    obj.put("rawPlayerName", msg.rawPlayerName());
+                }
+                if (msg.whisper()) {
+                    obj.put("whisper", true);
+                    if (msg.whisperPartner() != null) obj.put("whisperPartner", msg.whisperPartner());
+                }
                 list.add(obj);
-            } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to save chat history", e); }
+            } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
         }
-        try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) { GSON.toJson(list, w); }
-        catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to save chat history", e); }
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) {
+            GSON.toJson(list, w);
+        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
     }
 
-    private void tryLoadMessages() {
-        var cfg = ChatBubbleClientSetup.config();
-        if (cfg == null || !cfg.chatHistoryEnabled() || historyKey == null) return;
-        if (loadMessagesFile(historyKey)) return;
-        String conn = historyKey.substring(0, historyKey.indexOf("|DIM:"));
-        if (!conn.isEmpty()) loadMessagesFile(conn);
-    }
-
-    private boolean loadMessagesFile(String key) {
-        File f = historyFile(key);
-        if (!f.exists()) return false;
+    private static void loadMessages(String worldKey) {
+        File f = getHistoryFile(worldKey);
+        if (!f.exists()) return;
         try (Reader r = new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8)) {
             List<Map<String, Object>> list = GSON.fromJson(r, new TypeToken<List<Map<String, Object>>>(){}.getType());
-            if (list == null) return false;
+            if (list == null) return;
             for (Map<String, Object> obj : list) {
                 try {
                     UUID uuid = UUID.fromString((String) obj.get("senderUUID"));
-                    Text senderName = null;
-                    Text content = null;
-                    var registries = MinecraftClient.getInstance().getNetworkHandler() != null
-                        ? MinecraftClient.getInstance().getNetworkHandler().getRegistryManager() : null;
-                    if (registries != null) {
-                        String nameJson = (String) obj.get("senderNameJson");
-                        String contentJson = (String) obj.get("contentJson");
-                        if (nameJson != null) try { senderName = Text.Serialization.fromJson(nameJson, registries); } catch (Exception ignored) {}
-                        if (contentJson != null) try { content = Text.Serialization.fromJson(contentJson, registries); } catch (Exception ignored) {}
-                    }
-                    if (senderName == null) senderName = Text.literal((String) obj.getOrDefault("senderName", ""));
+                    Text senderName = fromJsonSafe((String) obj.get("senderNameJson"));
+                    if (senderName == null) senderName = Text.literal((String) obj.get("senderName"));
+                    Text content = fromJsonSafe((String) obj.get("content"));
                     if (content == null) content = Text.literal((String) obj.getOrDefault("content", ""));
+                    if (content.getString().isBlank()) continue;
                     LocalTime time = LocalTime.parse((String) obj.get("time"), DateTimeFormatter.ISO_LOCAL_TIME);
                     boolean isOwn = (Boolean) obj.getOrDefault("isOwn", false);
                     boolean isSystem = (Boolean) obj.getOrDefault("isSystem", false);
@@ -421,56 +633,96 @@ public class ChatMessageStore {
                     String rawPlayerName = (String) obj.get("rawPlayerName");
                     boolean whisper = Boolean.TRUE.equals(obj.get("whisper"));
                     String whisperPartner = (String) obj.get("whisperPartner");
-                    rt.messages.add(new ChatMessage(uuid, senderName, content, time, isOwn, isSystem,
-                        replyContent, replySender, "", 1, rawPlayerName, whisper, whisperPartner));
-                } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to load chat history", e); }
+                    messages.add(new ChatMessage(uuid, senderName, content, time,
+                        isOwn, isSystem, replyContent, replySender, "", 1, rawPlayerName,
+                        whisper, whisperPartner));
+                } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
             }
-            while (rt.messages.size() > ChatRuntimeState.MAX_MESSAGES) rt.messages.remove(0);
-        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to load chat history", e); }
-        return true;
+            while (messages.size() > MAX) messages.remove(0);
+        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
     }
 
-    void addHistoryMessagesImpl(List<HistoryEntry> entries) {
-        if (!rt.messages.isEmpty() || entries.isEmpty()) return;
-        for (var e : entries) rt.messages.add(new ChatMessage(e.senderUUID(), Text.literal(e.senderName()),
-            Text.literal(e.content()), e.time(), false, e.isSystem(), e.replyContent(), e.replySender(),
-            String.valueOf(e.content().hashCode()), 1, e.senderName(), false, null));
+    private static File getTitlesFile() {
+        return new File(MinecraftClient.getInstance().runDirectory, "e33chat/titles.json");
     }
 
-    void applyChatMetaImpl(UUID senderUUID, String messageHash, String quoteSender, String quoteContent, List<String> mentionTargets) {
+    private static void loadWorldTitles() {
+        if (titlesLoaded) return;
+        titlesLoaded = true;
+        File f = getTitlesFile();
+        if (!f.exists()) return;
+        try (Reader r = new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8)) {
+            Map<String, String> data = GSON.fromJson(r, new TypeToken<Map<String, String>>(){}.getType());
+            if (data != null) worldTitles.putAll(data);
+        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
+    }
+
+    private static void saveWorldTitles() {
+        File f = getTitlesFile();
+        f.getParentFile().mkdirs();
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) {
+            GSON.toJson(worldTitles, w);
+        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
+    }
+
+    public static void addHistoryMessages(List<com.niuqu.chatbubble.network.HistoryPayload.HistoryEntry> entries) {
+        if (!messages.isEmpty() || entries.isEmpty()) return;
+        for (var e : entries) {
+            if (e.content().isBlank()) continue;
+            messages.add(new ChatMessage(
+                e.senderUUID(),
+                Text.literal(e.senderName()),
+                Text.literal(e.content()),
+                e.time(),
+                false,
+                e.isSystem(),
+                e.replyContent(),
+                e.replySender(),
+                String.valueOf(e.content().hashCode()),
+                1,
+                e.senderName(),
+                false,
+                null
+            ));
+        }
+    }
+
+    public static void applyChatMeta(UUID senderUUID, String messageHash, String quoteSender,
+                                      String quoteContent, List<String> mentionTargets) {
         LocalTime cutoff = LocalTime.now().minusSeconds(5);
-        for (int i = rt.messages.size() - 1; i >= 0; i--) {
-            ChatMessage msg = rt.messages.get(i);
-            if (!msg.messageHash().equals(messageHash) || !msg.senderUUID().equals(senderUUID)) continue;
-            if (msg.replyContent() != null || msg.time().isBefore(cutoff)) continue;
-            if (!quoteContent.isEmpty()) {
-                rt.messages.set(i, new ChatMessage(msg.senderUUID(), msg.senderName(), msg.content(), msg.time(),
-                    msg.isOwn(), msg.isSystem(), quoteContent, quoteSender, msg.messageHash(),
-                    msg.duplicateCount(), msg.rawPlayerName(), msg.whisper(), msg.whisperPartner()));
-                var client = MinecraftClient.getInstance();
-                String playerName = client.player != null ? client.player.getName().getString() : "";
-                var cfg = ChatBubbleClientSetup.config();
-                if (!msg.isOwn() && !playerName.isEmpty() && playerName.equals(quoteSender)
-                    && !msg.content().getString().contains("@" + playerName)
-                    && cfg != null && cfg.soundMention()) {
-                    client.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F, 1.0F);
-                    if (!rt.screenOpen && HintPolicy.shouldShow(HintPolicy.Kind.MENTION_OR_QUOTE,
-                        cfg.strongHintEnabled(), cfg.mentionStrongHintEnabled())) {
-                        rt.strongHintQueue.add(new ChatRuntimeState.HintEntry(Text.translatable("e33chat.notif.mention"), true));
-                        if (rt.strongHintTicks <= 0) rt.strongHintTicks = STRONG_HINT_DURATION;
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            ChatMessage msg = messages.get(i);
+            if (msg.messageHash().equals(messageHash) && msg.senderUUID().equals(senderUUID)) {
+                if (msg.replyContent() != null) continue;
+                if (msg.time().isBefore(cutoff)) continue;
+                if (!quoteContent.isEmpty()) {
+                    messages.set(i, new ChatMessage(
+                        msg.senderUUID(), msg.senderName(), msg.content(), msg.time(),
+                        msg.isOwn(), msg.isSystem(), quoteContent, quoteSender, msg.messageHash(),
+                        msg.duplicateCount(), msg.rawPlayerName(),
+                        msg.whisper(), msg.whisperPartner()));
+                    var client = MinecraftClient.getInstance();
+                    String playerName = client.player != null
+                        ? client.player.getName().getString() : "";
+                    var cfg = ChatBubbleClientSetup.config();
+                    if (!msg.isOwn() && !playerName.isEmpty()
+                        && playerName.equals(quoteSender)
+                        && !msg.content().getString().contains("@" + playerName)
+                        && cfg.soundMention()) {
+                        client.player.playSound(
+                            net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F, 1.0F);
+                        if (!screenOpen && cfg.mentionStrongHintEnabled()) {
+                            strongHintQueue.add(new HintEntry(Text.translatable("e33chat.notif.mention"), true));
+                            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
+                        }
                     }
                 }
+                return;
             }
-            return;
         }
-        if (!quoteContent.isEmpty()) rt.pendingMetas.put(messageHash, new ChatRuntimeState.PendingMeta(senderUUID, quoteSender, quoteContent, mentionTargets, LocalTime.now()));
-    }
-
-    // ===== helpers =====
-
-    private static File historyFile(String key) {
-        String safe = key.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
-        String hash = Integer.toHexString(key.hashCode());
-        return new File(MinecraftClient.getInstance().runDirectory, "e33chat/history/" + safe + "_" + hash + ".json");
+        if (!quoteContent.isEmpty()) {
+            pendingMetas.put(messageHash, new PendingMeta(senderUUID, quoteSender, quoteContent,
+                mentionTargets, LocalTime.now()));
+        }
     }
 }

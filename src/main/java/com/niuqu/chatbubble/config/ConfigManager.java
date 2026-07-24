@@ -17,13 +17,18 @@ public final class ConfigManager {
         if (Files.exists(path)) {
             try (Reader r = new InputStreamReader(Files.newInputStream(path), StandardCharsets.UTF_8)) {
                 ChatBubbleConfig loaded = GSON.fromJson(r, ChatBubbleConfig.class);
-                if (loaded != null) return mergeWithDefaults(loaded);
+                if (loaded != null) {
+                    var merged = mergeWithDefaults(loaded);
+                    LoggerFactory.getLogger("e33chat").info("[e33chat] Loaded config | soundPublic=" + merged.soundPublic() + " | soundSystem=" + merged.soundSystem());
+                    return merged;
+                }
             } catch (Exception e) {
                 LoggerFactory.getLogger("e33chat").warn("[e33chat] Failed to load config, using defaults", e);
             }
         }
         ChatBubbleConfig def = ChatBubbleConfig.defaults();
         save(path, def);
+        LoggerFactory.getLogger("e33chat").info("[e33chat] Created default config | soundPublic=" + def.soundPublic() + " | soundSystem=" + def.soundSystem());
         return def;
     }
 
@@ -40,7 +45,9 @@ public final class ConfigManager {
             c.otherBubbleColor() != null ? c.otherBubbleColor() : d.otherBubbleColor(),
             c.ownTextColor() != null ? c.ownTextColor() : d.ownTextColor(),
             c.otherTextColor() != null ? c.otherTextColor() : d.otherTextColor(),
-            c.soundPublic(), c.soundSystem(), c.soundMention(), c.soundWhisper(), c.debugLog(),
+            c.soundPublic(), c.soundSystem(), c.soundMention(), c.soundWhisper(),
+            c.debugLog(), c.preserveInput(), c.colorCodes(),
+            c.sidebarHidePatterns() != null ? c.sidebarHidePatterns() : d.sidebarHidePatterns(),
             c.quickChatPhrases() != null ? c.quickChatPhrases() : d.quickChatPhrases());
     }
 

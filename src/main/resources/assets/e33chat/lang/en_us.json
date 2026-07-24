@@ -3,7 +3,7 @@
 
   "e33chat.config.title": "ChatBubble Settings",
   "e33chat.config.cat.appearance": "Appearance",
-  "e33chat.config.cat.notifications": "Notifications",
+  "e33chat.config.cat.notifications": "Notifications & Sound",
   "e33chat.config.cat.behavior": "Behavior",
   "e33chat.config.theme": "Color Theme (Beta)",
   "e33chat.config.theme.desc": "UI color scheme: dark or light",
@@ -53,6 +53,7 @@
   "e33chat.context.copy": "Copy",
   "e33chat.context.quote": "Quote",
   "e33chat.context.tp": "Teleport",
+  "e33chat.context.tpa": "Request TP",
   "e33chat.context.whisper": "Whisper",
   "e33chat.toast.copied": "Copied",
 
@@ -76,7 +77,7 @@
   "e33chat.whisper.mode": "Whisper",
   "e33chat.quick_chat.placeholder": "Add phrase...",
 
-  "e33chat.config.cat.sound": "Sound",
+  "e33chat.config.cat.advanced": "Advanced",
   "e33chat.config.sound_system": "System Message Sound",
   "e33chat.config.sound_system.desc": "Play a notification sound for system messages",
   "e33chat.config.sound_mention": "@ / Quote Sound",
@@ -84,5 +85,11 @@
   "e33chat.config.sound_whisper": "Whisper Sound",
   "e33chat.config.sound_whisper.desc": "Play a notification sound for private / whisper messages",
   "e33chat.config.sound_public": "Public Chat Sound",
-  "e33chat.config.sound_public.desc": "Play a notification sound for public chat messages"
+  "e33chat.config.sound_public.desc": "Play a notification sound for public chat messages",
+  "e33chat.config.preserve_input": "Preserve Typed Text",
+  "e33chat.config.preserve_input.desc": "Keep typed text in the input field after closing the chat screen",
+  "e33chat.config.color_codes": "Color Codes (& codes)",
+  "e33chat.config.color_codes.desc": "Interpret & color/format codes (&a, &l...) as color in YOUR OWN bubble locally. Raw text (with &) is sent unchanged — no § conversion — so servers with a color plugin translate & for everyone, plain servers show the literal &. Note: normal text like 'B&B' or 'Q&A' may also be colored locally when this is on",
+  "e33chat.config.sidebar_hide_patterns": "Sidebar Hide Patterns",
+  "e33chat.config.sidebar_hide_patterns.desc": "Hide players matching these wildcard patterns from the sidebar (comma-separated, * = wildcard, e.g. Islot_*, *[NPC]*)"
 }

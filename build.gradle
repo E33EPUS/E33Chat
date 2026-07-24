@@ -7,13 +7,17 @@ version = project.mod_version
 group = project.maven_group
 archivesBaseName = project.archives_base_name
 
-repositories { mavenCentral() }
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.terraformersmc.com/releases/" }
+}
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.minecraft_version}+build.3:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    modCompileOnly "com.terraformersmc:modmenu:11.0.3"
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }

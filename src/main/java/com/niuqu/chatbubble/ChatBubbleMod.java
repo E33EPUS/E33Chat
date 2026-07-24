@@ -1,6 +1,9 @@
 package com.niuqu.chatbubble;
 
+import com.niuqu.chatbubble.config.ServerConfig;
+import com.niuqu.chatbubble.config.ServerConfigManager;
 import com.niuqu.chatbubble.network.ChatMetaPayload;
+import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.HistoryPayload;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import net.fabricmc.api.ModInitializer;
@@ -22,7 +25,12 @@ public class ChatBubbleMod implements ModInitializer {
     private static final int HISTORY_MAX = 50;
 
     private static final Map<UUID, QuotePending> pendingQuotes = new HashMap<>();
-    private static final Deque<ChatMessageStore.HistoryEntry> historyBuffer = new ArrayDeque<>();
+    private static final Deque<HistoryPayload.HistoryEntry> historyBuffer = new ArrayDeque<>();
+
+    // Server-side settings (loaded per-world from <world>/serverconfig/e33chat-server.json)
+    private static boolean historyEnabled;
+    private static boolean useTpa;
+    private static boolean configLoaded;
 
     private record QuotePending(String quotedSenderName, String quotedContent, String messageHash) {}
 
@@ -31,6 +39,7 @@ public class ChatBubbleMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(QuoteSyncPayload.ID, QuoteSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ChatMetaPayload.ID, ChatMetaPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(HistoryPayload.ID, HistoryPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ConfigSyncPayload.ID, ConfigSyncPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(QuoteSyncPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -60,7 +69,7 @@ public class ChatBubbleMod implements ModInitializer {
                 }
             }
 
-            addToHistory(new ChatMessageStore.HistoryEntry(
+            addToHistory(new HistoryPayload.HistoryEntry(
                 sender.getUuid(), sender.getName().getString(), rawText,
                 LocalTime.now(), false,
                 quote != null ? quote.quotedContent() : null,
@@ -68,14 +77,29 @@ public class ChatBubbleMod implements ModInitializer {
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            if (!historyBuffer.isEmpty()) {
-                ServerPlayNetworking.send(handler.player,
-                    new HistoryPayload(new ArrayList<>(historyBuffer)));
+            // Load server config from <world>/serverconfig/ on first join (matching
+            // NeoForge's per-world ModConfig.Type.SERVER convention)
+            if (!configLoaded) {
+                configLoaded = true;
+                var configPath = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT)
+                    .resolve("serverconfig").resolve("e33chat-server.json");
+                ServerConfig config = ServerConfigManager.load(configPath);
+                useTpa = config.use_tpa;
+                historyEnabled = config.history_enabled;
             }
+
+            // Always sync server-side settings so the client head menu matches the server
+            ServerPlayNetworking.send(handler.player,
+                new ConfigSyncPayload(useTpa));
+
+            if (!historyEnabled) return;
+            if (historyBuffer.isEmpty()) return;
+            ServerPlayNetworking.send(handler.player,
+                new HistoryPayload(new ArrayList<>(historyBuffer)));
         });
     }
 
-    private static void addToHistory(ChatMessageStore.HistoryEntry entry) {
+    private static void addToHistory(HistoryPayload.HistoryEntry entry) {
         historyBuffer.addLast(entry);
         while (historyBuffer.size() > HISTORY_MAX)
             historyBuffer.removeFirst();

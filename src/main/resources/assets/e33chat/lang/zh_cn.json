@@ -3,7 +3,7 @@
 
   "e33chat.config.title": "ChatBubble 设置",
   "e33chat.config.cat.appearance": "外观",
-  "e33chat.config.cat.notifications": "通知",
+  "e33chat.config.cat.notifications": "通知与音效",
   "e33chat.config.cat.behavior": "行为",
   "e33chat.config.theme": "颜色主题 (测试)",
   "e33chat.config.theme.desc": "界面配色：深色或浅色",
@@ -53,6 +53,7 @@
   "e33chat.context.copy": "复制",
   "e33chat.context.quote": "引用",
   "e33chat.context.tp": "传送",
+  "e33chat.context.tpa": "请求传送",
   "e33chat.context.whisper": "私聊",
   "e33chat.toast.copied": "已复制",
 
@@ -76,7 +77,7 @@
   "e33chat.whisper.mode": "私聊",
   "e33chat.quick_chat.placeholder": "添加常用语...",
 
-  "e33chat.config.cat.sound": "音效",
+  "e33chat.config.cat.advanced": "高级",
   "e33chat.config.sound_system": "系统消息音效",
   "e33chat.config.sound_system.desc": "收到系统消息时播放提示音",
   "e33chat.config.sound_mention": "@ / 引用消息音效",
@@ -84,5 +85,11 @@
   "e33chat.config.sound_whisper": "私聊消息音效",
   "e33chat.config.sound_whisper.desc": "收到私聊消息时播放提示音",
   "e33chat.config.sound_public": "公屏消息音效",
-  "e33chat.config.sound_public.desc": "收到公屏消息时播放提示音"
+  "e33chat.config.sound_public.desc": "收到公屏消息时播放提示音",
+  "e33chat.config.preserve_input": "保留已输入文本",
+  "e33chat.config.preserve_input.desc": "关闭聊天框后保留已输入的文本，下次打开时自动恢复",
+  "e33chat.config.color_codes": "彩色代码 (& 代码)",
+  "e33chat.config.color_codes.desc": "把自己消息里的 & 颜色/格式代码（&a、&l 等）解析成本地气泡里的彩色——发送的文本原样带 & 不转 §，不会踢出。注意：开启了以后类似 'B&B'、'Q&A' 这种正常文字也会被本地染色",
+  "e33chat.config.sidebar_hide_patterns": "侧边栏隐藏规则",
+  "e33chat.config.sidebar_hide_patterns.desc": "在侧边栏隐藏匹配这些通配符的玩家名（逗号分隔，* = 通配符，如 Islot_*、*[NPC]*）"
 }
