@@ -2,19 +2,45 @@
 
 ## v2.1.2
 
+**架构回退（同步 NeoForge 2.0.0→2.1.2）**
+- 删除 `ClientLifecycleState`/`ChatRuntimeState`/`ChatListLayout`/`SidebarLayout`/`WhisperParser`/`RoundedRectangleGeometry`/`HintPolicy`/`MessagePipelineRules`/`WorldIdentity`/`ChatUiBehavior`/`ChatServerConfig`/`ChatMessage` 等 12 个死架构类及其测试
+- `ChatMessageStore` 回退为直接单例模式，去掉 lifecycle 路由层，`setCurrentWorld` 只传连接 key
+- `ChatBubbleClientSetup` 移除 `lifecycle` 引用，config 初始化为 `defaults()` 避免 null 守卫静默跳过音效
+- `ChatListenerMixin` 重写消息处理逻辑，对齐 NeoForge 2.1.2
+
+**新功能（NeoForge 2.1.x 同步）**
+- 服务端配置同步：`ServerConfig`/`ServerConfigManager`/`ConfigSyncPayload`，从 `<world>/serverconfig/e33chat-server.json` 加载 `use_tpa` 和 `history_enabled`，首次加入时同步到客户端
+- ModMenu 集成入口 `ModMenuIntegration`
+- 配置新增：`preserveInput`（保留已输入文本）、`colorCodes`（&颜色代码本地解析）、`sidebarHidePatterns`（侧边栏通配符隐藏）
+- 右键头像菜单：根据服务器配置显示 `/tpa` 或 `/tp`
+- 通知栏新增"有人@你"快捷跳转按钮
+
 **修复**
-- 指令补全：修复 `windowActive` 未启用导致补全窗口不显示
-- 指令补全：修复补全窗口 Y 轴位置（提到输入框上方）
-- 指令补全：修复宽建议（如实体 ID）X 轴溢出到负数被裁切
-- HUD 红点：修复 `drawIcon()` 手动 GL 状态调用泄漏，导致红点渲染在图标下方
+- 指令补全：`setWindowActive(true)` + Y 轴提到输入框上方 + X 轴防止宽建议（实体 ID）溢出负数被裁切
+- HUD 红点：`drawIcon()` 增加 `g.draw()` flush，防止预览/强提示的着色器状态泄漏污染红点渲染
+- 强提示：移除黄色/白色闪烁底色，统一白色文字
+- 音效：config 默认值在类加载时初始化，不再依赖 null 守卫
 - CI：JDK 25 → 21，修复 Fabric 1.21.1 + Gradle 8.8 不兼容
 
-**Fix**
-- Command suggestion: fix `windowActive` not enabled causing suggestion window to never appear
-- Command suggestion: fix Y position (place above input field)
-- Command suggestion: fix X clamping for wide suggestions (entity IDs) causing negative offset
-- HUD red dot: fix `drawIcon()` manual GL state leak pushing red dot behind icon
-- CI: JDK 25 → 21, fix Fabric 1.21.1 + Gradle 8.8 incompatibility
+**Refactor (sync NeoForge 2.0.0→2.1.2)**
+- Remove 12 dead architecture classes from Codex refactor era: `ClientLifecycleState`, `ChatRuntimeState`, `ChatListLayout`, `SidebarLayout`, `WhisperParser`, `RoundedRectangleGeometry`, `HintPolicy`, `MessagePipelineRules`, `WorldIdentity`, `ChatUiBehavior`, `ChatServerConfig`, `ChatMessage` and their tests
+- `ChatMessageStore` back to direct singleton, remove lifecycle routing, `setCurrentWorld` takes connection key only
+- `ChatBubbleClientSetup` remove lifecycle reference, init config to `defaults()` so null-guards don't silently skip sound
+- `ChatListenerMixin` rewritten to match NeoForge 2.1.2 message handling
+
+**Features (NeoForge 2.1.x sync)**
+- Server config sync: `ServerConfig`/`ServerConfigManager`/`ConfigSyncPayload`, loads `use_tpa`/`history_enabled` from `<world>/serverconfig/e33chat-server.json`, syncs to client on join
+- ModMenu integration entry `ModMenuIntegration`
+- New config options: `preserveInput` (keep text on close), `colorCodes` (parse `&` format codes locally), `sidebarHidePatterns` (wildcard hide rules)
+- Right-click avatar menu: shows `/tpa` or `/tp` based on server config
+- "Mentions" quick-jump button on notification bar
+
+**Fixes**
+- Command suggestion: `setWindowActive(true)` + Y above input + X clamp for wide suggestions (entity IDs)
+- HUD red dot: `g.draw()` flush in `drawIcon()` to isolate preview/hint shader state
+- Strong hint: remove yellow/white flashing, use solid white text
+- Sound: config defaults initialized at class-load, no longer guarded by null check
+- CI: JDK 25 → 21 for Fabric 1.21.1 + Gradle 8.8
 
 ## v2.1.0
 
