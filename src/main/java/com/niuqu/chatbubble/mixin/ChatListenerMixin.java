@@ -478,9 +478,14 @@ public class ChatListenerMixin {
             return;
         }
 
-        // bound.name() empty: some NCR/plugin servers send player chat through the
-        // disguised channel with no structured sender — try to parse the format
+        // bound.name() empty: try tell-click first (structural), then text parsing
         var connection = Minecraft.getInstance().player.connection;
+
+        // Layer 2: tell-click attribution — structural detection before text parsing
+        SenderMeta tc = detectByTellClick(message, msgStr);
+        if (tc != null) { ChatMessageStore.setPendingMeta(tc); return; }
+
+        // Layer 3: parse decorated player line — text-level fallback
         if (connection != null && !isWhisper) {
             var namesSet = new java.util.LinkedHashSet<String>();
             connection.getOnlinePlayers().forEach(info -> {
@@ -491,41 +496,48 @@ public class ChatListenerMixin {
             var parsed = MessagePresentation.parseDecoratedPlayerLine(msgStr, onlineNames);
             if (parsed.isPresent()) {
                 var pl = parsed.orElseThrow();
-                var info = connection.getOnlinePlayers().stream()
-                    .filter(i -> {
-                        for (String cand : nameCandidates(i))
-                            if (cand.equals(pl.playerName())) return true;
-                        return false;
-                    }).findFirst().orElse(null);
-                UUID uid;
-                if (info != null) {
-                    uid = info.getProfile().getId();
-                } else {
-                    UUID su = ChatMessageStore.findSeenUuid(pl.playerName());
-                    uid = su != null ? su : new UUID(0, 0);
-                }
                 int nameIdx = msgStr.indexOf(pl.playerName());
-                int contentStart = nameIdx + pl.playerName().length();
+                int nameEnd = nameIdx + pl.playerName().length();
+                int contentStart = nameEnd;
                 while (contentStart < msgStr.length()) {
                     char ch = msgStr.charAt(contentStart);
                     if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
                         || ch == '：' || ch == '»' || ch == '-' || ch == '|') contentStart++;
                     else break;
                 }
-                Component displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
-                    Component.literal((msgStr.substring(0, nameIdx) + pl.playerName()).trim()));
-                Component contentComp = ChatMessageStore.sliceStyled(message, contentStart, msgStr.length());
-                ChatMessageStore.debugLog(() -> "[e33chat] Disguised(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
-                ChatMessageStore.setPendingMeta(new SenderMeta(
-                    uid, displayName, contentComp, false,
-                    info != null ? info.getProfile().getName() : pl.playerName(),
-                    false, null));
-                return;
+                boolean hasChatSep = false;
+                for (int i = nameEnd; i < contentStart; i++) {
+                    char ch = msgStr.charAt(i);
+                    if (ch == ':' || ch == '：' || ch == '>' || ch == '»') { hasChatSep = true; break; }
+                }
+                if (!hasChatSep) {
+                    ChatMessageStore.debugLog(() -> "[e33chat] Disguised(line skip: no chat sep) | text='" + msgStr + "'");
+                } else {
+                    var info = connection.getOnlinePlayers().stream()
+                        .filter(i -> {
+                            for (String cand : nameCandidates(i))
+                                if (cand.equals(pl.playerName())) return true;
+                            return false;
+                        }).findFirst().orElse(null);
+                    UUID uid;
+                    if (info != null) {
+                        uid = info.getProfile().getId();
+                    } else {
+                        UUID su = ChatMessageStore.findSeenUuid(pl.playerName());
+                        uid = su != null ? su : new UUID(0, 0);
+                    }
+                    Component displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
+                        Component.literal((msgStr.substring(0, nameIdx) + pl.playerName()).trim()));
+                    Component contentComp = ChatMessageStore.sliceStyled(message, contentStart, msgStr.length());
+                    ChatMessageStore.debugLog(() -> "[e33chat] Disguised(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
+                    ChatMessageStore.setPendingMeta(new SenderMeta(
+                        uid, displayName, contentComp, false,
+                        info != null ? info.getProfile().getName() : pl.playerName(),
+                        false, null));
+                    return;
+                }
             }
         }
-
-        SenderMeta tc = detectByTellClick(message, msgStr);
-        if (tc != null) { ChatMessageStore.setPendingMeta(tc); return; }
 
         boolean isSystem = !ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE.get();
         ChatMessageStore.setPendingMeta(new SenderMeta(
@@ -587,7 +599,13 @@ public class ChatListenerMixin {
         SenderMeta wm = detectWhisperInSystemMessage(text, "whisper");
         if (wm != null) { ChatMessageStore.setPendingMeta(wm); return; }
 
-        // Layer 2: parse decorated player line (NCR/plugin plain-text player chat)
+        // Layer 2: tell-click attribution — structural, catches NCR messages with
+        // click events deterministically (before text parsing can misidentify broadcasts)
+        SenderMeta tc = detectByTellClick(message, text);
+        if (tc != null) { ChatMessageStore.setPendingMeta(tc); return; }
+
+        // Layer 3: parse decorated player line — text-level fallback for servers
+        // that strip click events from chat messages
         if (connection != null) {
             var namesSet = new java.util.LinkedHashSet<String>();
             connection.getOnlinePlayers().forEach(info -> {
@@ -598,42 +616,48 @@ public class ChatListenerMixin {
             var parsed = MessagePresentation.parseDecoratedPlayerLine(text, onlineNames);
             if (parsed.isPresent()) {
                 var pl = parsed.orElseThrow();
-                var info = connection.getOnlinePlayers().stream()
-                    .filter(i -> {
-                        for (String cand : nameCandidates(i))
-                            if (cand.equals(pl.playerName())) return true;
-                        return false;
-                    }).findFirst().orElse(null);
-                UUID uid;
-                if (info != null) {
-                    uid = info.getProfile().getId();
-                } else {
-                    UUID su = ChatMessageStore.findSeenUuid(pl.playerName());
-                    uid = su != null ? su : new UUID(0, 0);
-                }
                 int nameIdx = text.indexOf(pl.playerName());
-                int contentStart = nameIdx + pl.playerName().length();
+                int nameEnd = nameIdx + pl.playerName().length();
+                int contentStart = nameEnd;
                 while (contentStart < text.length()) {
                     char ch = text.charAt(contentStart);
                     if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
                         || ch == '：' || ch == '»' || ch == '-' || ch == '|') contentStart++;
                     else break;
                 }
-                Component displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
-                    Component.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
-                Component contentComp = ChatMessageStore.sliceStyled(message, contentStart, text.length());
-                ChatMessageStore.debugLog(() -> "[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
-                ChatMessageStore.setPendingMeta(new SenderMeta(
-                    uid, displayName, contentComp, false,
-                    info != null ? info.getProfile().getName() : pl.playerName(),
-                    false, null));
-                return;
+                boolean hasChatSep = false;
+                for (int i = nameEnd; i < contentStart; i++) {
+                    char ch = text.charAt(i);
+                    if (ch == ':' || ch == '：' || ch == '>' || ch == '»') { hasChatSep = true; break; }
+                }
+                if (!hasChatSep) {
+                    ChatMessageStore.debugLog(() -> "[e33chat] System(line skip: no chat sep) | text='" + text + "'");
+                } else {
+                    var info = connection.getOnlinePlayers().stream()
+                        .filter(i -> {
+                            for (String cand : nameCandidates(i))
+                                if (cand.equals(pl.playerName())) return true;
+                            return false;
+                        }).findFirst().orElse(null);
+                    UUID uid;
+                    if (info != null) {
+                        uid = info.getProfile().getId();
+                    } else {
+                        UUID su = ChatMessageStore.findSeenUuid(pl.playerName());
+                        uid = su != null ? su : new UUID(0, 0);
+                    }
+                    Component displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
+                        Component.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
+                    Component contentComp = ChatMessageStore.sliceStyled(message, contentStart, text.length());
+                    ChatMessageStore.debugLog(() -> "[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
+                    ChatMessageStore.setPendingMeta(new SenderMeta(
+                        uid, displayName, contentComp, false,
+                        info != null ? info.getProfile().getName() : pl.playerName(),
+                        false, null));
+                    return;
+                }
             }
         }
-
-        // Layer 3: tell-click attribution (nickname servers)
-        SenderMeta tc = detectByTellClick(message, text);
-        if (tc != null) { ChatMessageStore.setPendingMeta(tc); return; }
 
         // Fallback: real system message
         boolean isSystem = !ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE.get();
