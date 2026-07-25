@@ -7,10 +7,16 @@
 - 修复 `[+] PlayerName 加入了游戏` 等插件改装加入消息被误渲染为聊天气泡的问题（离开消息因翻译键存活不受影响）
 - 纵深防御层序优化：tell-click（结构级，读 clickEvent）提至 player line parser（文本级，正则匹配）之前，确定性强的防线先行，覆盖 `handleSystemMessage` 和 `handleDisguisedChatMessage` 两条路径
 
+**NCR 私聊多道防线**
+- `handleDisguisedChatMessage` 增加关键词私聊检测兜底：chat type 被 NCR 剥离后，通过 whisper 关键词 + 在线/离线玩家名扫描识别私聊，覆盖 `detectWhisperInSystemMessage` 已有的离线缓存能力
+
 **NCR plugin broadcast misclassification fix**
 - Player line parser now requires at least one chat-specific separator (`:`, `：`, `>`, `»`) between player name and content; whitespace-only gaps are treated as broadcasts
 - Fixes plugin-modified join messages like `[+] PlayerName joined the game` being rendered as chat bubbles
 - Defense layer reorder: tell-click (structural, reads clickEvent) now runs before player line parser (text-level heuristic) in both `handleSystemMessage` and `handleDisguisedChatMessage`
+
+**NCR whisper multi-layer defense**
+- Added keyword-based whisper fallback in `handleDisguisedChatMessage` for servers that strip chat type, reusing existing `detectWhisperInSystemMessage` with online + cached-offline player coverage
 
 ## v2.1.3
 
