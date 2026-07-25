@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.1.3
+
+**私聊系统审计修复**
+- 回波抑制不再基于时间盲吞：发出私聊后，检查系统消息中是否出现其他在线玩家名来决定抑制还是放行，避免误吞别人的私聊
+- 排除私聊目标名：回波中目标玩家名不再导致误判
+- 玩家名匹配改用 `nameCandidates`：昵称服 display name 变体也能正确识别
+- 扩展私聊内容分隔符：支持 `->`, `>>`, `»`, `|` 等插件服常见格式
+- Whiper mode 含空格玩家名修复：已知私聊对象时直接用，不靠 split 解析
+- 新增 `/whisper` 命令支持
+- debugLog 改为延迟拼接，日志关时不产生额外开销
+
+**Whisper system audit & fixes**
+- Echo suppression no longer uses blind time window — incoming system messages are checked for other online player names before suppressing, preventing accidental swallow of incoming whispers
+- Whisper target name excluded from echo check
+- Player name matching upgraded to `nameCandidates` for nickname-server display name variants
+- Extended whisper content separators: `->`, `>>`, `»`, `|` for plugin-formatted PMs
+- Whisper mode fix for player names containing spaces
+- Added `/whisper` command support
+- debugLog refactored to Supplier-based lazy evaluation
+
 ## v2.1.2
 
 **侧边栏玩家名黑名单**

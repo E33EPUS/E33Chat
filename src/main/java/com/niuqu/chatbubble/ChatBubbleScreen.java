@@ -2014,14 +2014,17 @@ public class ChatBubbleScreen extends Screen {
         // see the literal '&'. Local coloring of our own bubble is done at addMessage.
         String text = raw;
 
+        String whisperTarget = null;
+        String displayText = text;
+
         // In whisper mode, auto-prepend /msg behind the scenes
         if (whisperPartner != null && !text.startsWith("/")) {
             text = "/msg " + whisperPartner + " " + text;
+            whisperTarget = whisperPartner;
+            displayText = raw;
         }
 
-        String whisperTarget = null;
-        String displayText = text;
-        if (text.startsWith("/msg ") || text.startsWith("/tell ") || text.startsWith("/w ")) {
+        if (whisperTarget == null && (text.startsWith("/msg ") || text.startsWith("/tell ") || text.startsWith("/w ") || text.startsWith("/whisper "))) {
             String[] parts = text.split(" ", 3);
             if (parts.length >= 3) {
                 whisperTarget = parts[1];
@@ -2052,7 +2055,9 @@ public class ChatBubbleScreen extends Screen {
             minecraft.player.connection.sendChat(text);
         minecraft.gui.getChat().addRecentChat(text);
 
-        ChatMessageStore.debugLog("[e33chat] Send | cmd='" + text + "' | display='" + displayText + "' | whisperTarget=" + whisperTarget + " | localBubble=" + localBubble);
+        String logCmd = text, logDisp = displayText, logTarget = whisperTarget;
+        boolean logBub = localBubble;
+        ChatMessageStore.debugLog(() -> "[e33chat] Send | cmd='" + logCmd + "' | display='" + logDisp + "' | whisperTarget=" + logTarget + " | localBubble=" + logBub);
         if (localBubble) {
             ChatMessageStore.addMessage(ChatBubbleConfig.COLOR_CODES.get() ? parseColorCodes(displayText) : Component.literal(displayText),
                 minecraft.player.getUUID(),
@@ -2062,7 +2067,7 @@ public class ChatBubbleScreen extends Screen {
                 whisperTarget != null, whisperTarget);
             ChatMessageStore.incrementPendingEcho(text);
         }
-        if (whisperTarget != null) ChatMessageStore.markPendingWhisperEcho();
+        if (whisperTarget != null) ChatMessageStore.markPendingWhisperEcho(whisperTarget);
 
         input.setValue("");
         savedInput = "";

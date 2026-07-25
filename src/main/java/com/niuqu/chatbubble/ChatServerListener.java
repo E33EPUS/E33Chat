@@ -54,7 +54,7 @@ public class ChatServerListener {
         if (parts.length < 3) return;
         String label = parts[0];
         if (label.startsWith("/")) label = label.substring(1);
-        if (!label.equals("msg") && !label.equals("tell") && !label.equals("w")) return;
+        if (!label.equals("msg") && !label.equals("tell") && !label.equals("w") && !label.equals("whisper")) return;
 
         var sender = event.getParseResults().getContext().getSource().getPlayer();
         if (sender == null) return;
