@@ -144,7 +144,7 @@ public class ChatListenerMixin {
             var info = findOnlinePlayer(displayName);
             String profile = info != null ? info.getProfile().getName() : displayName;
             UUID uuid = info != null ? info.getProfile().getId() : new UUID(0, 0);
-            ChatMessageStore.debugLog("[e33chat] Key(whisper in) | name=" + profile + " | content='" + content.getString() + "'");
+            ChatMessageStore.debugLog(() -> "[e33chat] Key(whisper in) | name=" + profile + " | content='" + content.getString() + "'");
             ChatMessageStore.setPendingMeta(new SenderMeta(uuid, name, content, false, profile, true, profile));
             return true;
         }
@@ -153,7 +153,7 @@ public class ChatListenerMixin {
             if (ChatMessageStore.hasPendingWhisperEcho()) {
                 ChatMessageStore.consumeWhisperEcho();
                 ChatMessageStore.markSuppressCapture();
-                ChatMessageStore.debugLog("[e33chat] Key(whisper echo suppressed)");
+                ChatMessageStore.debugLog(() -> "[e33chat] Key(whisper echo suppressed)");
                 return true;
             }
             var player = Minecraft.getInstance().player;
@@ -162,7 +162,7 @@ public class ChatListenerMixin {
                 String partner = argAsComponent(args[0]).getString().replaceAll("§.", "").trim();
                 Component content = argAsComponent(args[1]);
                 String own = player.getName().getString();
-                ChatMessageStore.debugLog("[e33chat] Key(whisper out) | partner=" + partner + " | content='" + content.getString() + "'");
+                ChatMessageStore.debugLog(() -> "[e33chat] Key(whisper out) | partner=" + partner + " | content='" + content.getString() + "'");
                 ChatMessageStore.setPendingMeta(new SenderMeta(player.getUUID(),
                     Component.literal(own), content, false, own, true, partner));
                 return true;
@@ -178,7 +178,7 @@ public class ChatListenerMixin {
             if (contentStr.startsWith("xaero-waypoint:")
                 || contentStr.startsWith("xaero_waypoint:")
                 || contentStr.startsWith("xaero_waypoint_add:")) {
-                ChatMessageStore.debugLog("[e33chat] Key(waypoint data) -> system");
+                ChatMessageStore.debugLog(() -> "[e33chat] Key(waypoint data) -> system");
                 ChatMessageStore.setPendingMeta(new SenderMeta(new UUID(0, 0),
                     Component.translatable("e33chat.sender.system"), message, true, null, false, null));
                 return true;
@@ -200,14 +200,14 @@ public class ChatListenerMixin {
                     uuid = new UUID(0, 0);
                 }
             }
-            ChatMessageStore.debugLog("[e33chat] Key(chat) | name=" + profile + " | display='" + name.getString() + "' | content='" + content.getString() + "'");
+            ChatMessageStore.debugLog(() -> "[e33chat] Key(chat) | name=" + profile + " | display='" + name.getString() + "' | content='" + content.getString() + "'");
             ChatMessageStore.setPendingMeta(new SenderMeta(uuid, name, content, false, profile, false, null));
             return true;
         }
 
         if (isVanillaBroadcast(message)) {
             boolean isSystem = !ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE.get();
-            ChatMessageStore.debugLog("[e33chat] Key(broadcast) | key=" + key);
+            ChatMessageStore.debugLog(() -> "[e33chat] Key(broadcast) | key=" + key);
             ChatMessageStore.setPendingMeta(new SenderMeta(new UUID(0, 0),
                 Component.translatable("e33chat.sender.system"), message, isSystem, null, false, null));
             return true;
@@ -292,7 +292,7 @@ public class ChatListenerMixin {
         UUID id = sender != null ? sender.getProfile().getId() : cachedId;
         Component displayName = cleanNameArea(message, 0, b, tellName[0], Component.literal(profile));
         Component content = ChatMessageStore.sliceStyled(message, contentStart, text.length());
-        ChatMessageStore.debugLog("[e33chat] System(tell click) | text='" + text + "' | name=" + profile + " | display='" + displayName.getString() + "' | content='" + content.getString() + "'");
+        ChatMessageStore.debugLog(() -> "[e33chat] System(tell click) | text='" + text + "' | name=" + profile + " | display='" + displayName.getString() + "' | content='" + content.getString() + "'");
         return new SenderMeta(
             id,
             displayName,
@@ -308,7 +308,7 @@ public class ChatListenerMixin {
         int idx = fullText.indexOf(senderName);
         if (idx < 0) return fullText;
         String after = fullText.substring(idx + senderName.length());
-        for (String sep : new String[]{": ", "：", " :", " ："}) {
+        for (String sep : new String[]{" -> ", " >> ", " » ", " | ", ": ", "：", " :", " ："}) {
             int i = after.lastIndexOf(sep);
             if (i >= 0) return after.substring(i + sep.length());
         }
@@ -327,7 +327,7 @@ public class ChatListenerMixin {
                         || text.contains("私聊") || text.contains("密语") || text.contains("密聊")) {
                         String content = extractWhisperContent(text, cand);
                         UUID senderId = info.getProfile().getId();
-                        ChatMessageStore.debugLog("[e33chat] System(" + logTag + ") | text='" + text + "' | name=" + cand + " | content='" + content + "'");
+                        ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + ") | text='" + text + "' | name=" + cand + " | content='" + content + "'");
                         return new SenderMeta(
                             senderId,
                             Component.literal(cand),
@@ -349,7 +349,7 @@ public class ChatListenerMixin {
                     UUID su = ChatMessageStore.findSeenUuid(sp);
                     if (su != null) {
                         String content = extractWhisperContent(text, sp);
-                        ChatMessageStore.debugLog("[e33chat] System(" + logTag + "/cache) | text='" + text + "' | name=" + sp + " | content='" + content + "'");
+                        ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + "/cache) | text='" + text + "' | name=" + sp + " | content='" + content + "'");
                         return new SenderMeta(
                             su,
                             Component.literal(sp),
@@ -430,7 +430,8 @@ public class ChatListenerMixin {
             Component fullLine = bound.decorate(raw);
             senderName = extractDecoratedName(fullLine, rawStr, gameProfile.getName(), senderName);
         }
-        ChatMessageStore.debugLog("[e33chat] PlayerChat | raw='" + rawStr + "' | whisper=" + isWhisper + " | partner=" + whisperPartner + " | sender='" + senderName.getString() + "' | content='" + playerContent.getString() + "'");
+        boolean logW = isWhisper; String logWP = whisperPartner; Component logSN = senderName, logPC = playerContent;
+        ChatMessageStore.debugLog(() -> "[e33chat] PlayerChat | raw='" + rawStr + "' | whisper=" + logW + " | partner=" + logWP + " | sender='" + logSN.getString() + "' | content='" + logPC.getString() + "'");
         ChatMessageStore.setPendingMeta(new SenderMeta(
             senderId != null ? senderId : new UUID(0, 0),
             senderName,
@@ -473,7 +474,8 @@ public class ChatListenerMixin {
             Component fullLine = bound.decorate(message);
             disSender = extractDecoratedName(fullLine, msgStr, bound.name().getString(), disSender);
         }
-        ChatMessageStore.debugLog("[e33chat] Disguised | raw='" + msgStr + "' | whisper=" + isWhisper + " | partner=" + whisperPartner + " | sender='" + disSender.getString() + "' | content='" + disContent.getString() + "'");
+        boolean logWD = isWhisper; String logWPD = whisperPartner; Component logSND = disSender, logDCD = disContent;
+        ChatMessageStore.debugLog(() -> "[e33chat] Disguised | raw='" + msgStr + "' | whisper=" + logWD + " | partner=" + logWPD + " | sender='" + logSND.getString() + "' | content='" + logDCD.getString() + "'");
         if (hasSender) {
             ChatMessageStore.setPendingMeta(new SenderMeta(
                 new UUID(0, 0),
@@ -523,7 +525,7 @@ public class ChatListenerMixin {
                 Component displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
                     Component.literal((msgStr.substring(0, nameIdx) + pl.playerName()).trim()));
                 Component contentComp = ChatMessageStore.sliceStyled(message, contentStart, msgStr.length());
-                ChatMessageStore.debugLog("[e33chat] Disguised(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
+                ChatMessageStore.debugLog(() -> "[e33chat] Disguised(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
                 ChatMessageStore.setPendingMeta(new SenderMeta(
                     uid, displayName, contentComp, false,
                     info != null ? info.getProfile().getName() : pl.playerName(),
@@ -559,14 +561,34 @@ public class ChatListenerMixin {
         boolean hasEchoFlag = ChatMessageStore.hasPendingWhisperEcho();
         boolean hasKw = sysText.contains("悄悄") || sysText.contains("whispers") || sysText.contains("whisper")
             || sysText.contains("私聊") || sysText.contains("密语") || sysText.contains("密聊");
-        ChatMessageStore.debugLog("[e33chat] System(echo check) | text='" + sysText + "' | flag=" + hasEchoFlag + " | kw=" + hasKw);
+        ChatMessageStore.debugLog(() -> "[e33chat] System(echo check) | text='" + sysText + "' | flag=" + hasEchoFlag + " | kw=" + hasKw);
         if (hasEchoFlag && hasKw) {
-            ChatMessageStore.consumeWhisperEcho();
-            ChatMessageStore.debugLog("[e33chat] System(echo suppressed) | text='" + sysText + "'");
-            ChatMessageStore.markSuppressCapture();
-            return;
+            var player = Minecraft.getInstance().player;
+            boolean otherPlayerFound = false;
+            if (player != null && player.connection != null) {
+                String myName = player.getName().getString();
+                String skipTarget = ChatMessageStore.getPendingWhisperTarget();
+                for (var info : player.connection.getOnlinePlayers()) {
+                    for (String cand : nameCandidates(info)) {
+                        if (cand.equals(myName) || cand.isEmpty()) continue;
+                        if (cand.equals(skipTarget)) continue;
+                        int idx = sysText.indexOf(cand);
+                        if (idx >= 0 && idx < 30) {
+                            otherPlayerFound = true;
+                            break;
+                        }
+                    }
+                    if (otherPlayerFound) break;
+                }
+            }
+            if (!otherPlayerFound) {
+                ChatMessageStore.consumeWhisperEcho();
+                ChatMessageStore.markSuppressCapture();
+                ChatMessageStore.debugLog(() -> "[e33chat] System(echo suppressed) | text='" + sysText + "'");
+                return;
+            }
         }
-        ChatMessageStore.debugLog("[e33chat] System | text='" + sysText + "' | overlay=" + overlay);
+        ChatMessageStore.debugLog(() -> "[e33chat] System | text='" + sysText + "' | overlay=" + overlay);
 
         String text = message.getString();
         var connection = Minecraft.getInstance().player.connection;
@@ -610,7 +632,7 @@ public class ChatListenerMixin {
                 Component displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
                     Component.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
                 Component contentComp = ChatMessageStore.sliceStyled(message, contentStart, text.length());
-                ChatMessageStore.debugLog("[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
+                ChatMessageStore.debugLog(() -> "[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
                 ChatMessageStore.setPendingMeta(new SenderMeta(
                     uid, displayName, contentComp, false,
                     info != null ? info.getProfile().getName() : pl.playerName(),

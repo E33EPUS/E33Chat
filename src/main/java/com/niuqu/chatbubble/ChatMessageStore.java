@@ -111,15 +111,20 @@ public class ChatMessageStore {
     private static final List<PendingEcho> pendingEchoes = new ArrayList<>();
 
     private static long pendingWhisperEchoTime;
+    private static String pendingWhisperEchoTarget;
     private static boolean suppressNextCapture;
 
-    public static void markPendingWhisperEcho() { pendingWhisperEchoTime = System.currentTimeMillis(); }
+    public static void markPendingWhisperEcho(String target) {
+        pendingWhisperEchoTime = System.currentTimeMillis();
+        pendingWhisperEchoTarget = target;
+    }
     public static void markSuppressCapture() { suppressNextCapture = true; }
 
     public static boolean hasPendingWhisperEcho() {
         return pendingWhisperEchoTime != 0 && System.currentTimeMillis() - pendingWhisperEchoTime < 10_000;
     }
-    public static void consumeWhisperEcho() { pendingWhisperEchoTime = 0; }
+    public static String getPendingWhisperTarget() { return pendingWhisperEchoTarget; }
+    public static void consumeWhisperEcho() { pendingWhisperEchoTime = 0; pendingWhisperEchoTarget = null; }
 
     public static boolean consumeSuppressCapture() {
         if (suppressNextCapture) { suppressNextCapture = false; return true; }
@@ -149,9 +154,9 @@ public class ChatMessageStore {
         return false;
     }
 
-    public static void debugLog(String msg) {
+    public static void debugLog(java.util.function.Supplier<String> msg) {
         if (ChatBubbleConfig.DEBUG_LOG.get())
-            com.mojang.logging.LogUtils.getLogger().info(msg);
+            com.mojang.logging.LogUtils.getLogger().info(msg.get());
     }
 
     public static boolean consumeEchoIfSenderMatches(Component senderName) {

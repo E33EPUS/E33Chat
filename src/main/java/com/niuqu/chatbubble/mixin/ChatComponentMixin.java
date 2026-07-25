@@ -76,7 +76,9 @@ public class ChatComponentMixin {
             content = finalComponent;
         }
 
-        ChatMessageStore.debugLog("[e33chat] Capture | final='" + finalComponent.getString() + "' | content='" + content.getString() + "' | whisper=" + meta.whisper() + " | partner=" + meta.whisperPartner() + " | isSystem=" + meta.isSystem());
+        Component logComp = finalComponent, logContent = content;
+        SenderMeta logMeta = meta;
+        ChatMessageStore.debugLog(() -> "[e33chat] Capture | final='" + logComp.getString() + "' | content='" + logContent.getString() + "' | whisper=" + logMeta.whisper() + " | partner=" + logMeta.whisperPartner() + " | isSystem=" + logMeta.isSystem());
         ChatMessageStore.addMessage(content, meta.senderUUID(), meta.senderName(), meta.isSystem(), meta.rawPlayerName(), meta.whisper(), meta.whisperPartner());
     }
 }
