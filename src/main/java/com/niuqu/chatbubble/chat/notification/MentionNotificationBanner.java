@@ -1,0 +1,217 @@
+package com.niuqu.chatbubble.chat.notification;
+
+import com.mojang.authlib.GameProfile;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.niuqu.chatbubble.ChatBubbleConfig;
+import com.niuqu.chatbubble.ChatMessageStore;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
+
+import java.util.*;
+
+public class MentionNotificationBanner {
+    public static final MentionNotificationBanner INSTANCE = new MentionNotificationBanner();
+
+    private static final long SLIDE_MS = 250;
+    private static final long VISIBLE_MS_PERIOD = 1000;
+    private static final int AVATAR = 24;
+    private static final int AVATAR_HAT = 26;
+    private static final int AVATAR_X = 10;
+    private static final int TEXT_X = AVATAR_X + AVATAR + 6;
+    private static final int BAR_W = 4;
+    private static final int BANNER_H = 36;
+    private static final int MAX_MSG_LINES = 2;
+    private static final UUID NIL_UUID = new UUID(0, 0);
+
+    private final Deque<PendingBanner> queue = new ArrayDeque<>();
+    private PendingBanner current;
+    private BannerState state = BannerState.HIDDEN;
+    private long stateStartMs;
+    private long visibleDurationMs;
+
+    private static final Map<UUID, ResourceLocation> skinCache = new HashMap<>();
+
+    private MentionNotificationBanner() {}
+
+    public void enqueue(UUID senderUUID, Component senderName, Component content, int messageIndex) {
+        queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex));
+    }
+
+    public int pendingCount() { return queue.size() + (current != null ? 1 : 0); }
+
+    public void tick() {
+        long now = System.currentTimeMillis();
+        BannerState prev = state;
+        switch (state) {
+            case HIDDEN:
+                if (!queue.isEmpty()) {
+                    current = queue.pollFirst();
+                    visibleDurationMs = (long) ChatBubbleConfig.MENTION_BANNER_DURATION.get() * VISIBLE_MS_PERIOD;
+                    state = BannerState.SLIDING_DOWN;
+                    stateStartMs = now;
+                }
+                break;
+            case SLIDING_DOWN:
+                if (now - stateStartMs >= SLIDE_MS) {
+                    state = BannerState.VISIBLE;
+                    stateStartMs = now;
+                }
+                break;
+            case VISIBLE:
+                if (now - stateStartMs >= visibleDurationMs) {
+                    state = BannerState.SLIDING_UP;
+                    stateStartMs = now;
+                }
+                break;
+            case SLIDING_UP:
+                if (now - stateStartMs >= SLIDE_MS) {
+                    current = null;
+                    if (!queue.isEmpty()) {
+                        current = queue.pollFirst();
+                        visibleDurationMs = (long) ChatBubbleConfig.MENTION_BANNER_DURATION.get() * VISIBLE_MS_PERIOD;
+                        state = BannerState.SLIDING_DOWN;
+                    } else {
+                        state = BannerState.HIDDEN;
+                    }
+                    stateStartMs = now;
+                }
+                break;
+        }
+        if (state != prev) {
+            String sender = current != null ? current.senderName.getString() : "?";
+            ChatMessageStore.debugLog(() -> "[e33chat] Banner " + prev + " -> "
+                + state + " | queue=" + queue.size() + " | sender=" + sender);
+        }
+    }
+
+    public void render(GuiGraphics g, int screenW, int screenH) {
+        if (current == null || state == BannerState.HIDDEN) return;
+        if (!ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        long now = System.currentTimeMillis();
+
+        float raw = state == BannerState.SLIDING_DOWN
+            ? Math.min(1f, (float)(now - stateStartMs) / SLIDE_MS)
+            : state == BannerState.SLIDING_UP
+                ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_MS)
+                : 1f;
+
+        // Slide: ease-out down (fast→slow), ease-in up (slow→fast)
+        float slide = state == BannerState.SLIDING_DOWN
+            ? 1f - (1f - raw) * (1f - raw)
+            : state == BannerState.SLIDING_UP
+                ? raw * raw
+                : 1f;
+
+        // Opacity: fade in/out (linear)
+        float alpha = raw;
+
+        int y = (int)((-BANNER_H) + slide * BANNER_H);
+
+        var theme = ChatBubbleConfig.THEME.get().colors();
+        int bg = theme.bannerBg();
+        int barColor = theme.bannerBar();
+
+        // Layout constants
+        int maxTextW = Math.min(screenW - TEXT_X - 12, 260);
+        Component nameComp = current.senderName;
+        Component msgComp = current.content;
+
+        // Message: pre-truncate full text to 2-line limit, then wrap
+        List<FormattedCharSequence> msgLines = mc.font.split(msgComp, maxTextW);
+        if (msgLines.size() > MAX_MSG_LINES) {
+            String fullText = msgComp.getString();
+            int ellipsisW = mc.font.width("...");
+            String truncated = mc.font.plainSubstrByWidth(fullText, maxTextW * 2 - ellipsisW) + "...";
+            msgLines = mc.font.split(Component.literal(truncated), maxTextW);
+            if (msgLines.size() > MAX_MSG_LINES)
+                msgLines = msgLines.subList(0, MAX_MSG_LINES);
+        }
+
+        // Name truncation
+        int nameW = mc.font.width(nameComp);
+        String nameDisplay = nameW > maxTextW
+            ? mc.font.plainSubstrByWidth(nameComp.getString(), maxTextW - mc.font.width("...")) + "..."
+            : null;
+
+        int textW = nameDisplay != null ? mc.font.width(nameDisplay) : nameW;
+        for (var line : msgLines) textW = Math.max(textW, mc.font.width(line));
+
+        int bannerW = AVATAR_X + AVATAR + 6 + textW + 12;
+        int x = (screenW - bannerW) / 2;
+
+        // Background
+        int bgAlpha = (int)((bg >>> 24) * alpha);
+        g.fill(x, y, x + bannerW, y + BANNER_H, (bgAlpha << 24) | (bg & 0x00FFFFFF));
+
+        // Left color bar
+        int barAlpha = (int)(0xE0 * alpha);
+        g.fill(x, y, x + BAR_W, y + BANNER_H, (barAlpha << 24) | (barColor & 0x00FFFFFF));
+
+        // Avatar
+        int avatarY = y + (BANNER_H - AVATAR_HAT) / 2;
+        ResourceLocation skin = getSkin(current.senderUUID, nameComp.getString());
+        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+        drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+
+        // Name
+        int textX = x + TEXT_X;
+        int nameY = y + 6;
+        int nameAlpha = (int)((theme.textPrimary() >>> 24) * alpha);
+        int nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
+        g.drawString(mc.font,
+            nameDisplay != null ? Component.literal(nameDisplay) : current.senderName,
+            textX, nameY, nameColor, false);
+
+        // Message lines
+        int msgAlpha = (int)((theme.textSecondary() >>> 24) * alpha);
+        int msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
+        int msgY = nameY + mc.font.lineHeight + 2;
+        for (int i = 0; i < msgLines.size(); i++)
+            g.drawString(mc.font, msgLines.get(i), textX,
+                msgY + i * mc.font.lineHeight, msgColor, false);
+    }
+
+    public int currentMessageIndex() {
+        return current != null ? current.messageIndex : -1;
+    }
+
+    private ResourceLocation getSkin(UUID uuid, String name) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getConnection() != null && uuid != null && !uuid.equals(NIL_UUID)) {
+            var info = mc.getConnection().getPlayerInfo(uuid);
+            if (info != null) return info.getSkinLocation();
+        }
+        if (uuid != null && !uuid.equals(NIL_UUID)) {
+            ResourceLocation cached = skinCache.get(uuid);
+            if (cached != null) return cached;
+            var skin = mc.getSkinManager().getInsecureSkinLocation(
+                new GameProfile(uuid, name != null ? name : ""));
+            if (skin != null) {
+                skinCache.put(uuid, skin);
+                return skin;
+            }
+        }
+        return DefaultPlayerSkin.getDefaultSkin(uuid != null ? uuid : NIL_UUID);
+    }
+
+    private void drawPlayerHead(GuiGraphics g, ResourceLocation skin, int x, int y,
+                                 int baseSize, int hatSize) {
+        RenderSystem.enableBlend();
+        g.blit(skin, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64);
+        int hatOff = (hatSize - baseSize) / 2;
+        g.blit(skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64);
+        RenderSystem.disableBlend();
+    }
+
+    private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }
+
+    private record PendingBanner(UUID senderUUID, Component senderName, Component content,
+                                  int messageIndex) {}
+}

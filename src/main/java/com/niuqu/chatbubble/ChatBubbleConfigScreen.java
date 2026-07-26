@@ -77,9 +77,13 @@ public class ChatBubbleConfigScreen extends Screen {
         notifications.add(new Opt("e33chat.config.preview_width",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PREVIEW_WIDTH.get()), 50, 400, 3, ChatBubbleConfig.PREVIEW_WIDTH::set), null));
         notifications.add(new Opt("e33chat.config.strong_hint", y -> mkBoolButton(y, ChatBubbleConfig.STRONG_HINT_ENABLED), null));
-        notifications.add(new Opt("e33chat.config.mention_strong_hint", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_STRONG_HINT_ENABLED), null));
-        notifications.add(new Opt("e33chat.config.sound_mention",
-            y -> mkBoolButton(y, ChatBubbleConfig.SOUND_MENTION), null));
+        notifications.add(new Opt("e33chat.config.mention_banner_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_BANNER_ENABLED), null));
+        notifications.add(new Opt("e33chat.config.mention_banner_duration",
+            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.MENTION_BANNER_DURATION.get()), 2, 10, 2,
+                v -> ChatBubbleConfig.MENTION_BANNER_DURATION.set(v)), null));
+        notifications.add(new Opt("e33chat.config.mention_sound_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_SOUND_ENABLED), null));
+        notifications.add(new Opt("e33chat.config.mention_whisper_banner", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_WHISPER_BANNER), null));
+        notifications.add(new Opt("e33chat.config.mention_require_at", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_REQUIRE_AT), null));
         notifications.add(new Opt("e33chat.config.sound_whisper",
             y -> mkBoolButton(y, ChatBubbleConfig.SOUND_WHISPER), null));
         notifications.add(new Opt("e33chat.config.sound_system",

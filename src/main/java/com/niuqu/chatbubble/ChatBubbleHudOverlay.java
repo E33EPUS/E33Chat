@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.resources.ResourceLocation;
 
+import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,8 +42,15 @@ public class ChatBubbleHudOverlay {
         g.pose().pushPose();
         g.pose().translate(0, 0, 300);
 
+        MentionNotificationBanner.INSTANCE.tick();
+        if (mc.screen == null || mc.screen instanceof ChatBubbleScreen) {
+            MentionNotificationBanner.INSTANCE.render(g,
+                mc.getWindow().getGuiScaledWidth(),
+                mc.getWindow().getGuiScaledHeight());
+        }
+
         // Strong hint above hotbar — render even when a screen is open
-        if (ChatBubbleConfig.STRONG_HINT_ENABLED.get() || ChatBubbleConfig.MENTION_STRONG_HINT_ENABLED.get()) {
+        if (ChatBubbleConfig.STRONG_HINT_ENABLED.get() || ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
             Component hint = ChatMessageStore.getStrongHintText();
             if (hint != null) {
                 int ticks = ChatMessageStore.getStrongHintTicks();

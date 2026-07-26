@@ -194,9 +194,7 @@ public class ChatBubbleScreen extends Screen {
         panelW = Math.max(100, Math.min(physicalW / guiScale, width));
         if (sidebarOpen) {
             panelX = 0;
-            sidebarTargetOpen = true;
-            sidebarAnimating = true;
-            sidebarAnimStart = net.minecraft.Util.getMillis();
+            sidebarAnimating = false;
         } else {
             panelX = 0;
             sidebarAnimating = false;
@@ -298,9 +296,14 @@ public class ChatBubbleScreen extends Screen {
 
     private float getSidebarAnimProgress() {
         if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) return sidebarOpen ? 1f : 0f;
-        if (!sidebarAnimating) return sidebarOpen ? 1f : 0f;
-        float progress = Animation.progress(sidebarAnimStart, ANIM_MS, false);
-        return sidebarTargetOpen ? progress : 1.0f - progress;
+        // Independent sidebar toggle while chat is already open
+        if (sidebarAnimating) {
+            float progress = Animation.progress(sidebarAnimStart, ANIM_MS, false);
+            return sidebarTargetOpen ? progress : 1.0f - progress;
+        }
+        if (!sidebarOpen) return 0f;
+        // Sidebar open: sync to main chat panel open/close animation
+        return getAnimProgress();
     }
 
     private int getSidebarScreenX() {
@@ -1087,6 +1090,14 @@ public class ChatBubbleScreen extends Screen {
         // follow the panel's pose translate, so slide it with the open/close animation
         input.setX(inputX + panelOffset);
         super.render(g, mouseX, mouseY, partialTick);
+        g.pose().popPose();
+
+        // Notification banner above the chat panel
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 200);
+        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.tick();
+        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.render(g,
+            width, height);
         g.pose().popPose();
     }
 

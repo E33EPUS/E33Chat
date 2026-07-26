@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.5
+
+**@Mention 通知系统**
+- 手机同款通知横幅：被 @ 时从屏幕顶部滑入，4 秒后自动消失，多条排队依次显示
+- @ 高亮：聊天泡泡中 @你 的消息文本变色（默认金黄 #FFD700）
+- 场景区分：聊天打开时仅高亮+音效，关闭时横幅+音效
+- 词边界检测：@PlayerName 精确匹配，不误触发 @PlayerName123
+- 配置项：横幅开关/颜色/时长、高亮开关/颜色、音效开关、@ 前缀要求
+
+**@Mention notification system**
+- Phone-style notification banner: slides in from top of screen when mentioned, auto-dismisses after 4s, multiple mentions queued
+- @highlight in chat bubbles: mentioned messages get distinct text color (default gold #FFD700)
+- Context-aware: highlight+sound only when chat is open, banner+sound when closed
+- Word-boundary detection: @PlayerName matches exactly, no false positives on @PlayerName123
+- Configurable: banner toggle/color/duration, highlight toggle/color, sound toggle, @req toggle
+
 ## v2.1.4
 
 **NCR 插件改装广播误识别修复**
