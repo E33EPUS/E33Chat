@@ -95,5 +95,14 @@
   "e33chat.config.mention_banner_duration.desc": "横幅停留时间（2-10 秒）",
   "e33chat.config.mention_sound_enabled.desc": "被 @ 或收到私聊时播放提示音",
   "e33chat.config.mention_whisper_banner.desc": "收到私聊时也弹出通知横幅",
-  "e33chat.config.mention_require_at.desc": "仅在 @ 开头时触发（关闭则纯名字也能触发）"
+  "e33chat.config.mention_require_at.desc": "仅在 @ 开头时触发（关闭则纯名字也能触发）",
+  "e33chat.config.section.panel": "面板",
+  "e33chat.config.section.bubbles": "气泡",
+  "e33chat.config.section.text": "文字",
+  "e33chat.config.section.hud": "HUD 元素",
+  "e33chat.config.section.mention": "@ 通知",
+  "e33chat.config.section.sounds": "声音",
+  "e33chat.config.section.general": "通用",
+  "e33chat.config.section.messages": "消息处理",
+  "e33chat.config.section.history": "历史记录"
 }

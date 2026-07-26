@@ -95,5 +95,14 @@
   "e33chat.config.mention_banner_duration.desc": "How long the banner stays visible (2-10 seconds)",
   "e33chat.config.mention_sound_enabled.desc": "Play a chime sound when @mentioned or whispered",
   "e33chat.config.mention_whisper_banner.desc": "Also show banner for incoming private messages",
-  "e33chat.config.mention_require_at.desc": "Only trigger when preceded by @ (otherwise bare name also works)"
+  "e33chat.config.mention_require_at.desc": "Only trigger when preceded by @ (otherwise bare name also works)",
+  "e33chat.config.section.panel": "Panel",
+  "e33chat.config.section.bubbles": "Bubbles",
+  "e33chat.config.section.text": "Text",
+  "e33chat.config.section.hud": "HUD Elements",
+  "e33chat.config.section.mention": "@Mentions",
+  "e33chat.config.section.sounds": "Sounds",
+  "e33chat.config.section.general": "General",
+  "e33chat.config.section.messages": "Messages",
+  "e33chat.config.section.history": "History"
 }

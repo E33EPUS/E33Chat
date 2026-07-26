@@ -61,7 +61,7 @@ public class MentionNotificationController {
         if (mc.player == null) return;
 
         boolean chatOpen = mc.screen instanceof ChatBubbleScreen;
-        String senderStr = senderName.getString();
+        String senderStr = senderName.getString().replaceAll("§.", "");
         boolean isOwn = mc.player.getName().getString().equals(senderStr);
 
         ChatMessageStore.debugLog(() -> "[e33chat] Whisper banner | sender=" + senderStr

@@ -118,28 +118,41 @@ public class MentionNotificationBanner {
         int barColor = theme.bannerBar();
 
         // Layout constants
-        int maxTextW = Math.min(screenW - TEXT_X - 12, 260);
+        int maxTextW = Math.min(screenW - TEXT_X - 12, 200);
         Component nameComp = current.senderName;
         Component msgComp = current.content;
+        int dotsW = mc.font.width("...");
+        boolean nameTruncated = false;
+        boolean msgTruncated = false;
 
-        // Message: pre-truncate full text to 2-line limit, then wrap
+        // Message: font.split preserves per-line styled FormattedCharSequence.
+        // If > 2 lines, keep line 0 as styled, flatten last line to plain + "...".
         List<FormattedCharSequence> msgLines = mc.font.split(msgComp, maxTextW);
         if (msgLines.size() > MAX_MSG_LINES) {
+            msgTruncated = true;
             String fullText = msgComp.getString();
-            int ellipsisW = mc.font.width("...");
-            String truncated = mc.font.plainSubstrByWidth(fullText, maxTextW * 2 - ellipsisW) + "...";
-            msgLines = mc.font.split(Component.literal(truncated), maxTextW);
+            String plain = mc.font.plainSubstrByWidth(fullText, maxTextW * 2 - dotsW) + "...";
+            // Re-split the flattened text for the final 2 lines
+            msgLines = mc.font.split(Component.literal(plain), maxTextW);
             if (msgLines.size() > MAX_MSG_LINES)
                 msgLines = msgLines.subList(0, MAX_MSG_LINES);
         }
 
-        // Name truncation
-        int nameW = mc.font.width(nameComp);
-        String nameDisplay = nameW > maxTextW
-            ? mc.font.plainSubstrByWidth(nameComp.getString(), maxTextW - mc.font.width("...")) + "..."
-            : null;
+        // Name: font.split preserves per-line style.
+        List<FormattedCharSequence> nameLines = mc.font.split(nameComp, maxTextW);
+        FormattedCharSequence nameSeq;
+        if (nameLines.isEmpty()) {
+            nameSeq = FormattedCharSequence.EMPTY;
+        } else if (nameLines.size() > 1) {
+            nameTruncated = true;
+            String plainName = mc.font.plainSubstrByWidth(
+                nameComp.getString(), maxTextW - dotsW) + "...";
+            nameSeq = mc.font.split(Component.literal(plainName), maxTextW).get(0);
+        } else {
+            nameSeq = nameLines.get(0);
+        }
 
-        int textW = nameDisplay != null ? mc.font.width(nameDisplay) : nameW;
+        int textW = mc.font.width(nameSeq);
         for (var line : msgLines) textW = Math.max(textW, mc.font.width(line));
 
         int bannerW = AVATAR_X + AVATAR + 6 + textW + 12;
@@ -165,11 +178,9 @@ public class MentionNotificationBanner {
         int nameY = y + 6;
         int nameAlpha = (int)((theme.textPrimary() >>> 24) * alpha);
         int nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
-        g.drawString(mc.font,
-            nameDisplay != null ? Component.literal(nameDisplay) : current.senderName,
-            textX, nameY, nameColor, false);
+        g.drawString(mc.font, nameSeq, textX, nameY, nameColor, false);
 
-        // Message lines
+        // Message lines (already styled from font.split)
         int msgAlpha = (int)((theme.textSecondary() >>> 24) * alpha);
         int msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
         int msgY = nameY + mc.font.lineHeight + 2;
