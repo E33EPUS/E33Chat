@@ -456,6 +456,13 @@ public class ChatListenerMixin {
             isWhisper = true;
             whisperPartner = bound.targetName().map(Component::getString).orElse(null);
         }
+
+        // NCR fallback: keyword-based whisper detection for servers that strip chat type
+        if (!isWhisper) {
+            SenderMeta wm = detectWhisperInSystemMessage(msgStr, "disguised");
+            if (wm != null) { ChatMessageStore.setPendingMeta(wm); return; }
+        }
+
         Component disContent = message;
         Component disSender = hasSender ? bound.name() : Component.translatable("e33chat.sender.system");
         if (isWhisper && hasSender) {

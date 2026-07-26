@@ -21,6 +21,7 @@ public class ChatBubbleConfigScreen extends Screen {
     }
 
     private static final int ROW_H = 28;
+    private static final int HEADER_H = 16;
     private static final int START_Y = 40;
     private static final int CAT_X = 24;
     private static final int CAT_W = 86;
@@ -36,7 +37,10 @@ public class ChatBubbleConfigScreen extends Screen {
         AbstractWidget create(int y);
     }
 
-    private record Opt(String key, WidgetFactory factory, Supplier<String> previewColor) {}
+    private record Opt(String key, WidgetFactory factory, Supplier<String> previewColor) {
+        static Opt header(String key) { return new Opt(key, null, null); }
+        boolean isHeader() { return factory == null; }
+    }
 
     private record Cat(String key, List<Opt> opts) {}
 
@@ -46,12 +50,14 @@ public class ChatBubbleConfigScreen extends Screen {
         if (cats != null) return;
         cats = new ArrayList<>();
 
-        // Appearance: overall look (theme/animation/size), then colors grouped own/other
+        // Appearance: grouped by panel / bubbles / text
         List<Opt> appearance = new ArrayList<>();
+        appearance.add(Opt.header("e33chat.config.section.panel"));
         appearance.add(new Opt("e33chat.config.theme", this::mkThemeButton, null));
         appearance.add(new Opt("e33chat.config.animation", y -> mkBoolButton(y, ChatBubbleConfig.ANIMATION_ENABLED), null));
         appearance.add(new Opt("e33chat.config.panel_width",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PANEL_WIDTH.get()), 800, 1600, 4, ChatBubbleConfig.PANEL_WIDTH::set), null));
+        appearance.add(Opt.header("e33chat.config.section.bubbles"));
         appearance.add(new Opt("e33chat.config.bubble_corner_radius",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get()), 0, 10, 2, ChatBubbleConfig.BUBBLE_CORNER_RADIUS::set), null));
         appearance.add(new Opt("e33chat.config.own_bubble_color",
@@ -60,6 +66,7 @@ public class ChatBubbleConfigScreen extends Screen {
         appearance.add(new Opt("e33chat.config.other_bubble_color",
             y -> mkHexBox(y, ChatBubbleConfig.OTHER_BUBBLE_COLOR.get(), ChatBubbleConfig.OTHER_BUBBLE_COLOR::set),
             ChatBubbleConfig.OTHER_BUBBLE_COLOR::get));
+        appearance.add(Opt.header("e33chat.config.section.text"));
         appearance.add(new Opt("e33chat.config.own_text_color",
             y -> mkHexBox(y, ChatBubbleConfig.OWN_TEXT_COLOR.get(), ChatBubbleConfig.OWN_TEXT_COLOR::set),
             ChatBubbleConfig.OWN_TEXT_COLOR::get));
@@ -68,8 +75,9 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleConfig.OTHER_TEXT_COLOR::get));
         cats.add(new Cat("e33chat.config.cat.appearance", appearance));
 
-        // Notifications & sound: HUD icon, preview (toggle->params), strong hint, then sounds
+        // Notifications: HUD elements / @notifications / sounds
         List<Opt> notifications = new ArrayList<>();
+        notifications.add(Opt.header("e33chat.config.section.hud"));
         notifications.add(new Opt("e33chat.config.red_dot", y -> mkBoolButton(y, ChatBubbleConfig.RED_DOT_ENABLED), null));
         notifications.add(new Opt("e33chat.config.hide_chat_icon", y -> mkBoolButton(y, ChatBubbleConfig.HIDE_CHAT_ICON), null));
         notifications.add(new Opt("e33chat.config.preview_enabled", y -> mkBoolButton(y, ChatBubbleConfig.PREVIEW_ENABLED), null));
@@ -77,9 +85,15 @@ public class ChatBubbleConfigScreen extends Screen {
         notifications.add(new Opt("e33chat.config.preview_width",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PREVIEW_WIDTH.get()), 50, 400, 3, ChatBubbleConfig.PREVIEW_WIDTH::set), null));
         notifications.add(new Opt("e33chat.config.strong_hint", y -> mkBoolButton(y, ChatBubbleConfig.STRONG_HINT_ENABLED), null));
-        notifications.add(new Opt("e33chat.config.mention_strong_hint", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_STRONG_HINT_ENABLED), null));
-        notifications.add(new Opt("e33chat.config.sound_mention",
-            y -> mkBoolButton(y, ChatBubbleConfig.SOUND_MENTION), null));
+        notifications.add(Opt.header("e33chat.config.section.mention"));
+        notifications.add(new Opt("e33chat.config.mention_banner_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_BANNER_ENABLED), null));
+        notifications.add(new Opt("e33chat.config.mention_banner_duration",
+            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.MENTION_BANNER_DURATION.get()), 2, 10, 2,
+                v -> ChatBubbleConfig.MENTION_BANNER_DURATION.set(v)), null));
+        notifications.add(new Opt("e33chat.config.mention_sound_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_SOUND_ENABLED), null));
+        notifications.add(new Opt("e33chat.config.mention_require_at", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_REQUIRE_AT), null));
+        notifications.add(new Opt("e33chat.config.mention_whisper_banner", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_WHISPER_BANNER), null));
+        notifications.add(Opt.header("e33chat.config.section.sounds"));
         notifications.add(new Opt("e33chat.config.sound_whisper",
             y -> mkBoolButton(y, ChatBubbleConfig.SOUND_WHISPER), null));
         notifications.add(new Opt("e33chat.config.sound_system",
@@ -88,15 +102,18 @@ public class ChatBubbleConfigScreen extends Screen {
             y -> mkBoolButton(y, ChatBubbleConfig.SOUND_PUBLIC), null));
         cats.add(new Cat("e33chat.config.cat.notifications", notifications));
 
-        // Behavior: master toggle first, then message handling
+        // Behavior: message handling / chat history / advanced handling
         List<Opt> behavior = new ArrayList<>();
+        behavior.add(Opt.header("e33chat.config.section.general"));
         behavior.add(new Opt("e33chat.config.enabled", y -> mkBoolButton(y, ChatBubbleConfig.ENABLED), null));
+        behavior.add(new Opt("e33chat.config.time_separator", this::mkTimeSepButton, null));
+        behavior.add(Opt.header("e33chat.config.section.messages"));
         behavior.add(new Opt("e33chat.config.anti_spam", y -> mkBoolButton(y, ChatBubbleConfig.ANTI_SPAM), null));
+        behavior.add(new Opt("e33chat.config.system_chat_as_bubble", y -> mkBoolButton(y, ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE), null));
+        behavior.add(new Opt("e33chat.config.color_codes", y -> mkBoolButton(y, ChatBubbleConfig.COLOR_CODES), null));
+        behavior.add(Opt.header("e33chat.config.section.history"));
         behavior.add(new Opt("e33chat.config.chat_history", y -> mkBoolButton(y, ChatBubbleConfig.CHAT_HISTORY_ENABLED), null));
         behavior.add(new Opt("e33chat.config.preserve_input", y -> mkBoolButton(y, ChatBubbleConfig.PRESERVE_INPUT), null));
-        behavior.add(new Opt("e33chat.config.color_codes", y -> mkBoolButton(y, ChatBubbleConfig.COLOR_CODES), null));
-        behavior.add(new Opt("e33chat.config.system_chat_as_bubble", y -> mkBoolButton(y, ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE), null));
-        behavior.add(new Opt("e33chat.config.time_separator", this::mkTimeSepButton, null));
         behavior.add(new Opt("e33chat.config.sidebar_hide_patterns",
             y -> mkPatternBox(y,
                 new ArrayList<>(ChatBubbleConfig.SIDEBAR_HIDE_PATTERNS.get()),
@@ -104,7 +121,6 @@ public class ChatBubbleConfigScreen extends Screen {
             null));
         cats.add(new Cat("e33chat.config.cat.behavior", behavior));
 
-        // Advanced: debug/dev-only options
         List<Opt> advanced = new ArrayList<>();
         advanced.add(new Opt("e33chat.config.debug_log", y -> mkBoolButton(y, ChatBubbleConfig.DEBUG_LOG), null));
         cats.add(new Cat("e33chat.config.cat.advanced", advanced));
@@ -129,6 +145,7 @@ public class ChatBubbleConfigScreen extends Screen {
 
         int y = START_Y - scrollOffset;
         for (Opt opt : cats.get(selectedCat).opts()) {
+            if (opt.isHeader()) { y += HEADER_H + 2; continue; }
             scrollWidgets.add(addRenderableWidget(opt.factory().create(y)));
             y += ROW_H;
         }
@@ -274,6 +291,17 @@ public class ChatBubbleConfigScreen extends Screen {
         String tooltipKey = null;
         int y = START_Y - scrollOffset;
         for (Opt opt : cats.get(selectedCat).opts()) {
+            if (opt.isHeader()) {
+                if (y > -HEADER_H && y < height) {
+                    g.fill(optLabelX - 4, y, optLabelX + optAreaW() + 4, y + HEADER_H,
+                        c().configBg());
+                    g.drawCenteredString(font, Component.translatable(opt.key()),
+                        optLabelX + optAreaW() / 2, y + (HEADER_H - 8) / 2,
+                        c().configSection());
+                }
+                y += HEADER_H + 2;
+                continue;
+            }
             if (y > -ROW_H && y < height) {
                 g.drawString(font, Component.translatable(opt.key()), optLabelX, y + 6, c().configLabel(), false);
                 if (opt.previewColor() != null)
@@ -320,8 +348,12 @@ public class ChatBubbleConfigScreen extends Screen {
         g.fill(0, 0, width, height, 0xC0101010);
     }
 
+    private int optAreaW() { return previewX - optLabelX - 4; }
+
     private int calcMaxScroll() {
-        int total = cats.get(selectedCat).opts().size() * ROW_H;
+        int total = 0;
+        for (Opt opt : cats.get(selectedCat).opts())
+            total += opt.isHeader() ? HEADER_H + 2 : ROW_H;
         return Math.max(0, START_Y + total - (height - 42));
     }
 
@@ -333,9 +365,10 @@ public class ChatBubbleConfigScreen extends Screen {
         scrollOffset = Mth.clamp(scrollOffset, 0, maxScroll);
 
         int y = START_Y - scrollOffset;
-        List<Opt> opts = cats.get(selectedCat).opts();
-        for (int i = 0; i < opts.size() && i < scrollWidgets.size(); i++) {
-            scrollWidgets.get(i).setY(y);
+        int wi = 0;
+        for (Opt opt : cats.get(selectedCat).opts()) {
+            if (opt.isHeader()) { y += HEADER_H + 2; continue; }
+            if (wi < scrollWidgets.size()) scrollWidgets.get(wi++).setY(y);
             y += ROW_H;
         }
         return true;

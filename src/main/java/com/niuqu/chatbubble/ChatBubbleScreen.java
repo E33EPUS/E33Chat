@@ -193,7 +193,7 @@ public class ChatBubbleScreen extends Screen {
         int guiScale = (int)Math.round(minecraft.getWindow().getGuiScale());
         panelW = Math.max(100, Math.min(physicalW / guiScale, width));
         if (sidebarOpen) {
-            panelX = 0;
+            panelX = SIDEBAR_W;
             sidebarTargetOpen = true;
             sidebarAnimating = true;
             sidebarAnimStart = net.minecraft.Util.getMillis();
@@ -299,6 +299,7 @@ public class ChatBubbleScreen extends Screen {
     private float getSidebarAnimProgress() {
         if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) return sidebarOpen ? 1f : 0f;
         if (!sidebarAnimating) return sidebarOpen ? 1f : 0f;
+        if (!sidebarOpen) return 0f;
         float progress = Animation.progress(sidebarAnimStart, ANIM_MS, false);
         return sidebarTargetOpen ? progress : 1.0f - progress;
     }
@@ -1034,7 +1035,13 @@ public class ChatBubbleScreen extends Screen {
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
-        int panelOffset = (int) ((anim - 1.0f) * panelW);
+        int moveDist;
+        if (sidebarOpen) {
+            moveDist = closing ? panelW : SIDEBAR_W;
+        } else {
+            moveDist = panelW;
+        }
+        int panelOffset = (int) ((anim - 1.0f) * moveDist);
 
         // Panel contents slide in from left
         g.pose().pushPose();
@@ -1043,7 +1050,11 @@ public class ChatBubbleScreen extends Screen {
         int panelBg = c().panelBg();
         int panelBgAlpha = (panelBg >> 24) & 0xFF;
         int fadedBg = ((int)(panelBgAlpha * anim) << 24) | (panelBg & 0x00FFFFFF);
-        g.fill(panelX, 0, panelX + panelW, height, fadedBg);
+        // When sidebar is synced to main animation, extend panel bg to
+        // sidebar's right edge so there's no gap between them.
+        int fillLeft = (!sidebarAnimating && sidebarOpen)
+            ? (int)(anim * SIDEBAR_W) : panelX;
+        g.fill(fillLeft, 0, panelX + panelW, height, fadedBg);
 
         renderTitleBar(g, mouseX, mouseY);
         renderMessages(g, mouseX, mouseY);
@@ -1091,6 +1102,13 @@ public class ChatBubbleScreen extends Screen {
         // follow the panel's pose translate, so slide it with the open/close animation
         input.setX(inputX + panelOffset);
         super.render(g, mouseX, mouseY, partialTick);
+        g.pose().popPose();
+
+        // Notification banner above the chat panel
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 200);
+        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.render(g,
+            width, height);
         g.pose().popPose();
     }
 

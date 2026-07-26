@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.resources.ResourceLocation;
 
+import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,6 +41,13 @@ public class ChatBubbleHudOverlay {
 
         g.pose().pushPose();
         g.pose().translate(0, 0, 300);
+
+        MentionNotificationBanner.INSTANCE.tick();
+        if (mc.screen == null || mc.screen instanceof ChatBubbleScreen) {
+            MentionNotificationBanner.INSTANCE.render(g,
+                mc.getWindow().getGuiScaledWidth(),
+                mc.getWindow().getGuiScaledHeight());
+        }
 
         if (mc.screen == null) renderStrongHint(g);
 
@@ -123,7 +131,12 @@ public class ChatBubbleHudOverlay {
     public static void renderStrongHint(GuiGraphics g) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options == null) return;
-        if (!ChatBubbleConfig.STRONG_HINT_ENABLED.get() && !ChatBubbleConfig.MENTION_STRONG_HINT_ENABLED.get()) return;
+        if (mc.screen instanceof ChatBubbleScreen) {
+            MentionNotificationBanner.INSTANCE.render(g,
+                mc.getWindow().getGuiScaledWidth(),
+                mc.getWindow().getGuiScaledHeight());
+        }
+        if (!ChatBubbleConfig.STRONG_HINT_ENABLED.get() && !ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) return;
         Component hint = ChatMessageStore.getStrongHintText();
         if (hint == null) return;
         int ticks = ChatMessageStore.getStrongHintTicks();

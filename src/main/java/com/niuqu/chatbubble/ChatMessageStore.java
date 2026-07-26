@@ -2,6 +2,7 @@ package com.niuqu.chatbubble;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.niuqu.chatbubble.chat.notification.MentionNotificationController;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -315,11 +316,25 @@ public class ChatMessageStore {
             messages.remove(0);
 
         boolean isMentionOrQuote = !own && !isSystem
-            && (content.getString().contains("@" + playerName)
-                || (replySender != null && replySender.equals(playerName)));
+            && com.niuqu.chatbubble.chat.MentionDetector.isMentioned(
+                content.getString(), playerName,
+                ChatBubbleConfig.MENTION_REQUIRE_AT.get(), replySender);
+
+        if (isMentionOrQuote) {
+            MentionNotificationController.INSTANCE.onMessageCaptured(
+                content, new SenderMeta(senderUUID, senderName, content, isSystem,
+                    rawPlayerName, whisper, whisperPartner),
+                messages.size(), replySender);
+        }
+
+        if (!own && whisper && rawPlayerName != null
+            && ChatBubbleConfig.MENTION_WHISPER_BANNER.get()) {
+            MentionNotificationController.INSTANCE.onWhisperReceived(
+                senderUUID, senderName, content, messages.size());
+        }
 
         boolean systemToHint = isSystem && ChatBubbleConfig.STRONG_HINT_ENABLED.get();
-        boolean mentionToHint = isMentionOrQuote && ChatBubbleConfig.MENTION_STRONG_HINT_ENABLED.get();
+        boolean mentionToHint = false;
         // Enqueue a per-line preview entry on every stored message not routed to the
         // strong hint (mutual exclusion). Top-level (not gated on !screenOpen) so messages
         // arriving while chat is open — including your own sends — also get a line; each
@@ -334,11 +349,9 @@ public class ChatMessageStore {
         }
 
         boolean playSound = false;
-        if (!own && Minecraft.getInstance().player != null) {
-            if (isMentionOrQuote && ChatBubbleConfig.SOUND_MENTION.get()) playSound = true;
-            else if (whisper && ChatBubbleConfig.SOUND_WHISPER.get()) playSound = true;
-            else if (isSystem && ChatBubbleConfig.SOUND_SYSTEM.get()) playSound = true;
-            else if (!isSystem && !whisper && ChatBubbleConfig.SOUND_PUBLIC.get()) playSound = true;
+        if (!own && Minecraft.getInstance().player != null && !isMentionOrQuote && !whisper) {
+            if (isSystem && ChatBubbleConfig.SOUND_SYSTEM.get()) playSound = true;
+            else if (!isSystem && ChatBubbleConfig.SOUND_PUBLIC.get()) playSound = true;
         }
         if (playSound) {
             Minecraft.getInstance().player.playSound(
@@ -349,13 +362,7 @@ public class ChatMessageStore {
         // @mention arriving while chat is open also pops — the HUD already draws the
         // hint above the open screen. Mutual exclusion with the preview is preserved by
         // the systemToHint / mentionToHint guards (shared with the preview enqueue).
-        if (mentionToHint) {
-            strongHintQueue.add(new HintEntry(
-                Component.translatable("e33chat.notif.mention").withStyle(ChatFormatting.YELLOW), true));
-            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
-        }
-
-        if (systemToHint && !mentionToHint) {
+        if (systemToHint) {
             strongHintQueue.removeIf(e -> !e.isMention());
             strongHintQueue.add(new HintEntry(singleLineComponent(content), false));
             if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
@@ -771,10 +778,10 @@ public class ChatMessageStore {
                     if (!msg.isOwn() && !playerName.isEmpty()
                         && playerName.equals(quoteSender)
                         && !msg.content().getString().contains("@" + playerName)
-                        && ChatBubbleConfig.SOUND_MENTION.get()) {
+                        && ChatBubbleConfig.MENTION_SOUND_ENABLED.get()) {
                         Minecraft.getInstance().player.playSound(
                             net.minecraft.sounds.SoundEvents.NOTE_BLOCK_CHIME.value(), 0.6F, 1.0F);
-                        if (!screenOpen && ChatBubbleConfig.MENTION_STRONG_HINT_ENABLED.get()) {
+                        if (!screenOpen && ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
                             strongHintQueue.add(new HintEntry(Component.translatable("e33chat.notif.mention"), true));
                             if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
                         }

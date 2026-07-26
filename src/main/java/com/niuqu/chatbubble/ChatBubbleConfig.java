@@ -14,7 +14,6 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue HIDE_CHAT_ICON;
     public static final ModConfigSpec.BooleanValue ANIMATION_ENABLED;
     public static final ModConfigSpec.BooleanValue STRONG_HINT_ENABLED;
-    public static final ModConfigSpec.BooleanValue MENTION_STRONG_HINT_ENABLED;
     public static final ModConfigSpec.BooleanValue SYSTEM_CHAT_AS_BUBBLE;
     public static final ModConfigSpec.BooleanValue ANTI_SPAM;
     public static final ModConfigSpec.BooleanValue CHAT_HISTORY_ENABLED;
@@ -31,12 +30,18 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.IntValue PANEL_WIDTH;
     public static final ModConfigSpec.BooleanValue DEBUG_LOG;
     public static final ModConfigSpec.BooleanValue SOUND_SYSTEM;
-    public static final ModConfigSpec.BooleanValue SOUND_MENTION;
     public static final ModConfigSpec.BooleanValue SOUND_WHISPER;
     public static final ModConfigSpec.BooleanValue SOUND_PUBLIC;
     public static final ModConfigSpec.BooleanValue PRESERVE_INPUT;
     public static final ModConfigSpec.BooleanValue COLOR_CODES;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SIDEBAR_HIDE_PATTERNS;
+
+    // mention
+    public static final ModConfigSpec.BooleanValue MENTION_BANNER_ENABLED;
+    public static final ModConfigSpec.IntValue MENTION_BANNER_DURATION;
+    public static final ModConfigSpec.BooleanValue MENTION_SOUND_ENABLED;
+    public static final ModConfigSpec.BooleanValue MENTION_REQUIRE_AT;
+    public static final ModConfigSpec.BooleanValue MENTION_WHISPER_BANNER;
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
@@ -82,11 +87,6 @@ public class ChatBubbleConfig {
             .comment("Show system messages as a strong hint above the hotbar (otherwise they go to the message preview)")
             .translation("e33chat.config.strong_hint")
             .define("strong_hint", true);
-
-        MENTION_STRONG_HINT_ENABLED = builder
-            .comment("Show a strong hint above the hotbar when you are @mentioned or quoted")
-            .translation("e33chat.config.mention_strong_hint")
-            .define("mention_strong_hint", true);
 
         SYSTEM_CHAT_AS_BUBBLE = builder
             .comment("Render system messages as chat bubbles")
@@ -185,11 +185,6 @@ public class ChatBubbleConfig {
             .translation("e33chat.config.sound_system")
             .define("sound_system", false);
 
-        SOUND_MENTION = builder
-            .comment("Play a notification sound when you are @mentioned or quoted")
-            .translation("e33chat.config.sound_mention")
-            .define("sound_mention", true);
-
         SOUND_WHISPER = builder
             .comment("Play a notification sound for private / whisper messages")
             .translation("e33chat.config.sound_whisper")
@@ -199,6 +194,34 @@ public class ChatBubbleConfig {
             .comment("Play a notification sound for public chat messages")
             .translation("e33chat.config.sound_public")
             .define("sound_public", false);
+
+        builder.pop();
+        builder.push("mention");
+
+        MENTION_BANNER_ENABLED = builder
+            .comment("Show a notification banner when you are @mentioned (phone-style slide-in)")
+            .translation("e33chat.config.mention_banner_enabled")
+            .define("banner_enabled", true);
+
+        MENTION_BANNER_DURATION = builder
+            .comment("How long the notification banner stays visible (seconds, 2-10)")
+            .translation("e33chat.config.mention_banner_duration")
+            .defineInRange("banner_duration", 4, 2, 10);
+
+        MENTION_SOUND_ENABLED = builder
+            .comment("Play a notification sound when you are @mentioned or quoted")
+            .translation("e33chat.config.mention_sound_enabled")
+            .define("sound_enabled", true);
+
+        MENTION_REQUIRE_AT = builder
+            .comment("Only trigger @mention notifications when preceded by @ symbol (otherwise bare name also triggers)")
+            .translation("e33chat.config.mention_require_at")
+            .define("require_at", true);
+
+        MENTION_WHISPER_BANNER = builder
+            .comment("Show a notification banner for incoming private / whisper messages")
+            .translation("e33chat.config.mention_whisper_banner")
+            .define("whisper_banner", true);
 
         builder.pop();
 
