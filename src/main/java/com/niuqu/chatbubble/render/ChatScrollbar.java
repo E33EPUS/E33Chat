@@ -12,6 +12,7 @@ public final class ChatScrollbar {
     private ChatScrollbar() {}
 
     public static int thumbHeight(int trackH, int totalH) {
+        if (totalH <= 0) return trackH;
         int h = Math.max(MIN_THUMB_H, (int) ((long) trackH * trackH / totalH));
         return Math.min(h, trackH);
     }

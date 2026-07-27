@@ -6,12 +6,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class ChatScrollbarTest {
 
     @Test
-    void thumbHeight_minimumWhenTotalHIsZero() {
-        int result = ChatScrollbar.thumbHeight(100, 0);
-        assertEquals(0, result);
-    }
-
-    @Test
     void thumbHeight_proportionalWhenTrackSmallerThanTotal() {
         int result = ChatScrollbar.thumbHeight(100, 200);
         assertEquals(50, result);
@@ -25,8 +19,14 @@ class ChatScrollbarTest {
 
     @Test
     void thumbHeight_belowMinClampsUp() {
-        int result = ChatScrollbar.thumbHeight(400, 8000);
-        assertEquals(8, result); // MIN_THUMB_H
+        int result = ChatScrollbar.thumbHeight(100, 10000);
+        assertEquals(8, result); // 100*100/10000=1 → clamped to MIN_THUMB_H
+    }
+
+    @Test
+    void thumbHeight_totalHZeroReturnsTrackH() {
+        int result = ChatScrollbar.thumbHeight(100, 0);
+        assertEquals(100, result);
     }
 
     @Test

@@ -89,7 +89,6 @@ dependencies {
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('processResources', ProcessResources).configure {
