@@ -21,6 +21,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import com.niuqu.chatbubble.packets.QuoteSyncPacket;
+import com.niuqu.chatbubble.render.ChatContextMenus;
 import com.niuqu.chatbubble.render.ChatLayout;
 import com.niuqu.chatbubble.render.ChatScrollbar;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -144,8 +145,6 @@ public class ChatBubbleScreen extends Screen {
     // Right-click menu
     private int contextMsgIndex = -1;
     private int contextX, contextY;
-    private static final int CTX_W = 80;
-    private static final int CTX_ITEM_H = 18;
     private int contextAvatarIndex = -1;
     private int contextAvatarX, contextAvatarY;
 
@@ -980,45 +979,41 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void handleContextClick(int mx, int my) {
-        int menuH = CTX_ITEM_H * 2 + 2;
-        int menuX = Math.min(contextX, panelX + panelW - CTX_W - 2);
-        int menuY = contextY - menuH;
-        if (menuY < msgTop) menuY = contextY + 4;
+        int menuH = ChatContextMenus.CTX_ITEM_H * 2 + 2;
+        int menuX = ChatContextMenus.menuX(contextX, panelX, panelW);
+        int menuY = ChatContextMenus.menuY(contextY, menuH, msgTop, true);
 
-        if (mx >= menuX && mx <= menuX + CTX_W) {
-            if (my >= menuY && my <= menuY + CTX_ITEM_H) {
-                ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextMsgIndex);
-                if (msg != null) {
-                    minecraft.keyboardHandler.setClipboard(msg.content().getString());
-                    copyToastTicks = 20;
-                }
-            } else if (my >= menuY + CTX_ITEM_H + 1 && my <= menuY + CTX_ITEM_H * 2 + 1) {
-                replyTargetIndex = contextMsgIndex;
+        if (ChatContextMenus.isOverItem(mx, my, menuX, menuY, ChatContextMenus.CTX_ITEM_H)) {
+            ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextMsgIndex);
+            if (msg != null) {
+                minecraft.keyboardHandler.setClipboard(msg.content().getString());
+                copyToastTicks = 20;
             }
+        } else if (ChatContextMenus.isOverItem(mx, my, menuX,
+            menuY + ChatContextMenus.CTX_ITEM_H + 1, ChatContextMenus.CTX_ITEM_H)) {
+            replyTargetIndex = contextMsgIndex;
         }
         contextMsgIndex = -1;
     }
 
     private void handleAvatarContextClick(int mx, int my) {
-        int menuH = CTX_ITEM_H * 2 + 3;
-        int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
-        int menuY = contextAvatarY - menuH;
-        if (menuY < msgTop) menuY = contextAvatarY + 4;
+        int menuH = ChatContextMenus.CTX_ITEM_H * 2 + 3;
+        int menuX = ChatContextMenus.menuX(contextAvatarX, panelX, panelW);
+        int menuY = ChatContextMenus.menuY(contextAvatarY, menuH, msgTop, true);
 
-        if (mx >= menuX && mx <= menuX + CTX_W) {
-            ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextAvatarIndex);
-            String name = msg != null ? msg.rawPlayerName() : null;
-            if (name == null || name.isEmpty()) { contextAvatarIndex = -1; return; }
+        ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextAvatarIndex);
+        String name = msg != null ? msg.rawPlayerName() : null;
+        if (name == null || name.isEmpty()) { contextAvatarIndex = -1; return; }
 
-            if (my >= menuY && my <= menuY + CTX_ITEM_H) {
-                minecraft.player.connection.sendCommand((ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
-            } else if (my >= menuY + CTX_ITEM_H + 2 && my <= menuY + CTX_ITEM_H * 2 + 2) {
-                whisperPartner = name;
-                ChatMessageStore.clearUnreadWhisper(name);
-                if (sidebarSearchBox != null) sidebarSearchBox.setValue("");
-                setFocused(input);
-                scrollToBottom = true;
-            }
+        if (ChatContextMenus.isOverItem(mx, my, menuX, menuY, ChatContextMenus.CTX_ITEM_H)) {
+            minecraft.player.connection.sendCommand((ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
+        } else if (ChatContextMenus.isOverItem(mx, my, menuX,
+            menuY + ChatContextMenus.CTX_ITEM_H + 2, ChatContextMenus.CTX_ITEM_H)) {
+            whisperPartner = name;
+            ChatMessageStore.clearUnreadWhisper(name);
+            if (sidebarSearchBox != null) sidebarSearchBox.setValue("");
+            setFocused(input);
+            scrollToBottom = true;
         }
         contextAvatarIndex = -1;
     }
@@ -1543,62 +1538,15 @@ public class ChatBubbleScreen extends Screen {
 
     private void renderContextMenu(GuiGraphics g, int mouseX, int mouseY) {
         if (contextMsgIndex < 0) return;
-        int menuH = CTX_ITEM_H * 2 + 2;
-        int menuX = Math.min(contextX, panelX + panelW - CTX_W - 2);
-        int menuY = contextY - menuH;
-        if (menuY < msgTop) menuY = contextY + 4;
-
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + menuH, c().contextBg());
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + 1, c().divider());
-        g.fill(menuX, menuY + menuH - 1, menuX + CTX_W, menuY + menuH, c().divider());
-        g.fill(menuX, menuY, menuX + 1, menuY + menuH, c().divider());
-        g.fill(menuX + CTX_W - 1, menuY, menuX + CTX_W, menuY + menuH, c().divider());
-
-        boolean hoverCopy = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
-        int copyBg = hoverCopy ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, copyBg);
-        drawTextureIcon(g, iconTex("copy"), menuX + 5, menuY + 3, 12);
-        g.drawString(font, Component.translatable("e33chat.context.copy"), menuX + 22, menuY + 4, c().textPrimary(), false);
-
-        g.fill(menuX + 4, menuY + CTX_ITEM_H, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 1, c().closeHoverBg());
-
-        boolean hoverQuote = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY + CTX_ITEM_H + 1 && mouseY <= menuY + menuH;
-        int quoteBg = hoverQuote ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 1, menuY + menuH - 1, quoteBg);
-        drawTextureIcon(g, iconTex("quote"), menuX + 5, menuY + CTX_ITEM_H + 3, 12);
-        g.drawString(font, Component.translatable("e33chat.context.quote"), menuX + 22, menuY + CTX_ITEM_H + 5, c().textPrimary(), false);
+        ChatContextMenus.renderMessageMenu(g, font, mouseX, mouseY, c(), panelX, panelW,
+            msgTop, iconTex("copy"), iconTex("quote"), contextX, contextY);
     }
 
     private void renderAvatarContextMenu(GuiGraphics g, int mouseX, int mouseY) {
         if (contextAvatarIndex < 0) return;
-        int menuH = CTX_ITEM_H * 2 + 3;
-        int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
-        int menuY = contextAvatarY - menuH;
-        if (menuY < msgTop) menuY = contextAvatarY + 4;
-
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + menuH, c().contextBg());
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + 1, c().divider());
-        g.fill(menuX, menuY + menuH - 1, menuX + CTX_W, menuY + menuH, c().divider());
-        g.fill(menuX, menuY, menuX + 1, menuY + menuH, c().divider());
-        g.fill(menuX + CTX_W - 1, menuY, menuX + CTX_W, menuY + menuH, c().divider());
-
-        boolean hoverTp = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
-        int tpBg = hoverTp ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, tpBg);
-        drawTextureIcon(g, iconTex("tp"), menuX + 5, menuY + 3, 12);
-        g.drawString(font, Component.translatable(ChatMessageStore.useTpa() ? "e33chat.context.tpa" : "e33chat.context.tp"), menuX + 22, menuY + 4, c().textPrimary(), false);
-
-        g.fill(menuX + 4, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 2, c().closeHoverBg());
-
-        boolean hoverWhisper = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY + CTX_ITEM_H + 2 && mouseY <= menuY + menuH;
-        int whBg = hoverWhisper ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + CTX_ITEM_H + 2, menuX + CTX_W - 1, menuY + menuH - 1, whBg);
-        drawTextureIcon(g, iconTex("whisper"), menuX + 5, menuY + CTX_ITEM_H + 4, 12);
-        g.drawString(font, Component.translatable("e33chat.context.whisper"), menuX + 22, menuY + CTX_ITEM_H + 6, c().textPrimary(), false);
+        ChatContextMenus.renderAvatarMenu(g, font, mouseX, mouseY, c(), panelX, panelW,
+            msgTop, iconTex("tp"), iconTex("whisper"), contextAvatarX, contextAvatarY,
+            ChatMessageStore.useTpa());
     }
 
     private static final int REPLY_BAR_H = 18;
