@@ -35,6 +35,8 @@ public class ChatSidebar {
 
     private static final Map<UUID, ResourceLocation> skinCache = new HashMap<>();
 
+    private static boolean lastOpen;
+
     public ChatSidebar() {
         Minecraft mc = Minecraft.getInstance();
         int editColor = ChatBubbleConfig.THEME.get() == ChatBubbleTheme.LIGHT
@@ -48,6 +50,7 @@ public class ChatSidebar {
         searchBox.setVisible(false);
         searchBox.setCanLoseFocus(true);
         searchBox.setResponder(s -> scrollOffset = 0);
+        if (lastOpen) { jumpOpen(); } else { jumpClose(); }
     }
 
     public EditBox searchBox() { return searchBox; }
@@ -79,6 +82,7 @@ public class ChatSidebar {
 
     public void jumpOpen() {
         open = true;
+        lastOpen = true;
         animating = false;
         searchBox.setX(2);
         searchBox.setVisible(true);
@@ -86,6 +90,7 @@ public class ChatSidebar {
 
     public void jumpClose() {
         open = false;
+        lastOpen = false;
         animating = false;
         searchBox.setVisible(false);
     }
@@ -101,6 +106,7 @@ public class ChatSidebar {
         if (elapsed >= ANIM_MS) {
             animating = false;
             open = targetOpen;
+            lastOpen = open;
             searchBox.setX(2);
             searchBox.setVisible(open);
         } else {
@@ -275,7 +281,8 @@ public class ChatSidebar {
         if (animating) {
             long elapsed = net.minecraft.Util.getMillis() - animStartMs;
             float t = Mth.clamp((float) elapsed / ANIM_MS, 0f, 1f);
-            return targetOpen ? t : 1.0f - t;
+            if (targetOpen) return 1f - (1f - t) * (1f - t) * (1f - t);
+            return 1f - t * t;
         }
         return open ? 1f : 0f;
     }

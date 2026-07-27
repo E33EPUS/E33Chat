@@ -27,7 +27,6 @@ import com.niuqu.chatbubble.render.ChatLayout;
 import com.niuqu.chatbubble.render.ChatMessageRenderer;
 import com.niuqu.chatbubble.render.ChatScrollbar;
 import com.niuqu.chatbubble.render.ChatSidebar;
-import com.niuqu.chatbubble.render.QuarkCompat;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.io.InputStream;
 
@@ -40,7 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-public class ChatBubbleScreen extends Screen {
+public class ChatBubbleScreen extends net.minecraft.client.gui.screens.ChatScreen {
 
     // Layout
     private int panelX, panelW;
@@ -166,9 +165,12 @@ public class ChatBubbleScreen extends Screen {
     private int notifBarTextY;
 
     public ChatBubbleScreen(String initialText) {
-        super(Component.translatable("e33chat.screen.title"));
+        super(initialText);
         this.initialText = initialText;
     }
+
+    @Override
+    public void renderBackground(GuiGraphics g) {}
 
     @Override
     protected void init() {
@@ -236,11 +238,6 @@ public class ChatBubbleScreen extends Screen {
         addRenderableWidget(searchInput);
 
         setInitialFocus(input);
-        ChatMessageStore.debugLog(() -> "[e33chat] Screen init done, calling QuarkCompat.init");
-        try { QuarkCompat.init(width, height); } catch (Exception e) {
-            ChatMessageStore.debugLog(() -> "[e33chat] QuarkCompat.init failed: " + e);
-        }
-        ChatMessageStore.debugLog(() -> "[e33chat] Screen init complete");
     }
 
     private void rebuildLayout() {
@@ -488,11 +485,6 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            try { if (QuarkCompat.handleClick(mouseX, mouseY)) return true; }
-            catch (Exception e) { ChatMessageStore.debugLog(() -> "[e33chat] QuarkCompat.handleClick failed: " + e); }
-        }
-
         // @mention popup click
         if (showMentions && button == 0) {
             int popupX = input.getX();
@@ -859,8 +851,9 @@ public class ChatBubbleScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         sidebar.tick();
 
-        // Sync panelX to sidebar animation progress so the panel slides with it
-        int newPanelX = SIDEBAR_W + (int) sidebar.screenX();
+        // Cache sidebar X once per frame to avoid multiple screenX() calls diverging
+        int sidebarSX = (int) sidebar.screenX();
+        int newPanelX = sidebarSX + SIDEBAR_W;
         if (newPanelX != panelX) {
             panelX = newPanelX;
             rebuildLayout();
@@ -911,7 +904,7 @@ public class ChatBubbleScreen extends Screen {
             g.pose().pushPose();
             int sidebarOffset = closing
                 ? (int)((getAnimProgress() - 1.0f) * SIDEBAR_W)
-                : (int) sidebar.screenX();
+                : sidebarSX;
             g.pose().translate(sidebarOffset, 0, 50);
             renderSidebar(g, mouseX - sidebarOffset, mouseY);
             g.pose().popPose();
@@ -925,10 +918,6 @@ public class ChatBubbleScreen extends Screen {
         input.setX(inputX + panelOffset);
         super.render(g, mouseX, mouseY, partialTick);
         g.pose().popPose();
-
-        try { QuarkCompat.render(g, font, mouseX, mouseY, c()); } catch (Exception e) {
-            ChatMessageStore.debugLog(() -> "[e33chat] QuarkCompat.render failed: " + e);
-        }
     }
 
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
@@ -1582,7 +1571,7 @@ public class ChatBubbleScreen extends Screen {
         scrollToBottom = true;
     }
 
-    private void moveInHistory(int delta) {
+    public void moveInHistory(int delta) {
         int size = minecraft.gui.getChat().getRecentChat().size();
         int newPos = Mth.clamp(historyPos + delta, 0, size);
         if (newPos != historyPos) {
@@ -1606,7 +1595,6 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     public void onClose() {
-        try { QuarkCompat.reset(); } catch (Exception ignored) {}
         if (ChatBubbleConfig.PRESERVE_INPUT.get()) savedInput = input.getValue();
         if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) {
             minecraft.setScreen(null);
