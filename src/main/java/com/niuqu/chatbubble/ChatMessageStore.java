@@ -20,6 +20,7 @@ public class ChatMessageStore {
     private static final int MAX = 10000;
     private static final List<ChatMessage> messages = new ArrayList<>();
     private static int unreadCount = 0;
+    private static boolean hasUnreadMentionFlag;
     private static boolean screenOpen = false;
     private static String pendingReplyContent;
     private static String pendingReplySender;
@@ -321,6 +322,7 @@ public class ChatMessageStore {
                 ChatBubbleConfig.MENTION_REQUIRE_AT.get(), replySender);
 
         if (isMentionOrQuote) {
+            if (!screenOpen) hasUnreadMentionFlag = true;
             MentionNotificationController.INSTANCE.onMessageCaptured(
                 content, new SenderMeta(senderUUID, senderName, content, isSystem,
                     rawPlayerName, whisper, whisperPartner),
@@ -405,7 +407,7 @@ public class ChatMessageStore {
     }
 
     // Plain-text variant for the few Screen call sites that build a single-line String.
-    static String singleLine(String s) {
+    static public String singleLine(String s) {
         return stripControls(s);
     }
 
@@ -482,23 +484,19 @@ public class ChatMessageStore {
 
     public static void markAllRead() {
         unreadCount = 0;
+        hasUnreadMentionFlag = false;
     }
 
     public static void setScreenOpen(boolean open) {
         screenOpen = open;
         if (open) {
             unreadCount = 0;
+        hasUnreadMentionFlag = false;
         }
     }
 
     public static boolean hasUnreadMention(String playerName) {
-        if (playerName == null || playerName.isEmpty()) return false;
-        for (int i = messages.size() - unreadCount; i < messages.size(); i++) {
-            if (i < 0) continue;
-            String text = messages.get(i).content().getString();
-            if (text.contains("@" + playerName)) return true;
-        }
-        return false;
+        return hasUnreadMentionFlag;
     }
 
     public static Component quoteMessage(int index) {
@@ -598,6 +596,7 @@ public class ChatMessageStore {
         }
         messages.clear();
         unreadCount = 0;
+        hasUnreadMentionFlag = false;
         previews.clear();
         if (ChatBubbleConfig.CHAT_HISTORY_ENABLED.get() && isWorldSpecific(currentWorldKey))
             loadMessages(currentWorldKey);

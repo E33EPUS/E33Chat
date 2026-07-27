@@ -7,7 +7,7 @@ public class ChatSearchPanel {
     static final int PANEL_W = 180;
     static final int PANEL_H = 22;
     static final int INPUT_H = 14;
-    static final int HIGHLIGHT = 0xFFFFFF55;
+    public static final int HIGHLIGHT = 0xFFFFFF55;
 
     boolean visible;
 

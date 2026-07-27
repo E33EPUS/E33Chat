@@ -21,6 +21,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import com.niuqu.chatbubble.packets.QuoteSyncPayload;
+import com.niuqu.chatbubble.render.ChatBars;
+import com.niuqu.chatbubble.render.ChatContextMenus;
+import com.niuqu.chatbubble.render.ChatLayout;
+import com.niuqu.chatbubble.render.ChatMessageRenderer;
+import com.niuqu.chatbubble.render.ChatScrollbar;
+import com.niuqu.chatbubble.render.ChatSidebar;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.io.InputStream;
 
@@ -77,11 +83,7 @@ public class ChatBubbleScreen extends Screen {
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     private static String timeKey(LocalTime t) {
-        int interval = ChatBubbleConfig.TIME_SEPARATOR_MINUTES.get();
-        if (interval <= 0) return "";
-        if (interval == 1) return t.format(TIME_FMT);
-        int m = (t.getMinute() / interval) * interval;
-        return String.format("%02d:%02d", t.getHour(), m);
+        return ChatMessageRenderer.timeKey(t, ChatBubbleConfig.TIME_SEPARATOR_MINUTES.get());
     }
 
     private EditBox input;
@@ -109,27 +111,15 @@ public class ChatBubbleScreen extends Screen {
     final ChatQuickChatPanel quickChatPanel = new ChatQuickChatPanel();
     private EditBox quickChatInput;
     private static final int QUICK_CHAT_W = 140;
-    private static boolean sidebarOpen;
+    private final ChatSidebar sidebar = new ChatSidebar();
     private static String whisperPartner;
-    private int sidebarScrollOffset;
-    private int sidebarMaxScroll;
-    private EditBox sidebarSearchBox;
-
-    // Sidebar animation
-    private long sidebarAnimStart;
-    private boolean sidebarTargetOpen;
-    private boolean sidebarAnimating;
 
     // Scrollbar
-    private static final int SCROLLBAR_WIDTH = 6;
-    private static final int MIN_THUMB_H = 8;
     private boolean scrollbarDragging;
     private int scrollbarDragStartY;
     private int scrollbarDragStartOffset;
     private int messageTotalH;
-    private boolean scrollbarHovered;
     private float scrollbarAlpha;
-    private static final int SCROLLBAR_HOVER_ZONE = 20;
     private boolean scrollAnimActive;
     private long scrollAnimStart;
     private float scrollAnimFrom;
@@ -146,8 +136,6 @@ public class ChatBubbleScreen extends Screen {
     // Right-click menu
     private int contextMsgIndex = -1;
     private int contextX, contextY;
-    private static final int CTX_W = 80;
-    private static final int CTX_ITEM_H = 18;
     private int contextAvatarIndex = -1;
     private int contextAvatarX, contextAvatarY;
 
@@ -155,7 +143,7 @@ public class ChatBubbleScreen extends Screen {
     private final List<int[]> bubbleRects = new ArrayList<>();
 
     // Clickable text span tracking (for ClickEvent support)
-    private final List<ClickableSpan> clickableSpans = new ArrayList<>();
+    private final List<ChatMessageRenderer.ClickableSpan> clickableSpans = new ArrayList<>();
 
     // Reply / quote
     private int replyTargetIndex = -1;
@@ -192,16 +180,7 @@ public class ChatBubbleScreen extends Screen {
         int physicalW = ChatBubbleConfig.PANEL_WIDTH.get();
         int guiScale = (int)Math.round(minecraft.getWindow().getGuiScale());
         panelW = Math.max(100, Math.min(physicalW / guiScale, width));
-        if (sidebarOpen) {
-            panelX = SIDEBAR_W;
-            sidebarTargetOpen = true;
-            sidebarAnimating = true;
-            sidebarAnimStart = net.minecraft.Util.getMillis();
-        } else {
-            panelX = 0;
-            sidebarAnimating = false;
-            sidebarTargetOpen = false;
-        }
+        panelX = sidebar.isOpen() ? SIDEBAR_W : 0;
         if (panelX + panelW > width) panelW = width - panelX;
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
@@ -234,16 +213,7 @@ public class ChatBubbleScreen extends Screen {
 
         ensureIconsLoaded();
 
-        sidebarSearchBox = new EditBox(font, 2, 5, SIDEBAR_W - 5, SIDEBAR_SEARCH_H, Component.literal(""));
-        sidebarSearchBox.setMaxLength(20);
-        sidebarSearchBox.setBordered(false);
-        sidebarSearchBox.setTextColor(editColor);
-        sidebarSearchBox.setTextColorUneditable(editColor);
-        sidebarSearchBox.setVisible(sidebarOpen);
-        sidebarSearchBox.setCanLoseFocus(true);
-        sidebarSearchBox.setResponder(s -> sidebarScrollOffset = 0);
-        if (sidebarOpen) sidebarSearchBox.setX(2 - SIDEBAR_W);
-        addRenderableWidget(sidebarSearchBox);
+        addRenderableWidget(sidebar.searchBox());
 
         quickChatInput = new EditBox(font, 0, 0, QUICK_CHAT_W - 8, 12, Component.translatable("e33chat.menu.quick_chat"));
         quickChatInput.setMaxLength(256);
@@ -296,151 +266,13 @@ public class ChatBubbleScreen extends Screen {
         return Component.translatable("e33chat.sidebar.public").getString();
     }
 
-    private float getSidebarAnimProgress() {
-        if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) return sidebarOpen ? 1f : 0f;
-        if (!sidebarAnimating) return sidebarOpen ? 1f : 0f;
-        if (!sidebarOpen) return 0f;
-        float progress = Animation.progress(sidebarAnimStart, ANIM_MS, false);
-        return sidebarTargetOpen ? progress : 1.0f - progress;
-    }
-
-    private int getSidebarScreenX() {
-        return (int)((getSidebarAnimProgress() - 1.0f) * SIDEBAR_W);
-    }
-
-    private void tickSidebarAnimation() {
-        if (!sidebarAnimating) return;
-        long elapsed = net.minecraft.Util.getMillis() - sidebarAnimStart;
-        float t = Mth.clamp((float) elapsed / ANIM_MS, 0f, 1f);
-        if (t >= 1f) {
-            sidebarAnimating = false;
-            sidebarOpen = sidebarTargetOpen;
-            panelX = sidebarOpen ? SIDEBAR_W : 0;
-            sidebarSearchBox.setX(2);
-            sidebarSearchBox.setVisible(sidebarOpen);
-            if (!sidebarOpen && sidebarSearchBox.isFocused()) setFocused(input);
-            rebuildLayout();
-            return;
-        }
-        float progress = getSidebarAnimProgress();
-        panelX = (int)(SIDEBAR_W * progress);
-        sidebarSearchBox.setX(2 + getSidebarScreenX());
-        sidebarSearchBox.setVisible(progress > 0.01f);
-        rebuildLayout();
-    }
 
     private static final int SIDEBAR_SEARCH_H = 14;
 
     private void renderSidebar(GuiGraphics g, int mouseX, int mouseY) {
-        g.fill(0, 0, SIDEBAR_W, height, c().sidebarBg());
-        g.fill(SIDEBAR_W - 1, 0, SIDEBAR_W, height, c().sidebarDivider());
-
-        int y = 2;
-        int itemH = SIDEBAR_ITEM_H;
-
-        // Search box background (anchor at y=2, EditBox shifted down 3px = (14-8)/2 to center text)
-        int sbx = 2;
-        int sby = 2;
-        int sbw = SIDEBAR_W - 5;
-        int sbh = SIDEBAR_SEARCH_H;
-        g.fill(sbx - 1, sby, sbx + sbw, sby + sbh, c().inputBg());
-        boolean hoverSearch = mouseX >= sbx - 1 && mouseX <= sbx + sbw && mouseY >= sby && mouseY <= sby + sbh;
-        if (hoverSearch || sidebarSearchBox.isFocused())
-            g.renderOutline(sbx - 1, sby, sbw + 1, sbh, c().textMuted());
-        if (sidebarSearchBox.getValue().isEmpty() && !sidebarSearchBox.isFocused()) {
-            g.drawString(font, Component.translatable("e33chat.sidebar.search"), sbx, sby + 3, c().textMuted(), false);
-        }
-        y = sby + sbh + 3;
-
-        // Public
-        boolean isPublic = whisperPartner == null;
-        int pubBg = isPublic ? c().sidebarItemSelected()
-            : (mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= y && mouseY <= y + itemH ? c().sidebarItemHover() : 0);
-        if (pubBg != 0) g.fill(0, y, SIDEBAR_W, y + itemH, pubBg);
-        drawTextureIcon(g, iconTex("public_icon"), 2, y + 1, SIDEBAR_ICON_S);
-        int nameX = 2 + SIDEBAR_ICON_S + 3;
-        String publicLabel = Component.translatable("e33chat.sidebar.public").getString();
-        g.drawString(font, Component.literal(publicLabel), nameX, y + 1, c().textPrimary(), false);
-        ChatMessageStore.ChatMessage latestPub = ChatMessageStore.getLatestPublicMessage();
-        if (latestPub != null) {
-            int previewMaxW = SIDEBAR_W - nameX - 4;
-            String preview = ChatMessageStore.singleLine(latestPub.content().getString());
-            String previewDisplay = font.plainSubstrByWidth(preview, previewMaxW - font.width("..."));
-            if (!previewDisplay.equals(preview)) previewDisplay += "...";
-            g.drawString(font, Component.literal(previewDisplay), nameX, y + 1 + font.lineHeight, c().textMuted(), false);
-        }
-        y += itemH + 2;
-
-        if (minecraft.player != null && minecraft.player.connection != null) {
-            var players = new ArrayList<>(minecraft.player.connection.getOnlinePlayers());
-            String selfName = minecraft.player.getName().getString();
-            String filter = sidebarSearchBox.getValue().toLowerCase().trim();
-
-            int startY = y;
-            int visibleBottom = msgBottom > 0 ? msgBottom : height - BAR_H;
-            int totalH = 0;
-            for (var info : players) {
-                String name = info.getProfile().getName();
-                if (name.equals(selfName)) continue;
-                if (ChatBubbleConfig.isSidebarHidden(name)) continue;
-                if (!filter.isEmpty() && !name.toLowerCase().contains(filter)) continue;
-                totalH += itemH + 2;
-            }
-
-            if (totalH == 0) {
-                int iconS = 32;
-                drawTextureIcon(g, iconTex("no_online"), (SIDEBAR_W - iconS) / 2, startY + 8, iconS);
-                String noPlayers = Component.translatable("e33chat.sidebar.no_players").getString();
-                int textW = font.width(noPlayers);
-                g.drawString(font, Component.literal(noPlayers),
-                    (SIDEBAR_W - textW) / 2, startY + 8 + iconS + 4, c().textMuted(), false);
-            } else {
-            int maxSideScroll = Math.max(0, totalH - (visibleBottom - startY));
-            sidebarMaxScroll = maxSideScroll;
-            if (sidebarScrollOffset > maxSideScroll) sidebarScrollOffset = maxSideScroll;
-
-            g.enableScissor(0, startY, SIDEBAR_W, visibleBottom);
-            int scrollY = startY - sidebarScrollOffset;
-            for (var info : players) {
-                String name = info.getProfile().getName();
-                if (name.equals(selfName)) continue;
-                if (ChatBubbleConfig.isSidebarHidden(name)) continue;
-                if (!filter.isEmpty() && !name.toLowerCase().contains(filter)) continue;
-
-                if (scrollY + itemH > startY && scrollY < visibleBottom) {
-                    boolean sel = name.equals(whisperPartner);
-                    int itemBg = sel ? c().sidebarItemSelected()
-                        : (mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= scrollY && mouseY <= scrollY + itemH ? c().sidebarItemHover() : 0);
-                    if (itemBg != 0) g.fill(0, scrollY, SIDEBAR_W, scrollY + itemH, itemBg);
-
-                    ResourceLocation skin = getSkin(info.getProfile().getId(), info.getProfile().getName());
-                    drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18);
-
-                    int tipW = ChatMessageStore.hasUnreadWhisper(name) ? 16 : 0;
-                    int maxNameW = SIDEBAR_W - nameX - 4 - tipW - 2;
-                    String displayName = font.plainSubstrByWidth(name, maxNameW - font.width("..."));
-                    if (!displayName.equals(name)) displayName += "...";
-                    g.drawString(font, Component.literal(displayName), nameX, scrollY + 1, c().textPrimary(), false);
-
-                    ChatMessageStore.ChatMessage latest = ChatMessageStore.getLatestWhisperWith(name);
-                    if (latest != null) {
-                        String preview = ChatMessageStore.singleLine(latest.content().getString());
-                        String previewDisplay = font.plainSubstrByWidth(preview, maxNameW - font.width("..."));
-                        if (!previewDisplay.equals(preview)) previewDisplay += "...";
-                        g.drawString(font, Component.literal(previewDisplay), nameX, scrollY + 1 + font.lineHeight, c().textMuted(), false);
-                    }
-
-                    if (ChatMessageStore.hasUnreadWhisper(name)) {
-                        int tipX = SIDEBAR_W - 16 - 2;
-                        int tipY = scrollY + 3 + (int)(Math.abs(Math.sin(System.currentTimeMillis() / 300.0)) * 3);
-                        drawTextureIcon(g, iconTex("private_tip"), tipX, tipY, 16);
-                    }
-                }
-                scrollY += itemH + 2;
-            }
-            g.disableScissor();
-            }
-        }
+        sidebar.render(g, font, mouseX, mouseY, c(), panelW,
+            msgBottom > 0 ? msgBottom : height - BAR_H, whisperPartner,
+            iconTex("public_icon"), iconTex("no_online"), iconTex("private_tip"));
     }
 
     private void insertMention(String name) {
@@ -502,11 +334,6 @@ public class ChatBubbleScreen extends Screen {
             minecraft.setScreen(null);
     }
 
-    @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // no-op: disable vanilla blur
-    }
-
     private float getAnimProgress() {
         if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) return 1.0f;
         return Animation.progress(animStart, ANIM_MS, closing);
@@ -554,9 +381,9 @@ public class ChatBubbleScreen extends Screen {
             }
         }
 
-        if (sidebarSearchBox.isFocused()) {
+        if (sidebar.searchBox().isFocused()) {
             if (keyCode == 256 || keyCode == 257 || keyCode == 335) {
-                sidebarSearchBox.setFocused(false);
+                sidebar.searchBox().setFocused(false);
                 setFocused(input);
                 return true;
             }
@@ -630,9 +457,10 @@ public class ChatBubbleScreen extends Screen {
             mentionIdx = Mth.clamp(mentionIdx - (int) scrollY, 0, mentionCandidates.size() - 1);
             return true;
         }
-        int sidebarX = getSidebarScreenX();
-        if ((sidebarOpen || sidebarAnimating) && mouseX >= sidebarX && mouseX <= sidebarX + SIDEBAR_W) {
-            sidebarScrollOffset = Mth.clamp(sidebarScrollOffset - (int)(scrollY * 20), 0, sidebarMaxScroll);
+        int sidebarX = (int) sidebar.screenX();
+        if ((sidebar.isOpen() || sidebar.isAnimating())
+            && mouseX >= sidebarX && mouseX <= sidebarX + SIDEBAR_W) {
+            sidebar.handleScroll(scrollY);
             return true;
         }
         if (commandSuggestions != null && commandSuggestions.mouseScrolled(scrollY))
@@ -674,49 +502,49 @@ public class ChatBubbleScreen extends Screen {
             }
         }
 
-        // Sidebar clicks
-        int sidebarX = getSidebarScreenX();
-        if ((sidebarOpen || sidebarAnimating) && button == 0 && mouseX >= sidebarX && mouseX <= sidebarX + SIDEBAR_W) {
+        // Sidebar clicks — route to sidebar for hit detection, Screen handles side effects
+        int sidebarX = (int) sidebar.screenX();
+        if (sidebar.handleMouseClicked(mouseX, mouseY, whisperPartner, font)) {
             // Search box
             int searchY = 2;
-            int searchH = SIDEBAR_SEARCH_H;
+            int searchH = 14;
             if (mouseY >= searchY && mouseY <= searchY + searchH) {
-                setFocused(sidebarSearchBox);
+                setFocused(sidebar.searchBox());
                 input.setFocused(false);
                 return true;
             }
-            if (sidebarSearchBox.isFocused()) {
+            if (sidebar.searchBox().isFocused()) {
                 setFocused(input);
             }
 
             int y = searchY + searchH + 3;
-            if (mouseY >= y && mouseY <= y + SIDEBAR_ITEM_H) {
+            if (mouseY >= y && mouseY <= y + 22) {
                 whisperPartner = null;
-                sidebarSearchBox.setValue("");
+                sidebar.searchBox().setValue("");
                 setFocused(input);
                 scrollToBottom = true;
                 return true;
             }
-            y += SIDEBAR_ITEM_H + 2;
+            y += 22 + 2;
             if (minecraft.player != null && minecraft.player.connection != null) {
                 var players = new ArrayList<>(minecraft.player.connection.getOnlinePlayers());
                 String selfName = minecraft.player.getName().getString();
-                String filter = sidebarSearchBox.getValue().toLowerCase().trim();
-                int scrollY = y - sidebarScrollOffset;
+                String filter = sidebar.searchBox().getValue().toLowerCase().trim();
+                int scrollY = y;
                 for (var info : players) {
                     String name = info.getProfile().getName();
                     if (name.equals(selfName)) continue;
                     if (ChatBubbleConfig.isSidebarHidden(name)) continue;
                     if (!filter.isEmpty() && !name.toLowerCase().contains(filter)) continue;
-                    if (mouseY >= scrollY && mouseY <= scrollY + SIDEBAR_ITEM_H) {
+                    if (mouseY >= scrollY && mouseY <= scrollY + 22) {
                         whisperPartner = name;
                         ChatMessageStore.clearUnreadWhisper(name);
-                        sidebarSearchBox.setValue("");
+                        sidebar.searchBox().setValue("");
                         setFocused(input);
                         scrollToBottom = true;
                         return true;
                     }
-                    scrollY += SIDEBAR_ITEM_H + 2;
+                    scrollY += 22 + 2;
                 }
             }
         }
@@ -761,15 +589,13 @@ public class ChatBubbleScreen extends Screen {
 
         // Scrollbar interaction
         if (button == 0 && maxScroll > 0) {
-            int trackX = panelX + panelW - SCROLLBAR_WIDTH;
+            int trackX = panelX + panelW - ChatScrollbar.WIDTH;
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
-            if (mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH
+            if (mouseX >= trackX && mouseX < trackX + ChatScrollbar.WIDTH
                 && mouseY >= msgTop && mouseY < effBottom) {
                 int trackH = effBottom - msgTop;
-                int thumbH = Math.max(MIN_THUMB_H, (int)((long)trackH * trackH / messageTotalH));
-                thumbH = Math.min(thumbH, trackH);
-                int travelRange = trackH - thumbH;
-                int thumbY = msgTop + (int)((long)scrollOffset * travelRange / maxScroll);
+                int thumbH = ChatScrollbar.thumbHeight(trackH, messageTotalH);
+                int thumbY = ChatScrollbar.thumbY(msgTop, trackH, thumbH, scrollOffset, maxScroll);
 
                 if (mouseY < thumbY) {
                     scrollOffset = Math.max(0, scrollOffset - trackH);
@@ -791,22 +617,13 @@ public class ChatBubbleScreen extends Screen {
         if (button == 0) {
             if (isMouseOverHamburger(mouseX, mouseY)) {
                 if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) {
-                    sidebarOpen = !sidebarOpen;
-                    sidebarAnimating = false;
-                    panelX = sidebarOpen ? SIDEBAR_W : 0;
-                    sidebarSearchBox.setX(2);
-                    sidebarSearchBox.setVisible(sidebarOpen);
-                    if (!sidebarOpen && sidebarSearchBox.isFocused()) setFocused(input);
+                    if (sidebar.isOpen()) sidebar.jumpClose();
+                    else sidebar.jumpOpen();
+                    panelX = sidebar.isOpen() ? SIDEBAR_W : 0;
+                    if (!sidebar.isOpen() && sidebar.searchBox().isFocused()) setFocused(input);
                     rebuildLayout();
-                } else if (sidebarAnimating) {
-                    sidebarTargetOpen = !sidebarTargetOpen;
-                    long elapsed = net.minecraft.Util.getMillis() - sidebarAnimStart;
-                    float currentT = Mth.clamp((float) elapsed / ANIM_MS, 0f, 1f);
-                    sidebarAnimStart = net.minecraft.Util.getMillis() - (long)((1.0f - currentT) * ANIM_MS);
                 } else {
-                    sidebarTargetOpen = !sidebarOpen;
-                    sidebarAnimating = true;
-                    sidebarAnimStart = net.minecraft.Util.getMillis();
+                    sidebar.toggle();
                 }
                 return true;
             }
@@ -824,7 +641,7 @@ public class ChatBubbleScreen extends Screen {
                 String emojiText = emojiPanel.handleClick((int) mouseX, (int) mouseY, font, c(), panelX, panelW, barTop, ICON_S, PAD);
                 if (emojiText != null && !emojiText.isEmpty()) {
                     input.setValue(input.getValue() + emojiText);
-                    input.setCursorPosition(input.getValue().length());
+                    input.moveCursorToEnd(false);
                 }
                 return true;
             }
@@ -928,8 +745,7 @@ public class ChatBubbleScreen extends Screen {
             lastScrollTime = net.minecraft.Util.getMillis();
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
             int trackH = effBottom - msgTop;
-            int thumbH = Math.max(MIN_THUMB_H, (int)((long)trackH * trackH / messageTotalH));
-            thumbH = Math.min(thumbH, trackH);
+            int thumbH = ChatScrollbar.thumbHeight(trackH, messageTotalH);
             int travelRange = trackH - thumbH;
             if (travelRange > 0) {
                 int dy = (int) mouseY - scrollbarDragStartY;
@@ -987,60 +803,59 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void handleContextClick(int mx, int my) {
-        int menuH = CTX_ITEM_H * 2 + 2;
-        int menuX = Math.min(contextX, panelX + panelW - CTX_W - 2);
-        int menuY = contextY - menuH;
-        if (menuY < msgTop) menuY = contextY + 4;
+        int menuH = ChatContextMenus.CTX_ITEM_H * 2 + 2;
+        int menuX = ChatContextMenus.menuX(contextX, panelX, panelW);
+        int menuY = ChatContextMenus.menuY(contextY, menuH, msgTop, true);
 
-        if (mx >= menuX && mx <= menuX + CTX_W) {
-            if (my >= menuY && my <= menuY + CTX_ITEM_H) {
-                ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextMsgIndex);
-                if (msg != null) {
-                    minecraft.keyboardHandler.setClipboard(msg.content().getString());
-                    copyToastTicks = 20;
-                }
-            } else if (my >= menuY + CTX_ITEM_H + 1 && my <= menuY + CTX_ITEM_H * 2 + 1) {
-                replyTargetIndex = contextMsgIndex;
+        if (ChatContextMenus.isOverItem(mx, my, menuX, menuY, ChatContextMenus.CTX_ITEM_H)) {
+            ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextMsgIndex);
+            if (msg != null) {
+                minecraft.keyboardHandler.setClipboard(msg.content().getString());
+                copyToastTicks = 20;
             }
+        } else if (ChatContextMenus.isOverItem(mx, my, menuX,
+            menuY + ChatContextMenus.CTX_ITEM_H + 1, ChatContextMenus.CTX_ITEM_H)) {
+            replyTargetIndex = contextMsgIndex;
         }
         contextMsgIndex = -1;
     }
 
     private void handleAvatarContextClick(int mx, int my) {
-        int menuH = CTX_ITEM_H * 2 + 3;
-        int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
-        int menuY = contextAvatarY - menuH;
-        if (menuY < msgTop) menuY = contextAvatarY + 4;
+        int menuH = ChatContextMenus.CTX_ITEM_H * 2 + 3;
+        int menuX = ChatContextMenus.menuX(contextAvatarX, panelX, panelW);
+        int menuY = ChatContextMenus.menuY(contextAvatarY, menuH, msgTop, true);
 
-        if (mx >= menuX && mx <= menuX + CTX_W) {
-            ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextAvatarIndex);
-            String name = msg != null ? msg.rawPlayerName() : null;
-            if (name == null || name.isEmpty()) { contextAvatarIndex = -1; return; }
+        ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextAvatarIndex);
+        String name = msg != null ? msg.rawPlayerName() : null;
+        if (name == null || name.isEmpty()) { contextAvatarIndex = -1; return; }
 
-            if (my >= menuY && my <= menuY + CTX_ITEM_H) {
-                minecraft.player.connection.sendCommand((ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
-            } else if (my >= menuY + CTX_ITEM_H + 2 && my <= menuY + CTX_ITEM_H * 2 + 2) {
-                whisperPartner = name;
-                ChatMessageStore.clearUnreadWhisper(name);
-                if (sidebarSearchBox != null) sidebarSearchBox.setValue("");
-                setFocused(input);
-                scrollToBottom = true;
-            }
+        if (ChatContextMenus.isOverItem(mx, my, menuX, menuY, ChatContextMenus.CTX_ITEM_H)) {
+            minecraft.player.connection.sendCommand((ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
+        } else if (ChatContextMenus.isOverItem(mx, my, menuX,
+            menuY + ChatContextMenus.CTX_ITEM_H + 2, ChatContextMenus.CTX_ITEM_H)) {
+            whisperPartner = name;
+            ChatMessageStore.clearUnreadWhisper(name);
+            if (sidebar.searchBox() != null) sidebar.searchBox().setValue("");
+            setFocused(input);
+            scrollToBottom = true;
         }
         contextAvatarIndex = -1;
     }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        tickSidebarAnimation();
+        sidebar.tick();
+
+        // Sync panelX to sidebar animation progress so the panel slides with it
+        int newPanelX = SIDEBAR_W + (int) sidebar.screenX();
+        if (newPanelX != panelX) {
+            panelX = newPanelX;
+            rebuildLayout();
+        }
 
         float anim = getAnimProgress();
-        int moveDist;
-        if (sidebarOpen) {
-            moveDist = closing ? panelW : SIDEBAR_W;
-        } else {
-            moveDist = panelW;
-        }
+        boolean sideVisible = sidebar.isOpen() || sidebar.isAnimating();
+        int moveDist = sideVisible ? (closing ? panelW : SIDEBAR_W) : panelW;
         int panelOffset = (int) ((anim - 1.0f) * moveDist);
 
         // Panel contents slide in from left
@@ -1050,10 +865,7 @@ public class ChatBubbleScreen extends Screen {
         int panelBg = c().panelBg();
         int panelBgAlpha = (panelBg >> 24) & 0xFF;
         int fadedBg = ((int)(panelBgAlpha * anim) << 24) | (panelBg & 0x00FFFFFF);
-        // When sidebar is synced to main animation, extend panel bg to
-        // sidebar's right edge so there's no gap between them.
-        int fillLeft = (!sidebarAnimating && sidebarOpen)
-            ? (int)(anim * SIDEBAR_W) : panelX;
+        int fillLeft = sideVisible ? (int)(anim * SIDEBAR_W) : panelX;
         g.fill(fillLeft, 0, panelX + panelW, height, fadedBg);
 
         renderTitleBar(g, mouseX, mouseY);
@@ -1062,8 +874,6 @@ public class ChatBubbleScreen extends Screen {
         if (hovered != null && hovered.getHoverEvent() != null) {
             g.renderComponentHoverEffect(font, hovered, mouseX, mouseY);
         }
-        // Everything past the message list renders 50 z-units up so vanilla/ModernUI
-        // text effects (underline/strikethrough at z+0.01) can never pierce overlays
         g.pose().translate(0, 0, 50);
         renderNotificationBar(g, mouseX, mouseY);
         renderReplyBar(g, mouseX, mouseY);
@@ -1084,16 +894,15 @@ public class ChatBubbleScreen extends Screen {
         g.pose().popPose();
 
         // Sidebar on top of chat panel, with its own slide animation
-        // When closing, sidebar follows the chat panel's close animation
-        if (sidebarOpen || sidebarAnimating) {
+        if (sidebar.isOpen() || sidebar.isAnimating()) {
             g.pose().pushPose();
             int sidebarOffset = closing
                 ? (int)((getAnimProgress() - 1.0f) * SIDEBAR_W)
-                : getSidebarScreenX();
+                : (int) sidebar.screenX();
             g.pose().translate(sidebarOffset, 0, 50);
             renderSidebar(g, mouseX - sidebarOffset, mouseY);
             g.pose().popPose();
-            if (closing) sidebarSearchBox.setX(2 + sidebarOffset);
+            if (closing) sidebar.searchBox().setX(2 + sidebarOffset);
         }
 
         g.pose().pushPose();
@@ -1104,44 +913,11 @@ public class ChatBubbleScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
         g.pose().popPose();
 
-        // Notification banner above the chat panel
-        g.pose().pushPose();
-        g.pose().translate(0, 0, 200);
-        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.render(g,
-            width, height);
-        g.pose().popPose();
     }
 
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
-        int ty = titleY;
-        g.fill(panelX, ty, panelX + panelW, ty + TITLE_H, c().titleBg());
-        g.fill(panelX, ty + TITLE_H, panelX + panelW, ty + TITLE_H + 1, c().divider());
-
-        int menuX = panelX + 3;
-        int menuY = ty + (TITLE_H - ICON_S) / 2;
-        boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S && mouseY >= menuY && mouseY <= menuY + ICON_S;
-        if (hoverMenu) g.fill(menuX - 1, menuY - 1, menuX + ICON_S + 1, menuY + ICON_S + 1, c().iconHover());
-        drawTextureIcon(g, iconTex("menu"), menuX, menuY, ICON_S);
-
-        String title = getDisplayTitle();
-        int titleW = font.width(title);
-        int titleX = UiLayout.centerX(panelX, panelW, titleW);
-        int titleTextY = ty + (TITLE_H - font.lineHeight) / 2;
-        g.drawString(font, Component.literal(title), titleX, titleTextY, c().textPrimary(), false);
-
-        // Time
-        String time = LocalTime.now().format(TIME_FMT);
-        int timeW = font.width(time);
-        g.drawString(font, Component.literal(time),
-            panelX + panelW - PAD - 20 - timeW, ty + (TITLE_H - font.lineHeight) / 2, c().timeColor(), false);
-
-        // Close button
-        int closeX = panelX + panelW - 18;
-        int closeY = ty + 6;
-        boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12 && mouseY >= closeY && mouseY <= closeY + 12;
-        int closeBg = hoverClose ? c().closeHoverBg() : c().closeBg();
-        g.fill(closeX, closeY, closeX + 12, closeY + 12, closeBg);
-        g.drawString(font, Component.literal("✕"), closeX + 6 - font.width("✕") / 2, closeY + 2, c().closeText(), false);
+        ChatBars.renderTitleBar(g, font, mouseX, mouseY, c(), panelX, panelW,
+            getDisplayTitle(), LocalTime.now().format(TIME_FMT), iconTex("menu"));
     }
 
     private boolean isMouseOverHamburger(double mx, double my) {
@@ -1281,293 +1057,74 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void renderScrollbar(GuiGraphics g, int mouseX, int mouseY, int effectiveMsgBottom) {
-        if (maxScroll <= 0) return;
-
-        // Fade in when mouse is near right edge, fade out otherwise
-        boolean inZone = mouseX >= panelX + panelW - SCROLLBAR_HOVER_ZONE
-            && mouseX <= panelX + panelW
-            && mouseY >= msgTop && mouseY < effectiveMsgBottom;
+        boolean inZone = ChatScrollbar.isInZone(mouseX, panelX, panelW, mouseY, msgTop, effectiveMsgBottom);
         boolean recentlyScrolled = net.minecraft.Util.getMillis() - lastScrollTime < 1000;
-        float target = (inZone || scrollbarDragging || recentlyScrolled) ? 1f : 0f;
+        float target = ChatScrollbar.alphaTarget(inZone, scrollbarDragging, lastScrollTime);
         scrollbarAlpha = Animation.lerpTo(scrollbarAlpha, target, 0.15f, 0.005f);
-        if (scrollbarAlpha <= 0.005f && !scrollbarDragging) return;
 
-        int trackX = panelX + panelW - SCROLLBAR_WIDTH;
-        int trackTop = msgTop;
-        int trackBottom = effectiveMsgBottom;
-        int trackH = trackBottom - trackTop;
-
-        int scrollRgb = c().scrollbar() & 0x00FFFFFF;
-        int trackColor = ((int)(0x1A * scrollbarAlpha) << 24) | scrollRgb;
-        g.fill(trackX, trackTop, trackX + SCROLLBAR_WIDTH, trackBottom, trackColor);
-
-        int thumbH = Math.max(MIN_THUMB_H, (int)((long)trackH * trackH / messageTotalH));
-        thumbH = Math.min(thumbH, trackH);
-
-        int travelRange = trackH - thumbH;
-        int thumbY = trackTop + (int)((long)scrollOffset * travelRange / maxScroll);
-
-        boolean hovering = !scrollbarDragging
-            && mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH
-            && mouseY >= thumbY && mouseY < thumbY + thumbH;
-        scrollbarHovered = hovering || scrollbarDragging;
-
-        int thumbBase = scrollbarDragging ? 0xAA : scrollbarHovered ? 0x88 : 0x66;
-        int thumbColor = ((int)(thumbBase * scrollbarAlpha) << 24) | scrollRgb;
-
-        g.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, thumbColor);
+        ChatLayout layout = new ChatLayout(panelX, panelW, titleY, msgTop, msgBottom, barTop, width, height);
+        ChatScrollbar.render(g, layout, mouseX, mouseY, maxScroll, messageTotalH, scrollOffset,
+            scrollbarDragging, scrollbarAlpha, c().scrollbar(), effectiveMsgBottom);
     }
 
     private void renderTimeSeparator(GuiGraphics g, LocalTime time, int y) {
-        String text = time.format(TIME_FMT);
-        int tw = font.width(text);
-        int tx = UiLayout.centerX(panelX, panelW, tw);
-        g.fill(tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2, ChatBubbleTheme.alphaBlend(c().toastBg(), 0x44));
-        g.drawString(font, Component.literal(text), tx, y + 3, c().timeColor(), false);
+        ChatMessageRenderer.renderTimeSeparator(g, font, time, y, panelX, panelW, c());
     }
 
-    // Wrap a message honoring '\n' as real line breaks: split the styled component into
-    // paragraphs on newlines (keeping each run's style), wrap each with the font, then
-    // concatenate. Stray leading/trailing newlines are trimmed so they don't leave a
-    // dangling blank line. The chat list thus shows a multi-line announcement on several
-    // lines instead of "LF" boxes; pure chat-clear messages are dropped at ingest.
     private List<FormattedCharSequence> wrapContent(Component c, int width) {
-        List<Component> paras = new ArrayList<>();
-        MutableComponent[] cur = { Component.empty() };
-        c.visit((style, text) -> {
-            int start = 0;
-            for (int i = 0; i < text.length(); i++) {
-                if (text.charAt(i) == '\n') {
-                    if (i > start) cur[0].append(Component.literal(text.substring(start, i)).withStyle(style));
-                    paras.add(cur[0]);
-                    cur[0] = Component.empty();
-                    start = i + 1;
-                }
-            }
-            if (start < text.length()) cur[0].append(Component.literal(text.substring(start)).withStyle(style));
-            return Optional.<Object>empty();
-        }, Style.EMPTY);
-        paras.add(cur[0]);
-        while (!paras.isEmpty() && paras.get(0).getString().isEmpty()) paras.remove(0);
-        while (!paras.isEmpty() && paras.get(paras.size() - 1).getString().isEmpty()) paras.remove(paras.size() - 1);
-        List<FormattedCharSequence> out = new ArrayList<>();
-        for (Component p : paras) out.addAll(font.split(p, width));
-        if (out.isEmpty()) out.addAll(font.split(c, width));
-        return out;
+        return ChatMessageRenderer.wrapContent(c, font, width);
     }
 
     private int getMsgHeight(ChatMessageStore.ChatMessage msg) {
-        if (msg.isSystem()) {
-            List<FormattedCharSequence> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
-            return lines.size() * font.lineHeight + 4;
-        }
-        int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
-        List<FormattedCharSequence> lines = wrapContent(msg.content(), bubbleMaxW);
-        int h = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2 + NAME_H;
-        if (msg.replyContent() != null) h += font.lineHeight + 7;
-        return h;
+        int bubbleMaxW = panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2
+            - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
+        return ChatMessageRenderer.msgHeight(msg, font, bubbleMaxW);
     }
+
 
     private void renderBubble(GuiGraphics g, ChatMessageStore.ChatMessage msg,
                                int index, int baseY, int mouseX, int mouseY) {
-        float fadeProgress = 1f;
-        if (fadeProgress <= 0.01f) return;
-
-        if (msg.isSystem()) {
-            List<FormattedCharSequence> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
-            int yy = baseY + 2;
-            net.minecraft.network.chat.Style fb = findClickStyle(msg.content());
-            int sysColor = c().textMuted();
-            int sysAlpha = sysColor >>> 24;
-            int fadedSys = ((int)(sysAlpha * fadeProgress) << 24) | (sysColor & 0x00FFFFFF);
-            for (var line : lines) {
-                int lw = font.width(line);
-                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, fadedSys, fb);
-                yy += font.lineHeight;
-            }
-            return;
-        }
-
         boolean own = msg.isOwn();
-        int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
-        List<FormattedCharSequence> lines = wrapContent(msg.content(), bubbleMaxW);
-
-        int textW = 0;
-        for (var line : lines) textW = Math.max(textW, font.width(line));
-        int bubbleW = textW + BUBBLE_PAD_X * 2;
-        int bubbleH = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2;
-
-        int avatarX, bubbleX;
-        if (own) {
-            avatarX = panelX + panelW - PAD - AVATAR;
-            bubbleX = avatarX - 4 - bubbleW;
-        } else {
-            avatarX = panelX + PAD;
-            bubbleX = avatarX + AVATAR + 4;
-        }
-
-        int nameY = baseY;
-
-        if (!msg.senderName().getString().isEmpty()) {
-            int maxNameW = panelW - AVATAR - PAD * 2 - 20;
-            Component sn = msg.senderName();
-            net.minecraft.util.FormattedCharSequence nameSeq;
-            if (font.width(sn) > maxNameW) {
-                var cut = font.substrByWidth(sn, maxNameW - font.width("..."));
-                nameSeq = net.minecraft.locale.Language.getInstance().getVisualOrder(
-                    net.minecraft.network.chat.FormattedText.composite(cut, net.minecraft.network.chat.FormattedText.of("...")));
-            } else {
-                nameSeq = sn.getVisualOrderText();
-            }
-            int nameW = font.width(nameSeq);
-            int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
-            int nameColor = c().nameColor();
-            int fadedName = ((int)((nameColor >>> 24) * fadeProgress) << 24) | (nameColor & 0x00FFFFFF);
-            g.drawString(font, nameSeq, startX, nameY, fadedName, false);
-        }
-
-        int bubbleY = baseY + NAME_H;
-        int avatarY = baseY;
-
-        int bg = own
-            ? ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_BUBBLE_COLOR.get(), 0xFF1E90FF)
-            : ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_BUBBLE_COLOR.get(), c().contextHover());
-        int fg = own
-            ? ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_TEXT_COLOR.get(), 0xFFFFFFFF)
-            : ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_TEXT_COLOR.get(), c().textPrimary());
-
-        int fadedBg = ((int)((bg >>> 24) * fadeProgress) << 24) | (bg & 0x00FFFFFF);
-        int fadedFg = ((int)((fg >>> 24) * fadeProgress) << 24) | (fg & 0x00FFFFFF);
-
-        RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
-            ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get(), fadedBg);
-
-        net.minecraft.network.chat.Style fbP = findClickStyle(msg.content());
-        for (int li = 0; li < lines.size(); li++)
-            renderLineWithClicks(g, lines.get(li), bubbleX + BUBBLE_PAD_X,
-                bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fadedFg, fbP);
-
+        int bubbleMaxW = panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2
+            - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
+        int ownBg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_BUBBLE_COLOR.get(), 0xFF1E90FF);
+        int otherBg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_BUBBLE_COLOR.get(), c().contextHover());
+        int ownFg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_TEXT_COLOR.get(), 0xFFFFFFFF);
+        int otherFg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_TEXT_COLOR.get(), c().textPrimary());
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
         ResourceLocation skin = getSkin(msg.senderUUID(), skinName);
-        RenderSystem.setShaderColor(1f, 1f, 1f, fadeProgress);
-        drawPlayerHead(g, skin, avatarX, avatarY, 20, 22);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-        if (msg.duplicateCount() > 1) {
-            String label = "x" + msg.duplicateCount();
-            int labelW = font.width(label);
-            int labelX, labelY = bubbleY + (bubbleH - font.lineHeight) / 2;
-            if (own) {
-                labelX = bubbleX - labelW - 3;
-            } else {
-                labelX = bubbleX + bubbleW + 3;
-            }
-            int dlColor = c().duplicateLabel();
-            int fadedDl = ((int)((dlColor >>> 24) * fadeProgress) << 24) | (dlColor & 0x00FFFFFF);
-            g.drawString(font, Component.literal(label), labelX, labelY, fadedDl, false);
-        }
-
-        if (msg.replyContent() != null) {
-            int quoteMaxW = panelW - PAD * 2 - AVATAR - 24;
-            String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
-            String quoteDisplay = font.plainSubstrByWidth(quoteText, quoteMaxW - 10);
-            if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
-            int quoteTextW = font.width(quoteDisplay);
-            int quoteW = Math.min(quoteTextW + 8, quoteMaxW);
-            int quoteH = font.lineHeight + 4;
-            int quoteY = bubbleY + bubbleH + 3;
-            int quoteX;
-            if (own) {
-                quoteX = bubbleX + bubbleW - quoteW;
-            } else {
-                quoteX = bubbleX;
-            }
-            if (quoteX < panelX + PAD) quoteX = panelX + PAD;
-            if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
-            int qBg = c().contextHover();
-            int qFg = c().textSecondary();
-            int fadedQBg = ((int)((qBg >>> 24) * fadeProgress) << 24) | (qBg & 0x00FFFFFF);
-            int fadedQFg = ((int)((qFg >>> 24) * fadeProgress) << 24) | (qFg & 0x00FFFFFF);
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, fadedQBg);
-            g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, fadedQFg, false);
-        }
-
-        bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
-
-        if (index == searchHighlightIndex)
-            g.renderOutline(bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2, ChatSearchPanel.HIGHLIGHT);
+        ChatMessageRenderer.renderBubble(g, font, msg, index, baseY, mouseX, mouseY,
+            panelX, panelW, ownBg, otherBg, ownFg, otherFg, own,
+            ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get(), c(), skin,
+            searchHighlightIndex, bubbleMaxW, bubbleRects, clickableSpans);
     }
 
     private void renderLineWithClicks(GuiGraphics g, FormattedCharSequence line,
                                        int x, int y, int color) {
-        renderLineWithClicks(g, line, x, y, color, null);
+        ChatMessageRenderer.renderLineWithClicks(g, font, line, x, y, color, null, clickableSpans);
     }
 
     private void renderLineWithClicks(GuiGraphics g, FormattedCharSequence line,
                                        int x, int y, int color,
                                        net.minecraft.network.chat.Style fallback) {
-        // Let the font renderer draw underlines itself: re-measuring glyphs per char
-        // drifts under font mods with sub-pixel advances (ModernUI), producing
-        // offset/oversized self-painted lines. Overlay piercing by the z+0.01 text
-        // effect layer is handled by the overlay z-lift in render() instead
-        FormattedCharSequence decorated = sink -> line.accept((i, st, cp) ->
-            sink.accept(i, st.getClickEvent() != null && !st.isUnderlined() ? st.withUnderlined(true) : st, cp));
-        g.drawString(font, decorated, x, y, color, false);
-
-        final java.util.List<net.minecraft.network.chat.Style> styles = new java.util.ArrayList<>();
-        line.accept((i, st, cp) -> { styles.add(st); return true; });
-
-        final int beforeCount = clickableSpans.size();
-        int runStart = -1;
-        net.minecraft.network.chat.Style runStyle = null;
-        for (int idx = 0; idx <= styles.size(); idx++) {
-            net.minecraft.network.chat.Style st = idx < styles.size() ? styles.get(idx) : null;
-            // Track segments with a click OR hover event so hover tooltips (e.g.
-            // advancement descriptions) work, not just clickable links
-            boolean clickable = st != null && (st.getClickEvent() != null || st.getHoverEvent() != null);
-            if (runStyle == null) {
-                if (clickable) { runStart = idx; runStyle = st; }
-            } else if (!clickable || !st.equals(runStyle)) {
-                int x0 = prefixWidth(line, runStart);
-                int x1 = prefixWidth(line, idx);
-                clickableSpans.add(new ClickableSpan(x + x0, y, x1 - x0, font.lineHeight, runStyle));
-                runStart = clickable ? idx : -1;
-                runStyle = clickable ? st : null;
-            }
-        }
-        if (clickableSpans.size() == beforeCount && fallback != null && fallback.getClickEvent() != null) {
-            clickableSpans.add(new ClickableSpan(x, y, font.width(line), font.lineHeight, fallback.withUnderlined(true)));
-        }
+        ChatMessageRenderer.renderLineWithClicks(g, font, line, x, y, color, fallback, clickableSpans);
     }
 
-    // Width of the first count codepoints, measured through the renderer's own
-    // metrics so positions match what it actually draws (per-char accumulation
-    // does not — see renderLineWithClicks)
     private int prefixWidth(FormattedCharSequence line, int count) {
-        if (count <= 0) return 0;
-        return font.width((FormattedCharSequence) sink -> {
-            int[] left = {count};
-            line.accept((i, st, cp) -> left[0]-- > 0 && sink.accept(i, st, cp));
-            return true;
-        });
+        return ChatMessageRenderer.prefixWidth(line, count, font);
     }
 
     private net.minecraft.network.chat.Style findClickStyle(net.minecraft.network.chat.Component c) {
-        net.minecraft.network.chat.Style s = c.getStyle();
-        if (s != null && s.getClickEvent() != null) return s;
-        for (net.minecraft.network.chat.Component child : c.getSiblings()) {
-            s = findClickStyle(child);
-            if (s != null) return s;
-        }
-        return null;
+        return ChatMessageRenderer.findClickStyle(c);
     }
 
     private net.minecraft.network.chat.Style getHoveredStyle(double mouseX, double mouseY) {
-        for (ClickableSpan s : clickableSpans) {
-            if (mouseX >= s.x && mouseX <= s.x + s.w
-                && mouseY >= s.y && mouseY <= s.y + s.h)
-                return s.style;
+        for (ChatMessageRenderer.ClickableSpan s : clickableSpans) {
+            if (mouseX >= s.x() && mouseX <= s.x() + s.w()
+                && mouseY >= s.y() && mouseY <= s.y() + s.h())
+                return s.style();
         }
         return null;
     }
@@ -1600,62 +1157,15 @@ public class ChatBubbleScreen extends Screen {
 
     private void renderContextMenu(GuiGraphics g, int mouseX, int mouseY) {
         if (contextMsgIndex < 0) return;
-        int menuH = CTX_ITEM_H * 2 + 2;
-        int menuX = Math.min(contextX, panelX + panelW - CTX_W - 2);
-        int menuY = contextY - menuH;
-        if (menuY < msgTop) menuY = contextY + 4;
-
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + menuH, c().contextBg());
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + 1, c().divider());
-        g.fill(menuX, menuY + menuH - 1, menuX + CTX_W, menuY + menuH, c().divider());
-        g.fill(menuX, menuY, menuX + 1, menuY + menuH, c().divider());
-        g.fill(menuX + CTX_W - 1, menuY, menuX + CTX_W, menuY + menuH, c().divider());
-
-        boolean hoverCopy = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
-        int copyBg = hoverCopy ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, copyBg);
-        drawTextureIcon(g, iconTex("copy"), menuX + 5, menuY + 3, 12);
-        g.drawString(font, Component.translatable("e33chat.context.copy"), menuX + 22, menuY + 4, c().textPrimary(), false);
-
-        g.fill(menuX + 4, menuY + CTX_ITEM_H, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 1, c().closeHoverBg());
-
-        boolean hoverQuote = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY + CTX_ITEM_H + 1 && mouseY <= menuY + menuH;
-        int quoteBg = hoverQuote ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 1, menuY + menuH - 1, quoteBg);
-        drawTextureIcon(g, iconTex("quote"), menuX + 5, menuY + CTX_ITEM_H + 3, 12);
-        g.drawString(font, Component.translatable("e33chat.context.quote"), menuX + 22, menuY + CTX_ITEM_H + 5, c().textPrimary(), false);
+        ChatContextMenus.renderMessageMenu(g, font, mouseX, mouseY, c(), panelX, panelW,
+            msgTop, iconTex("copy"), iconTex("quote"), contextX, contextY);
     }
 
     private void renderAvatarContextMenu(GuiGraphics g, int mouseX, int mouseY) {
         if (contextAvatarIndex < 0) return;
-        int menuH = CTX_ITEM_H * 2 + 3;
-        int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
-        int menuY = contextAvatarY - menuH;
-        if (menuY < msgTop) menuY = contextAvatarY + 4;
-
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + menuH, c().contextBg());
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + 1, c().divider());
-        g.fill(menuX, menuY + menuH - 1, menuX + CTX_W, menuY + menuH, c().divider());
-        g.fill(menuX, menuY, menuX + 1, menuY + menuH, c().divider());
-        g.fill(menuX + CTX_W - 1, menuY, menuX + CTX_W, menuY + menuH, c().divider());
-
-        boolean hoverTp = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
-        int tpBg = hoverTp ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, tpBg);
-        drawTextureIcon(g, iconTex("tp"), menuX + 5, menuY + 3, 12);
-        g.drawString(font, Component.translatable(ChatMessageStore.useTpa() ? "e33chat.context.tpa" : "e33chat.context.tp"), menuX + 22, menuY + 4, c().textPrimary(), false);
-
-        g.fill(menuX + 4, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 2, c().closeHoverBg());
-
-        boolean hoverWhisper = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY + CTX_ITEM_H + 2 && mouseY <= menuY + menuH;
-        int whBg = hoverWhisper ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + CTX_ITEM_H + 2, menuX + CTX_W - 1, menuY + menuH - 1, whBg);
-        drawTextureIcon(g, iconTex("whisper"), menuX + 5, menuY + CTX_ITEM_H + 4, 12);
-        g.drawString(font, Component.translatable("e33chat.context.whisper"), menuX + 22, menuY + CTX_ITEM_H + 6, c().textPrimary(), false);
+        ChatContextMenus.renderAvatarMenu(g, font, mouseX, mouseY, c(), panelX, panelW,
+            msgTop, iconTex("tp"), iconTex("whisper"), contextAvatarX, contextAvatarY,
+            ChatMessageStore.useTpa());
     }
 
     private static final int REPLY_BAR_H = 18;
@@ -1776,8 +1286,8 @@ public class ChatBubbleScreen extends Screen {
                     ? c().textSecondary() : c().textPrimary();
                 input.setTextColor(editColor);
                 input.setTextColorUneditable(c().textMuted());
-                sidebarSearchBox.setTextColor(editColor);
-                sidebarSearchBox.setTextColorUneditable(editColor);
+                sidebar.searchBox().setTextColor(editColor);
+                sidebar.searchBox().setTextColorUneditable(editColor);
                 quickChatInput.setTextColor(editColor);
                 quickChatInput.setTextColorUneditable(c().textMuted());
                 searchInput.setTextColor(editColor);
@@ -1806,45 +1316,9 @@ public class ChatBubbleScreen extends Screen {
 
 
     private void renderBottomBar(GuiGraphics g, int mouseX, int mouseY) {
-        g.fill(panelX, barTop, panelX + panelW, height, c().barBg());
-        g.fill(panelX, barTop, panelX + panelW, barTop + 1, c().divider());
-
-        int iconY = barTop + (BAR_H - ICON_S) / 2;
-
-        // Input background (anchor at layout position, EditBox shifted down 3px = (14-8)/2 to center text)
-        int ibX = inputX;
-        int ibY = inputY;
-        int ibW = input.getWidth();
-        int ibH = INPUT_H;
-        g.fill(ibX - 1, ibY - 1, ibX + ibW, ibY, c().divider());
-        g.fill(ibX - 1, ibY, ibX + ibW, ibY + ibH, c().inputBg());
-
-        boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + ibW && mouseY >= ibY && mouseY <= ibY + ibH;
-        if (hoverInput || input.isFocused())
-            g.renderOutline(ibX - 1, ibY, ibW + 1, ibH, c().textMuted());
-
-        // Icons
-        int gearX = panelX + 4;
-        int sendX = panelX + panelW - PAD - ICON_S + 2;
-        int emojiX = sendX - ICON_S - 6;
-
-        // Gear icon (left)
-        boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
-            && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverGear) g.fill(gearX - 1, iconY - 1, gearX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
-        drawTextureIcon(g, iconTex("settings"), gearX, iconY, ICON_S);
-
-        // Emoji icon (between input and send)
-        boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
-            && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverEmoji || emojiPanel.visible) g.fill(emojiX - 1, iconY - 1, emojiX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
-        drawTextureIcon(g, iconTex("emoji"), emojiX, iconY, ICON_S);
-
-        // Send icon (right)
-        boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
-            && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverSend) g.fill(sendX - 1, iconY - 1, sendX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
-        drawTextureIcon(g, iconTex("send"), sendX, iconY, ICON_S);
+        ChatBars.renderBottomBar(g, font, mouseX, mouseY, c(), panelX, panelW, barTop, height,
+            inputX, inputY, input.getWidth(), input.isFocused(), emojiPanel.visible,
+            iconTex("settings"), iconTex("emoji"), iconTex("send"));
     }
 
     private static void loadIconTextures() {
@@ -1874,7 +1348,7 @@ public class ChatBubbleScreen extends Screen {
                 Minecraft.getInstance().getTextureManager().register(loc, tex);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            com.mojang.logging.LogUtils.getLogger().error("[e33chat] Failed to load icon texture", e);
         }
     }
 
@@ -2131,12 +1605,4 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     public boolean isPauseScreen() { return false; }
-
-    private static class ClickableSpan {
-        final int x, y, w, h;
-        final net.minecraft.network.chat.Style style;
-        ClickableSpan(int x, int y, int w, int h, net.minecraft.network.chat.Style style) {
-            this.x = x; this.y = y; this.w = w; this.h = h; this.style = style;
-        }
-    }
 }
