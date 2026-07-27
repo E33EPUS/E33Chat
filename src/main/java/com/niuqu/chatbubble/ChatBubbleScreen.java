@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-public class ChatBubbleScreen extends net.minecraft.client.gui.screens.ChatScreen {
+public class ChatBubbleScreen extends Screen {
 
     // Layout
     private int panelX, panelW;
@@ -165,12 +165,9 @@ public class ChatBubbleScreen extends net.minecraft.client.gui.screens.ChatScree
     private int notifBarTextY;
 
     public ChatBubbleScreen(String initialText) {
-        super(initialText);
+        super(Component.translatable("e33chat.screen.title"));
         this.initialText = initialText;
     }
-
-    @Override
-    public void renderBackground(GuiGraphics g) {}
 
     @Override
     protected void init() {
@@ -1571,7 +1568,7 @@ public class ChatBubbleScreen extends net.minecraft.client.gui.screens.ChatScree
         scrollToBottom = true;
     }
 
-    public void moveInHistory(int delta) {
+    private void moveInHistory(int delta) {
         int size = minecraft.gui.getChat().getRecentChat().size();
         int newPos = Mth.clamp(historyPos + delta, 0, size);
         if (newPos != historyPos) {
