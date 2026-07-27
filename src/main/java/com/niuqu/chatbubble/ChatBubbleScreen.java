@@ -21,6 +21,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import com.niuqu.chatbubble.packets.QuoteSyncPacket;
+import com.niuqu.chatbubble.render.ChatBars;
 import com.niuqu.chatbubble.render.ChatContextMenus;
 import com.niuqu.chatbubble.render.ChatLayout;
 import com.niuqu.chatbubble.render.ChatScrollbar;
@@ -1697,45 +1698,9 @@ public class ChatBubbleScreen extends Screen {
 
 
     private void renderBottomBar(GuiGraphics g, int mouseX, int mouseY) {
-        g.fill(panelX, barTop, panelX + panelW, height, c().barBg());
-        g.fill(panelX, barTop, panelX + panelW, barTop + 1, c().divider());
-
-        int iconY = barTop + (BAR_H - ICON_S) / 2;
-
-        // Input background (anchor at layout position, EditBox shifted down 3px = (14-8)/2 to center text)
-        int ibX = inputX;
-        int ibY = inputY;
-        int ibW = input.getWidth();
-        int ibH = INPUT_H;
-        g.fill(ibX - 1, ibY - 1, ibX + ibW, ibY, c().divider());
-        g.fill(ibX - 1, ibY, ibX + ibW, ibY + ibH, c().inputBg());
-
-        boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + ibW && mouseY >= ibY && mouseY <= ibY + ibH;
-        if (hoverInput || input.isFocused())
-            g.renderOutline(ibX - 1, ibY, ibW + 1, ibH, c().textMuted());
-
-        // Icons
-        int gearX = panelX + 4;
-        int sendX = panelX + panelW - PAD - ICON_S + 2;
-        int emojiX = sendX - ICON_S - 6;
-
-        // Gear icon (left)
-        boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
-            && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverGear) g.fill(gearX - 1, iconY - 1, gearX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
-        drawTextureIcon(g, iconTex("settings"), gearX, iconY, ICON_S);
-
-        // Emoji icon (between input and send)
-        boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
-            && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverEmoji || emojiPanel.visible) g.fill(emojiX - 1, iconY - 1, emojiX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
-        drawTextureIcon(g, iconTex("emoji"), emojiX, iconY, ICON_S);
-
-        // Send icon (right)
-        boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
-            && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverSend) g.fill(sendX - 1, iconY - 1, sendX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
-        drawTextureIcon(g, iconTex("send"), sendX, iconY, ICON_S);
+        ChatBars.renderBottomBar(g, font, mouseX, mouseY, c(), panelX, panelW, barTop, height,
+            inputX, inputY, input.getWidth(), input.isFocused(), emojiPanel.visible,
+            iconTex("settings"), iconTex("emoji"), iconTex("send"));
     }
 
     private static void loadIconTextures() {
