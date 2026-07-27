@@ -81,17 +81,23 @@ public class ChatBubbleConfigScreen extends Screen {
         notifications.add(new Opt("e33chat.config.red_dot", y -> mkBoolButton(y, ChatBubbleConfig.RED_DOT_ENABLED), null));
         notifications.add(new Opt("e33chat.config.hide_chat_icon", y -> mkBoolButton(y, ChatBubbleConfig.HIDE_CHAT_ICON), null));
         notifications.add(new Opt("e33chat.config.preview_enabled", y -> mkBoolButton(y, ChatBubbleConfig.PREVIEW_ENABLED), null));
-        notifications.add(new Opt("e33chat.config.preview_lines", this::mkCycleButton, null));
+        notifications.add(new Opt("e33chat.config.preview_lines",
+            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PREVIEW_LINES.get()), 3, 10, 2,
+                v -> ChatBubbleConfig.PREVIEW_LINES.set(v)), null));
         notifications.add(new Opt("e33chat.config.preview_width",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PREVIEW_WIDTH.get()), 50, 400, 3, ChatBubbleConfig.PREVIEW_WIDTH::set), null));
         notifications.add(new Opt("e33chat.config.strong_hint", y -> mkBoolButton(y, ChatBubbleConfig.STRONG_HINT_ENABLED), null));
-        notifications.add(Opt.header("e33chat.config.section.mention"));
+        notifications.add(Opt.header("e33chat.config.section.mention_quote"));
         notifications.add(new Opt("e33chat.config.mention_banner_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_BANNER_ENABLED), null));
         notifications.add(new Opt("e33chat.config.mention_banner_duration",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.MENTION_BANNER_DURATION.get()), 2, 10, 2,
                 v -> ChatBubbleConfig.MENTION_BANNER_DURATION.set(v)), null));
-        notifications.add(new Opt("e33chat.config.mention_sound_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_SOUND_ENABLED), null));
+        notifications.add(new Opt("e33chat.config.banner_corner_radius",
+            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BANNER_CORNER_RADIUS.get()), 0, 10, 2,
+                v -> ChatBubbleConfig.BANNER_CORNER_RADIUS.set(v)), null));
         notifications.add(new Opt("e33chat.config.mention_require_at", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_REQUIRE_AT), null));
+        notifications.add(new Opt("e33chat.config.mention_sound_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_SOUND_ENABLED), null));
+        notifications.add(Opt.header("e33chat.config.section.whisper"));
         notifications.add(new Opt("e33chat.config.mention_whisper_banner", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_WHISPER_BANNER), null));
         notifications.add(Opt.header("e33chat.config.section.sounds"));
         notifications.add(new Opt("e33chat.config.sound_whisper",
@@ -166,11 +172,11 @@ public class ChatBubbleConfigScreen extends Screen {
     private Button mkThemeButton(int y) {
         var themes = ChatBubbleTheme.values();
         return Button.builder(
-            Component.literal(ChatBubbleConfig.THEME.get().name()),
+            Component.translatable("e33chat.theme." + ChatBubbleConfig.THEME.get().name().toLowerCase()),
             btn -> {
                 int next = (ChatBubbleConfig.THEME.get().ordinal() + 1) % themes.length;
                 ChatBubbleConfig.THEME.set(themes[next]);
-                btn.setMessage(Component.literal(themes[next].name()));
+                btn.setMessage(Component.translatable("e33chat.theme." + themes[next].name().toLowerCase()));
             }
         ).bounds(inputX, y, INPUT_W, 20).build();
     }
@@ -183,18 +189,6 @@ public class ChatBubbleConfigScreen extends Screen {
                 boolean nv = !cfg.get();
                 cfg.set(nv);
                 btn.setMessage(nv ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF);
-            }
-        ).bounds(inputX, y, INPUT_W, 20).build();
-    }
-
-    private Button mkCycleButton(int y) {
-        return Button.builder(
-            Component.literal(String.valueOf(ChatBubbleConfig.PREVIEW_LINES.get())),
-            btn -> {
-                int v = ChatBubbleConfig.PREVIEW_LINES.get() + 1;
-                if (v > 8) v = 1;
-                ChatBubbleConfig.PREVIEW_LINES.set(v);
-                btn.setMessage(Component.literal(String.valueOf(v)));
             }
         ).bounds(inputX, y, INPUT_W, 20).build();
     }
@@ -290,8 +284,12 @@ public class ChatBubbleConfigScreen extends Screen {
         // Option rows
         String tooltipKey = null;
         int y = START_Y - scrollOffset;
+        boolean firstHeader = true;
         for (Opt opt : cats.get(selectedCat).opts()) {
             if (opt.isHeader()) {
+                if (firstHeader) firstHeader = false;
+                else if (y > -HEADER_H && y < height)
+                    g.fill(optLabelX - 4, y - 3, optLabelX + optAreaW() + 4, y - 2, c().divider());
                 if (y > -HEADER_H && y < height) {
                     g.fill(optLabelX - 4, y, optLabelX + optAreaW() + 4, y + HEADER_H,
                         c().configBg());

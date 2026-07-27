@@ -42,6 +42,7 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.BooleanValue MENTION_SOUND_ENABLED;
     public static final ForgeConfigSpec.BooleanValue MENTION_REQUIRE_AT;
     public static final ForgeConfigSpec.BooleanValue MENTION_WHISPER_BANNER;
+    public static final ForgeConfigSpec.IntValue BANNER_CORNER_RADIUS;
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
@@ -109,9 +110,9 @@ public class ChatBubbleConfig {
             .define("preview_enabled", true);
 
         PREVIEW_LINES = builder
-            .comment("Preview line count (1-8)")
+            .comment("Preview line count (3-10)")
             .translation("e33chat.config.preview_lines")
-            .defineInRange("preview_lines", 3, 1, 8);
+            .defineInRange("preview_lines", 3, 3, 10);
 
         PREVIEW_WIDTH = builder
             .comment("Preview width in pixels (50-400)")
@@ -223,6 +224,11 @@ public class ChatBubbleConfig {
             .comment("Show a notification banner for incoming private / whisper messages")
             .translation("e33chat.config.mention_whisper_banner")
             .define("whisper_banner", true);
+
+        BANNER_CORNER_RADIUS = builder
+            .comment("Banner corner radius (0 = square, max 10)")
+            .translation("e33chat.config.banner_corner_radius")
+            .defineInRange("banner_corner_radius", 6, 0, 10);
 
         builder.pop();
 
