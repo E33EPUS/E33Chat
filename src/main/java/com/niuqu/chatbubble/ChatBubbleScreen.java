@@ -460,7 +460,8 @@ public class ChatBubbleScreen extends Screen {
             return true;
         }
         int sidebarX = (int) sidebar.screenX();
-        if (mouseX >= sidebarX && mouseX <= sidebarX + SIDEBAR_W) {
+        if ((sidebar.isOpen() || sidebar.isAnimating())
+            && mouseX >= sidebarX && mouseX <= sidebarX + SIDEBAR_W) {
             sidebar.handleScroll(delta);
             return true;
         }
@@ -847,8 +848,16 @@ public class ChatBubbleScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         sidebar.tick();
 
+        // Sync panelX to sidebar animation progress so the panel slides with it
+        int newPanelX = SIDEBAR_W + (int) sidebar.screenX();
+        if (newPanelX != panelX) {
+            panelX = newPanelX;
+            rebuildLayout();
+        }
+
         float anim = getAnimProgress();
-        int moveDist = sidebar.isOpen() ? (closing ? panelW : SIDEBAR_W) : panelW;
+        boolean sideVisible = sidebar.isOpen() || sidebar.isAnimating();
+        int moveDist = sideVisible ? (closing ? panelW : SIDEBAR_W) : panelW;
         int panelOffset = (int) ((anim - 1.0f) * moveDist);
 
         // Panel contents slide in from left
@@ -858,7 +867,7 @@ public class ChatBubbleScreen extends Screen {
         int panelBg = c().panelBg();
         int panelBgAlpha = (panelBg >> 24) & 0xFF;
         int fadedBg = ((int)(panelBgAlpha * anim) << 24) | (panelBg & 0x00FFFFFF);
-        int fillLeft = sidebar.isOpen() ? (int)(anim * SIDEBAR_W) : panelX;
+        int fillLeft = sideVisible ? (int)(anim * SIDEBAR_W) : panelX;
         g.fill(fillLeft, 0, panelX + panelW, height, fadedBg);
 
         renderTitleBar(g, mouseX, mouseY);
@@ -887,7 +896,7 @@ public class ChatBubbleScreen extends Screen {
         g.pose().popPose();
 
         // Sidebar on top of chat panel, with its own slide animation
-        if (sidebar.isOpen() || sidebar.screenX() < 0) {
+        if (sidebar.isOpen() || sidebar.isAnimating()) {
             g.pose().pushPose();
             int sidebarOffset = closing
                 ? (int)((getAnimProgress() - 1.0f) * SIDEBAR_W)

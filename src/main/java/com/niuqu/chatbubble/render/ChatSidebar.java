@@ -54,6 +54,8 @@ public class ChatSidebar {
 
     public boolean isOpen() { return open; }
 
+    public boolean isAnimating() { return animating; }
+
     public void setOpen(boolean v) {
         ChatMessageStore.debugLog(() -> "[e33chat] Sidebar setOpen | target=" + v + " | was=" + open);
         targetOpen = v;
