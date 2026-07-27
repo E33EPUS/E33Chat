@@ -8,10 +8,12 @@ import com.niuqu.chatbubble.UiLayout;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.item.ItemStack;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -203,10 +205,26 @@ public final class ChatMessageRenderer {
             int yy = baseY + 2;
             Style fb = findClickStyle(msg.content());
             int sysColor = c.textMuted();
+            int beforeSys = clickableSpans.size();
             for (var line : lines) {
                 int lw = font.width(line);
                 renderLineWithClicks(g, font, line, panelX + (panelW - lw) / 2, yy, sysColor, fb, clickableSpans);
                 yy += font.lineHeight;
+            }
+            for (int i = beforeSys; i < clickableSpans.size(); i++) {
+                HoverEvent h = clickableSpans.get(i).style().getHoverEvent();
+                if (h != null && h.getAction() == HoverEvent.Action.SHOW_ITEM) {
+                    ItemStack stack = h.getValue(HoverEvent.Action.SHOW_ITEM).getItemStack();
+                    if (!stack.isEmpty()) {
+                        float iconX = clickableSpans.get(i).x();
+                        float iconY = clickableSpans.get(i).y() - 4;
+                        g.pose().pushPose();
+                        g.pose().translate(iconX + 1, iconY, 0);
+                        g.pose().scale(0.5f, 0.5f, 0.5f);
+                        g.renderItem(stack, 0, 0);
+                        g.pose().popPose();
+                    }
+                }
             }
             return;
         }

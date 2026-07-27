@@ -27,6 +27,7 @@ import com.niuqu.chatbubble.render.ChatLayout;
 import com.niuqu.chatbubble.render.ChatMessageRenderer;
 import com.niuqu.chatbubble.render.ChatScrollbar;
 import com.niuqu.chatbubble.render.ChatSidebar;
+import com.niuqu.chatbubble.render.QuarkCompat;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.io.InputStream;
 
@@ -235,6 +236,7 @@ public class ChatBubbleScreen extends Screen {
         addRenderableWidget(searchInput);
 
         setInitialFocus(input);
+        QuarkCompat.init(width, height);
     }
 
     private void rebuildLayout() {
@@ -482,6 +484,8 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && QuarkCompat.handleClick(mouseX, mouseY)) return true;
+
         // @mention popup click
         if (showMentions && button == 0) {
             int popupX = input.getX();
@@ -915,6 +919,7 @@ public class ChatBubbleScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
         g.pose().popPose();
 
+        QuarkCompat.render(g, font, mouseX, mouseY, c());
     }
 
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
@@ -1592,6 +1597,7 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     public void onClose() {
+        QuarkCompat.reset();
         if (ChatBubbleConfig.PRESERVE_INPUT.get()) savedInput = input.getValue();
         if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) {
             minecraft.setScreen(null);
