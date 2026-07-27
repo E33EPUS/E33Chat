@@ -1,5 +1,115 @@
 # Changelog
 
+## v2.1.9
+
+**Quark 兼容**
+- 分享物品图标：聊天栏分享物品时，消息旁渲染物品图标
+- 表情按钮：Quark 的表情按钮在聊天栏底部正常显示
+
+**Crash 修复**
+- ModernUI 兼容：`renderLineWithClicks` 字符索引越界，ModernUI 文本引擎访问的字符索引超出样式列表长度，增加边界检查解决
+- ChatScreen 继承回退：`extends ChatScreen` 在 Quark 等 mod 触发事件监听器时引发 log4j `MessageSupplier` 类加载器冲突（LinkageError），回退为 `extends Screen`
+
+**Mod 描述编码**
+- `gradle.properties` 添加 `-Dfile.encoding=UTF-8`，修复 mod 描述中文乱码
+
+**Quark compatibility**
+- Item sharing icons: shared items in chat now render with item icons next to messages
+- Emote buttons: Quark's emote buttons display correctly in chat bottom bar
+
+**Crash fixes**
+- ModernUI compat: added bounds check in `renderLineWithClicks` — ModernUI's text engine visits more character indices than the styles list, causing ArrayIndexOutOfBoundsException
+- Reverted `extends ChatScreen`: triggered log4j `MessageSupplier` classloader conflict (LinkageError) when Quark fires mod event listeners; reverted to `extends Screen`
+
+**Mod description encoding**
+- Added `-Dfile.encoding=UTF-8` to `gradle.properties` to fix Chinese character encoding in mod description
+
+## v2.1.8
+
+**通知横幅重设计**
+- SDF 圆角渲染：横幅从平直矩形改为圆角（可配置半径 0-10），带投影
+- 类型前缀：@提及显示 [@]、引用回复显示 [回复]、私聊显示 [私聊]，bake 进 `labeledName` 统一排版
+- easeOutBack 过冲动画：横幅滑入带弹性过冲效果，视觉更活泼
+- 移除左边色条，头像位置微调
+
+**配置界面重组**
+- 主题按钮改用 `Component.translatable()` 加载翻译 key
+- 预览行数从循环按钮改为 3-10 数字输入框
+- 通知标签页拆分为"@与引用"和"私聊"两个子区域，添加 `banner_corner_radius` 配置
+- 渲染循环增加区域分隔线
+
+**ClickEvent 修复**
+- issue #9：`renderLineWithClicks` 中父级 ClickEvent 不会自动传播到子级字符样式，增加 fallback 合并逻辑——无 ClickEvent 的 span 从父级继承
+
+**私聊点击放宽**
+- tell-click 玩家名长度限制从 32 放宽为 `max(32, text.length()/3)`，适应长昵称
+
+**Notification banner redesign**
+- SDF rounded corners via `RoundRectRenderer.fill()` with custom GLSL shader, configurable radius (0-10), plus drop shadow
+- Type prefixes baked into `labeledName`: [@] for mention, [回复] for quote reply, [私聊] for whisper
+- easeOutBack overshoot animation: `1 + c*(t-1)³ + c*(t-1)²` with c=1.70158
+- Removed left color bar, adjusted avatar position
+
+**Config screen reorganization**
+- Theme button uses `Component.translatable()` for proper localization
+- `preview_lines` changed from cycle button to 3-10 integer input field
+- Notifications tab split into "@与引用" and "私聊" sub-sections, added `banner_corner_radius`
+- Section dividers in render loop
+
+**ClickEvent fix**
+- Issue #9 (Lucid Advancements compat): fallback ClickEvent from parent component now merges into child spans that lack their own ClickEvent
+
+**Tell-click limit relaxed**
+- Player name length limit for tell-click detection relaxed from 32 to `max(32, text.length()/3)` for long nickname servers
+
+## v2.1.7
+
+**架构拆分：ChatBubbleScreen 2125→1600 行**
+- 提取 `ChatScrollbar`：滚动条渲染、拖拽、alpha 淡入淡出
+- 提取 `ChatContextMenus`：右键菜单（复制/引用/TP/私聊）
+- 提取 `ChatBars`：标题栏 + 底部栏渲染
+- 提取 `ChatSidebar`：侧边栏渲染、搜索框、玩家列表滚动、动画状态
+- 提取 `ChatMessageRenderer`：消息泡泡渲染、换行、时间分隔符、可点击文本
+
+**测试基础设施**
+- 新增 `ChatScrollbarTest`（13 个）：thumb 高度/位置、alpha 状态、hover 判定
+- 新增 `ChatMessageRendererTest`（10 个）：timeKey 取整、findClickStyle 遍历
+- 新增 `ChatContextMenusTest`（7 个）：菜单位置 clamp、点击判定
+- debugLog 改为 Supplier 延迟求值
+
+**Architecture split: ChatBubbleScreen 2125→1600 lines**
+- Extracted `ChatScrollbar`: scrollbar rendering, drag, alpha fade
+- Extracted `ChatContextMenus`: right-click menus (copy/quote/TP/whisper)
+- Extracted `ChatBars`: title bar + bottom bar rendering
+- Extracted `ChatSidebar`: sidebar rendering, search box, player list scroll, animation state
+- Extracted `ChatMessageRenderer`: bubble rendering, word wrap, time separators, clickable text
+
+**Test infrastructure**
+- Added `ChatScrollbarTest` (13 tests): thumb height/position, alpha states, hover detection
+- Added `ChatMessageRendererTest` (10 tests): timeKey rounding, findClickStyle traversal
+- Added `ChatContextMenusTest` (7 tests): menu position clamping, click detection
+- debugLog refactored to Supplier-based lazy evaluation
+
+## v2.1.6
+
+**通知横幅修复**
+- 空玩家名崩溃：服务端插件发送的广播消息（无 sender UUID）不再触发 NPE
+- isOwn 颜色编码：`isOwn` 判定中的 color code 格式消息正确关联到发送者
+- 横幅双重 tick：修复 `tick()` 内 banner 计时被调用两次导致加速消失的问题
+
+**通知横幅重构**
+- 提取 `MentionNotificationController` 为独立控制器，队列管理与渲染解耦
+- 提取 `MentionNotificationBanner` 为独立横幅组件
+
+**Banner crash fix**
+- Empty player name crash: broadcast messages from server plugins (no sender UUID) no longer trigger NPE
+- isOwn color code bug: color-code formatted messages now correctly associate with sender for `isOwn` detection
+- Banner double-tick: fixed banner timer being ticked twice per frame causing accelerated dismissal
+
+**Banner refactor**
+- Extracted `MentionNotificationController` as standalone controller, decoupling queue management from rendering
+- Extracted `MentionNotificationBanner` as standalone banner component
+
 ## v2.1.5
 
 **@Mention 通知系统**
