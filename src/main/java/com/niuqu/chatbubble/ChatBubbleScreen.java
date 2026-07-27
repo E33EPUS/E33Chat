@@ -236,7 +236,11 @@ public class ChatBubbleScreen extends Screen {
         addRenderableWidget(searchInput);
 
         setInitialFocus(input);
-        QuarkCompat.init(width, height);
+        ChatMessageStore.debugLog(() -> "[e33chat] Screen init done, calling QuarkCompat.init");
+        try { QuarkCompat.init(width, height); } catch (Exception e) {
+            ChatMessageStore.debugLog(() -> "[e33chat] QuarkCompat.init failed: " + e);
+        }
+        ChatMessageStore.debugLog(() -> "[e33chat] Screen init complete");
     }
 
     private void rebuildLayout() {
@@ -484,7 +488,10 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && QuarkCompat.handleClick(mouseX, mouseY)) return true;
+        if (button == 0) {
+            try { if (QuarkCompat.handleClick(mouseX, mouseY)) return true; }
+            catch (Exception e) { ChatMessageStore.debugLog(() -> "[e33chat] QuarkCompat.handleClick failed: " + e); }
+        }
 
         // @mention popup click
         if (showMentions && button == 0) {
@@ -919,7 +926,9 @@ public class ChatBubbleScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
         g.pose().popPose();
 
-        QuarkCompat.render(g, font, mouseX, mouseY, c());
+        try { QuarkCompat.render(g, font, mouseX, mouseY, c()); } catch (Exception e) {
+            ChatMessageStore.debugLog(() -> "[e33chat] QuarkCompat.render failed: " + e);
+        }
     }
 
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
@@ -1597,7 +1606,7 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     public void onClose() {
-        QuarkCompat.reset();
+        try { QuarkCompat.reset(); } catch (Exception ignored) {}
         if (ChatBubbleConfig.PRESERVE_INPUT.get()) savedInput = input.getValue();
         if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) {
             minecraft.setScreen(null);
