@@ -2,9 +2,9 @@
 
 ## v2.1.9
 
-**Quark 兼容**
-- 分享物品图标：聊天栏分享物品时，消息旁渲染物品图标
-- 表情按钮：Quark 的表情按钮在聊天栏底部正常显示
+**Quark 兼容（仅物品分享）**
+- 分享物品图标：聊天栏分享物品时，消息旁渲染物品图标（通过 HoverEvent.SHOW_ITEM 检测，任何使用标准物品分享机制的 mod 均适用）
+- 表情按钮：暂不支持。Quark 表情按钮通过 Mixin 注入 `ChatScreen`，E33Chat 因类加载器冲突（log4j `MessageSupplier` LinkageError）无法继承 `ChatScreen`，表情按钮需额外方案
 
 **Crash 修复**
 - ModernUI 兼容：`renderLineWithClicks` 字符索引越界，ModernUI 文本引擎访问的字符索引超出样式列表长度，增加边界检查解决
@@ -13,9 +13,9 @@
 **Mod 描述编码**
 - `gradle.properties` 添加 `-Dfile.encoding=UTF-8`，修复 mod 描述中文乱码
 
-**Quark compatibility**
-- Item sharing icons: shared items in chat now render with item icons next to messages
-- Emote buttons: Quark's emote buttons display correctly in chat bottom bar
+**Quark compatibility (item sharing only)**
+- Item sharing icons: shared items in chat now render with item icons next to messages (via HoverEvent.Action.SHOW_ITEM detection, compatible with any mod using the standard item-sharing pattern)
+- Emote buttons: not supported. Quark's emote buttons are injected via Mixin targeting `ChatScreen`; E33Chat cannot extend `ChatScreen` due to a log4j classloader conflict (`MessageSupplier` LinkageError). Emote buttons require a separate integration approach.
 
 **Crash fixes**
 - ModernUI compat: added bounds check in `renderLineWithClicks` — ModernUI's text engine visits more character indices than the styles list, causing ArrayIndexOutOfBoundsException
