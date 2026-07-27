@@ -1096,35 +1096,8 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
-        int ty = titleY;
-        g.fill(panelX, ty, panelX + panelW, ty + TITLE_H, c().titleBg());
-        g.fill(panelX, ty + TITLE_H, panelX + panelW, ty + TITLE_H + 1, c().divider());
-
-        int menuX = panelX + 3;
-        int menuY = ty + (TITLE_H - ICON_S) / 2;
-        boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S && mouseY >= menuY && mouseY <= menuY + ICON_S;
-        if (hoverMenu) g.fill(menuX - 1, menuY - 1, menuX + ICON_S + 1, menuY + ICON_S + 1, c().iconHover());
-        drawTextureIcon(g, iconTex("menu"), menuX, menuY, ICON_S);
-
-        String title = getDisplayTitle();
-        int titleW = font.width(title);
-        int titleX = UiLayout.centerX(panelX, panelW, titleW);
-        int titleTextY = ty + (TITLE_H - font.lineHeight) / 2;
-        g.drawString(font, Component.literal(title), titleX, titleTextY, c().textPrimary(), false);
-
-        // Time
-        String time = LocalTime.now().format(TIME_FMT);
-        int timeW = font.width(time);
-        g.drawString(font, Component.literal(time),
-            panelX + panelW - PAD - 20 - timeW, ty + (TITLE_H - font.lineHeight) / 2, c().timeColor(), false);
-
-        // Close button
-        int closeX = panelX + panelW - 18;
-        int closeY = ty + 6;
-        boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12 && mouseY >= closeY && mouseY <= closeY + 12;
-        int closeBg = hoverClose ? c().closeHoverBg() : c().closeBg();
-        g.fill(closeX, closeY, closeX + 12, closeY + 12, closeBg);
-        g.drawString(font, Component.literal("✕"), closeX + 6 - font.width("✕") / 2, closeY + 2, c().closeText(), false);
+        ChatBars.renderTitleBar(g, font, mouseX, mouseY, c(), panelX, panelW,
+            getDisplayTitle(), LocalTime.now().format(TIME_FMT), iconTex("menu"));
     }
 
     private boolean isMouseOverHamburger(double mx, double my) {
