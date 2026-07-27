@@ -251,7 +251,8 @@ public class ChatListenerMixin {
             }
             return java.util.Optional.<Object>empty();
         }, net.minecraft.network.chat.Style.EMPTY);
-        if (tellName[0] == null || range[0] > 32) return null;
+        int nameRangeLimit = Math.max(32, text.length() / 3);
+        if (tellName[0] == null || range[0] > nameRangeLimit) return null;
 
         net.minecraft.client.multiplayer.PlayerInfo sender = null;
         for (var info : player.connection.getOnlinePlayers()) {
