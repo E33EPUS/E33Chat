@@ -222,9 +222,9 @@ public final class ChatMessageRenderer {
                         ItemStack stack = info.getItemStack();
                         if (!stack.isEmpty()) {
                             float iconX = clickableSpans.get(i).x();
-                            float iconY = clickableSpans.get(i).y() - 4;
+                            float iconY = clickableSpans.get(i).y();
                             g.pose().pushPose();
-                            g.pose().translate(iconX + 1, iconY, 0);
+                            g.pose().translate(iconX, iconY, 0);
                             g.pose().scale(0.5f, 0.5f, 0.5f);
                             g.renderItem(stack, 0, 0);
                             g.pose().popPose();

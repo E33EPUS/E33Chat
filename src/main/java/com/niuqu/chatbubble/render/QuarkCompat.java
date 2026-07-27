@@ -6,6 +6,7 @@ import com.niuqu.chatbubble.ChatBubbleTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -15,7 +16,7 @@ import java.util.*;
 
 public final class QuarkCompat {
     private static final Logger LOG = LogUtils.getLogger();
-    private static final int EMOTE_W = 25;
+    private static final int EMOTE_BUTTON_WIDTH = 25;
     private static final int EMOTES_PER_ROW = 3;
     private static final int TOGGLE_H = 20;
 
@@ -72,38 +73,47 @@ public final class QuarkCompat {
             Minecraft mc = Minecraft.getInstance();
             boolean expandDown = mc.options.showSubtitles().get();
 
-            List<Object> descriptors = new ArrayList<>();
+            // Sort by tier, matching Quark's TreeMap behavior
+            Map<Integer, List<Object>> tierSort = new TreeMap<>();
             for (Object desc : emoteMap.values()) {
                 try {
                     int tier = (int) desc.getClass().getMethod("getTier").invoke(desc);
-                    if (tier <= localTier) descriptors.add(desc);
+                    if (tier <= localTier)
+                        tierSort.computeIfAbsent(tier, k -> new ArrayList<>()).add(desc);
                 } catch (Exception ignored) {}
             }
 
-            int rows = (descriptors.size() + EMOTES_PER_ROW - 1) / EMOTES_PER_ROW;
-            int baseX = screenW - 2 - EMOTE_W * (EMOTES_PER_ROW + 1);
-            int baseY = expandDown ? 2 : screenH - 40;
+            int rows = 0;
+            for (var list : tierSort.values())
+                rows += (list.size() + EMOTES_PER_ROW - 1) / EMOTES_PER_ROW;
 
-            int row = 0, col = 0;
-            for (Object desc : descriptors) {
-                int rowSize = Math.min(descriptors.size() - row * EMOTES_PER_ROW, EMOTES_PER_ROW);
-                int xOff = ((col + 1) * 2 + EMOTES_PER_ROW - rowSize) * EMOTE_W / 2 + 1;
-                int x = baseX + xOff + col * EMOTE_W;
-                int y = baseY + (EMOTE_W * (rows - row - 1)) * (expandDown ? 1 : -1);
+            // buttonX/buttonY from Quark's config (buttonShiftX/Y), we use 0
+            int btnX = screenW - 2 - (EMOTE_BUTTON_WIDTH * (EMOTES_PER_ROW + 1));
+            int btnY = expandDown ? 2 : screenH - 40;
 
-                try {
-                    String regName = (String) desc.getClass().getMethod("getRegistryName").invoke(desc);
-                    String name = I18n.get((String) desc.getClass().getMethod("getTranslationKey").invoke(desc));
-                    ResourceLocation tex = (ResourceLocation) desc.getClass().getField("texture").get(desc);
-                    buttons.add(new EmoteBtn(x, y, EMOTE_W - 1, EMOTE_W - 1, regName, name, tex));
-                } catch (Exception ignored) {}
+            int row = 0;
+            for (var list : tierSort.values()) {
+                int tierRow = 0, rowPos = 0;
+                for (Object desc : list) {
+                    int rowSize = Math.min(list.size() - tierRow * EMOTES_PER_ROW, EMOTES_PER_ROW);
+                    int x = btnX + (((rowPos + 1) * 2 + EMOTES_PER_ROW - rowSize) * EMOTE_BUTTON_WIDTH / 2 + 1);
+                    int y = btnY + (EMOTE_BUTTON_WIDTH * (rows - row - 1)) * (expandDown ? 1 : -1);
 
-                if (++col == EMOTES_PER_ROW) { row++; col = 0; }
+                    try {
+                        String regName = (String) desc.getClass().getMethod("getRegistryName").invoke(desc);
+                        String name = I18n.get((String) desc.getClass().getMethod("getTranslationKey").invoke(desc));
+                        ResourceLocation tex = (ResourceLocation) desc.getClass().getField("texture").get(desc);
+                        buttons.add(new EmoteBtn(x, y, EMOTE_BUTTON_WIDTH - 1, EMOTE_BUTTON_WIDTH - 1, regName, name, tex));
+                    } catch (Exception ignored) {}
+
+                    if (++rowPos == EMOTES_PER_ROW) { tierRow++; row++; rowPos = 0; }
+                }
+                if (rowPos != 0) row++;
             }
 
-            toggleX = baseX + EMOTE_W;
-            toggleY = baseY;
-            toggleW = EMOTE_W * EMOTES_PER_ROW;
+            toggleX = btnX;
+            toggleY = btnY;
+            toggleW = EMOTE_BUTTON_WIDTH * EMOTES_PER_ROW;
             toggleH = TOGGLE_H;
             LOG.info("[e33chat] QuarkCompat: init done, {} buttons", buttons.size());
         } catch (Exception e) {
@@ -117,20 +127,22 @@ public final class QuarkCompat {
                               ChatBubbleTheme.Colors c) {
         if (!isLoaded() || initFailed || buttons == null || buttons.isEmpty()) return;
         try {
-            drawButton(g, font, toggleX, toggleY, toggleW, toggleH,
-                Component.translatable("quark.gui.button.emotes").getString(),
-                mouseX, mouseY, c);
+            boolean hover = mouseX >= toggleX && mouseX <= toggleX + toggleW
+                && mouseY >= toggleY && mouseY <= toggleY + toggleH;
+            drawNotButtonBg(g, toggleX, toggleY, toggleW, toggleH, hover);
+            String label = Component.translatable("quark.gui.button.emotes").getString();
+            g.drawCenteredString(font, Component.literal(label),
+                (toggleX + toggleX + toggleW) / 2, ((toggleY + toggleY + toggleH) / 2) - 4, 0xFFFFFFFF);
 
             if (emotesVisible) {
                 for (EmoteBtn btn : buttons) {
-                    boolean hover = mouseX >= btn.x && mouseX <= btn.x + btn.w
+                    boolean hov = mouseX >= btn.x && mouseX <= btn.x + btn.w
                         && mouseY >= btn.y && mouseY <= btn.y + btn.h;
-                    if (hover) g.fill(btn.x, btn.y, btn.x + btn.w, btn.y + btn.h, c.iconHover());
+                    drawNotButtonBg(g, btn.x, btn.y, btn.w, btn.h, hov);
 
-                    RenderSystem.enableBlend();
-                    RenderSystem.defaultBlendFunc();
-                    RenderSystem.setShaderTexture(0, btn.texture);
-                    g.blit(btn.texture, btn.x + 2, btn.y + 2, 0, 0, btn.w - 4, btn.h - 4, btn.w - 4, btn.h - 4);
+                    RenderSystem.setShader(GameRenderer::getPositionTexShader);
+                    RenderSystem.setShaderColor(1, 1, 1, 1);
+                    g.blit(btn.texture, btn.x + 4, btn.y + 4, 0, 0, 16, 16, 16, 16);
                 }
             }
         } catch (Exception e) {
@@ -138,37 +150,29 @@ public final class QuarkCompat {
         }
     }
 
-    private static void drawButton(GuiGraphics g, Font font, int x, int y, int w, int h,
-                                   String text, int mouseX, int mouseY, ChatBubbleTheme.Colors c) {
-        boolean hover = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
-        g.fill(x, y, x + w, y + h, hover ? c.sidebarItemHover() : c.sidebarBg());
-        g.renderOutline(x, y, w, h, c.divider());
-        int tw = font.width(text);
-        g.drawString(font, Component.literal(text), x + (w - tw) / 2, y + (h - 8) / 2,
-            c.textPrimary(), false);
+    private static void drawNotButtonBg(GuiGraphics g, int x, int y, int w, int h, boolean hovered) {
+        RenderSystem.enableBlend();
+        RenderSystem.enableDepthTest();
+        Minecraft mc = Minecraft.getInstance();
+        int bgColor = mc.options.getBackgroundColor(hovered ? 0xA0_000000 : 0x80_000000);
+        g.fill(x, y, x + w, y + h, bgColor);
     }
 
     public static boolean handleClick(double mouseX, double mouseY) {
         if (!isLoaded() || initFailed || buttons == null) return false;
-        try {
-            if (mouseX >= toggleX && mouseX <= toggleX + toggleW
-                && mouseY >= toggleY && mouseY <= toggleY + toggleH) {
-                emotesVisible = !emotesVisible;
+        if (mouseX >= toggleX && mouseX <= toggleX + toggleW
+            && mouseY >= toggleY && mouseY <= toggleY + toggleH) {
+            emotesVisible = !emotesVisible;
+            return true;
+        }
+        if (!emotesVisible) return false;
+        for (EmoteBtn btn : buttons) {
+            if (mouseX >= btn.x && mouseX <= btn.x + btn.w
+                && mouseY >= btn.y && mouseY <= btn.y + btn.h) {
+                sendEmote(btn.regName);
+                emotesVisible = false;
                 return true;
             }
-
-            if (!emotesVisible) return false;
-
-            for (EmoteBtn btn : buttons) {
-                if (mouseX >= btn.x && mouseX <= btn.x + btn.w
-                    && mouseY >= btn.y && mouseY <= btn.y + btn.h) {
-                    sendEmote(btn.regName);
-                    emotesVisible = false;
-                    return true;
-                }
-            }
-        } catch (Exception e) {
-            LOG.error("[e33chat] QuarkCompat: handleClick failed", e);
         }
         return false;
     }
