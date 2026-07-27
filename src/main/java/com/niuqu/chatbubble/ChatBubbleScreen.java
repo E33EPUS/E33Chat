@@ -24,6 +24,7 @@ import com.niuqu.chatbubble.packets.QuoteSyncPacket;
 import com.niuqu.chatbubble.render.ChatBars;
 import com.niuqu.chatbubble.render.ChatContextMenus;
 import com.niuqu.chatbubble.render.ChatLayout;
+import com.niuqu.chatbubble.render.ChatMessageRenderer;
 import com.niuqu.chatbubble.render.ChatScrollbar;
 import com.niuqu.chatbubble.render.ChatSidebar;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -82,11 +83,7 @@ public class ChatBubbleScreen extends Screen {
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     private static String timeKey(LocalTime t) {
-        int interval = ChatBubbleConfig.TIME_SEPARATOR_MINUTES.get();
-        if (interval <= 0) return "";
-        if (interval == 1) return t.format(TIME_FMT);
-        int m = (t.getMinute() / interval) * interval;
-        return String.format("%02d:%02d", t.getHour(), m);
+        return ChatMessageRenderer.timeKey(t, ChatBubbleConfig.TIME_SEPARATOR_MINUTES.get());
     }
 
     private EditBox input;
@@ -146,7 +143,7 @@ public class ChatBubbleScreen extends Screen {
     private final List<int[]> bubbleRects = new ArrayList<>();
 
     // Clickable text span tracking (for ClickEvent support)
-    private final List<ClickableSpan> clickableSpans = new ArrayList<>();
+    private final List<ChatMessageRenderer.ClickableSpan> clickableSpans = new ArrayList<>();
 
     // Reply / quote
     private int replyTargetIndex = -1;
@@ -1064,238 +1061,63 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void renderTimeSeparator(GuiGraphics g, LocalTime time, int y) {
-        String text = time.format(TIME_FMT);
-        int tw = font.width(text);
-        int tx = UiLayout.centerX(panelX, panelW, tw);
-        g.fill(tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2, ChatBubbleTheme.alphaBlend(c().toastBg(), 0x44));
-        g.drawString(font, Component.literal(text), tx, y + 3, c().timeColor(), false);
+        ChatMessageRenderer.renderTimeSeparator(g, font, time, y, panelX, panelW, c());
     }
 
-    // Wrap a message honoring '\n' as real line breaks: split the styled component into
-    // paragraphs on newlines (keeping each run's style), wrap each with the font, then
-    // concatenate. Stray leading/trailing newlines are trimmed so they don't leave a
-    // dangling blank line. The chat list thus shows a multi-line announcement on several
-    // lines instead of "LF" boxes; pure chat-clear messages are dropped at ingest.
     private List<FormattedCharSequence> wrapContent(Component c, int width) {
-        List<Component> paras = new ArrayList<>();
-        MutableComponent[] cur = { Component.empty() };
-        c.visit((style, text) -> {
-            int start = 0;
-            for (int i = 0; i < text.length(); i++) {
-                if (text.charAt(i) == '\n') {
-                    if (i > start) cur[0].append(Component.literal(text.substring(start, i)).withStyle(style));
-                    paras.add(cur[0]);
-                    cur[0] = Component.empty();
-                    start = i + 1;
-                }
-            }
-            if (start < text.length()) cur[0].append(Component.literal(text.substring(start)).withStyle(style));
-            return Optional.<Object>empty();
-        }, Style.EMPTY);
-        paras.add(cur[0]);
-        while (!paras.isEmpty() && paras.get(0).getString().isEmpty()) paras.remove(0);
-        while (!paras.isEmpty() && paras.get(paras.size() - 1).getString().isEmpty()) paras.remove(paras.size() - 1);
-        List<FormattedCharSequence> out = new ArrayList<>();
-        for (Component p : paras) out.addAll(font.split(p, width));
-        if (out.isEmpty()) out.addAll(font.split(c, width));
-        return out;
+        return ChatMessageRenderer.wrapContent(c, font, width);
     }
 
     private int getMsgHeight(ChatMessageStore.ChatMessage msg) {
-        if (msg.isSystem()) {
-            List<FormattedCharSequence> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
-            return lines.size() * font.lineHeight + 4;
-        }
-        int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
-        List<FormattedCharSequence> lines = wrapContent(msg.content(), bubbleMaxW);
-        int h = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2 + NAME_H;
-        if (msg.replyContent() != null) h += font.lineHeight + 7;
-        return h;
+        int bubbleMaxW = panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2
+            - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
+        return ChatMessageRenderer.msgHeight(msg, font, bubbleMaxW);
     }
 
 
     private void renderBubble(GuiGraphics g, ChatMessageStore.ChatMessage msg,
                                int index, int baseY, int mouseX, int mouseY) {
-        if (msg.isSystem()) {
-            List<FormattedCharSequence> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
-            int yy = baseY + 2;
-            net.minecraft.network.chat.Style fb = findClickStyle(msg.content());
-            int sysColor = c().textMuted();
-            for (var line : lines) {
-                int lw = font.width(line);
-                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, sysColor, fb);
-                yy += font.lineHeight;
-            }
-            return;
-        }
-
         boolean own = msg.isOwn();
-        int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
-        List<FormattedCharSequence> lines = wrapContent(msg.content(), bubbleMaxW);
-
-        int textW = 0;
-        for (var line : lines) textW = Math.max(textW, font.width(line));
-        int bubbleW = textW + BUBBLE_PAD_X * 2;
-        int bubbleH = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2;
-
-        int avatarX, bubbleX;
-        if (own) {
-            avatarX = panelX + panelW - PAD - AVATAR;
-            bubbleX = avatarX - 4 - bubbleW;
-        } else {
-            avatarX = panelX + PAD;
-            bubbleX = avatarX + AVATAR + 4;
-        }
-
-        int nameY = baseY;
-
-        if (!msg.senderName().getString().isEmpty()) {
-            int maxNameW = panelW - AVATAR - PAD * 2 - 20;
-            Component sn = msg.senderName();
-            net.minecraft.util.FormattedCharSequence nameSeq;
-            if (font.width(sn) > maxNameW) {
-                var cut = font.substrByWidth(sn, maxNameW - font.width("..."));
-                nameSeq = net.minecraft.locale.Language.getInstance().getVisualOrder(
-                    net.minecraft.network.chat.FormattedText.composite(cut, net.minecraft.network.chat.FormattedText.of("...")));
-            } else {
-                nameSeq = sn.getVisualOrderText();
-            }
-            int nameW = font.width(nameSeq);
-            int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
-            g.drawString(font, nameSeq, startX, nameY, c().nameColor(), false);
-        }
-
-        int bubbleY = baseY + NAME_H;
-        int avatarY = baseY;
-
-        int bg = own
-            ? ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_BUBBLE_COLOR.get(), 0xFF1E90FF)
-            : ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_BUBBLE_COLOR.get(), c().contextHover());
-        int fg = own
-            ? ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_TEXT_COLOR.get(), 0xFFFFFFFF)
-            : ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_TEXT_COLOR.get(), c().textPrimary());
-
-        RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
-            ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get(), bg);
-
-        net.minecraft.network.chat.Style fbP = findClickStyle(msg.content());
-        for (int li = 0; li < lines.size(); li++)
-            renderLineWithClicks(g, lines.get(li), bubbleX + BUBBLE_PAD_X,
-                bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fg, fbP);
-
+        int bubbleMaxW = panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2
+            - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
+        int ownBg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_BUBBLE_COLOR.get(), 0xFF1E90FF);
+        int otherBg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_BUBBLE_COLOR.get(), c().contextHover());
+        int ownFg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_TEXT_COLOR.get(), 0xFFFFFFFF);
+        int otherFg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_TEXT_COLOR.get(), c().textPrimary());
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
         ResourceLocation skin = getSkin(msg.senderUUID(), skinName);
-        drawPlayerHead(g, skin, avatarX, avatarY, 20, 22);
 
-        if (msg.duplicateCount() > 1) {
-            String label = "x" + msg.duplicateCount();
-            int labelW = font.width(label);
-            int labelX, labelY = bubbleY + (bubbleH - font.lineHeight) / 2;
-            if (own) {
-                labelX = bubbleX - labelW - 3;
-            } else {
-                labelX = bubbleX + bubbleW + 3;
-            }
-            g.drawString(font, Component.literal(label), labelX, labelY, c().duplicateLabel(), false);
-        }
-
-        if (msg.replyContent() != null) {
-            int quoteMaxW = panelW - PAD * 2 - AVATAR - 24;
-            String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
-            String quoteDisplay = font.plainSubstrByWidth(quoteText, quoteMaxW - 10);
-            if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
-            int quoteTextW = font.width(quoteDisplay);
-            int quoteW = Math.min(quoteTextW + 8, quoteMaxW);
-            int quoteH = font.lineHeight + 4;
-            int quoteY = bubbleY + bubbleH + 3;
-            int quoteX;
-            if (own) {
-                quoteX = bubbleX + bubbleW - quoteW;
-            } else {
-                quoteX = bubbleX;
-            }
-            if (quoteX < panelX + PAD) quoteX = panelX + PAD;
-            if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, c().contextHover());
-            g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, c().textSecondary(), false);
-        }
-
-        bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
-
-        if (index == searchHighlightIndex)
-            g.renderOutline(bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2, ChatSearchPanel.HIGHLIGHT);
+        ChatMessageRenderer.renderBubble(g, font, msg, index, baseY, mouseX, mouseY,
+            panelX, panelW, ownBg, otherBg, ownFg, otherFg, own,
+            ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get(), c(), skin,
+            searchHighlightIndex, bubbleMaxW, bubbleRects, clickableSpans);
     }
 
     private void renderLineWithClicks(GuiGraphics g, FormattedCharSequence line,
                                        int x, int y, int color) {
-        renderLineWithClicks(g, line, x, y, color, null);
+        ChatMessageRenderer.renderLineWithClicks(g, font, line, x, y, color, null, clickableSpans);
     }
 
     private void renderLineWithClicks(GuiGraphics g, FormattedCharSequence line,
                                        int x, int y, int color,
                                        net.minecraft.network.chat.Style fallback) {
-        // Let the font renderer draw underlines itself: re-measuring glyphs per char
-        // drifts under font mods with sub-pixel advances (ModernUI), producing
-        // offset/oversized self-painted lines. Overlay piercing by the z+0.01 text
-        // effect layer is handled by the overlay z-lift in render() instead
-        FormattedCharSequence decorated = sink -> line.accept((i, st, cp) ->
-            sink.accept(i, st.getClickEvent() != null && !st.isUnderlined() ? st.withUnderlined(true) : st, cp));
-        g.drawString(font, decorated, x, y, color, false);
-
-        final java.util.List<net.minecraft.network.chat.Style> styles = new java.util.ArrayList<>();
-        line.accept((i, st, cp) -> { styles.add(st); return true; });
-
-        final int beforeCount = clickableSpans.size();
-        int runStart = -1;
-        net.minecraft.network.chat.Style runStyle = null;
-        for (int idx = 0; idx <= styles.size(); idx++) {
-            net.minecraft.network.chat.Style st = idx < styles.size() ? styles.get(idx) : null;
-            // Track segments with a click OR hover event so hover tooltips (e.g.
-            // advancement descriptions) work, not just clickable links
-            boolean clickable = st != null && (st.getClickEvent() != null || st.getHoverEvent() != null);
-            if (runStyle == null) {
-                if (clickable) { runStart = idx; runStyle = st; }
-            } else if (!clickable || !st.equals(runStyle)) {
-                int x0 = prefixWidth(line, runStart);
-                int x1 = prefixWidth(line, idx);
-                clickableSpans.add(new ClickableSpan(x + x0, y, x1 - x0, font.lineHeight, runStyle));
-                runStart = clickable ? idx : -1;
-                runStyle = clickable ? st : null;
-            }
-        }
-        if (clickableSpans.size() == beforeCount && fallback != null && fallback.getClickEvent() != null) {
-            clickableSpans.add(new ClickableSpan(x, y, font.width(line), font.lineHeight, fallback.withUnderlined(true)));
-        }
+        ChatMessageRenderer.renderLineWithClicks(g, font, line, x, y, color, fallback, clickableSpans);
     }
 
-    // Width of the first count codepoints, measured through the renderer's own
-    // metrics so positions match what it actually draws (per-char accumulation
-    // does not — see renderLineWithClicks)
     private int prefixWidth(FormattedCharSequence line, int count) {
-        if (count <= 0) return 0;
-        return font.width((FormattedCharSequence) sink -> {
-            int[] left = {count};
-            line.accept((i, st, cp) -> left[0]-- > 0 && sink.accept(i, st, cp));
-            return true;
-        });
+        return ChatMessageRenderer.prefixWidth(line, count, font);
     }
 
     private net.minecraft.network.chat.Style findClickStyle(net.minecraft.network.chat.Component c) {
-        net.minecraft.network.chat.Style s = c.getStyle();
-        if (s != null && s.getClickEvent() != null) return s;
-        for (net.minecraft.network.chat.Component child : c.getSiblings()) {
-            s = findClickStyle(child);
-            if (s != null) return s;
-        }
-        return null;
+        return ChatMessageRenderer.findClickStyle(c);
     }
 
     private net.minecraft.network.chat.Style getHoveredStyle(double mouseX, double mouseY) {
-        for (ClickableSpan s : clickableSpans) {
-            if (mouseX >= s.x && mouseX <= s.x + s.w
-                && mouseY >= s.y && mouseY <= s.y + s.h)
-                return s.style;
+        for (ChatMessageRenderer.ClickableSpan s : clickableSpans) {
+            if (mouseX >= s.x() && mouseX <= s.x() + s.w()
+                && mouseY >= s.y() && mouseY <= s.y() + s.h())
+                return s.style();
         }
         return null;
     }
@@ -1776,12 +1598,4 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     public boolean isPauseScreen() { return false; }
-
-    private static class ClickableSpan {
-        final int x, y, w, h;
-        final net.minecraft.network.chat.Style style;
-        ClickableSpan(int x, int y, int w, int h, net.minecraft.network.chat.Style style) {
-            this.x = x; this.y = y; this.w = w; this.h = h; this.style = style;
-        }
-    }
 }
