@@ -404,7 +404,7 @@ if (systemToHint) {
     }
 
     // Plain-text variant for the few Screen call sites that build a single-line String.
-    static String singleLine(String s) {
+    public static String singleLine(String s) {
         return stripControls(s);
     }
 

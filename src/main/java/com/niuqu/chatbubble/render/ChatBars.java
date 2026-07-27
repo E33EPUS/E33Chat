@@ -1,8 +1,10 @@
 package com.niuqu.chatbubble.render;
 
 import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.UiLayout;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 public final class ChatBars {
@@ -11,6 +13,42 @@ public final class ChatBars {
     private static final int INPUT_H = 14;
 
     private ChatBars() {}
+
+    public static void renderTitleBar(GuiGraphics g, Font font, int mouseX, int mouseY,
+                                       ChatBubbleTheme.Colors c,
+                                       int panelX, int panelW,
+                                       String title, String time,
+                                       ResourceLocation menuIcon) {
+        int ty = 0;
+        g.fill(panelX, ty, panelX + panelW, ty + ChatLayout.TITLE_H, c.titleBg());
+        g.fill(panelX, ty + ChatLayout.TITLE_H, panelX + panelW, ty + ChatLayout.TITLE_H + 1, c.divider());
+
+        int menuX = panelX + 3;
+        int menuY = ty + (ChatLayout.TITLE_H - ICON_S) / 2;
+        boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S
+            && mouseY >= menuY && mouseY <= menuY + ICON_S;
+        if (hoverMenu) g.fill(menuX - 1, menuY - 1, menuX + ICON_S + 1, menuY + ICON_S + 1, c.iconHover());
+        drawIcon(g, menuIcon, menuX, menuY, ICON_S);
+
+        int titleW = font.width(title);
+        int titleX = UiLayout.centerX(panelX, panelW, titleW);
+        int titleTextY = ty + (ChatLayout.TITLE_H - font.lineHeight) / 2;
+        g.drawString(font, Component.literal(title), titleX, titleTextY, c.textPrimary(), false);
+
+        int timeW = font.width(time);
+        g.drawString(font, Component.literal(time),
+            panelX + panelW - ChatLayout.PAD - 20 - timeW,
+            ty + (ChatLayout.TITLE_H - font.lineHeight) / 2, c.timeColor(), false);
+
+        int closeX = panelX + panelW - 18;
+        int closeY = ty + 6;
+        boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12
+            && mouseY >= closeY && mouseY <= closeY + 12;
+        int closeBg = hoverClose ? c.closeHoverBg() : c.closeBg();
+        g.fill(closeX, closeY, closeX + 12, closeY + 12, closeBg);
+        g.drawString(font, Component.literal("✕"), closeX + 6 - font.width("✕") / 2,
+            closeY + 2, c.closeText(), false);
+    }
 
     public static void renderBottomBar(GuiGraphics g, Font font, int mouseX, int mouseY,
                                         ChatBubbleTheme.Colors c,
