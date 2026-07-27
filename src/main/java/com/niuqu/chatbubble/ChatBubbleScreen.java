@@ -21,6 +21,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import com.niuqu.chatbubble.packets.QuoteSyncPacket;
+import com.niuqu.chatbubble.render.ChatLayout;
+import com.niuqu.chatbubble.render.ChatScrollbar;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.io.InputStream;
 
@@ -121,15 +123,11 @@ public class ChatBubbleScreen extends Screen {
     private boolean sidebarAnimating;
 
     // Scrollbar
-    private static final int SCROLLBAR_WIDTH = 6;
-    private static final int MIN_THUMB_H = 8;
     private boolean scrollbarDragging;
     private int scrollbarDragStartY;
     private int scrollbarDragStartOffset;
     private int messageTotalH;
-    private boolean scrollbarHovered;
     private float scrollbarAlpha;
-    private static final int SCROLLBAR_HOVER_ZONE = 20;
     private boolean scrollAnimActive;
     private long scrollAnimStart;
     private float scrollAnimFrom;
@@ -759,15 +757,13 @@ public class ChatBubbleScreen extends Screen {
 
         // Scrollbar interaction
         if (button == 0 && maxScroll > 0) {
-            int trackX = panelX + panelW - SCROLLBAR_WIDTH;
+            int trackX = panelX + panelW - ChatScrollbar.WIDTH;
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
-            if (mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH
+            if (mouseX >= trackX && mouseX < trackX + ChatScrollbar.WIDTH
                 && mouseY >= msgTop && mouseY < effBottom) {
                 int trackH = effBottom - msgTop;
-                int thumbH = Math.max(MIN_THUMB_H, (int)((long)trackH * trackH / messageTotalH));
-                thumbH = Math.min(thumbH, trackH);
-                int travelRange = trackH - thumbH;
-                int thumbY = msgTop + (int)((long)scrollOffset * travelRange / maxScroll);
+                int thumbH = ChatScrollbar.thumbHeight(trackH, messageTotalH);
+                int thumbY = ChatScrollbar.thumbY(msgTop, trackH, thumbH, scrollOffset, maxScroll);
 
                 if (mouseY < thumbY) {
                     scrollOffset = Math.max(0, scrollOffset - trackH);
@@ -926,8 +922,7 @@ public class ChatBubbleScreen extends Screen {
             lastScrollTime = net.minecraft.Util.getMillis();
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
             int trackH = effBottom - msgTop;
-            int thumbH = Math.max(MIN_THUMB_H, (int)((long)trackH * trackH / messageTotalH));
-            thumbH = Math.min(thumbH, trackH);
+            int thumbH = ChatScrollbar.thumbHeight(trackH, messageTotalH);
             int travelRange = trackH - thumbH;
             if (travelRange > 0) {
                 int dy = (int) mouseY - scrollbarDragStartY;
@@ -1102,13 +1097,6 @@ public class ChatBubbleScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
         g.pose().popPose();
 
-        // Notification banner above the chat panel
-        g.pose().pushPose();
-        g.pose().translate(0, 0, 200);
-        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.tick();
-        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.render(g,
-            width, height);
-        g.pose().popPose();
     }
 
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
@@ -1280,41 +1268,14 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void renderScrollbar(GuiGraphics g, int mouseX, int mouseY, int effectiveMsgBottom) {
-        if (maxScroll <= 0) return;
-
-        // Fade in when mouse is near right edge, fade out otherwise
-        boolean inZone = mouseX >= panelX + panelW - SCROLLBAR_HOVER_ZONE
-            && mouseX <= panelX + panelW
-            && mouseY >= msgTop && mouseY < effectiveMsgBottom;
+        boolean inZone = ChatScrollbar.isInZone(mouseX, panelX, panelW, mouseY, msgTop, effectiveMsgBottom);
         boolean recentlyScrolled = net.minecraft.Util.getMillis() - lastScrollTime < 1000;
-        float target = (inZone || scrollbarDragging || recentlyScrolled) ? 1f : 0f;
+        float target = ChatScrollbar.alphaTarget(inZone, scrollbarDragging, lastScrollTime);
         scrollbarAlpha = Animation.lerpTo(scrollbarAlpha, target, 0.15f, 0.005f);
-        if (scrollbarAlpha <= 0.005f && !scrollbarDragging) return;
 
-        int trackX = panelX + panelW - SCROLLBAR_WIDTH;
-        int trackTop = msgTop;
-        int trackBottom = effectiveMsgBottom;
-        int trackH = trackBottom - trackTop;
-
-        int scrollRgb = c().scrollbar() & 0x00FFFFFF;
-        int trackColor = ((int)(0x1A * scrollbarAlpha) << 24) | scrollRgb;
-        g.fill(trackX, trackTop, trackX + SCROLLBAR_WIDTH, trackBottom, trackColor);
-
-        int thumbH = Math.max(MIN_THUMB_H, (int)((long)trackH * trackH / messageTotalH));
-        thumbH = Math.min(thumbH, trackH);
-
-        int travelRange = trackH - thumbH;
-        int thumbY = trackTop + (int)((long)scrollOffset * travelRange / maxScroll);
-
-        boolean hovering = !scrollbarDragging
-            && mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH
-            && mouseY >= thumbY && mouseY < thumbY + thumbH;
-        scrollbarHovered = hovering || scrollbarDragging;
-
-        int thumbBase = scrollbarDragging ? 0xAA : scrollbarHovered ? 0x88 : 0x66;
-        int thumbColor = ((int)(thumbBase * scrollbarAlpha) << 24) | scrollRgb;
-
-        g.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, thumbColor);
+        ChatLayout layout = new ChatLayout(panelX, panelW, titleY, msgTop, msgBottom, barTop, width, height);
+        ChatScrollbar.render(g, layout, mouseX, mouseY, maxScroll, messageTotalH, scrollOffset,
+            scrollbarDragging, scrollbarAlpha, c().scrollbar(), effectiveMsgBottom);
     }
 
     private void renderTimeSeparator(GuiGraphics g, LocalTime time, int y) {

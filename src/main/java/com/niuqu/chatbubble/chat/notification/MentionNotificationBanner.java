@@ -38,7 +38,37 @@ public class MentionNotificationBanner {
     private MentionNotificationBanner() {}
 
     public void enqueue(UUID senderUUID, Component senderName, Component content, int messageIndex) {
-        queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex));
+        Minecraft mc = Minecraft.getInstance();
+        int maxTextW = Math.min(mc.getWindow().getGuiScaledWidth() - TEXT_X - 12, 200);
+        int dotsW = mc.font.width("...");
+
+        List<FormattedCharSequence> nameLines = mc.font.split(senderName, maxTextW);
+        FormattedCharSequence nameSeq;
+        if (nameLines.isEmpty()) {
+            nameSeq = FormattedCharSequence.EMPTY;
+        } else if (nameLines.size() > 1) {
+            String plainName = mc.font.plainSubstrByWidth(
+                senderName.getString(), maxTextW - dotsW) + "...";
+            nameSeq = mc.font.split(Component.literal(plainName), maxTextW).get(0);
+        } else {
+            nameSeq = nameLines.get(0);
+        }
+
+        List<FormattedCharSequence> msgLines = mc.font.split(content, maxTextW);
+        if (msgLines.size() > MAX_MSG_LINES) {
+            String fullText = content.getString();
+            String plain = mc.font.plainSubstrByWidth(fullText, maxTextW * 2 - dotsW) + "...";
+            msgLines = mc.font.split(Component.literal(plain), maxTextW);
+            if (msgLines.size() > MAX_MSG_LINES)
+                msgLines = msgLines.subList(0, MAX_MSG_LINES);
+        }
+
+        int textW = mc.font.width(nameSeq);
+        for (var line : msgLines) textW = Math.max(textW, mc.font.width(line));
+        int bannerW = AVATAR_X + AVATAR + 6 + textW + 12;
+
+        queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex,
+            nameSeq, msgLines, textW, bannerW));
     }
 
     public int pendingCount() { return queue.size() + (current != null ? 1 : 0); }
@@ -117,45 +147,10 @@ public class MentionNotificationBanner {
         int bg = theme.bannerBg();
         int barColor = theme.bannerBar();
 
-        // Layout constants
-        int maxTextW = Math.min(screenW - TEXT_X - 12, 200);
-        Component nameComp = current.senderName;
-        Component msgComp = current.content;
-        int dotsW = mc.font.width("...");
-        boolean nameTruncated = false;
-        boolean msgTruncated = false;
-
-        // Message: font.split preserves per-line styled FormattedCharSequence.
-        // If > 2 lines, keep line 0 as styled, flatten last line to plain + "...".
-        List<FormattedCharSequence> msgLines = mc.font.split(msgComp, maxTextW);
-        if (msgLines.size() > MAX_MSG_LINES) {
-            msgTruncated = true;
-            String fullText = msgComp.getString();
-            String plain = mc.font.plainSubstrByWidth(fullText, maxTextW * 2 - dotsW) + "...";
-            // Re-split the flattened text for the final 2 lines
-            msgLines = mc.font.split(Component.literal(plain), maxTextW);
-            if (msgLines.size() > MAX_MSG_LINES)
-                msgLines = msgLines.subList(0, MAX_MSG_LINES);
-        }
-
-        // Name: font.split preserves per-line style.
-        List<FormattedCharSequence> nameLines = mc.font.split(nameComp, maxTextW);
-        FormattedCharSequence nameSeq;
-        if (nameLines.isEmpty()) {
-            nameSeq = FormattedCharSequence.EMPTY;
-        } else if (nameLines.size() > 1) {
-            nameTruncated = true;
-            String plainName = mc.font.plainSubstrByWidth(
-                nameComp.getString(), maxTextW - dotsW) + "...";
-            nameSeq = mc.font.split(Component.literal(plainName), maxTextW).get(0);
-        } else {
-            nameSeq = nameLines.get(0);
-        }
-
-        int textW = mc.font.width(nameSeq);
-        for (var line : msgLines) textW = Math.max(textW, mc.font.width(line));
-
-        int bannerW = AVATAR_X + AVATAR + 6 + textW + 12;
+        FormattedCharSequence nameSeq = current.nameSeq;
+        List<FormattedCharSequence> msgLines = current.msgLines;
+        int textW = current.textW;
+        int bannerW = current.bannerW;
         int x = (screenW - bannerW) / 2;
 
         // Background
@@ -168,7 +163,7 @@ public class MentionNotificationBanner {
 
         // Avatar
         int avatarY = y + (BANNER_H - AVATAR_HAT) / 2;
-        ResourceLocation skin = getSkin(current.senderUUID, nameComp.getString());
+        ResourceLocation skin = getSkin(current.senderUUID, current.senderName.getString());
         RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
@@ -224,5 +219,8 @@ public class MentionNotificationBanner {
     private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }
 
     private record PendingBanner(UUID senderUUID, Component senderName, Component content,
-                                  int messageIndex) {}
+                                  int messageIndex,
+                                  FormattedCharSequence nameSeq,
+                                  List<FormattedCharSequence> msgLines,
+                                  int textW, int bannerW) {}
 }
