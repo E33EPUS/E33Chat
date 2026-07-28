@@ -1,5 +1,55 @@
 # Changelog
 
+## v2.2.0
+
+**面板背景模糊（从 Forge 同步）**
+- 聊天面板背景可选是否启用模糊效果（`glBlitFramebuffer` 多 pass 降采样，兼容 Oculus/Embeddium）
+- 面板不透明度可调（0-100%，默认 60%）
+- 通知横幅圆角半径可调（0-10，默认 6）
+- 配置项：`blur_enabled`（开关）、`panel_opacity`（0-100）、`banner_corner_radius`（0-10）
+
+**侧边栏动画架构修复（对齐 Forge v2.1.9）**
+- 动画状态从 ChatSidebar 移回 ChatBubbleScreen（push 模型替代 pull 模型）
+- ChatSidebar 改为纯静态工具类，不再持有实例状态
+- 修复动画缓动公式：开 = easeOutCubic，关 = (1-t)³
+
+**通知横幅升级（从 Forge 同步）**
+- 通知类型区分：MENTION（@提及）、QUOTE（引用回复）、WHISPER（私聊）
+- 横幅动画优化：easeOutBack 滑入，ease-in 滑出，阴影效果
+- 修复：自 @ 有横幅（对齐 Forge）
+- 修复：NeoForge 自 @ 无音效（聊天路由差异导致 isOwn 行为不同）
+
+**物品分享图标（从 Forge 同步）**
+- 系统消息中的 SHOW_ITEM hover 事件检测，渲染物品图标（兼容 Quark 等模组）
+
+**测试与调试（从 Forge 同步）**
+- ChatSidebarTest：缓动公式、screenX 计算、单调性验证（10 个用例）
+- 构建时启用测试（`-PrunTests`，62 tests passing）
+
+**Panel background blur (synced from Forge)**
+- Optional blur effect behind the chat panel (GL blit multi-pass downscale, compatible with Oculus/Embeddium)
+- Configurable panel opacity (0-100%, default 60%)
+- Configurable notification banner corner radius (0-10, default 6)
+- Config options: `blur_enabled` (toggle), `panel_opacity` (0-100), `banner_corner_radius` (0-10)
+
+**Sidebar animation architecture fix (aligned with Forge v2.1.9)**
+- Animation state moved from ChatSidebar back to ChatBubbleScreen (push model replaces pull model)
+- ChatSidebar refactored to pure static utility class
+- Fixed easing formulas: open = easeOutCubic, close = (1-t)³
+
+**Notification banner upgrade (synced from Forge)**
+- Notification type distinction: MENTION, QUOTE, WHISPER
+- Banner animation: easeOutBack slide-in, ease-in slide-out, shadow effect
+- Fix: self-@ shows banner (aligned with Forge)
+- Fix: NeoForge self-@ no sound (chat routing difference caused isOwn mismatch)
+
+**Item sharing icons (synced from Forge)**
+- SHOW_ITEM hover event detection in system messages, renders item icons (compatible with Quark etc.)
+
+**Tests & debug (synced from Forge)**
+- ChatSidebarTest: easing formulas, screenX calculation, monotonicity checks (10 cases)
+- Tests enabled in build (`-PrunTests`, 62 tests passing)
+
 ## v2.1.5
 
 **@Mention 通知系统**

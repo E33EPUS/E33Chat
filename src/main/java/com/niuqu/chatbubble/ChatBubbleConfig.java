@@ -28,6 +28,8 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.ConfigValue<String> OTHER_TEXT_COLOR;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> QUICK_CHAT_PHRASES;
     public static final ModConfigSpec.IntValue PANEL_WIDTH;
+    public static final ModConfigSpec.BooleanValue BLUR_ENABLED;
+    public static final ModConfigSpec.IntValue PANEL_OPACITY;
     public static final ModConfigSpec.BooleanValue DEBUG_LOG;
     public static final ModConfigSpec.BooleanValue SOUND_SYSTEM;
     public static final ModConfigSpec.BooleanValue SOUND_WHISPER;
@@ -42,6 +44,7 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue MENTION_SOUND_ENABLED;
     public static final ModConfigSpec.BooleanValue MENTION_REQUIRE_AT;
     public static final ModConfigSpec.BooleanValue MENTION_WHISPER_BANNER;
+    public static final ModConfigSpec.IntValue BANNER_CORNER_RADIUS;
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
@@ -83,6 +86,16 @@ public class ChatBubbleConfig {
             .translation("e33chat.config.panel_width")
             .defineInRange("panel_width", 1000, 800, 1600);
 
+        BLUR_ENABLED = builder
+            .comment("Enable gaussian blur effect behind the chat panel background")
+            .translation("e33chat.config.blur_enabled")
+            .define("blur_enabled", true);
+
+        PANEL_OPACITY = builder
+            .comment("Chat panel background opacity percentage (0-100). 0 = fully transparent, 100 = fully opaque")
+            .translation("e33chat.config.panel_opacity")
+            .defineInRange("panel_opacity", 60, 0, 100);
+
         STRONG_HINT_ENABLED = builder
             .comment("Show system messages as a strong hint above the hotbar (otherwise they go to the message preview)")
             .translation("e33chat.config.strong_hint")
@@ -111,7 +124,7 @@ public class ChatBubbleConfig {
         PREVIEW_LINES = builder
             .comment("Preview line count (1-8)")
             .translation("e33chat.config.preview_lines")
-            .defineInRange("preview_lines", 3, 1, 8);
+            .defineInRange("preview_lines", 3, 3, 10);
 
         PREVIEW_WIDTH = builder
             .comment("Preview width in pixels (50-400)")
@@ -222,6 +235,11 @@ public class ChatBubbleConfig {
             .comment("Show a notification banner for incoming private / whisper messages")
             .translation("e33chat.config.mention_whisper_banner")
             .define("whisper_banner", true);
+
+        BANNER_CORNER_RADIUS = builder
+            .comment("Banner corner radius (0 = square, max 10)")
+            .translation("e33chat.config.banner_corner_radius")
+            .defineInRange("banner_corner_radius", 6, 0, 10);
 
         builder.pop();
 

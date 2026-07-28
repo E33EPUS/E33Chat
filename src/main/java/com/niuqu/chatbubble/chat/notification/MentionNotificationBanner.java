@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatMessageStore;
+import com.niuqu.chatbubble.RoundRectRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.DefaultPlayerSkin;
@@ -16,15 +17,17 @@ import java.util.*;
 public class MentionNotificationBanner {
     public static final MentionNotificationBanner INSTANCE = new MentionNotificationBanner();
 
+    public enum NotificationType { MENTION, QUOTE, WHISPER }
+
     private static final long SLIDE_MS = 250;
     private static final long VISIBLE_MS_PERIOD = 1000;
     private static final int AVATAR = 24;
     private static final int AVATAR_HAT = 26;
-    private static final int AVATAR_X = 10;
+    private static final int AVATAR_X = 8;
     private static final int TEXT_X = AVATAR_X + AVATAR + 6;
-    private static final int BAR_W = 4;
     private static final int BANNER_H = 36;
     private static final int MAX_MSG_LINES = 2;
+    private static final int SHADOW_OFF = 2;
     private static final UUID NIL_UUID = new UUID(0, 0);
 
     private final Deque<PendingBanner> queue = new ArrayDeque<>();
@@ -37,18 +40,27 @@ public class MentionNotificationBanner {
 
     private MentionNotificationBanner() {}
 
-    public void enqueue(UUID senderUUID, Component senderName, Component content, int messageIndex) {
+    public void enqueue(UUID senderUUID, Component senderName, Component content,
+                        int messageIndex, NotificationType type) {
         Minecraft mc = Minecraft.getInstance();
+
+        String prefix = switch (type) {
+            case MENTION -> Component.translatable("e33chat.banner.mention").getString();
+            case QUOTE -> Component.translatable("e33chat.banner.quote").getString();
+            case WHISPER -> Component.translatable("e33chat.banner.whisper").getString();
+        };
+        Component labeledName = Component.literal(prefix).append(senderName);
+
         int maxTextW = Math.min(mc.getWindow().getGuiScaledWidth() - TEXT_X - 12, 200);
         int dotsW = mc.font.width("...");
 
-        List<FormattedCharSequence> nameLines = mc.font.split(senderName, maxTextW);
+        List<FormattedCharSequence> nameLines = mc.font.split(labeledName, maxTextW);
         FormattedCharSequence nameSeq;
         if (nameLines.isEmpty()) {
             nameSeq = FormattedCharSequence.EMPTY;
         } else if (nameLines.size() > 1) {
             String plainName = mc.font.plainSubstrByWidth(
-                senderName.getString(), maxTextW - dotsW) + "...";
+                labeledName.getString(), maxTextW - dotsW) + "...";
             nameSeq = mc.font.split(Component.literal(plainName), maxTextW).get(0);
         } else {
             nameSeq = nameLines.get(0);
@@ -68,7 +80,7 @@ public class MentionNotificationBanner {
         int bannerW = AVATAR_X + AVATAR + 6 + textW + 12;
 
         queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex,
-            nameSeq, msgLines, textW, bannerW));
+            type, nameSeq, msgLines, textW, bannerW));
     }
 
     public int pendingCount() { return queue.size() + (current != null ? 1 : 0); }
@@ -131,21 +143,24 @@ public class MentionNotificationBanner {
                 ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_MS)
                 : 1f;
 
-        // Slide: ease-out down (fast→slow), ease-in up (slow→fast)
-        float slide = state == BannerState.SLIDING_DOWN
-            ? 1f - (1f - raw) * (1f - raw)
-            : state == BannerState.SLIDING_UP
-                ? raw * raw
-                : 1f;
+        float slide;
+        if (state == BannerState.SLIDING_DOWN) {
+            float c = 1.70158f;
+            slide = 1f + c * (float)Math.pow(raw - 1, 3) + c * (float)Math.pow(raw - 1, 2);
+        } else if (state == BannerState.SLIDING_UP) {
+            slide = raw * raw;
+        } else {
+            slide = 1f;
+        }
 
-        // Opacity: fade in/out (linear)
-        float alpha = raw;
+        float fadeRaw = Math.min(1f, raw / 0.6f);
+        float alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
 
         int y = (int)((-BANNER_H) + slide * BANNER_H);
 
         var theme = ChatBubbleConfig.THEME.get().colors();
         int bg = theme.bannerBg();
-        int barColor = theme.bannerBar();
+        int cornerRadius = ChatBubbleConfig.BANNER_CORNER_RADIUS.get();
 
         FormattedCharSequence nameSeq = current.nameSeq;
         List<FormattedCharSequence> msgLines = current.msgLines;
@@ -153,29 +168,27 @@ public class MentionNotificationBanner {
         int bannerW = current.bannerW;
         int x = (screenW - bannerW) / 2;
 
-        // Background
+        int shadowAlpha = (int)(0x30 * alpha);
+        int shadowColor = (shadowAlpha << 24);
+        RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
+            x + bannerW + SHADOW_OFF, y + BANNER_H + SHADOW_OFF, cornerRadius, shadowColor);
+
         int bgAlpha = (int)((bg >>> 24) * alpha);
-        g.fill(x, y, x + bannerW, y + BANNER_H, (bgAlpha << 24) | (bg & 0x00FFFFFF));
+        RoundRectRenderer.fill(g, x, y, x + bannerW, y + BANNER_H, cornerRadius,
+            (bgAlpha << 24) | (bg & 0x00FFFFFF));
 
-        // Left color bar
-        int barAlpha = (int)(0xE0 * alpha);
-        g.fill(x, y, x + BAR_W, y + BANNER_H, (barAlpha << 24) | (barColor & 0x00FFFFFF));
-
-        // Avatar
         int avatarY = y + (BANNER_H - AVATAR_HAT) / 2;
         ResourceLocation skin = getSkin(current.senderUUID, current.senderName.getString());
         RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-        // Name
         int textX = x + TEXT_X;
         int nameY = y + 6;
         int nameAlpha = (int)((theme.textPrimary() >>> 24) * alpha);
         int nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
         g.drawString(mc.font, nameSeq, textX, nameY, nameColor, false);
 
-        // Message lines (already styled from font.split)
         int msgAlpha = (int)((theme.textSecondary() >>> 24) * alpha);
         int msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
         int msgY = nameY + mc.font.lineHeight + 2;
@@ -220,7 +233,7 @@ public class MentionNotificationBanner {
     private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }
 
     private record PendingBanner(UUID senderUUID, Component senderName, Component content,
-                                  int messageIndex,
+                                  int messageIndex, NotificationType type,
                                   FormattedCharSequence nameSeq,
                                   List<FormattedCharSequence> msgLines,
                                   int textW, int bannerW) {}

@@ -316,7 +316,7 @@ public class ChatMessageStore {
         while (messages.size() > MAX)
             messages.remove(0);
 
-        boolean isMentionOrQuote = !own && !isSystem
+        boolean isMentionOrQuote = !isSystem
             && com.niuqu.chatbubble.chat.MentionDetector.isMentioned(
                 content.getString(), playerName,
                 ChatBubbleConfig.MENTION_REQUIRE_AT.get(), replySender);
@@ -329,7 +329,7 @@ public class ChatMessageStore {
                 messages.size(), replySender);
         }
 
-        if (!own && whisper && rawPlayerName != null
+        if (whisper && rawPlayerName != null
             && ChatBubbleConfig.MENTION_WHISPER_BANNER.get()) {
             MentionNotificationController.INSTANCE.onWhisperReceived(
                 senderUUID, senderName, content, messages.size());

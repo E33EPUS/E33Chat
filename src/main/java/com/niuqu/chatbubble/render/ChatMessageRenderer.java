@@ -11,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.util.FormattedCharSequence;
 
 import java.time.LocalTime;
@@ -179,10 +180,30 @@ public final class ChatMessageRenderer {
             int yy = baseY + 2;
             Style fb = findClickStyle(msg.content());
             int sysColor = c.textMuted();
+            int beforeSys = clickableSpans.size();
             for (var line : lines) {
                 int lw = font.width(line);
                 renderLineWithClicks(g, font, line, panelX + (panelW - lw) / 2, yy, sysColor, fb, clickableSpans);
                 yy += font.lineHeight;
+            }
+            for (int i = beforeSys; i < clickableSpans.size(); i++) {
+                net.minecraft.network.chat.HoverEvent h = clickableSpans.get(i).style().getHoverEvent();
+                if (h != null && h.getAction() == net.minecraft.network.chat.HoverEvent.Action.SHOW_ITEM) {
+                    try {
+                        net.minecraft.network.chat.HoverEvent.ItemStackInfo info = h.getValue(net.minecraft.network.chat.HoverEvent.Action.SHOW_ITEM);
+                        if (info == null) continue;
+                        ItemStack stack = info.getItemStack();
+                        if (!stack.isEmpty()) {
+                            float iconX = clickableSpans.get(i).x();
+                            float iconY = clickableSpans.get(i).y();
+                            g.pose().pushPose();
+                            g.pose().translate(iconX, iconY, 0);
+                            g.pose().scale(0.5f, 0.5f, 0.5f);
+                            g.renderItem(stack, 0, 0);
+                            g.pose().popPose();
+                        }
+                    } catch (Exception ignored) {}
+                }
             }
             return;
         }
