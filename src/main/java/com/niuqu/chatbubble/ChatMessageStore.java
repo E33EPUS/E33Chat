@@ -121,13 +121,13 @@ public class ChatMessageStore {
 
     private static long pendingWhisperEchoTime;
     private static String pendingWhisperEchoTarget;
-    private static boolean suppressNextCapture;
+    private static long suppressCaptureTime;
 
     public static void markPendingWhisperEcho(String target) {
         pendingWhisperEchoTime = System.currentTimeMillis();
         pendingWhisperEchoTarget = target;
     }
-    public static void markSuppressCapture() { suppressNextCapture = true; }
+    public static void markSuppressCapture() { suppressCaptureTime = System.currentTimeMillis(); }
 
     public static boolean hasPendingWhisperEcho() {
         return pendingWhisperEchoTime != 0 && System.currentTimeMillis() - pendingWhisperEchoTime < 10_000;
@@ -135,9 +135,13 @@ public class ChatMessageStore {
     public static String getPendingWhisperTarget() { return pendingWhisperEchoTarget; }
     public static void consumeWhisperEcho() { pendingWhisperEchoTime = 0; pendingWhisperEchoTarget = null; }
 
+    // 5s TTL: if the outgoing-whisper echo never reaches addMessage (another
+    // mod cancelled it), a stale flag must not swallow an unrelated message
     public static boolean consumeSuppressCapture() {
-        if (suppressNextCapture) { suppressNextCapture = false; return true; }
-        return false;
+        if (suppressCaptureTime == 0) return false;
+        boolean fresh = System.currentTimeMillis() - suppressCaptureTime < 5_000;
+        suppressCaptureTime = 0;
+        return fresh;
     }
 
     // Echoes not consumed within 10s (e.g. commands with no chat feedback) would
