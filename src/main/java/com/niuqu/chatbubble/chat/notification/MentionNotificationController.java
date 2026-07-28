@@ -54,7 +54,7 @@ public class MentionNotificationController {
         if (ChatBubbleConfig.MENTION_SOUND_ENABLED.get()
             && (type == NotificationType.MENTION || !isOwn)) {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(
-                SoundEvents.EXPERIENCE_ORB_PICKUP, 0.8f, 1.0f));
+                SoundEvents.EXPERIENCE_ORB_PICKUP, 0.8f, 0.25f));
         }
 
         if (ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
@@ -78,7 +78,7 @@ public class MentionNotificationController {
 
         if (!isOwn && ChatBubbleConfig.MENTION_SOUND_ENABLED.get()) {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(
-                SoundEvents.EXPERIENCE_ORB_PICKUP, 0.8f, 1.0f));
+                SoundEvents.EXPERIENCE_ORB_PICKUP, 0.8f, 0.25f));
         }
 
         if (!isOwn && ChatBubbleConfig.MENTION_WHISPER_BANNER.get()) {
