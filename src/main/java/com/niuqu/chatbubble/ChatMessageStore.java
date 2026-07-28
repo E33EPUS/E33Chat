@@ -295,11 +295,18 @@ public class ChatMessageStore {
         // line breaks; single-line contexts (preview/hint) flatten them separately.
         if (content.getString().isBlank()) return;
 
-        String playerName = net.minecraft.client.Minecraft.getInstance().player != null
-            ? net.minecraft.client.Minecraft.getInstance().player.getName().getString() : "";
-        boolean own = (rawPlayerName != null && !rawPlayerName.isEmpty())
-            ? rawPlayerName.equals(playerName)
-            : senderName != null && senderName.getString().equals(playerName);
+        var localPlayer = net.minecraft.client.Minecraft.getInstance().player;
+        String playerName = localPlayer != null ? localPlayer.getName().getString() : "";
+        // UUID is deterministic; the name fallback covers system-channel messages
+        // flattened by NCR where the UUID is nil. Name-only comparison misjudged
+        // same-named players on offline (cracked) servers.
+        boolean own = localPlayer != null && senderUUID != null
+            && senderUUID.equals(localPlayer.getUUID());
+        if (!own) {
+            own = (rawPlayerName != null && !rawPlayerName.isEmpty())
+                ? rawPlayerName.equals(playerName)
+                : senderName != null && senderName.getString().equals(playerName);
+        }
 
         if (ChatBubbleConfig.ANTI_SPAM.get() && !messages.isEmpty()) {
             ChatMessage last = messages.get(messages.size() - 1);
