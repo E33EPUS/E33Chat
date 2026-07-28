@@ -28,6 +28,8 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.ConfigValue<String> OTHER_TEXT_COLOR;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> QUICK_CHAT_PHRASES;
     public static final ForgeConfigSpec.IntValue PANEL_WIDTH;
+    public static final ForgeConfigSpec.BooleanValue BLUR_ENABLED;
+    public static final ForgeConfigSpec.IntValue PANEL_OPACITY;
     public static final ForgeConfigSpec.BooleanValue DEBUG_LOG;
     public static final ForgeConfigSpec.BooleanValue SOUND_SYSTEM;
     public static final ForgeConfigSpec.BooleanValue SOUND_WHISPER;
@@ -83,6 +85,16 @@ public class ChatBubbleConfig {
             .comment("Chat panel width in physical screen pixels (800-1600, independent of GUI scale and aspect ratio)")
             .translation("e33chat.config.panel_width")
             .defineInRange("panel_width", 1000, 800, 1600);
+
+        BLUR_ENABLED = builder
+            .comment("Enable gaussian blur effect behind the chat panel background")
+            .translation("e33chat.config.blur_enabled")
+            .define("blur_enabled", true);
+
+        PANEL_OPACITY = builder
+            .comment("Chat panel background opacity percentage (0-100). 0 = fully transparent, 100 = fully opaque")
+            .translation("e33chat.config.panel_opacity")
+            .defineInRange("panel_opacity", 60, 0, 100);
 
         STRONG_HINT_ENABLED = builder
             .comment("Show system messages as a strong hint above the hotbar (otherwise they go to the message preview)")

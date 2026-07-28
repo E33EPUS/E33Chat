@@ -920,6 +920,14 @@ public class ChatBubbleScreen extends Screen {
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
+        int fillLeft = (!sidebarAnimating && sidebarOpen)
+            ? (int)(anim * SIDEBAR_W) : panelX;
+
+        // Panel background blur — copy region from main FB, multi-pass downscale blur,
+        // write result back to panel region. No shader → Oculus/Embeddium compatible.
+        if (ChatBubbleConfig.BLUR_ENABLED.get()) {
+            BlurRenderer.blurPanel(fillLeft, 0, panelX + panelW - fillLeft, height);
+        }
         int moveDist;
         if (sidebarOpen) {
             moveDist = closing ? panelW : SIDEBAR_W;
@@ -932,13 +940,10 @@ public class ChatBubbleScreen extends Screen {
         g.pose().pushPose();
         g.pose().translate(panelOffset, 0, 0);
 
+        // Panel background overlay — semi-transparent tint on top of blurred/clear world.
         int panelBg = c().panelBg();
-        int panelBgAlpha = (panelBg >> 24) & 0xFF;
-        int fadedBg = ((int)(panelBgAlpha * anim) << 24) | (panelBg & 0x00FFFFFF);
-        // When sidebar is synced to main animation, extend panel bg to
-        // sidebar's right edge so there's no gap between them.
-        int fillLeft = (!sidebarAnimating && sidebarOpen)
-            ? (int)(anim * SIDEBAR_W) : panelX;
+        int opacity = (int)(ChatBubbleConfig.PANEL_OPACITY.get() / 100f * 255 * anim) & 0xFF;
+        int fadedBg = (opacity << 24) | (panelBg & 0x00FFFFFF);
         g.fill(fillLeft, 0, panelX + panelW, height, fadedBg);
 
         renderTitleBar(g, mouseX, mouseY);

@@ -57,6 +57,9 @@ public class ChatBubbleConfigScreen extends Screen {
         appearance.add(new Opt("e33chat.config.animation", y -> mkBoolButton(y, ChatBubbleConfig.ANIMATION_ENABLED), null));
         appearance.add(new Opt("e33chat.config.panel_width",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PANEL_WIDTH.get()), 800, 1600, 4, ChatBubbleConfig.PANEL_WIDTH::set), null));
+        appearance.add(new Opt("e33chat.config.blur_enabled", y -> mkBoolButton(y, ChatBubbleConfig.BLUR_ENABLED), null));
+        appearance.add(new Opt("e33chat.config.panel_opacity",
+            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PANEL_OPACITY.get()), 0, 100, 3, ChatBubbleConfig.PANEL_OPACITY::set), null));
         appearance.add(Opt.header("e33chat.config.section.bubbles"));
         appearance.add(new Opt("e33chat.config.bubble_corner_radius",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get()), 0, 10, 2, ChatBubbleConfig.BUBBLE_CORNER_RADIUS::set), null));

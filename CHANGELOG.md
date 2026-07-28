@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.2.0
+
+**面板背景模糊**
+- 聊天面板背景可选是否启用模糊效果（`glBlitFramebuffer` 多 pass 降采样，兼容 Oculus/Embeddium）
+- 面板不透明度可调（0-100%，默认 60%）
+- 配置项：`blur_enabled`（开关）、`panel_opacity`（0-100）
+- 注册至外观 category：面板区域
+
+**Panel background blur**
+- Optional blur effect behind the chat panel (GL blit multi-pass downscale, compatible with Oculus/Embeddium)
+- Configurable panel opacity (0-100%, default 60%)
+- Config options: `blur_enabled` (toggle), `panel_opacity` (0-100)
+- Registered under Appearance category: Panel section
+
 ## v2.1.9
 
 **Quark 兼容（仅物品分享）**
