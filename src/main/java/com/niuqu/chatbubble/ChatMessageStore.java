@@ -101,12 +101,19 @@ public class ChatMessageStore {
                              boolean whisper, String whisperPartner) {}
 
     private static final ThreadLocal<SenderMeta> PENDING_META = new ThreadLocal<>();
+    private static long pendingMetaSetTime;
 
-    public static void setPendingMeta(SenderMeta meta) { PENDING_META.set(meta); }
+    public static void setPendingMeta(SenderMeta meta) {
+        PENDING_META.set(meta);
+        pendingMetaSetTime = System.currentTimeMillis();
+    }
 
+    // 2s TTL: if addMessage never runs (another mod cancelled it), a stale
+    // note must not misattribute an unrelated later message
     public static SenderMeta consumePendingMeta() {
         SenderMeta m = PENDING_META.get();
         PENDING_META.remove();
+        if (m != null && System.currentTimeMillis() - pendingMetaSetTime > 2_000) return null;
         return m;
     }
 
