@@ -216,7 +216,7 @@ public final class ChatSidebar {
         try {
             abstractTex = tm.getTexture(tex);
         } catch (Exception e) {
-            abstractTex = tm.getTexture(tex);
+            return;
         }
         com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, abstractTex.getId());
         com.mojang.blaze3d.systems.RenderSystem.setShader(
