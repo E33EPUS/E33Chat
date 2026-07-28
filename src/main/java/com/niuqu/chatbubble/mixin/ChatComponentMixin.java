@@ -64,7 +64,7 @@ public class ChatComponentMixin {
         }
 
         if (ChatMessageStore.consumeSuppressCapture()) return;
-        if (ChatMessageStore.consumeEchoIfSenderMatches(meta.senderName())) return;
+        if (ChatMessageStore.consumeEchoIfSenderMatches(meta.senderUUID(), meta.senderName())) return;
         if (ChatMessageStore.consumeEchoBySystemChat(finalComponent.getString())) return;
 
         String rawStr = meta.rawContent().getString();

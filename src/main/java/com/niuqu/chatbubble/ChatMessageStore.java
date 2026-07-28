@@ -155,18 +155,24 @@ public class ChatMessageStore {
             com.mojang.logging.LogUtils.getLogger().info(msg.get());
     }
 
-    public static boolean consumeEchoIfSenderMatches(Component senderName) {
+    public static boolean consumeEchoIfSenderMatches(UUID senderUUID, Component senderName) {
         purgeStaleEchoes();
         if (pendingEchoes.isEmpty()) return false;
         var player = net.minecraft.client.Minecraft.getInstance().player;
         if (player == null) return false;
-        String s = senderName.getString();
-        boolean match = s.contains(player.getName().getString());
-        if (!match && player.connection != null) {
-            var info = player.connection.getPlayerInfo(player.getUUID());
-            if (info != null && info.getTabListDisplayName() != null) {
-                String tab = info.getTabListDisplayName().getString().trim();
-                match = !tab.isEmpty() && s.contains(tab);
+        // Deterministic: signed-channel echoes carry the sender's real UUID
+        boolean match = senderUUID != null && senderUUID.equals(player.getUUID());
+        // Whole-word boundary match for decorated / color-translated servers
+        // (substring contains misattributed e.g. SteveAdmin to Steve)
+        if (!match) {
+            String s = senderName.getString();
+            match = containsWholeName(s, player.getName().getString());
+            if (!match && player.connection != null) {
+                var info = player.connection.getPlayerInfo(player.getUUID());
+                if (info != null && info.getTabListDisplayName() != null) {
+                    String tab = info.getTabListDisplayName().getString().trim();
+                    match = !tab.isEmpty() && containsWholeName(s, tab);
+                }
             }
         }
         if (match) {
@@ -175,6 +181,30 @@ public class ChatMessageStore {
             return true;
         }
         return false;
+    }
+
+    // True when needle occurs in haystack with no name character (letter/digit/_)
+    // adjacent — "[VIP]Steve" and "<Steve>" hit, "SteveAdmin" and "Steve2" do not.
+    static boolean containsWholeName(String haystack, String needle) {
+        if (haystack == null || needle == null || needle.isEmpty()) return false;
+        // §6Steve: the code's digit would read as a name character — strip codes first
+        String h = haystack.replaceAll("§.", "");
+        String n = needle.replaceAll("§.", "");
+        if (n.isEmpty()) return false;
+        int from = 0;
+        while (true) {
+            int idx = h.indexOf(n, from);
+            if (idx < 0) return false;
+            int end = idx + n.length();
+            boolean leftOk = idx == 0 || !isNamePart(h.charAt(idx - 1));
+            boolean rightOk = end >= h.length() || !isNamePart(h.charAt(end));
+            if (leftOk && rightOk) return true;
+            from = idx + 1;
+        }
+    }
+
+    static boolean isNamePart(char c) {
+        return Character.isLetterOrDigit(c) || c == '_';
     }
 
     // The local echo bubble is created with the bare name before the server's
