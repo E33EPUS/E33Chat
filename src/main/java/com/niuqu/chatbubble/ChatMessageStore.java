@@ -44,7 +44,14 @@ public class ChatMessageStore {
     private static final Map<String, PendingMeta> pendingMetas = new HashMap<>();
 
     public record SeenPlayer(UUID uuid, String profileName, String displayName) {}
-    private static final Map<UUID, SeenPlayer> seenPlayers = new LinkedHashMap<>();
+    // LRU cap: bounds the per-message full scan in knownNameVariants/findSeenUuid
+    private static final int SEEN_PLAYERS_CAP = 512;
+    private static final Map<UUID, SeenPlayer> seenPlayers = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<UUID, SeenPlayer> eldest) {
+            return size() > SEEN_PLAYERS_CAP;
+        }
+    };
 
     // Server-synced setting: head-menu teleport uses /tpa instead of /tp (default false)
     private static volatile boolean serverUseTpa = false;
