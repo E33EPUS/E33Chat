@@ -44,6 +44,8 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue MENTION_SOUND_ENABLED;
     public static final ModConfigSpec.BooleanValue MENTION_REQUIRE_AT;
     public static final ModConfigSpec.BooleanValue MENTION_WHISPER_BANNER;
+    public static final ModConfigSpec.BooleanValue OWN_MENTION_NOTIFY;
+    public static final ModConfigSpec.BooleanValue OWN_QUOTE_NOTIFY;
     public static final ModConfigSpec.IntValue BANNER_CORNER_RADIUS;
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -235,6 +237,16 @@ public class ChatBubbleConfig {
             .comment("Show a notification banner for incoming private / whisper messages")
             .translation("e33chat.config.mention_whisper_banner")
             .define("whisper_banner", true);
+
+        OWN_MENTION_NOTIFY = builder
+            .comment("Notify (sound + banner) when you @ yourself — testing aid")
+            .translation("e33chat.config.own_mention_notify")
+            .define("own_mention_notify", false);
+
+        OWN_QUOTE_NOTIFY = builder
+            .comment("Notify (sound + banner) when you quote yourself — testing aid")
+            .translation("e33chat.config.own_quote_notify")
+            .define("own_quote_notify", false);
 
         BANNER_CORNER_RADIUS = builder
             .comment("Banner corner radius (0 = square, max 10)")

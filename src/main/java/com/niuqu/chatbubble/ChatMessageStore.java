@@ -391,12 +391,11 @@ public class ChatMessageStore {
         }
 
         boolean systemToHint = isSystem && ChatBubbleConfig.STRONG_HINT_ENABLED.get();
-        boolean mentionToHint = false;
         // Enqueue a per-line preview entry on every stored message not routed to the
         // strong hint (mutual exclusion). Top-level (not gated on !screenOpen) so messages
         // arriving while chat is open — including your own sends — also get a line; each
         // line then fades on its own, oldest first.
-        if (ChatBubbleConfig.PREVIEW_ENABLED.get() && !systemToHint && !mentionToHint) {
+        if (ChatBubbleConfig.PREVIEW_ENABLED.get() && !systemToHint) {
             Component sName = senderName != null ? senderName : Component.literal("");
             Component pt = buildPreviewText(content, sName, isSystem);
             if (!pt.getString().isBlank()) {

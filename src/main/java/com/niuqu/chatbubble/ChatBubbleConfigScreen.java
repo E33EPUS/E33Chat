@@ -132,6 +132,8 @@ public class ChatBubbleConfigScreen extends Screen {
 
         List<Opt> advanced = new ArrayList<>();
         advanced.add(new Opt("e33chat.config.debug_log", y -> mkBoolButton(y, ChatBubbleConfig.DEBUG_LOG), null));
+        advanced.add(new Opt("e33chat.config.own_mention_notify", y -> mkBoolButton(y, ChatBubbleConfig.OWN_MENTION_NOTIFY), null));
+        advanced.add(new Opt("e33chat.config.own_quote_notify", y -> mkBoolButton(y, ChatBubbleConfig.OWN_QUOTE_NOTIFY), null));
         cats.add(new Cat("e33chat.config.cat.advanced", advanced));
     }
 
