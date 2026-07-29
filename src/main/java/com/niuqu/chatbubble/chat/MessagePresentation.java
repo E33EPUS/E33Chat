@@ -99,19 +99,35 @@ public final class MessagePresentation {
             if (Character.isLetterOrDigit(next) || next == '_') return Optional.empty();
         }
 
-        int sep = after;
-        while (sep < text.length()) {
-            char ch = text.charAt(sep);
-            // skip legacy color codes so "§6Steve§r: hi" finds its separator
-            if (ch == '§' && sep + 1 < text.length()) { sep += 2; continue; }
-            if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
-                || ch == '：' || ch == '»' || ch == '-' || ch == '|') sep++;
-            else break;
-        }
+        int sep = skipSeparators(text, after);
         if (sep <= after || sep >= text.length()) return Optional.empty();
 
         String displayLabel = text.substring(0, idx + name.length());
         return Optional.of(new PlayerLine(name, displayLabel, text.substring(sep).strip()));
+    }
+
+    /**
+     * Skips the separator run between name and content: whitespace, common
+     * chat separators, § color pairs, and whole bracket pairs ([LV.10],
+     * (VIP), &lt;clan&gt;, 【title】) so name-suffix decorations parse the
+     * same way prefix decorations do. Shared by the parser and every caller
+     * that locates content start.
+     */
+    public static int skipSeparators(String text, int from) {
+        int sep = from;
+        while (sep < text.length()) {
+            char ch = text.charAt(sep);
+            if (ch == '§' && sep + 1 < text.length()) { sep += 2; continue; }
+            if (ch == '[' || ch == '(' || ch == '<' || ch == '【') {
+                char close = ch == '[' ? ']' : ch == '(' ? ')' : ch == '<' ? '>' : '】';
+                int end = text.indexOf(close, sep + 1);
+                if (end > sep && end - sep <= 32) { sep = end + 1; continue; }
+            }
+            if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
+                || ch == '：' || ch == '»' || ch == '-' || ch == '|') sep++;
+            else break;
+        }
+        return sep;
     }
 
     /**

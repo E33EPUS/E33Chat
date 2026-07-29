@@ -191,4 +191,39 @@ class MessagePresentationTest {
     @Test void whitespaceGap_emptyRangeNotBroadcast() {
         assertFalse(MessagePresentation.isWhitespaceOnlyGap("Steve", 5, 5));
     }
+
+    // ---- audit probes: formats that should parse (red = real gap) ----
+
+    @Test void parsesNameSuffixBracketTitle() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "Steve[LV.10]: hello", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("Steve", parsed.orElseThrow().playerName());
+        assertEquals("hello", parsed.orElseThrow().content());
+    }
+
+    @Test void parsesNameSuffixAfkTag() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "Steve[AFK]: hi", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("hi", parsed.orElseThrow().content());
+    }
+
+    @Test void parsesNameSuffixParenTitle() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "Steve(VIP): hi", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("hi", parsed.orElseThrow().content());
+    }
+
+    @Test void unicodeArrowSeparatorNotSkipped() {
+        // Documented unsupported: the parser stops at ➤, and at the call
+        // site the whitespace-only name/content gap routes the message to
+        // system gray text. Loosening separators to "any non-name char"
+        // would misattribute comma-style broadcasts (Steve，welcome...).
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "Steve ➤ hi", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("➤ hi", parsed.orElseThrow().content());
+    }
 }

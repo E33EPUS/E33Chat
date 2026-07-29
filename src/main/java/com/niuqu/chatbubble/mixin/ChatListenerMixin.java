@@ -281,13 +281,7 @@ public class ChatListenerMixin {
 
         int b = range[1];
         if (b < text.length() && text.charAt(b) == '>') b++;
-        int contentStart = b;
-        while (contentStart < text.length()) {
-            char ch = text.charAt(contentStart);
-            if (ch == '§' && contentStart + 1 < text.length()) { contentStart += 2; continue; }
-            if (Character.isWhitespace(ch) || ch == ':' || ch == '：' || ch == '»' || ch == '-') contentStart++;
-            else break;
-        }
+        int contentStart = MessagePresentation.skipSeparators(text, b);
         if (contentStart >= text.length()) return null;
 
         String profile = sender != null ? sender.getProfile().getName() : tellName[0];
@@ -517,14 +511,7 @@ public class ChatListenerMixin {
                 var pl = parsed.orElseThrow();
                 int nameIdx = msgStr.indexOf(pl.playerName());
                 int nameEnd = nameIdx + pl.playerName().length();
-                int contentStart = nameEnd;
-                while (contentStart < msgStr.length()) {
-                    char ch = msgStr.charAt(contentStart);
-                    if (ch == '§' && contentStart + 1 < msgStr.length()) { contentStart += 2; continue; }
-                    if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
-                        || ch == '：' || ch == '»' || ch == '-' || ch == '|') contentStart++;
-                    else break;
-                }
+                int contentStart = MessagePresentation.skipSeparators(msgStr, nameEnd);
                 // Whitespace-only gap = broadcast sentence (Steve joined the game),
                 // not chat: server chat formats always separate name and content
                 if (MessagePresentation.isWhitespaceOnlyGap(msgStr, nameEnd, contentStart)) {
@@ -635,14 +622,7 @@ public class ChatListenerMixin {
                 var pl = parsed.orElseThrow();
                 int nameIdx = text.indexOf(pl.playerName());
                 int nameEnd = nameIdx + pl.playerName().length();
-                int contentStart = nameEnd;
-                while (contentStart < text.length()) {
-                    char ch = text.charAt(contentStart);
-                    if (ch == '§' && contentStart + 1 < text.length()) { contentStart += 2; continue; }
-                    if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
-                        || ch == '：' || ch == '»' || ch == '-' || ch == '|') contentStart++;
-                    else break;
-                }
+                int contentStart = MessagePresentation.skipSeparators(text, nameEnd);
                 // Whitespace-only gap = broadcast sentence (Steve joined the game),
                 // not chat: server chat formats always separate name and content
                 if (MessagePresentation.isWhitespaceOnlyGap(text, nameEnd, contentStart)) {
