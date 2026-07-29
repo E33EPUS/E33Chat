@@ -8,11 +8,81 @@
 - 配置项：`blur_enabled`（开关）、`panel_opacity`（0-100）
 - 注册至外观 category：面板区域
 
+**审计修复（全代码审计，双端同步）**
+
+*消息分类重构（守卫架构）*
+- 广播识别从分隔符白名单改为结构规则：名字与内容间纯空格 = 广播。`[+] Steve 加入了游戏` 继续拦截，而 `Steve|hi`、`Steve-hi`、`Steve >> hi` 等格式不再被误判为系统灰字
+- 新增识别格式：legacy § 颜色码（`§6Steve§r: hi`）、后缀称号（`Steve[LV.10]: hi` / `Steve[AFK]: hi` / `Steve(VIP): hi`）、裸短名/中文短名+冒号（`小明: 你好`，离线服）
+- 服务端 @ 提取支持非 ASCII 名字（中文名离线服此前无法触发跨客户端 @ 通知）
+- 4 处分隔符跳过逻辑统一为 `MessagePresentation.skipSeparators`（§ 对与整对括号跳过）
+
+*身份判定（离线服同名玩家系列修复）*
+- 所有"是否本人"判定改为 UUID 优先、名字兜底：修复离线服同名玩家的消息显示成自己的气泡、@/私聊通知丢失、回声被误吞
+- 回声名字匹配从子串包含改为整词边界：`SteveAdmin` 和带 `[VIP]` 前缀的玩家不再被当成自己的回声吞掉
+- 回声抑制与归属便签加过期时间，修复残留状态吞消息
+
+*私聊*
+- 修复 NCR 服公屏含"私聊/whisper"等词的消息被误判为私聊（关键词须出现在首个冒号之前）
+- 修复私聊内容含多个冒号（引用内容）时从最后一个冒号截断
+- 修复上箭头历史回放泄漏隐形拼接的 `/msg` 指令（现记录用户实际输入）
+- 修复设置里的私聊音效开关无效（内部误接到 @ 音效开关）
+
+*聊天历史*
+- 修复进服时旧历史记录加载到 MOTD 等早到消息之上（顺序颠倒）
+- 修复服务端引用挂起被插件拦截后把旧引用挂到下一条消息（10 秒过期）
+
+*通知与界面*
+- 高级标签页新增"自我@通知"与"自我引用通知"开关（默认关，测试用）
+- 表情/颜文字改为在光标处插入（原固定在末尾）
+- 聊天记录搜索同时匹配发送者名字
+- 修复左键自己头像无法插入 @（点击区域与渲染位置相反）
+- 修复玩家列表收缩时侧边栏可滚出空白（Forge 回传 NeoForge 的 clamp）
+- 修复侧边栏图标加载失败保护实际无效（catch 只是重复同一调用）
+- 玩家缓存 LRU 上限 512；NeoForge tell-click 名字范围与 Forge 同步（长称号服）
+
+*测试*
+- 62 → 92 例：删除同义反复的侧边栏假测试，新增格式解析/整词边界/私聊格式/Animation 真覆盖
+
 **Panel background blur**
 - Optional blur effect behind the chat panel (GL blit multi-pass downscale, compatible with Oculus/Embeddium)
 - Configurable panel opacity (0-100%, default 60%)
 - Config options: `blur_enabled` (toggle), `panel_opacity` (0-100)
 - Registered under Appearance category: Panel section
+
+**Audit fixes (full-codebase audit, both loaders)**
+
+*Message classification rework (guard architecture)*
+- Broadcast detection changed from a separator whitelist to a structural rule: a whitespace-only gap between name and content = broadcast. `[+] Steve joined the game` stays blocked, while `Steve|hi`, `Steve-hi`, `Steve >> hi` style formats no longer misclassify as system text
+- Newly recognized formats: legacy § color codes (`§6Steve§r: hi`), name-suffix titles (`Steve[LV.10]: hi` / `Steve[AFK]: hi` / `Steve(VIP): hi`), bare short / Chinese short names with a colon (`小明: 你好`, cracked servers)
+- Server-side @ extraction now supports non-ASCII names (Chinese-named players on cracked servers previously got no cross-client @ notifications)
+- The four copy-pasted separator loops are unified into `MessagePresentation.skipSeparators` (§ pairs and whole bracket pairs skipped)
+
+*Identity detection (same-name players on cracked servers)*
+- All "sent by self" detection is now UUID-first with name fallback: fixes same-named players' messages rendering as your own bubbles, @/whisper notifications going missing, and echoes being mis-swallowed
+- Echo name matching changed from substring contains to whole-word boundary: `SteveAdmin` and `[VIP]`-prefixed players are no longer swallowed as your own echoes
+- Echo suppression and attribution notes now expire, fixing stale-state message swallowing
+
+*Whisper*
+- Fixed public chat containing words like 私聊/whisper being claimed as a whisper on NCR servers (the keyword must now come before the first colon)
+- Fixed whisper content with multiple colons (quoted text) truncating at the last colon
+- Fixed up-arrow history leaking the behind-the-scenes `/msg` splice (now records what you actually typed)
+- Fixed the whisper sound switch in settings having no effect (it was miswired to the @ sound switch)
+
+*Chat history*
+- Fixed saved history loading above early messages like MOTD on join (reversed chronology)
+- Fixed a server-side pending quote blocked by a plugin tagging a later message with the stale quote (10s expiry)
+
+*Notifications & UI*
+- New advanced-tab switches "Self-@ Notification" and "Self-Quote Notification" (off by default, testing aid)
+- Emoji/kaomoji now insert at the cursor (previously appended at the end)
+- Chat search now matches sender names too
+- Fixed left-clicking your own avatar not inserting @ (the hit region was the mirror of the rendered position)
+- Fixed the sidebar scrolling past into blank space when the player list shrinks (Forge picked up NeoForge's clamp)
+- Fixed the sidebar icon crash protection being a no-op (the catch just repeated the same failing call)
+- Player cache LRU-capped at 512; NeoForge tell-click name range synced with Forge (long-title servers)
+
+*Tests*
+- 62 → 92 cases: tautological sidebar tests removed; real coverage added for format parsing, word boundaries, whisper formats and Animation
 
 ## v2.1.9
 
