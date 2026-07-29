@@ -135,9 +135,12 @@ public final class ChatSidebar {
                     (WIDTH - textW) / 2, startY + 8 + 32 + 4, c.textMuted(), false);
             } else {
                 newMaxScroll = Math.max(0, totalH - (visibleBottom - startY));
+                // Clamp so a shrinking player list can't leave the view scrolled
+                // into empty space until the next scroll input (parity with NeoForge)
+                int clampedOffset = Math.min(scrollOffset, newMaxScroll);
 
                 g.enableScissor(0, startY, WIDTH, visibleBottom);
-                int scrollY = startY - scrollOffset;
+                int scrollY = startY - clampedOffset;
                 for (var info : players) {
                     String name = info.getProfile().getName();
                     if (name.equals(selfName)) continue;
