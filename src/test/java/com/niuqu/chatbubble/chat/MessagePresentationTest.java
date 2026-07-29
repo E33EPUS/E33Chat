@@ -120,9 +120,39 @@ class MessagePresentationTest {
         assertEquals("hi", parsed.orElseThrow().content());
     }
 
+    @Test void parsesBareShortNameWithColon() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "a: hi", List.of("a"));
+        assertTrue(parsed.isPresent());
+        assertEquals("hi", parsed.orElseThrow().content());
+    }
+
     @Test void rejectsBareShortNameWithoutStructure() {
+        // no colon after the name — broadcast sentence, stays rejected
         assertTrue(MessagePresentation.parseDecoratedPlayerLine(
-            "a: hi", List.of("a")).isEmpty());
+            "a joined the game", List.of("a")).isEmpty());
+    }
+
+    // ---- offline-server short/Chinese names ----
+
+    @Test void parsesBareChineseNameWithColon() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "小明: 你好", List.of("小明"));
+        assertTrue(parsed.isPresent());
+        assertEquals("小明", parsed.orElseThrow().playerName());
+        assertEquals("你好", parsed.orElseThrow().content());
+    }
+
+    @Test void rejectsBareChineseNameBroadcast() {
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "小明 加入了游戏", List.of("小明")).isEmpty());
+    }
+
+    @Test void parsesBracketedChineseName() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "<小明> 你好", List.of("小明"));
+        assertTrue(parsed.isPresent());
+        assertEquals("你好", parsed.orElseThrow().content());
     }
 
     @Test void parsesWithOfflineCachedNameInList() {

@@ -67,6 +67,16 @@ public final class MessagePresentation {
                 }
             }
         }
+        // bare short name followed directly by a colon: 小明: 你好 / a: hi —
+        // cracked servers allow short/Chinese names; the online-list anchor
+        // plus a strong colon makes misattribution very unlikely
+        if (minLen == 3) {
+            int after = idx + name.length();
+            if (after < text.length()) {
+                char next = text.charAt(after);
+                if (next == ':' || next == '：') minLen = 1;
+            }
+        }
         if (name.length() < minLen) return Optional.empty();
 
         int decorativeLen = countDecorativePrefix(text, idx);
