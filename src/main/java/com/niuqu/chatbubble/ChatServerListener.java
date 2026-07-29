@@ -16,13 +16,24 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ChatServerListener {
-    private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
+    // \p{L}\p{N} covers non-ASCII names — cracked servers allow Chinese player
+    // names, and the client MentionDetector already treats any letter/digit as
+    // a name character, so the server regex must match its behavior
+    private static final Pattern MENTION_PATTERN = Pattern.compile("@([\\p{L}\\p{N}_]+)");
     private static final int HISTORY_MAX = 50;
 
     private static final Map<UUID, QuotePending> pendingQuotes = new HashMap<>();
     private static final Deque<HistoryPacket.HistoryEntry> historyBuffer = new ArrayDeque<>();
 
-    private record QuotePending(String quotedSenderName, String quotedContent, String messageHash) {}
+    private record QuotePending(String quotedSenderName, String quotedContent, String messageHash, long time) {}
+
+    // A quote that never made it into a sent message (e.g. an anti-spam plugin
+    // blocked it) must not tag a later unrelated message — expire after 10s
+    private static QuotePending takeQuote(UUID playerUUID) {
+        QuotePending quote = takeQuote(playerUUID);
+        if (quote != null && System.currentTimeMillis() - quote.time() > 10_000) return null;
+        return quote;
+    }
 
     @SubscribeEvent
     public void onServerChat(ServerChatEvent event) {
@@ -30,7 +41,7 @@ public class ChatServerListener {
         String rawText = event.getRawText();
         List<String> mentions = extractMentions(rawText, player.getServer().getPlayerList().getPlayerCount());
 
-        QuotePending quote = pendingQuotes.remove(player.getUUID());
+        QuotePending quote = takeQuote(player.getUUID());
         String messageHash = quote != null ? quote.messageHash() : String.valueOf(rawText.hashCode());
         String quoteSender = quote != null ? quote.quotedSenderName() : "";
         String quoteContent = quote != null ? quote.quotedContent() : "";
@@ -60,7 +71,7 @@ public class ChatServerListener {
         var sender = event.getParseResults().getContext().getSource().getPlayer();
         if (sender == null) return;
 
-        QuotePending quote = pendingQuotes.remove(sender.getUUID());
+        QuotePending quote = takeQuote(sender.getUUID());
         if (quote == null) return;
 
         String messageHash = quote.messageHash();
@@ -89,7 +100,8 @@ public class ChatServerListener {
 
     public static void onQuoteReceived(UUID senderUUID, String quotedSenderName,
                                         String quotedContent, String messageHash) {
-        pendingQuotes.put(senderUUID, new QuotePending(quotedSenderName, quotedContent, messageHash));
+        pendingQuotes.put(senderUUID, new QuotePending(quotedSenderName, quotedContent,
+            messageHash, System.currentTimeMillis()));
     }
 
     private static void addToHistory(HistoryPacket.HistoryEntry entry) {
