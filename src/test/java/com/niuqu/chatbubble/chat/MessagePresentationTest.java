@@ -139,4 +139,30 @@ class MessagePresentationTest {
         assertTrue(parsed.isPresent());
         assertEquals("Steve", parsed.orElseThrow().playerName());
     }
+
+    // ---- legacy § color codes embedded as literal text content ----
+
+    @Test void parsesLegacyColorCodeColonFormat() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "§6Steve§r: hi", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("Steve", parsed.orElseThrow().playerName());
+        assertEquals("hi", parsed.orElseThrow().content());
+    }
+
+    @Test void parsesLegacyColorCodeCandidateVariant() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "§6Steve§r: hi", List.of("§6Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("§6Steve", parsed.orElseThrow().playerName());
+        assertEquals("hi", parsed.orElseThrow().content());
+    }
+
+    @Test void parsesLegacyColorCodeChevronFormat() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "§6Steve§r » hi", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("Steve", parsed.orElseThrow().playerName());
+        assertEquals("hi", parsed.orElseThrow().content());
+    }
 }

@@ -284,6 +284,7 @@ public class ChatListenerMixin {
         int contentStart = b;
         while (contentStart < text.length()) {
             char ch = text.charAt(contentStart);
+            if (ch == '§' && contentStart + 1 < text.length()) { contentStart += 2; continue; }
             if (Character.isWhitespace(ch) || ch == ':' || ch == '：' || ch == '»' || ch == '-') contentStart++;
             else break;
         }
@@ -519,6 +520,7 @@ public class ChatListenerMixin {
                 int contentStart = nameEnd;
                 while (contentStart < msgStr.length()) {
                     char ch = msgStr.charAt(contentStart);
+                    if (ch == '§' && contentStart + 1 < msgStr.length()) { contentStart += 2; continue; }
                     if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
                         || ch == '：' || ch == '»' || ch == '-' || ch == '|') contentStart++;
                     else break;
@@ -639,6 +641,7 @@ public class ChatListenerMixin {
                 int contentStart = nameEnd;
                 while (contentStart < text.length()) {
                     char ch = text.charAt(contentStart);
+                    if (ch == '§' && contentStart + 1 < text.length()) { contentStart += 2; continue; }
                     if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
                         || ch == '：' || ch == '»' || ch == '-' || ch == '|') contentStart++;
                     else break;

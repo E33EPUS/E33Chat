@@ -74,7 +74,9 @@ public final class MessagePresentation {
 
         if (idx > 0) {
             char prev = text.charAt(idx - 1);
-            if (Character.isLetterOrDigit(prev) || prev == '_') {
+            // §6Steve: the preceding digit belongs to a legacy color code, not the name
+            boolean prevIsColorCode = prev == '§' || (idx >= 2 && text.charAt(idx - 2) == '§');
+            if (!prevIsColorCode && (Character.isLetterOrDigit(prev) || prev == '_')) {
                 int openAngle = text.lastIndexOf('<', idx);
                 int closeAngle = text.indexOf('>', idx + name.length());
                 if (openAngle >= 0 && closeAngle >= 0 && closeAngle - openAngle <= 64) {
@@ -100,6 +102,8 @@ public final class MessagePresentation {
         int sep = after;
         while (sep < text.length()) {
             char ch = text.charAt(sep);
+            // skip legacy color codes so "§6Steve§r: hi" finds its separator
+            if (ch == '§' && sep + 1 < text.length()) { sep += 2; continue; }
             if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
                 || ch == '：' || ch == '»' || ch == '-' || ch == '|') sep++;
             else break;
