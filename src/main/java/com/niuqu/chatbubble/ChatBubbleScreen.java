@@ -343,7 +343,8 @@ public class ChatBubbleScreen extends Screen {
         for (int i = 0; i < msgs.size(); i++) {
             var msg = msgs.get(i);
             if (msg == null) continue;
-            if (msg.content().getString().toLowerCase().contains(lower))
+            if (msg.content().getString().toLowerCase().contains(lower)
+                || msg.senderName().getString().toLowerCase().contains(lower))
                 searchMatches.add(i);
         }
         if (!searchMatches.isEmpty()) {
@@ -713,8 +714,8 @@ public class ChatBubbleScreen extends Screen {
             if (emojiPanel.visible) {
                 String emojiText = emojiPanel.handleClick((int) mouseX, (int) mouseY, font, c(), panelX, panelW, barTop, ICON_S, PAD);
                 if (emojiText != null && !emojiText.isEmpty()) {
-                    input.setValue(input.getValue() + emojiText);
-                    input.moveCursorToEnd();
+                    // insertText honors the cursor position and replaces any selection
+                    input.insertText(emojiText);
                 }
                 return true;
             }
