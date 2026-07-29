@@ -141,6 +141,41 @@ public final class MessagePresentation {
     }
 
     /**
+     * Whisper-format keywords must come before the first chat colon: a keyword
+     * after the colon sits inside public chat content ("Steve: 不能用私聊") —
+     * on NCR servers public chat reaches the whisper layer with its key stripped.
+     */
+    public static boolean hasWhisperKeywordBeforeColon(String text) {
+        if (text == null) return false;
+        int colon = -1;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == ':' || ch == '：') { colon = i; break; }
+        }
+        String zone = colon < 0 ? text : text.substring(0, colon);
+        return zone.contains("悄悄") || zone.contains("whisper") || zone.contains("对你说")
+            || zone.contains("to you") || zone.contains("私聊") || zone.contains("密语") || zone.contains("密聊");
+    }
+
+    /**
+     * Extracts the whisper content after the sender name. First separator
+     * after the name wins — lastIndexOf truncated content that itself contains
+     * ": "; colon-family first since "Steve -&gt; you: hi" still extracts at
+     * the colon.
+     */
+    public static String extractWhisperContent(String fullText, String senderName) {
+        if (senderName == null || senderName.isEmpty()) return fullText;
+        int idx = fullText == null ? -1 : fullText.indexOf(senderName);
+        if (idx < 0) return fullText;
+        String after = fullText.substring(idx + senderName.length());
+        for (String sep : new String[]{": ", "：", " :", " ：", " -> ", " >> ", " » ", " | "}) {
+            int i = after.indexOf(sep);
+            if (i >= 0) return after.substring(i + sep.length());
+        }
+        return after.trim();
+    }
+
+    /**
      * True when the gap between name and content holds only whitespace —
      * the shape of a broadcast sentence (Steve joined the game), not chat:
      * server chat formats always carry a separator between name and content.
