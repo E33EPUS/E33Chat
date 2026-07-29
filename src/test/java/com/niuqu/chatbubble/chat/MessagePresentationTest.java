@@ -165,4 +165,30 @@ class MessagePresentationTest {
         assertEquals("Steve", parsed.orElseThrow().playerName());
         assertEquals("hi", parsed.orElseThrow().content());
     }
+
+    // ---- whitespace-only gap: broadcast sentence vs chat separator ----
+
+    @Test void whitespaceGap_pureSpacesIsBroadcast() {
+        assertTrue(MessagePresentation.isWhitespaceOnlyGap("Steve joined the game", 5, 6));
+    }
+
+    @Test void whitespaceGap_colonIsChat() {
+        assertFalse(MessagePresentation.isWhitespaceOnlyGap("Steve: hi", 5, 7));
+    }
+
+    @Test void whitespaceGap_pipeIsChat() {
+        assertFalse(MessagePresentation.isWhitespaceOnlyGap("Steve|hi", 5, 6));
+    }
+
+    @Test void whitespaceGap_dashIsChat() {
+        assertFalse(MessagePresentation.isWhitespaceOnlyGap("Steve-hi", 5, 6));
+    }
+
+    @Test void whitespaceGap_colorCodeAndColonIsChat() {
+        assertFalse(MessagePresentation.isWhitespaceOnlyGap("§6Steve§r: hi", 7, 11));
+    }
+
+    @Test void whitespaceGap_emptyRangeNotBroadcast() {
+        assertFalse(MessagePresentation.isWhitespaceOnlyGap("Steve", 5, 5));
+    }
 }

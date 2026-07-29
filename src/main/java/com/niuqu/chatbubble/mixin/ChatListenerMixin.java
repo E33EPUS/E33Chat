@@ -525,13 +525,10 @@ public class ChatListenerMixin {
                         || ch == '：' || ch == '»' || ch == '-' || ch == '|') contentStart++;
                     else break;
                 }
-                boolean hasChatSep = false;
-                for (int i = nameEnd; i < contentStart; i++) {
-                    char ch = msgStr.charAt(i);
-                    if (ch == ':' || ch == '：' || ch == '>' || ch == '»') { hasChatSep = true; break; }
-                }
-                if (!hasChatSep) {
-                    ChatMessageStore.debugLog(() -> "[e33chat] Disguised(line skip: no chat sep) | text='" + msgStr + "'");
+                // Whitespace-only gap = broadcast sentence (Steve joined the game),
+                // not chat: server chat formats always separate name and content
+                if (MessagePresentation.isWhitespaceOnlyGap(msgStr, nameEnd, contentStart)) {
+                    ChatMessageStore.debugLog(() -> "[e33chat] Disguised(line skip: broadcast sentence) | text='" + msgStr + "'");
                 } else {
                     var info = connection.getOnlinePlayers().stream()
                         .filter(i -> {
@@ -646,13 +643,10 @@ public class ChatListenerMixin {
                         || ch == '：' || ch == '»' || ch == '-' || ch == '|') contentStart++;
                     else break;
                 }
-                boolean hasChatSep = false;
-                for (int i = nameEnd; i < contentStart; i++) {
-                    char ch = text.charAt(i);
-                    if (ch == ':' || ch == '：' || ch == '>' || ch == '»') { hasChatSep = true; break; }
-                }
-                if (!hasChatSep) {
-                    ChatMessageStore.debugLog(() -> "[e33chat] System(line skip: no chat sep) | text='" + text + "'");
+                // Whitespace-only gap = broadcast sentence (Steve joined the game),
+                // not chat: server chat formats always separate name and content
+                if (MessagePresentation.isWhitespaceOnlyGap(text, nameEnd, contentStart)) {
+                    ChatMessageStore.debugLog(() -> "[e33chat] System(line skip: broadcast sentence) | text='" + text + "'");
                 } else {
                     var info = connection.getOnlinePlayers().stream()
                         .filter(i -> {

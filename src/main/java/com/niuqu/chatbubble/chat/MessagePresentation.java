@@ -114,6 +114,19 @@ public final class MessagePresentation {
         return Optional.of(new PlayerLine(name, displayLabel, text.substring(sep).strip()));
     }
 
+    /**
+     * True when the gap between name and content holds only whitespace —
+     * the shape of a broadcast sentence (Steve joined the game), not chat:
+     * server chat formats always carry a separator between name and content.
+     */
+    public static boolean isWhitespaceOnlyGap(String text, int from, int to) {
+        if (text == null || to <= from) return false;
+        for (int i = from; i < to && i < text.length(); i++) {
+            if (!Character.isWhitespace(text.charAt(i))) return false;
+        }
+        return true;
+    }
+
     private static int countDecorativePrefix(String text, int upTo) {
         int i = 0;
         while (i < upTo) {
