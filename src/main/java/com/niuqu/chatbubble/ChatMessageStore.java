@@ -645,8 +645,15 @@ public class ChatMessageStore {
             saveMessages(currentWorldKey);
         currentWorldKey = name;
         if (isRefinement || hasPendingMessages) {
-            if (ChatBubbleConfig.CHAT_HISTORY_ENABLED.get() && isWorldSpecific(currentWorldKey))
+            if (ChatBubbleConfig.CHAT_HISTORY_ENABLED.get() && isWorldSpecific(currentWorldKey)) {
+                // Messages that arrived before the world key was known (MOTD, join
+                // notices) must stay newest — load saved history underneath them
+                // instead of appending it after
+                List<ChatMessage> early = new ArrayList<>(messages);
+                messages.clear();
                 loadMessages(currentWorldKey);
+                messages.addAll(early);
+            }
             return;
         }
         messages.clear();
