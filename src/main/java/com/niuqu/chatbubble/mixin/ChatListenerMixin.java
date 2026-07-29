@@ -299,18 +299,6 @@ public class ChatListenerMixin {
         );
     }
 
-    private static String extractWhisperContent(String fullText, String senderName) {
-        if (senderName == null || senderName.isEmpty()) return fullText;
-        int idx = fullText.indexOf(senderName);
-        if (idx < 0) return fullText;
-        String after = fullText.substring(idx + senderName.length());
-        for (String sep : new String[]{" -> ", " >> ", " » ", " | ", ": ", "：", " :", " ："}) {
-            int i = after.lastIndexOf(sep);
-            if (i >= 0) return after.substring(i + sep.length());
-        }
-        return after.trim();
-    }
-
     private static SenderMeta detectWhisperInSystemMessage(String text, String logTag) {
         var connection = Minecraft.getInstance().player.connection;
         if (connection == null) return null;
@@ -319,9 +307,8 @@ public class ChatListenerMixin {
             for (String cand : nameCandidates(info)) {
                 int idx = text.indexOf(cand);
                 if (idx >= 0 && idx < 30) {
-                    if (text.contains("悄悄") || text.contains("whisper") || text.contains("对你说") || text.contains("to you")
-                        || text.contains("私聊") || text.contains("密语") || text.contains("密聊")) {
-                        String content = extractWhisperContent(text, cand);
+                    if (MessagePresentation.hasWhisperKeywordBeforeColon(text)) {
+                        String content = MessagePresentation.extractWhisperContent(text, cand);
                         UUID senderId = info.getProfile().getId();
                         ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + ") | text='" + text + "' | name=" + cand + " | content='" + content + "'");
                         return new SenderMeta(
@@ -340,11 +327,10 @@ public class ChatListenerMixin {
         for (var sp : ChatMessageStore.knownNameVariants()) {
             int idx = text.indexOf(sp);
             if (idx >= 0 && idx < 30) {
-                if (text.contains("悄悄") || text.contains("whisper") || text.contains("对你说") || text.contains("to you")
-                    || text.contains("私聊") || text.contains("密语") || text.contains("密聊")) {
+                if (MessagePresentation.hasWhisperKeywordBeforeColon(text)) {
                     UUID su = ChatMessageStore.findSeenUuid(sp);
                     if (su != null) {
-                        String content = extractWhisperContent(text, sp);
+                        String content = MessagePresentation.extractWhisperContent(text, sp);
                         ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + "/cache) | text='" + text + "' | name=" + sp + " | content='" + content + "'");
                         return new SenderMeta(
                             su,
@@ -421,7 +407,7 @@ public class ChatListenerMixin {
         Component playerContent = raw;
         Component senderName = Component.literal(gameProfile.getName());
         if (isWhisper) {
-            playerContent = Component.literal(extractWhisperContent(rawStr, gameProfile.getName()));
+            playerContent = Component.literal(MessagePresentation.extractWhisperContent(rawStr, gameProfile.getName()));
         } else {
             Component fullLine = bound.decorate(raw);
             senderName = extractDecoratedName(fullLine, rawStr, gameProfile.getName(), senderName);
@@ -472,7 +458,7 @@ public class ChatListenerMixin {
         Component disContent = message;
         Component disSender = hasSender ? bound.name() : Component.translatable("e33chat.sender.system");
         if (isWhisper && hasSender) {
-            disContent = Component.literal(extractWhisperContent(msgStr, bound.name().getString()));
+            disContent = Component.literal(MessagePresentation.extractWhisperContent(msgStr, bound.name().getString()));
         } else if (hasSender) {
             Component fullLine = bound.decorate(message);
             disSender = extractDecoratedName(fullLine, msgStr, bound.name().getString(), disSender);

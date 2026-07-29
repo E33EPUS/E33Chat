@@ -1623,7 +1623,9 @@ public class ChatBubbleScreen extends Screen {
             minecraft.player.connection.sendCommand(text.substring(1));
         else
             minecraft.player.connection.sendChat(text);
-        minecraft.gui.getChat().addRecentChat(text);
+        // Record what the user typed — never the behind-the-scenes /msg splice,
+        // or up-arrow history would leak the hidden command (v1.4 promise)
+        minecraft.gui.getChat().addRecentChat(raw);
 
         String logCmd = text, logDisp = displayText, logTarget = whisperTarget;
         boolean logBub = localBubble;
