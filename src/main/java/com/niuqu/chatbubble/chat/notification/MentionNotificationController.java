@@ -35,9 +35,14 @@ public class MentionNotificationController {
 
         if (!MentionDetector.isMentioned(text, localName, requireAt, replySender)) return;
 
-        boolean isOwn = meta.rawPlayerName() != null
-            && meta.rawPlayerName().equals(localName);
+        boolean isOwn = (meta.senderUUID() != null && meta.senderUUID().equals(mc.player.getUUID()))
+            || (meta.rawPlayerName() != null && meta.rawPlayerName().equals(localName));
         boolean chatOpen = mc.screen instanceof ChatBubbleScreen;
+        NotificationType type = (replySender != null && replySender.equals(localName))
+            ? NotificationType.QUOTE : NotificationType.MENTION;
+        // Self-notifications are opt-in (advanced config, testing aid)
+        boolean selfNotify = isOwn && (type == NotificationType.QUOTE
+            ? ChatBubbleConfig.OWN_QUOTE_NOTIFY.get() : ChatBubbleConfig.OWN_MENTION_NOTIFY.get());
 
         ChatMessageStore.debugLog(() -> "[e33chat] Mention | sender="
             + (meta.rawPlayerName() != null ? meta.rawPlayerName() : "?")
@@ -46,14 +51,12 @@ public class MentionNotificationController {
             + " | banner=" + ChatBubbleConfig.MENTION_BANNER_ENABLED.get()
             + " | preview=" + text.substring(0, Math.min(40, text.length())));
 
-        if (!isOwn && ChatBubbleConfig.MENTION_SOUND_ENABLED.get()) {
+        if ((!isOwn || selfNotify) && ChatBubbleConfig.MENTION_SOUND_ENABLED.get()) {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(
                 SoundEvents.EXPERIENCE_ORB_PICKUP, 0.8f, 1.0f));
         }
 
-        if (ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
-            NotificationType type = (replySender != null && replySender.equals(localName))
-                ? NotificationType.QUOTE : NotificationType.MENTION;
+        if ((!isOwn || selfNotify) && ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
             enqueueDeduped(meta.senderUUID(), meta.senderName(), content, messageIndex, type);
         }
     }
@@ -65,14 +68,15 @@ public class MentionNotificationController {
 
         boolean chatOpen = mc.screen instanceof ChatBubbleScreen;
         String senderStr = senderName.getString().replaceAll("§.", "");
-        boolean isOwn = mc.player.getName().getString().equals(senderStr);
+        boolean isOwn = (senderUUID != null && senderUUID.equals(mc.player.getUUID()))
+            || mc.player.getName().getString().equals(senderStr);
 
         ChatMessageStore.debugLog(() -> "[e33chat] Whisper banner | sender=" + senderStr
             + " | chatOpen=" + chatOpen
             + " | own=" + isOwn
             + " | enabled=" + ChatBubbleConfig.MENTION_WHISPER_BANNER.get());
 
-        if (!isOwn && ChatBubbleConfig.MENTION_SOUND_ENABLED.get()) {
+        if (!isOwn && ChatBubbleConfig.SOUND_WHISPER.get()) {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(
                 SoundEvents.EXPERIENCE_ORB_PICKUP, 0.8f, 1.0f));
         }
