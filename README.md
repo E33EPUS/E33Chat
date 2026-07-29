@@ -52,6 +52,8 @@
 
 **Modpack?** Go ahead.
 
+**Nickname plugins?** Partial support. Messages attribute to the real player when the plugin attaches a "click to whisper" event to nicknames or updates the tab-list name too. If a nickname shares nothing with the real name and neither channel exists, the message shows as a plain system line — the client has no source for the nickname→player mapping.
+
 **Found a bug?** [Report it here](https://github.com/E33EPUS/E33Chat/issues)
 
 ---
@@ -109,5 +111,7 @@
 **怎么关掉聊天历史同步？** 在世界的 服务端配置 里把 `history_enabled` 设为 `false`，重启服务器
 
 **可以放进整合包吗？** 可以
+
+**支持昵称插件吗？** 部分支持。昵称插件在昵称上挂了"点击私聊"事件、或同步改了 Tab 列表名时，消息能正确归属到真实玩家。昵称与真名毫无关联且两条通道都不存在时，消息显示为系统灰字——客户端没有"昵称→玩家"的映射来源。
 
 **如何反馈问题？** [反馈问题](https://github.com/E33EPUS/E33Chat/issues)
