@@ -30,7 +30,7 @@ public class ChatServerListener {
     // A quote that never made it into a sent message (e.g. an anti-spam plugin
     // blocked it) must not tag a later unrelated message — expire after 10s
     private static QuotePending takeQuote(UUID playerUUID) {
-        QuotePending quote = takeQuote(playerUUID);
+        QuotePending quote = pendingQuotes.remove(playerUUID);
         if (quote != null && System.currentTimeMillis() - quote.time() > 10_000) return null;
         return quote;
     }
