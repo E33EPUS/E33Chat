@@ -1,117 +1,307 @@
-# E33Chat
+<a href="README_EN.md">English</a>
 
-*Rebuilds the vanilla chat HUD in chat-app style*
+<p align="center">
+  <em>以聊天 APP 风格重铸原版聊天框</em>
+</p>
 
-**Client required, server optional**
+<p align="center">
+  <img alt="MC" src="https://img.shields.io/badge/MC-1.20.1--1.21.1-green">
+  <img alt="Loader" src="https://img.shields.io/badge/Loader-Forge%20%7C%20NeoForge%20%7C%20Fabric-orange">
+  <img alt="Side" src="https://img.shields.io/badge/Side-Client%20required,%20server%20optional-blue">
+  <img alt="Java" src="https://img.shields.io/badge/Java-17%2B%20%7C%2021%2B-yellow">
+  <img alt="Version" src="https://img.shields.io/badge/Version-2.2.0-informational">
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-brightgreen">
+</p>
 
-| | Forge | NeoForge | Fabric |
-|---|---|---|----|
-| 1.20.1 | ✅ | — | — |
-| 1.21.1 | — | ✅ | ✅ |
-
-## Vanilla Improvements
-
-- 💬 **Chat bubbles** — Messages with player heads and names
-- 💾 **Chat history** — Saved per world / server, restored on rejoin
-- 📝 **Input preserved** — Typed text kept when closing chat
-- 🚫 **Anti-spam** — Consecutive duplicate messages merged with a counter
-
-## Highlights
-
-- 👥 **Whisper sidebar** — Online player list, click to whisper
-- 🔍 **Chat search** — Keyword search with real-time matching
-- @ **Mention autocomplete** — Type `@` for a popup player list, or left-click a player head
-- 📌 **Quick chat** — Save and quick-fill common phrases
-- 😊 **Emoji & kaomoji** — Emoji panel + kaomoji picker
-- 📋 **Copy & quote reply** — Right-click a message to copy or quote reply
-- 👤 **Player head actions** — Right-click a player head to teleport or whisper
-- 🔔 **Preview & hints** — HUD preview at bottom-left; popup hints for @mentions, quotes, and system messages
-- 🔊 **Notification sounds** — Per-type toggles for system, @ / quote, whisper, and public messages
-- 🎨 **Themes** — Dark/light theme with customizable bubble color, text color, and corner radius
-- 🕐 **Time separators** — Timestamp dividers at configurable intervals
-- 🌈 **Colored messages** — Supports `&` color/format codes (for servers with a color plugin installed)
-
-## Compatibility
-
-- **No Chat Reports** and similar plugins — Automatically compatible since 2.1.0; no config option to enable.
-- **CustomSkinLoader** — Install this mod to show offline players' heads.
-
-## FAQ
-
-**Server required?** No, but installing the server-side mod enables quote reply, @mention sync, chat history sync (new players receive recent messages), and the `use_tpa` option (player-head teleport uses `/tpa`).
-
-**How to configure?** Gear icon (bottom-left) → Menu → Settings
-
-- Client config: `config\e33chat-client.toml`
-
-- Server config: `saves\<world>\serverconfig\e33chat-server.toml`
-
-**Where is chat history?** `.minecraft\e33chat\history`
-
-**How to disable chat history sync?** Set `history_enabled = false` in the world's server config and restart.
-
-**Modpack?** Go ahead.
-
-**Nickname plugins?** Partial support. Messages attribute to the real player when the plugin attaches a "click to whisper" event to nicknames or updates the tab-list name too. If a nickname shares nothing with the real name and neither channel exists, the message shows as a plain system line — the client has no source for the nickname→player mapping.
-
-**Found a bug?** [Report it here](https://github.com/E33EPUS/E33Chat/issues)
+E33Chat 是一款聊天增强模组，**客户端需装，服务端可选**。支持 Forge 1.20.1、NeoForge 1.21.1 和 Fabric 1.21.1，把原版聊天 HUD 重做成聊天 APP 风格：气泡与头像、@ 提及、私聊侧边栏、搜索、表情与常用语、引用回复、通知横幅，并自带一套重做的设置界面。
 
 ---
 
-# E33Chat
+## 目录
 
-*以聊天APP风格重铸原版聊天框*
+- [安装要求](#安装要求)
+- [安装方法](#安装方法)
+- [快速开始](#快速开始)
+- [功能](#功能)
+- [聊天气泡与预览](#聊天气泡与预览)
+- [私聊侧边栏](#私聊侧边栏)
+- [提及与通知](#提及与通知)
+- [搜索表情与常用语](#搜索表情与常用语)
+- [主题与设置界面](#主题与设置界面)
+- [服务端加成](#服务端加成)
+- [消息识别与兼容](#消息识别与兼容)
+- [兼容性](#兼容性)
+- [已知限制](#已知限制)
+- [常见问题](#常见问题)
+- [故障排查](#故障排查)
+- [开发与构建](#开发与构建)
+- [问题反馈](#问题反馈)
+- [许可证](#许可证)
 
-**客户端需装，服务端可选**
+---
 
-| | Forge | NeoForge | Fabric |
-|---|---|---|----|
-| 1.20.1 | ✅ | — | — |
-| 1.21.1 | — | ✅ | ✅ |
+## 安装要求
 
-## 原版优化
+| 依赖 | 类型 | 说明 |
+|---|---|---|
+| Minecraft | 必需 | 1.20.1 (Forge) / 1.21.1 (NeoForge / Fabric) |
+| Java | 必需 | 17+ (Forge 1.20.1) / 21+ (1.21.1) |
+| Forge | 按平台 | 47.0.0+ (1.20.1) |
+| NeoForge | 按平台 | 21.x (1.21.1) |
+| Fabric Loader | 按平台 | 0.19.3+ (1.21.1) |
+| Fabric API | 按平台 | 0.116.x+ (1.21.1) |
+| CustomSkinLoader | 可选 | 显示离线玩家头像 |
 
-- 💬 **聊天气泡** — 消息带气泡和玩家头像
-- 💾 **聊天记录** — 按存档/服务器保存聊天历史，重进后恢复
+---
+
+## 安装方法
+
+1. 从 [Releases](https://github.com/E33EPUS/E33Chat/releases) 下载对应平台的 JAR
+2. 放入 `.minecraft/mods/` 目录（与你的加载器匹配，勿混装多平台 JAR）
+3. 启动游戏
+
+---
+
+## 快速开始
+
+1. 打开聊天框，即可看到 E33Chat 面板
+2. 点击左下角 **齿轮** → 菜单 → 设置，进入配置界面
+3. 在「聊天框」分类中调整面板宽度、气泡颜色、圆角、背景模糊
+4. 在「通知」分类中配置 @ 提示音、横幅提醒、私聊音效与总音量
+
+---
+
+## 功能
+
+- 💬 **聊天气泡** — 消息带玩家头像和名字，自定义气泡颜色、文字颜色、圆角半径，深色 / 浅色主题，面板背景模糊 + 可调不透明度
+- 🛠️ **重做的设置界面** — 按 UI 元素分 5 标签页（聊天框 / HUD / 通知 / 侧边栏 / 高级），可折叠子分类树、行内预设色板、随圆角实时变化的气泡预览、快照式保存 / 退出、常驻滚动条 + 缓出平滑滚动
+- 💾 **聊天历史** — 按存档 / 服务器保存，重进恢复；时间分隔线；重复消息自动合并（防刷屏）
+- @ **提及补全** — 输入 `@` 弹出在线玩家列表，左键头像 @ta；被 @ / 引用回复时播放提示音 + 弹窗横幅
+- 👥 **私聊侧边栏** — 在线玩家列表，点名字开私聊；未读跳动红点；私聊消息独立横幅 + 提示音；公屏 / 私聊分栏
+- 🔍 **聊天搜索** — 实时匹配消息内容与发送者名，上下键跳转，支持中文
+- 😊 **表情 & 颜文字** — Emoji 面板 + 颜文字面板，点击在光标处插入
+- 📌 **常用语** — 保存常用短语，一键填充
+- 📋 **复制 & 引用回复** — 右键消息复制 / 引用回复
+- 👤 **头像交互** — 右键头像私聊 / 传送，左键 @ta
+- 🔔 **通知横幅** — 屏幕顶部滑入弹窗，覆盖 @ / 引用 / 私聊 / 系统消息；音效总音量滑条，按类型独立开关
+- 👁️ **消息预览** — 左下角 HUD 实时预览最新消息 + 强提示
+- 🌈 **彩色消息** — 支持 `&` 颜色 / 格式码，本地渲染上色，不修改发出的内容
 - 📝 **输入保留** — 关闭聊天框保留已输入文本
-- 🚫 **防刷屏** — 连续的重复消息自动合并计数
 
-## 特点
+---
 
-- 👥 **私聊侧边栏** — 在线玩家列表，点玩家头像进行私聊
-- 🔍 **聊天搜索** — 输入关键词搜索聊天记录
-- @ **提及补全** — 输入 `@` 弹出在线玩家列表，或左键点玩家头像 @ta
-- 📌 **常用语面板** — 保存/管理常用短语，点击填充
-- 😊 **表情 & 颜文字** — emoji 面板 + 颜文字面板
-- 📋 **复制 & 引用回复** — 右键消息 复制 / 引用回复
-- 👤 **玩家头像交互** — 右键头像 传送 / 私聊，左键头像 @提及
-- 🔔 **消息预览 & 强提示** — 左下角 HUD 预览；被 @ / 引用 / 系统消息弹窗提示
-- 🔊 **提示音** — 系统消息 / @ / 引用 / 私聊 / 公屏，独立配置
-- 🎨 **主题 & 自定义** — 深色/浅色主题，自定义气泡颜色、文字颜色、圆角半径
-- 🕐 **时间分隔线** — 按时间间隔显示分隔标签
-- 🌈 **彩色消息** — 支持 `&` 颜色/格式码（适用于装了颜色插件的服务器）
+## 聊天气泡与预览
+
+- 每条消息渲染为气泡，带头像与玩家名
+- 自己的气泡靠右、他人靠左，颜色各自可调
+- 气泡圆角 0–10 可调（0 = 直角）
+- 左下角 HUD 预览最近消息，逐行淡出
+- 被 @ / 引用 / 系统消息时弹强提示（物品栏上方）
+
+---
+
+## 私聊侧边栏
+
+- 在线玩家列表，点击发起私聊（自动拼 `/msg`）
+- 未读私聊显示与侧边栏同款的跳动红点
+- 搜索框过滤玩家
+- 公屏 / 私聊分栏，公屏显示最近一条预览
+- 隐藏名单：用通配符把 NPC / 机器人从列表剔除
+
+---
+
+## 提及与通知
+
+- 输入 `@` 弹在线玩家补全列表
+- 左键玩家头像插入 `@名字`
+- 被 @ 或引用时：通知横幅（滑入，圆角 + 投影）+ 提示音
+- 私聊独立横幅与提示音
+- 可选「@ 必须带 @ 前缀」
+- 高级：自我 @ / 自我引用通知开关（默认关，调试用）
+- 音效总音量滑条统一调节所有提示音
+
+---
+
+## 搜索表情与常用语
+
+- 聊天搜索：匹配消息内容 + 发送者名，实时高亮，上下键跳转
+- 表情面板：emoji + 颜文字，点击在光标处插入
+- 常用语面板：保存 / 管理短语，点击填充
+
+---
+
+## 主题与设置界面
+
+- 深色 / 浅色两套主题
+- 自定义气泡色、文字色、圆角、面板不透明度、背景模糊
+- 设置界面按 UI 元素分 5 标签页（聊天框 / HUD / 通知 / 侧边栏 / 高级），页内可折叠子分类树
+- 颜色项带行内预设色板 + hex 输入；「气泡与字体」页带随圆角实时变化的气泡预览
+- 打开时快照、实时预览，底部「保存 / 退出」显示改动条数，ESC 弹确认放弃
+- 标签页与选项列表常驻滚动条，缓出平滑滚动，可拖拽滑块 / 点轨道翻页
+- 数值项可手输，音效音量用滑条
+
+---
+
+## 服务端加成
+
+服务端可不装。装上后额外激活：
+
+- 引用回复的服务端挂起与同步
+- 跨客户端 @ 提及同步（含中文名）
+- 新玩家进服收到近期聊天历史的分发
+- `use_tpa`：头像传送改用 `/tpa`
+
+> 聊天记录分发和改用 `/tpa` 功能需要在服务端配置文件手动启用
+
+---
+
+## 消息识别与兼容
+
+E33Chat 重做了聊天 HUD 的「谁说的」判定层，目标是把玩家消息和系统 / 广播消息分对：
+
+- 三层守卫分类：默认保守归灰字，只有结构上确认为玩家聊天才出气泡
+- 自动兼容 No Chat Reports 等禁用举报插件（2.1.0 起，无需配置）
+- 回声抑制：自己发的消息不会被重复显示成灰字
+- 玩家身份 UUID 优先、名字兜底，缓解离线服同名碰撞
+- 识别格式覆盖：`Steve: hi`、`<Steve> hi`、`Steve >> hi`、后缀称号 `Steve[LV.10]: hi`、legacy `§` 颜色码、裸中文短名 `小明: 你好`
+- 昵称插件部分兼容（见常见问题）
+
+---
 
 ## 兼容性
 
-- **禁用聊天举报** 等插件 — 自2.1.0版本起自动兼容，无需启用配置项
-- **CustomSkinLoader** — 安装此Mod以显示离线玩家头像
+| 模组 / 插件 | 状态 |
+|---|---|
+| No Chat Reports 等禁用举报插件 | 自 2.1.0 起自动兼容，无需配置 |
+| CustomSkinLoader | 安装后显示离线玩家头像 |
+| ModernUI | 可点击文本的下划线 / 点击区域已做边界兼容 |
+| Quark 等物品分享 | 系统消息中的物品图标可正常渲染 |
+| 昵称插件 | 部分支持，见 [常见问题](#常见问题) |
+
+---
+
+## 已知限制
+
+1. 仅支持 Forge 1.20.1、NeoForge 1.21.1、Fabric 1.21.1
+2. Fabric 端目前跟进至 2.1.6，2.2.0 的设置界面重做 / HUD 红点 / 滚动条等尚未同步
+3. 昵称与真名毫无关联、且插件既没挂「点击私聊」也没同步 Tab 名时，消息显示为系统灰字
+4. 服务器把玩家消息转成与聊天同构的广播格式（如 `系统>>Steve: xxx`）时，纯客户端无法可靠识别
+5. 名字与内容之间纯空格、无任何分隔符的聊天格式，无法识别玩家
+6. 离线服同名玩家与系统前缀碰撞的极端情况无法区分
+7. NCR 加密聊天会显示密文
+8. 自定义字体可能影响气泡宽度、换行与点击区域
+9. 私聊命令格式由服务器决定，不保证 `/msg`、`/tell`、`/w` 全部可用
+10. 不自动识别 Unicode 箭头分隔符（`→`、`⇒`），放宽此规则会误判逗号广播
+
+---
 
 ## 常见问题
 
-**服务器需要装吗？** 可不安装，但安装后激活 引用 / @ / 新玩家聊天历史同步，以及 `use_tpa` 选项（头像传送改用 `/tpa`）
+### 服务器需要装吗？
 
-**怎么打开配置？** 聊天面板左下角齿轮 → 菜单 → 设置
+不必须。服务端安装后额外解锁：引用同步、@ 提及同步、新玩家聊天历史同步、头像传送改用 `/tpa`。
 
-- 客户端配置: `config\e33chat-client.toml`
+### 怎么打开配置？
 
-- 服务端配置: `saves\<世界名>\serverconfig\e33chat-server.toml` 
+聊天面板左下角齿轮 → 菜单 → 设置。
 
-**聊天历史保存在哪？** 在 `.minecraft\e33chat\history`
+客户端配置：`config/e33chat-client.toml` ｜ 服务端配置：`saves/<世界名>/serverconfig/e33chat-server.toml`
 
-**怎么关掉聊天历史同步？** 在世界的 服务端配置 里把 `history_enabled` 设为 `false`，重启服务器
+### 聊天记录存在哪？
 
-**可以放进整合包吗？** 可以
+`.minecraft/e33chat/history/`，按世界 / 服务器分目录。
 
-**支持昵称插件吗？** 部分支持。昵称插件在昵称上挂了"点击私聊"事件、或同步改了 Tab 列表名时，消息能正确归属到真实玩家。昵称与真名毫无关联且两条通道都不存在时，消息显示为系统灰字——客户端没有"昵称→玩家"的映射来源。
+> [!WARNING]
+> 聊天记录以明文保存在本机 `.minecraft/e33chat/history/` 目录。**请勿在公共电脑或不受信任的环境中使用**，避免敏感信息泄露。
 
-**如何反馈问题？** [反馈问题](https://github.com/E33EPUS/E33Chat/issues)
+- 不会上传聊天记录或任何用户数据
+- 不会向作者或第三方发送数据
+- 服务端模组仅用于消息转发（@ 同步 / 引用同步 / 历史同步），不收集客户端数据
+- 本 mod 不记录你的命令输入
+- 用户应自行判断是否在聊天中发送密码、令牌等敏感信息
+
+### 怎么关掉聊天历史同步？
+
+在服务端配置中将 `history_enabled` 设为 `false`，重启服务器。
+
+### 怎么关背景模糊？
+
+设置 → 聊天框 → 背景模糊 关掉。
+
+### 为什么某条消息是灰字？
+
+客户端没把握它是玩家说的就保守归灰字（见 [已知限制](#已知限制)）。昵称插件 / 特殊广播格式是常见原因。
+
+### `&` 和 `§` 颜色码？
+
+本 mod 在本地把 `&` 解析成颜色（需服务器颜色插件别人才看得到颜色），出站始终发原始 `&`、绝不发 `§`，所以不会因颜色码被踢。
+
+### 支持昵称插件吗？
+
+部分支持。满足以下任一条件时消息能正确归属：
+
+- 昵称上挂了「点击私聊」事件
+- 同步更新了 Tab 列表名
+
+昵称与真名毫无关联且以上两条通道都不存在时，消息显示为系统灰字。
+
+### 可以放进整合包吗？
+
+可以，无需额外授权。
+
+---
+
+## 故障排查
+
+1. 确认 Minecraft 版本与模组版本匹配
+2. 确认模组加载器已正确安装
+3. 确认没有混装多个平台的 JAR（如同时装 Forge 版和 Fabric 版）
+4. 备份 `config/e33chat-client.toml`，删除测试是否配置损坏
+5. 只保留 E33Chat 排查模组冲突
+6. 检查是否使用了自定义字体或资源包
+7. 查看 `.minecraft/logs/latest.log` 中 `[e33chat]` 相关错误
+8. 提交 issue 时附上版本号、模组列表、`latest.log`、截图和复现步骤
+
+---
+
+## 开发与构建
+
+```bash
+git clone https://github.com/E33EPUS/E33Chat.git
+cd E33Chat
+
+# Forge 1.20.1（默认分支）
+./gradlew build
+
+# NeoForge 1.21.1
+git checkout Neoforge-1.21.1
+./gradlew build
+
+# Fabric 1.21.1
+git checkout Fabric-1.21.1
+./gradlew build
+```
+
+- Forge 1.20.1：Java 17+，支持 `--offline`
+- NeoForge 1.21.1 / Fabric 1.21.1：Java 21+
+- 运行测试：`./gradlew cleanTest test --offline -PrunTests`
+
+---
+
+## 问题反馈
+
+到 [Issues](https://github.com/E33EPUS/E33Chat/issues) 提交，尽量提供：
+
+- E33Chat 版本 + Minecraft 版本 + 模组加载器版本
+- 其他聊天相关模组列表
+- GUI Scale + 自定义字体 / 资源包情况
+- `.minecraft/logs/latest.log`
+- 截图或视频 + 稳定的复现步骤
+
+---
+
+## 许可证
+
+**MIT** License
+
+Copyright &copy; 2026 E33EPUS
