@@ -473,7 +473,8 @@ public class ChatBubbleScreen extends Screen {
         for (int i = 0; i < msgs.size(); i++) {
             var msg = msgs.get(i);
             if (msg == null) continue;
-            if (msg.content().getString().toLowerCase().contains(lower))
+            if (msg.content().getString().toLowerCase().contains(lower)
+                || (msg.senderName() != null && msg.senderName().getString().toLowerCase().contains(lower)))
                 searchMatches.add(i);
         }
         if (!searchMatches.isEmpty()) {
@@ -716,7 +717,7 @@ public class ChatBubbleScreen extends Screen {
             if (emojiPanel.visible) {
                 String emojiText = emojiPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD);
                 if (emojiText != null && !emojiText.isEmpty()) {
-                    input.setText(input.getText() + emojiText);
+                    input.write(emojiText);
                     input.setCursorToEnd(false);
                 }
                 return true;
@@ -747,7 +748,7 @@ public class ChatBubbleScreen extends Screen {
             for (int[] r : bubbleRects) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem()) continue;
-                int avatarX = r[0] - AVATAR - 4;
+                int avatarX = msg.isOwn() ? r[0] + r[2] + 4 : r[0] - AVATAR - 4;
                 int avatarY = msg.replyContent() != null ? r[1] - textRenderer.fontHeight - 2 : r[1] - NAME_H;
                 if (mouseX >= avatarX && mouseX <= avatarX + AVATAR
                     && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
