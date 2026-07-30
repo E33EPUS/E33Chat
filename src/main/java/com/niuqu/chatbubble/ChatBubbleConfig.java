@@ -125,7 +125,7 @@ public class ChatBubbleConfig {
             .define("preview_enabled", true);
 
         PREVIEW_LINES = builder
-            .comment("Preview line count (1-8)")
+            .comment("Preview line count (3-10)")
             .translation("e33chat.config.preview_lines")
             .defineInRange("preview_lines", 3, 3, 10);
 

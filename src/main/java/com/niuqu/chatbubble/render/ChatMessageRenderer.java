@@ -122,16 +122,13 @@ public final class ChatMessageRenderer {
                                              int x, int y, int color,
                                              Style fallback,
                                              List<ClickableSpan> clickableSpans) {
-        FormattedCharSequence decorated = sink -> line.accept((i, st, cp) ->
-            sink.accept(i, st.getClickEvent() != null && !st.isUnderlined() ? st.withUnderlined(true) : st, cp));
-        g.drawString(font, decorated, x, y, color, false);
-
         List<Style> styles = new ArrayList<>();
         line.accept((i, st, cp) -> { styles.add(st); return true; });
 
         int beforeCount = clickableSpans.size();
         int runStart = -1;
         Style runStyle = null;
+        List<int[]> clickableCharRanges = new ArrayList<>();
         for (int idx = 0; idx <= styles.size(); idx++) {
             Style st = idx < styles.size() ? styles.get(idx) : null;
             boolean clickable = st != null && (st.getClickEvent() != null || st.getHoverEvent() != null);
@@ -141,14 +138,47 @@ public final class ChatMessageRenderer {
                 int x0 = prefixWidth(line, runStart, font);
                 int x1 = prefixWidth(line, idx, font);
                 clickableSpans.add(new ClickableSpan(x + x0, y, x1 - x0, font.lineHeight, runStyle));
+                clickableCharRanges.add(new int[]{runStart, idx});
                 runStart = clickable ? idx : -1;
                 runStyle = clickable ? st : null;
             }
         }
-        if (clickableSpans.size() == beforeCount && fallback != null && fallback.getClickEvent() != null) {
-            clickableSpans.add(new ClickableSpan(x, y, font.width(line), font.lineHeight,
-                fallback.withUnderlined(true)));
+
+        // 父级 ClickEvent 合并：整行无可点击 span 时全行继承；已有 span 时，把缺
+        // ClickEvent 的（仅 hover）span 补上父级 ClickEvent（issue #9，Mod 消息兼容）
+        if (fallback != null && fallback.getClickEvent() != null) {
+            if (clickableSpans.size() == beforeCount) {
+                clickableSpans.add(new ClickableSpan(x, y, font.width(line), font.lineHeight,
+                    fallback.withUnderlined(true)));
+                clickableCharRanges.add(new int[]{0, styles.size()});
+            } else {
+                for (int i = beforeCount; i < clickableSpans.size(); i++) {
+                    ClickableSpan s = clickableSpans.get(i);
+                    if (s.style().getClickEvent() == null) {
+                        clickableSpans.set(i, new ClickableSpan(s.x(), s.y(), s.w(), s.h(),
+                            s.style().withClickEvent(fallback.getClickEvent())));
+                    }
+                }
+            }
         }
+
+        // 下划线按“字符级是否有 ClickEvent”逐字标注；i 越界（ModernUI 类文本引擎
+        // 会访问超出样式列表的字符索引）时退回按样式自身判断，避免数组越界
+        int styleLen = styles.size();
+        boolean[] hasClickEvent = new boolean[styleLen];
+        for (int ri = 0; ri < clickableCharRanges.size(); ri++) {
+            int spanIdx = beforeCount + ri;
+            if (spanIdx < clickableSpans.size()
+                && clickableSpans.get(spanIdx).style().getClickEvent() != null) {
+                int[] r = clickableCharRanges.get(ri);
+                for (int i = r[0]; i < r[1]; i++) hasClickEvent[i] = true;
+            }
+        }
+
+        FormattedCharSequence decorated = sink -> line.accept((i, st, cp) ->
+            sink.accept(i, (i < styleLen ? hasClickEvent[i] : st.getClickEvent() != null)
+                && !st.isUnderlined() ? st.withUnderlined(true) : st, cp));
+        g.drawString(font, decorated, x, y, color, false);
     }
 
     public static void renderTimeSeparator(GuiGraphics g, Font font, LocalTime time, int y,

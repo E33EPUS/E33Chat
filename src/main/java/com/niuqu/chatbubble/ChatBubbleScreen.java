@@ -600,7 +600,7 @@ public class ChatBubbleScreen extends Screen {
                 var players = new ArrayList<>(minecraft.player.connection.getOnlinePlayers());
                 String selfName = minecraft.player.getName().getString();
                 String filter = sidebarSearchBox.getValue().toLowerCase().trim();
-                int scrollY = y;
+                int scrollY = y - sidebarScrollOffset;
                 for (var info : players) {
                     String name = info.getProfile().getName();
                     if (name.equals(selfName)) continue;

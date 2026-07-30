@@ -61,11 +61,8 @@ public final class ChatSidebar {
                               String whisperPartner, ResourceLocation publicIcon,
                               ResourceLocation noOnlineIcon, ResourceLocation privateTipIcon,
                               EditBox searchBox, int scrollOffset, int maxScroll) {
-        int screenX = 0;
-        int mouseAdj = mouseX - screenX;
-
-        g.fill(screenX, 0, screenX + WIDTH, 999, c.sidebarBg());
-        g.fill(screenX + WIDTH - 1, 0, screenX + WIDTH, 999, c.sidebarDivider());
+        g.fill(0, 0, WIDTH, 999, c.sidebarBg());
+        g.fill(WIDTH - 1, 0, WIDTH, 999, c.sidebarDivider());
 
         Minecraft mc = Minecraft.getInstance();
         int y = 2;
@@ -73,26 +70,26 @@ public final class ChatSidebar {
         int sbx = 2;
         int sby = 2;
         int sbw = WIDTH - 5;
-        g.fill(sbx - 1 + screenX, sby, sbx + sbw + screenX, sby + SEARCH_H, c.inputBg());
-        boolean hoverSearch = mouseAdj >= sbx - 1 && mouseAdj <= sbx + sbw
+        g.fill(sbx - 1, sby, sbx + sbw, sby + SEARCH_H, c.inputBg());
+        boolean hoverSearch = mouseX >= sbx - 1 && mouseX <= sbx + sbw
             && mouseY >= sby && mouseY <= sby + SEARCH_H;
         if (hoverSearch || searchBox.isFocused())
-            g.renderOutline(sbx - 1 + screenX, sby, sbw + 1, SEARCH_H, c.textMuted());
+            g.renderOutline(sbx - 1, sby, sbw + 1, SEARCH_H, c.textMuted());
         if (searchBox.getValue().isEmpty() && !searchBox.isFocused()) {
             g.drawString(font, Component.translatable("e33chat.sidebar.search"),
-                sbx + screenX, sby + 3, c.textMuted(), false);
+                sbx, sby + 3, c.textMuted(), false);
         }
         y = sby + SEARCH_H + 3;
 
         boolean isPublic = whisperPartner == null;
         int itemBg = isPublic ? c.sidebarItemSelected()
-            : (mouseAdj >= 0 && mouseAdj <= WIDTH && mouseY >= y && mouseY <= y + ITEM_H
+            : (mouseX >= 0 && mouseX <= WIDTH && mouseY >= y && mouseY <= y + ITEM_H
                 ? c.sidebarItemHover() : 0);
-        if (itemBg != 0) g.fill(screenX, y, screenX + WIDTH, y + ITEM_H, itemBg);
-        drawIcon(g, publicIcon, 2 + screenX, y + 1, ICON_S);
+        if (itemBg != 0) g.fill(0, y, WIDTH, y + ITEM_H, itemBg);
+        drawIcon(g, publicIcon, 2, y + 1, ICON_S);
         int nameX = 2 + ICON_S + 3;
         String publicLabel = Component.translatable("e33chat.sidebar.public").getString();
-        g.drawString(font, Component.literal(publicLabel), nameX + screenX, y + 1, c.textPrimary(), false);
+        g.drawString(font, Component.literal(publicLabel), nameX, y + 1, c.textPrimary(), false);
         ChatMessageStore.ChatMessage latestPub = ChatMessageStore.getLatestPublicMessage();
         if (latestPub != null) {
             int previewMaxW = WIDTH - nameX - 4;
@@ -100,7 +97,7 @@ public final class ChatSidebar {
             String previewDisplay = font.plainSubstrByWidth(preview, previewMaxW - font.width("..."));
             if (!previewDisplay.equals(preview)) previewDisplay += "...";
             g.drawString(font, Component.literal(previewDisplay),
-                nameX + screenX, y + 1 + font.lineHeight, c.textMuted(), false);
+                nameX, y + 1 + font.lineHeight, c.textMuted(), false);
         }
         y += ITEM_H + 2;
 
@@ -122,16 +119,16 @@ public final class ChatSidebar {
             }
 
             if (totalH == 0) {
-                drawIcon(g, noOnlineIcon, (WIDTH - 32) / 2 + screenX, startY + 8, 32);
+                drawIcon(g, noOnlineIcon, (WIDTH - 32) / 2, startY + 8, 32);
                 String noPlayers = Component.translatable("e33chat.sidebar.no_players").getString();
                 int textW = font.width(noPlayers);
                 g.drawString(font, Component.literal(noPlayers),
-                    (WIDTH - textW) / 2 + screenX, startY + 8 + 32 + 4, c.textMuted(), false);
+                    (WIDTH - textW) / 2, startY + 8 + 32 + 4, c.textMuted(), false);
             } else {
                 newMaxScroll = Math.max(0, totalH - (visibleBottom - startY));
                 int clampedOffset = Math.min(scrollOffset, newMaxScroll);
 
-                g.enableScissor(screenX, startY, screenX + WIDTH, visibleBottom);
+                g.enableScissor(0, startY, WIDTH, visibleBottom);
                 int scrollY = startY - clampedOffset;
                 for (var info : players) {
                     String name = info.getProfile().getName();
@@ -142,20 +139,20 @@ public final class ChatSidebar {
                     if (scrollY + ITEM_H > startY && scrollY < visibleBottom) {
                         boolean sel = name.equals(whisperPartner);
                         int sbg = sel ? c.sidebarItemSelected()
-                            : (mouseAdj >= 0 && mouseAdj <= WIDTH
+                            : (mouseX >= 0 && mouseX <= WIDTH
                                 && mouseY >= scrollY && mouseY <= scrollY + ITEM_H
                                 ? c.sidebarItemHover() : 0);
-                        if (sbg != 0) g.fill(screenX, scrollY, screenX + WIDTH, scrollY + ITEM_H, sbg);
+                        if (sbg != 0) g.fill(0, scrollY, WIDTH, scrollY + ITEM_H, sbg);
 
                         ResourceLocation skin = getSkin(info.getProfile().getId(), name);
-                        drawPlayerHead(g, skin, 4 + screenX, scrollY + 3, 16, 18);
+                        drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18);
 
                         int tipW = ChatMessageStore.hasUnreadWhisper(name) ? 16 : 0;
                         int maxNameW = WIDTH - nameX - 4 - tipW - 2;
                         String displayName = font.plainSubstrByWidth(name, maxNameW - font.width("..."));
                         if (!displayName.equals(name)) displayName += "...";
                         g.drawString(font, Component.literal(displayName),
-                            nameX + screenX, scrollY + 1, c.textPrimary(), false);
+                            nameX, scrollY + 1, c.textPrimary(), false);
 
                         ChatMessageStore.ChatMessage latest = ChatMessageStore.getLatestWhisperWith(name);
                         if (latest != null) {
@@ -163,11 +160,11 @@ public final class ChatSidebar {
                             String previewDisplay = font.plainSubstrByWidth(preview, maxNameW - font.width("..."));
                             if (!previewDisplay.equals(preview)) previewDisplay += "...";
                             g.drawString(font, Component.literal(previewDisplay),
-                                nameX + screenX, scrollY + 1 + font.lineHeight, c.textMuted(), false);
+                                nameX, scrollY + 1 + font.lineHeight, c.textMuted(), false);
                         }
 
                         if (ChatMessageStore.hasUnreadWhisper(name)) {
-                            int tipX = WIDTH - 16 - 2 + screenX;
+                            int tipX = WIDTH - 16 - 2;
                             double wave = Math.abs(Math.sin(System.currentTimeMillis() / 300.0)) * 3;
                             int tipY = scrollY + 3 + (int) wave;
                             drawIcon(g, privateTipIcon, tipX, tipY, 16);

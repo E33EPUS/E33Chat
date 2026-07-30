@@ -142,6 +142,38 @@
 - Search box and restore-defaults button removed per feedback
 - HUD unread indicator replaced with the sidebar's bouncing red dot: the red core is cropped and nearest-upscaled, perched on the chat icon's top-right corner
 
+## v2.1.6 – v2.1.9（补记）
+
+> 以下 Forge 端改动实际随本分支的 v2.2.0 同步合并落地，未单独发版；此节追溯补记以完整版本脉络，细节见上方 v2.2.0 块与同步提交。
+
+**v2.1.9**
+- Quark 兼容物品分享图标（SHOW_ITEM hover 检测）；ModernUI 字符索引越界边界检查；ChatScreen 继承回退（log4j 类加载器冲突）
+
+**v2.1.8**
+- 通知横幅重设计（SDF 圆角 + 类型前缀 + easeOutBack）；配置界面重组；ClickEvent fallback 合并（issue #9，2026-07-30 审计补漏才真正落地本端）；tell-click 名字长度放宽 max(32, len/3)
+
+**v2.1.7**
+- 架构拆分：ChatBubbleScreen 2125→1600 行（提取 ChatScrollbar / ChatContextMenus / ChatBars / ChatSidebar / ChatMessageRenderer）；测试基础设施
+
+**v2.1.6**
+- 通知横幅空名 NPE / isOwn 颜色码 / 双重 tick 修复；提取 MentionNotificationController / MentionNotificationBanner
+
+## v2.1.6 – v2.1.9 (backfill)
+
+> The Forge-side changes below actually landed on this branch folded into the v2.2.0 sync rather than as separate releases; this section retroactively indexes them (details in the v2.2.0 block and the sync commits above).
+
+**v2.1.9**
+- Quark-compatible item sharing icons (SHOW_ITEM hover detection); ModernUI char-index bounds check; reverted ChatScreen inheritance (log4j classloader conflict)
+
+**v2.1.8**
+- Notification banner redesign (SDF rounded corners, type prefixes, easeOutBack); settings reorganization; ClickEvent fallback merge (issue #9 — only truly landed on this loader in the 2026-07-30 audit backfill); tell-click name limit relaxed to max(32, len/3)
+
+**v2.1.7**
+- Architecture split: ChatBubbleScreen 2125→1600 lines (extracted ChatScrollbar / ChatContextMenus / ChatBars / ChatSidebar / ChatMessageRenderer); test infrastructure
+
+**v2.1.6**
+- Banner empty-name NPE / isOwn color-code / double-tick fixes; extracted MentionNotificationController / MentionNotificationBanner
+
 ## v2.1.5
 
 **@Mention 通知系统**
