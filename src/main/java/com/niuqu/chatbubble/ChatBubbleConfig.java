@@ -34,6 +34,7 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.BooleanValue SOUND_SYSTEM;
     public static final ForgeConfigSpec.BooleanValue SOUND_WHISPER;
     public static final ForgeConfigSpec.BooleanValue SOUND_PUBLIC;
+    public static final ForgeConfigSpec.IntValue SOUND_VOLUME;
     public static final ForgeConfigSpec.BooleanValue PRESERVE_INPUT;
     public static final ForgeConfigSpec.BooleanValue COLOR_CODES;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> SIDEBAR_HIDE_PATTERNS;
@@ -96,7 +97,7 @@ public class ChatBubbleConfig {
         PANEL_OPACITY = builder
             .comment("Chat panel background opacity percentage (0-100). 0 = fully transparent, 100 = fully opaque")
             .translation("e33chat.config.panel_opacity")
-            .defineInRange("panel_opacity", 60, 0, 100);
+            .defineInRange("panel_opacity", 80, 0, 100);
 
         STRONG_HINT_ENABLED = builder
             .comment("Show system messages as a strong hint above the hotbar (otherwise they go to the message preview)")
@@ -195,6 +196,11 @@ public class ChatBubbleConfig {
         builder.pop();
         builder.push("sound");
 
+        SOUND_VOLUME = builder
+            .comment("Master volume for all notification sounds (0-100)")
+            .translation("e33chat.config.sound_volume")
+            .defineInRange("sound_volume", 80, 0, 100);
+
         SOUND_SYSTEM = builder
             .comment("Play a notification sound for system messages")
             .translation("e33chat.config.sound_system")
@@ -269,6 +275,11 @@ public class ChatBubbleConfig {
             if (lower.matches(regex)) return true;
         }
         return false;
+    }
+
+    // 总音量比例 0.0-1.0，乘到各提示音的 volume 上
+    public static float soundVolume() {
+        return SOUND_VOLUME.get() / 100f;
     }
 
     public static int parseHexColor(String hex, int defaultColor) {

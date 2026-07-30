@@ -408,7 +408,7 @@ public class ChatMessageStore {
         }
         if (playSound) {
             Minecraft.getInstance().player.playSound(
-                net.minecraft.sounds.SoundEvents.NOTE_BLOCK_CHIME.get(), 0.6F, 1.0F);
+                net.minecraft.sounds.SoundEvents.NOTE_BLOCK_CHIME.get(), 0.6F, ChatBubbleConfig.soundVolume());
         }
 
         // Strong hints enqueue at top level (not gated on !screenOpen) so a system /
@@ -818,7 +818,7 @@ if (systemToHint) {
                         && !msg.content().getString().contains("@" + playerName)
                         && ChatBubbleConfig.MENTION_SOUND_ENABLED.get()) {
                         Minecraft.getInstance().player.playSound(
-                            net.minecraft.sounds.SoundEvents.NOTE_BLOCK_CHIME.get(), 0.6F, 1.0F);
+                            net.minecraft.sounds.SoundEvents.NOTE_BLOCK_CHIME.get(), 0.6F, ChatBubbleConfig.soundVolume());
                         if (!screenOpen && ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
                             strongHintQueue.add(new HintEntry(Component.translatable("e33chat.notif.mention"), true));
                             if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;

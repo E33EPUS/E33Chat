@@ -16,7 +16,12 @@ import java.util.List;
 public class ChatBubbleHudOverlay {
 
     private static final int ICON_S = 16;
-    private static final int RED_DOT_R = 4;
+    // private_tip.png 经像素解码测得：红点为 4x4 实心块、bbox=x[6..9]y[6..9]、居中。
+    // 故裁源只取这 4x4（SRC_*），nearest 整数倍放大到 TIP_DISP（4 的倍数才齐整，无台阶）。
+    private static final int SRC_U = 6;
+    private static final int SRC_V = 6;
+    private static final int SRC_S = 4;
+    private static final int TIP_DISP = 4;
     private static ChatBubbleTheme loadedTheme;
 
     private static ResourceLocation chatIconTex() {
@@ -28,6 +33,9 @@ public class ChatBubbleHudOverlay {
         var theme = ChatBubbleConfig.THEME.get();
         if (loadedTheme == theme) return;
         loadIconTexture();
+        // HUD 未读角标复用聊天界面的 private_tip 纹理；没开过聊天界面时它尚未注册，
+        // 这里随主题加载一并注册全套图标，避免角标画成 missing 纹理
+        ChatBubbleScreen.loadIconTextures();
         loadedTheme = theme;
     }
 
@@ -124,13 +132,13 @@ public class ChatBubbleHudOverlay {
             ensureIconLoaded();
             drawIcon(g, x, iconY);
 
-            // Red dot
+            // 未读角标：裁出 4x4 红点 nearest 放大到 TIP_DISP，红点中心骑图标右上顶点 (x+ICON_S, iconY)，
+            // 跳动沿 y 向下；不跳(wave=0)时红点中心精确在右上顶点。气泡横线在左/中，右上为框角空白，故不压文字。
             if (ChatBubbleConfig.RED_DOT_ENABLED.get() && ChatMessageStore.getUnreadCount() > 0) {
-                int dotX = x + ICON_S - RED_DOT_R;
-                int dotY = iconY + RED_DOT_R;
-                int dotColor = ChatMessageStore.hasUnreadMention(mc.player.getName().getString())
-                    ? c().redDotMention() : c().redDot();
-                g.fill(dotX - RED_DOT_R, dotY - RED_DOT_R, dotX + RED_DOT_R, dotY + RED_DOT_R, dotColor);
+                double wave = Math.abs(Math.sin(System.currentTimeMillis() / 300.0)) * 3;
+                int tipX = x + ICON_S - TIP_DISP / 2;
+                int tipY = iconY - TIP_DISP / 2 + (int) wave;
+                drawScaledTip(g, tipX, tipY, TIP_DISP);
             }
 
             // Keybind text below icon
@@ -178,5 +186,23 @@ public class ChatBubbleHudOverlay {
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.enableBlend();
         g.blit(chatIconTex(), x, y, 0, 0, ICON_S, ICON_S, ICON_S, ICON_S);
+    }
+
+    // 裁源放大绘制红点：源取 SRC_U/SRC_V 起的 SRC_S×SRC_S（红点 bbox），nearest 拉伸到 disp×disp。
+    // C 重载把“显示尺寸 disp”与“源尺寸 SRC_S”分开，UV=SRC_S/16 不越界，不会 wrap 碎裂。
+    private static void drawScaledTip(GuiGraphics g, int x, int y, int disp) {
+        ResourceLocation tex = ChatBubbleScreen.iconTex("private_tip");
+        var tm = Minecraft.getInstance().getTextureManager();
+        AbstractTexture abstractTex;
+        try {
+            abstractTex = tm.getTexture(tex);
+        } catch (Exception e) {
+            ChatBubbleScreen.loadIconTextures();
+            abstractTex = tm.getTexture(tex);
+        }
+        RenderSystem.setShaderTexture(0, abstractTex.getId());
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.enableBlend();
+        g.blit(tex, x, y, disp, disp, (float) SRC_U, (float) SRC_V, SRC_S, SRC_S, 16, 16);
     }
 }

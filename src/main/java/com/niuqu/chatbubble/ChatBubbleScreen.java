@@ -1400,7 +1400,8 @@ public class ChatBubbleScreen extends Screen {
             iconTex("settings"), iconTex("emoji"), iconTex("send"));
     }
 
-    private static void loadIconTextures() {
+    // package-private：HUD 未读角标复用 private_tip 等图标纹理，需跨类调用加载
+    static void loadIconTextures() {
         String theme = ChatBubbleConfig.THEME.get().name().toLowerCase();
         String base = "assets/e33chat/textures/gui/" + theme + "/";
         loadIconTexture(iconTex("settings"), base + "settings.png");
