@@ -70,6 +70,7 @@
 - 新增"音效总音量"并接线到全部 4 类提示音；面板不透明度默认 60 → 80
 - 提示文案统一为作用句通俗风格、数值项标注范围，删除无主键、修正私聊音效文案
 - 按反馈移除搜索框与恢复默认按钮
+- 标签页与选项列表加常驻滚动条与缓出平滑滚动：可拖拽滑块、点击轨道翻页
 - HUD 未读指示器换成与侧边栏私聊同款的跳动红点：裁出红点 nearest 放大后骑在聊天图标右上角
 
 **Panel background blur (synced from Forge)**
@@ -140,6 +141,7 @@
 - New master sound volume wired to all four notification chimes; panel opacity default 60 → 80
 - Tooltip copy unified into a verb-led plain style with ranges on numeric options; orphan keys dropped and the whisper-sound wording fixed
 - Search box and restore-defaults button removed per feedback
+- Category tree and option list gain always-on scrollbars with eased smooth scrolling: drag the thumb or click the track to page
 - HUD unread indicator replaced with the sidebar's bouncing red dot: the red core is cropped and nearest-upscaled, perched on the chat icon's top-right corner
 
 ## v2.1.6 – v2.1.9（补记）
