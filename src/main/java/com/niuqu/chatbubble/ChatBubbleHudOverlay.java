@@ -1,25 +1,27 @@
 package com.niuqu.chatbubble;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.DynamicTexture;
 import net.minecraft.text.Text;
 import net.minecraft.text.StringVisitable;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Language;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class ChatBubbleHudOverlay {
 
     private static final int ICON_S = 16;
-    private static final int RED_DOT_R = 4;
+    private static final int SRC_U = 6;
+    private static final int SRC_V = 6;
+    private static final int SRC_S = 4;
+    private static final int TIP_DISP = 4;
     private static ChatBubbleTheme loadedTheme;
 
     private static ChatBubbleConfig cfg() { return ChatBubbleClientSetup.config(); }
@@ -34,6 +36,7 @@ public class ChatBubbleHudOverlay {
         ChatBubbleTheme theme = "light".equalsIgnoreCase(currentTheme) ? ChatBubbleTheme.LIGHT : ChatBubbleTheme.DARK;
         if (loadedTheme == theme) return;
         loadIconTexture();
+        ChatBubbleScreen.loadIconTextures();
         loadedTheme = theme;
     }
 
@@ -49,6 +52,13 @@ public class ChatBubbleHudOverlay {
 
         g.getMatrices().push();
         g.getMatrices().translate(0, 0, 300);
+
+        MentionNotificationBanner.INSTANCE.tick();
+        if (mc.currentScreen == null || mc.currentScreen instanceof ChatBubbleScreen) {
+            MentionNotificationBanner.INSTANCE.render(g,
+                mc.getWindow().getScaledWidth(),
+                mc.getWindow().getScaledHeight());
+        }
 
         if (mc.currentScreen == null) renderStrongHint(g);
 
@@ -69,6 +79,7 @@ public class ChatBubbleHudOverlay {
 
                 List<StringVisitable> displays = new ArrayList<>();
                 int maxTextW = 0;
+                int maxAlpha = 0;
                 for (var e : previews) {
                     StringVisitable trimmed;
                     if (mc.textRenderer.getWidth(e.text) > maxW - 4) {
@@ -79,6 +90,8 @@ public class ChatBubbleHudOverlay {
                     }
                     displays.add(trimmed);
                     maxTextW = Math.max(maxTextW, mc.textRenderer.getWidth(trimmed));
+                    int a = Animation.fadeIn(e.ticks, 10);
+                    if (a > maxAlpha) maxAlpha = a;
                 }
 
                 int px = x + ICON_S / 2 - maxTextW / 2;
@@ -88,12 +101,7 @@ public class ChatBubbleHudOverlay {
 
                 int bottomLineY = iconY - 5 - lineH;
                 int topLineY = bottomLineY - (displays.size() - 1) * (lineH + gap);
-                int maxAlpha = 0;
-                for (var e : previews) {
-                    int a = Animation.fadeIn(e.ticks, 10) * 0xDD / 0xFF;
-                    if (a > maxAlpha) maxAlpha = a;
-                }
-                int bgAlpha = maxAlpha / 2;
+                int bgAlpha = maxAlpha * 0xDD / 0xFF / 2;
                 int bgColor = (bgAlpha << 24) | 0x000000;
                 g.fill(bgX1, topLineY - 2, px + maxTextW + 3, bottomLineY + lineH + 2, bgColor);
                 var lang = Language.getInstance();
@@ -110,11 +118,10 @@ public class ChatBubbleHudOverlay {
             drawIcon(g, x, iconY);
 
             if (cfg().redDotEnabled() && ChatMessageStore.getUnreadCount() > 0) {
-                int dotX = x + ICON_S - RED_DOT_R;
-                int dotY = iconY + RED_DOT_R;
-                int dotColor = ChatMessageStore.hasUnreadMention(mc.player.getName().getString())
-                    ? c().redDotMention() : c().redDot();
-                g.fill(dotX - RED_DOT_R, dotY - RED_DOT_R, dotX + RED_DOT_R, dotY + RED_DOT_R, dotColor);
+                double wave = Math.abs(Math.sin(System.currentTimeMillis() / 300.0)) * 3;
+                int tipX = x + ICON_S - TIP_DISP / 2;
+                int tipY = iconY - TIP_DISP / 2 + (int) wave;
+                drawScaledTip(g, tipX, tipY, TIP_DISP);
             }
 
             String keyDisplay = "[" + keyName + "]";
@@ -129,7 +136,12 @@ public class ChatBubbleHudOverlay {
     public static void renderStrongHint(DrawContext g) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.options == null) return;
-        if (!cfg().strongHintEnabled() && !cfg().mentionStrongHintEnabled()) return;
+        if (mc.currentScreen instanceof ChatBubbleScreen) {
+            MentionNotificationBanner.INSTANCE.render(g,
+                mc.getWindow().getScaledWidth(),
+                mc.getWindow().getScaledHeight());
+        }
+        if (!cfg().strongHintEnabled() && !cfg().mentionBannerEnabled()) return;
         Text hint = ChatMessageStore.getStrongHintText();
         if (hint == null) return;
         int ticks = ChatMessageStore.getStrongHintTicks();
@@ -140,9 +152,8 @@ public class ChatBubbleHudOverlay {
         int alpha = Animation.fadeInOut(ticks, 10, 40, 10);
         int bgAlpha = alpha / 2;
         int bgColor = (bgAlpha << 24) | 0x000000;
-        int textColor = (alpha << 24) | 0xFFFFFF;
         g.fill(hintX - 6, hintY - 3, hintX + hintW + 6, hintY + mc.textRenderer.fontHeight + 3, bgColor);
-        g.drawText(mc.textRenderer, hint, hintX, hintY, textColor, false);
+        g.drawText(mc.textRenderer, hint, hintX, hintY, (alpha << 24) | 0xFFFFFF, false);
     }
 
     public static boolean isMouseOverIcon(double mx, double my) {
@@ -176,14 +187,23 @@ public class ChatBubbleHudOverlay {
             loadIconTexture();
             abstractTex = mc.getTextureManager().getTexture(chatIconTex());
         }
-        // Flush any batched geometry (preview, hint) before switching shaders so it
-        // renders with its own state, then flush the icon before the red dot fill so
-        // the icon shader doesn't leak into the fill.
         g.draw();
         RenderSystem.setShaderTexture(0, abstractTex.getGlId());
         RenderSystem.setShader(GameRenderer::getPositionTexProgram);
         RenderSystem.enableBlend();
-        g.drawTexture(chatIconTex(), x, y, 0, 0, ICON_S, ICON_S, ICON_S, ICON_S);
+        g.drawTexture(chatIconTex(), x, y, 0.0F, 0.0F, ICON_S, ICON_S, ICON_S, ICON_S);
+    }
+
+    private static void drawScaledTip(DrawContext g, int x, int y, int disp) {
+        Identifier tex = ChatBubbleScreen.iconTex("private_tip");
+        var tm = MinecraftClient.getInstance().getTextureManager();
+        try {
+            tm.getTexture(tex);
+        } catch (Exception e) {
+            ChatBubbleScreen.loadIconTextures();
+        }
         g.draw();
+        RenderSystem.enableBlend();
+        g.drawTexture(tex, x, y, disp, disp, (float) SRC_U, (float) SRC_V, SRC_S, SRC_S, 16, 16);
     }
 }

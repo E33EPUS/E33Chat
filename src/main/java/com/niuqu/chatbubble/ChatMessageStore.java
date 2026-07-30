@@ -291,13 +291,26 @@ public class ChatMessageStore {
             messages.remove(0);
 
         boolean isMentionOrQuote = !own && !isSystem
-            && (content.getString().contains("@" + playerName)
-                || (replySender != null && replySender.equals(playerName)));
+            && com.niuqu.chatbubble.chat.MentionDetector.isMentioned(
+                content.getString(), playerName,
+                cfg.mentionRequireAt(), replySender);
+
+        if (isMentionOrQuote) {
+            com.niuqu.chatbubble.chat.notification.MentionNotificationController.INSTANCE.onMessageCaptured(
+                content, new SenderMeta(senderUUID, senderName, content, isSystem,
+                    rawPlayerName, whisper, whisperPartner),
+                messages.size(), replySender);
+        }
+
+        if (!own && whisper && rawPlayerName != null
+            && cfg.mentionWhisperBanner()) {
+            com.niuqu.chatbubble.chat.notification.MentionNotificationController.INSTANCE.onWhisperReceived(
+                senderUUID, senderName, content, messages.size());
+        }
 
         boolean systemToHint = isSystem && cfg.strongHintEnabled();
-        boolean mentionToHint = isMentionOrQuote && cfg.mentionStrongHintEnabled();
 
-        if (cfg.previewEnabled() && !systemToHint && !mentionToHint) {
+        if (cfg.previewEnabled() && !systemToHint) {
             Text sName = senderName != null ? senderName : Text.literal("");
             Text pt = buildPreviewText(content, sName, isSystem);
             if (!pt.getString().isBlank()) {
@@ -307,25 +320,18 @@ public class ChatMessageStore {
         }
 
         boolean playSound = false;
-        if (!own && client.player != null) {
-            if (isMentionOrQuote && cfg.soundMention()) playSound = true;
-            else if (whisper && cfg.soundWhisper()) playSound = true;
-            else if (isSystem && cfg.soundSystem()) playSound = true;
-            else if (!isSystem && !whisper && cfg.soundPublic()) playSound = true;
+        if (!own && client.player != null && !isMentionOrQuote && !whisper) {
+            if (isSystem && cfg.soundSystem()) playSound = true;
+            else if (!isSystem && cfg.soundPublic()) playSound = true;
         }
         if (playSound) {
             debugLog("[e33chat] Sound trigger | mention=" + isMentionOrQuote + " | whisper=" + whisper + " | system=" + isSystem);
             client.player.playSound(
-                net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F, 1.0F);
+                net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(),
+                0.6F * cfg.soundVolume() / 100f, 1.0F);
         }
 
-        if (mentionToHint) {
-            strongHintQueue.add(new HintEntry(
-                Text.translatable("e33chat.notif.mention").formatted(Formatting.YELLOW), true));
-            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
-        }
-
-        if (systemToHint && !mentionToHint) {
+        if (systemToHint) {
             strongHintQueue.removeIf(e -> !e.isMention());
             strongHintQueue.add(new HintEntry(singleLineComponent(content), false));
             if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
@@ -462,6 +468,8 @@ public class ChatMessageStore {
         pendingReplyContent = content;
         pendingReplySender = sender;
     }
+
+    public static String getPendingReplySender() { return pendingReplySender; }
 
     public static List<PreviewEntry> getPreviews() { return previews; }
 
@@ -704,17 +712,11 @@ public class ChatMessageStore {
                     var client = MinecraftClient.getInstance();
                     String playerName = client.player != null
                         ? client.player.getName().getString() : "";
-                    var cfg = ChatBubbleClientSetup.config();
-                    if (!msg.isOwn() && !playerName.isEmpty()
-                        && playerName.equals(quoteSender)
+                    if (!playerName.isEmpty() && playerName.equals(quoteSender)
                         && !msg.content().getString().contains("@" + playerName)
-                        && cfg.soundMention()) {
-                        client.player.playSound(
-                            net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F, 1.0F);
-                        if (!screenOpen && cfg.mentionStrongHintEnabled()) {
-                            strongHintQueue.add(new HintEntry(Text.translatable("e33chat.notif.mention"), true));
-                            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
-                        }
+                        && ChatBubbleClientSetup.config().mentionBannerEnabled()) {
+                        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.enqueue(
+                            senderUUID, msg.senderName(), msg.content(), i);
                     }
                 }
                 return;

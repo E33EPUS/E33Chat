@@ -25,7 +25,6 @@ import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
 
 import java.io.InputStream;
-import java.lang.reflect.Field;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -99,8 +98,6 @@ public class ChatBubbleScreen extends Screen {
     private boolean firstRender = true;
     private static String savedInput = "";
     private static final java.util.Map<UUID, Identifier> skinCache = new java.util.HashMap<>();
-    private static Field suggestionWindowField;
-    private static Field suggestionAreaField;
     private String historyBuffer = "";
     private int historyPos = -1;
 
@@ -187,7 +184,7 @@ public class ChatBubbleScreen extends Screen {
         int guiScale = (int) Math.round(client.getWindow().getScaleFactor());
         panelW = Math.max(100, Math.min(physicalW / Math.max(1, guiScale), width));
         if (sidebarOpen) {
-            panelX = 0;
+            panelX = SIDEBAR_W;
             sidebarTargetOpen = true;
             sidebarAnimating = true;
             sidebarAnimStart = Util.getMeasuringTimeMs();
@@ -290,9 +287,12 @@ public class ChatBubbleScreen extends Screen {
 
     private float getSidebarAnimProgress() {
         if (!ChatBubbleClientSetup.config().animationEnabled()) return sidebarOpen ? 1f : 0f;
-        if (!sidebarAnimating) return sidebarOpen ? 1f : 0f;
-        float progress = Animation.progress(sidebarAnimStart, ANIM_MS, false);
-        return sidebarTargetOpen ? progress : 1.0f - progress;
+        // Independent sidebar toggle while chat is already open
+        if (sidebarAnimating) {
+            float progress = Animation.progress(sidebarAnimStart, ANIM_MS, false);
+            return sidebarTargetOpen ? progress : 1.0f - progress;
+        }
+        return sidebarOpen ? 1f : 0f;
     }
 
     private int getSidebarScreenX() {
@@ -902,7 +902,13 @@ public class ChatBubbleScreen extends Screen {
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
-        int panelOffset = (int) ((anim - 1.0f) * panelW);
+        int moveDist;
+        if (sidebarOpen) {
+            moveDist = closing ? panelW : SIDEBAR_W;
+        } else {
+            moveDist = panelW;
+        }
+        int panelOffset = (int) ((anim - 1.0f) * moveDist);
 
         g.getMatrices().push();
         g.getMatrices().translate(panelOffset, 0, 0);
@@ -910,7 +916,11 @@ public class ChatBubbleScreen extends Screen {
         int panelBg = c().panelBg();
         int panelBgAlpha = (panelBg >> 24) & 0xFF;
         int fadedBg = ((int) (panelBgAlpha * anim) << 24) | (panelBg & 0x00FFFFFF);
-        g.fill(panelX, 0, panelX + panelW, height, fadedBg);
+        // When sidebar is synced to main animation, extend panel bg to
+        // sidebar's right edge so there's no gap between them.
+        int fillLeft = (!sidebarAnimating && sidebarOpen)
+            ? (int)(anim * SIDEBAR_W) : panelX;
+        g.fill(fillLeft, 0, panelX + panelW, height, fadedBg);
 
         renderTitleBar(g, mouseX, mouseY);
         renderMessages(g, mouseX, mouseY);
@@ -932,7 +942,6 @@ public class ChatBubbleScreen extends Screen {
         renderBottomBar(g, mouseX, mouseY);
         renderMentionPopup(g, mouseX, mouseY);
 
-        fixSuggestionWindowPosition();
         g.enableScissor(panelX, 0, panelX + panelW, height);
         if (commandSuggestions != null) commandSuggestions.render(g, mouseX, mouseY);
         g.disableScissor();
@@ -954,6 +963,13 @@ public class ChatBubbleScreen extends Screen {
         g.getMatrices().translate(0, 0, 50);
         input.setX(inputX + panelOffset);
         super.render(g, mouseX, mouseY, delta);
+        g.getMatrices().pop();
+
+        // Notification banner above the chat panel
+        g.getMatrices().push();
+        g.getMatrices().translate(0, 0, 200);
+        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.render(g,
+            width, height);
         g.getMatrices().pop();
     }
 
@@ -1507,41 +1523,6 @@ public class ChatBubbleScreen extends Screen {
         }
     }
 
-    private void fixSuggestionWindowPosition() {
-        if (commandSuggestions == null) return;
-        try {
-            if (suggestionWindowField == null) {
-                for (Field f : commandSuggestions.getClass().getDeclaredFields()) {
-                    if (f.getType().getName().contains("SuggestionWindow")) {
-                        f.setAccessible(true);
-                        suggestionWindowField = f;
-                        break;
-                    }
-                }
-            }
-            if (suggestionWindowField == null) return;
-            Object window = suggestionWindowField.get(commandSuggestions);
-            if (window == null) return;
-
-            if (suggestionAreaField == null) {
-                for (Field f : window.getClass().getDeclaredFields()) {
-                    if (f.getType() == net.minecraft.client.util.math.Rect2i.class) {
-                        f.setAccessible(true);
-                        suggestionAreaField = f;
-                        break;
-                    }
-                }
-            }
-            if (suggestionAreaField == null) return;
-
-            net.minecraft.client.util.math.Rect2i area = (net.minecraft.client.util.math.Rect2i) suggestionAreaField.get(window);
-            if (area == null) return;
-            int newY = inputY - area.getHeight() - 4;
-            if (area.getY() != newY) area.setY(newY);
-            if (area.getX() < panelX) area.setX(panelX);
-        } catch (Exception ignored) {}
-    }
-
     private void renderToast(DrawContext g) {
         if (copyToastTicks <= 0) return;
         int alpha = Animation.fadeIn(copyToastTicks, 5) << 24;
@@ -1641,7 +1622,7 @@ public class ChatBubbleScreen extends Screen {
         drawTextureIcon(g, iconTex("send"), sendX, iconY, ICON_S);
     }
 
-    private static void loadIconTextures() {
+    static void loadIconTextures() {
         String theme = ChatBubbleClientSetup.config().theme().toLowerCase();
         String base = "assets/e33chat/textures/gui/" + theme + "/";
         loadIconTexture(iconTex("settings"), base + "settings.png");
@@ -1849,13 +1830,31 @@ public class ChatBubbleScreen extends Screen {
 
         ChatMessageStore.debugLog("[e33chat] Send | cmd='" + text + "' | display='" + displayText + "' | whisperTarget=" + whisperTarget + " | localBubble=" + localBubble);
         if (localBubble) {
-            ChatMessageStore.addMessage(cfg != null && cfg.colorCodes() ? parseColorCodes(displayText) : Text.literal(displayText),
+            Text contentForSend = cfg != null && cfg.colorCodes() ? parseColorCodes(displayText) : Text.literal(displayText);
+            String playerName = client.player.getName().getString();
+            String replySender = ChatMessageStore.getPendingReplySender();
+
+            ChatMessageStore.addMessage(contentForSend,
                 client.player.getUuid(),
-                Text.literal(client.player.getName().getString()),
+                Text.literal(playerName),
                 false,
-                client.player.getName().getString(),
+                playerName,
                 whisperTarget != null, whisperTarget);
             ChatMessageStore.incrementPendingEcho(text);
+
+            // Trigger mention detection directly from send path.
+            // The echo will be consumed (preventing duplicate bubbles),
+            // so the controller must fire here for self-@ notifications.
+            if (com.niuqu.chatbubble.chat.MentionDetector.isMentioned(
+                    contentForSend.getString(), playerName,
+                    cfg.mentionRequireAt(), replySender)) {
+                com.niuqu.chatbubble.chat.notification.MentionNotificationController.INSTANCE.onMessageCaptured(
+                    contentForSend,
+                    new ChatMessageStore.SenderMeta(client.player.getUuid(),
+                        Text.literal(playerName), contentForSend, false,
+                        playerName, whisperTarget != null, whisperTarget),
+                    ChatMessageStore.size(), replySender);
+            }
         }
         if (whisperTarget != null) ChatMessageStore.markPendingWhisperEcho();
 
