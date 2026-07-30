@@ -4,6 +4,8 @@ import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.MessageIndicator;
 import net.minecraft.network.message.MessageSignatureData;
@@ -21,7 +23,7 @@ public class ChatComponentMixin {
     private long lastTime;
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void onRender(CallbackInfo ci) {
+    private void onRender(DrawContext context, int tickDelta, int mouseX, int mouseY, boolean focused, CallbackInfo ci) {
         ChatBubbleConfig cfg = ChatBubbleClientSetup.config();
         if (cfg != null && cfg.enabled()) ci.cancel();
     }
@@ -56,8 +58,9 @@ public class ChatComponentMixin {
                 finalComponent, true, null, false, null);
         }
 
+        // consumeSuppressCapture stays — it's for whisper echo suppression (reliable)
         if (ChatMessageStore.consumeSuppressCapture()) return;
-        if (ChatMessageStore.consumeEchoIfSenderMatches(meta.senderName())) return;
+        if (ChatMessageStore.consumeEchoIfSenderMatches(meta.senderUUID(), meta.senderName())) return;
         if (ChatMessageStore.consumeEchoBySystemChat(finalComponent.getString())) return;
 
         String rawStr = meta.rawContent().getString();

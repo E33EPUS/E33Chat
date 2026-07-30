@@ -243,7 +243,8 @@ public class ChatListenerMixin {
             }
             return Optional.empty();
         }, Style.EMPTY);
-        if (tellName[0] == null || range[0] > 32) return null;
+        int nameRangeLimit = Math.max(32, text.length() / 3);
+        if (tellName[0] == null || range[0] > nameRangeLimit) return null;
 
         PlayerListEntry sender = null;
         for (var info : player.networkHandler.getPlayerList()) {
@@ -488,12 +489,12 @@ public class ChatListenerMixin {
 
         // Layer 2: parse decorated player line (NCR/plugin plain-text player chat)
         if (connection != null) {
-            var onlineNames = connection.getPlayerList().stream()
-                .flatMap(info -> {
-                    var names = new ArrayList<String>();
-                    for (String cand : nameCandidates(info)) names.add(cand);
-                    return names.stream();
-                }).distinct().toList();
+            var namesSet = new LinkedHashSet<String>();
+            connection.getPlayerList().forEach(info -> {
+                for (String cand : nameCandidates(info)) namesSet.add(cand);
+            });
+            namesSet.addAll(ChatMessageStore.knownNameVariants());
+            var onlineNames = new ArrayList<>(namesSet);
             var parsed = MessagePresentation.parseDecoratedPlayerLine(text, onlineNames);
             if (parsed.isPresent()) {
                 var pl = parsed.orElseThrow();
@@ -505,21 +506,19 @@ public class ChatListenerMixin {
                     }).findFirst().orElse(null);
                 UUID uid = info != null ? info.getProfile().getId() : new UUID(0, 0);
                 int nameIdx = text.indexOf(pl.playerName());
-                int cStart = nameIdx + pl.playerName().length();
-                while (cStart < text.length()) {
-                    char ch = text.charAt(cStart);
-                    if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
-                        || ch == '：' || ch == '»' || ch == '-' || ch == '|') cStart++;
-                    else break;
+                int cStart = MessagePresentation.skipSeparators(text, nameIdx + pl.playerName().length());
+                if (MessagePresentation.isWhitespaceOnlyGap(text, nameIdx + pl.playerName().length(), cStart)) {
+                    ChatMessageStore.debugLog("[e33chat] System(line skip: broadcast sentence) | text='" + text + "'");
+                } else {
+                    Text displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
+                        Text.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
+                    Text contentComp = ChatMessageStore.sliceStyled(message, cStart, text.length());
+                    ChatMessageStore.debugLog("[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
+                    ChatMessageStore.setPendingMeta(new SenderMeta(
+                        uid, displayName, contentComp, false,
+                        info != null ? info.getProfile().getName() : pl.playerName(),
+                        false, null));
                 }
-                Text displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
-                    Text.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
-                Text contentComp = ChatMessageStore.sliceStyled(message, cStart, text.length());
-                ChatMessageStore.debugLog("[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
-                ChatMessageStore.setPendingMeta(new SenderMeta(
-                    uid, displayName, contentComp, false,
-                    info != null ? info.getProfile().getName() : pl.playerName(),
-                    false, null));
                 return;
             }
         }

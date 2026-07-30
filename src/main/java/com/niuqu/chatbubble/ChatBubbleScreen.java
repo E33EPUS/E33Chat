@@ -1883,7 +1883,7 @@ public class ChatBubbleScreen extends Screen {
                     ChatMessageStore.size(), replySender);
             }
         }
-        if (whisperTarget != null) ChatMessageStore.markPendingWhisperEcho();
+        if (whisperTarget != null) ChatMessageStore.markPendingWhisperEcho(whisperTarget);
 
         input.setText("");
         savedInput = "";

@@ -3,7 +3,7 @@
   "id": "e33chat",
   "version": "${version}",
   "name": "E33Chat",
-  "description": "A simple mod that replaces the vanilla chat HUD with QQ/WeChat style bubbles.",
+  "description": "Rebuilds the vanilla chat HUD in chat-app style | 以聊天APP风格重铸原版聊天框",
   "authors": ["E33EPUS"],
   "license": "MIT",
   "icon": "logo.png",

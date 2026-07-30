@@ -19,6 +19,7 @@ public class ChatMessageStore {
     private static final int MAX = 10000;
     private static final List<ChatMessage> messages = new ArrayList<>();
     private static int unreadCount;
+    private static boolean hasUnreadMentionFlag;
     private static boolean screenOpen;
     private static String pendingReplyContent;
     private static String pendingReplySender;
@@ -41,41 +42,55 @@ public class ChatMessageStore {
 
     // Seen-player cache: tracks players we've encountered to help with name resolution
     public record SeenPlayer(UUID uuid, String profileName, String displayName) {}
-    private static final Map<UUID, SeenPlayer> seenPlayers = new LinkedHashMap<>();
-    private static final int MAX_SEEN_PLAYERS = 500;
+    private static final int SEEN_PLAYERS_CAP = 512;
+    private static final Map<UUID, SeenPlayer> seenPlayers = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<UUID, SeenPlayer> eldest) {
+            return size() > SEEN_PLAYERS_CAP;
+        }
+    };
 
     public static void rememberPlayer(UUID uuid, String profileName, String displayName) {
-        if (uuid == null || profileName == null) return;
-        seenPlayers.put(uuid, new SeenPlayer(uuid, profileName, displayName));
-        if (seenPlayers.size() > MAX_SEEN_PLAYERS) {
-            var firstKey = seenPlayers.keySet().iterator().next();
-            seenPlayers.remove(firstKey);
-        }
+        if (uuid == null || uuid.equals(new UUID(0, 0)) || profileName == null || profileName.isEmpty()) return;
+        SeenPlayer existing = seenPlayers.get(uuid);
+        String newDisplay = (displayName != null && !displayName.isEmpty()) ? displayName
+            : (existing != null ? existing.displayName() : null);
+        seenPlayers.put(uuid, new SeenPlayer(uuid, profileName, newDisplay));
     }
 
-    public static UUID findSeenUuid(String displayName) {
-        if (displayName == null) return null;
-        String lower = displayName.toLowerCase();
-        for (var seen : seenPlayers.values()) {
-            if (seen.displayName() != null && seen.displayName().toLowerCase().equals(lower)) {
-                return seen.uuid();
+    public static List<String> knownNameVariants() {
+        Set<String> out = new LinkedHashSet<>();
+        for (SeenPlayer sp : seenPlayers.values()) {
+            if (sp.profileName() != null && !sp.profileName().isEmpty()) {
+                out.add(sp.profileName());
+                String stripped = sp.profileName().replaceAll("§.", "");
+                if (!stripped.isEmpty()) out.add(stripped);
             }
-            if (seen.profileName().toLowerCase().equals(lower)) {
-                return seen.uuid();
+            if (sp.displayName() != null && !sp.displayName().isEmpty()) {
+                out.add(sp.displayName());
+                String stripped = sp.displayName().replaceAll("§.", "");
+                if (!stripped.isEmpty()) out.add(stripped);
             }
+        }
+        return new ArrayList<>(out);
+    }
+
+    public static UUID findSeenUuid(String name) {
+        if (name == null || name.isEmpty()) return null;
+        String stripped = name.replaceAll("§.", "");
+        for (SeenPlayer sp : seenPlayers.values()) {
+            if (matchesSeenName(name, stripped, sp.profileName())) return sp.uuid();
+            if (matchesSeenName(name, stripped, sp.displayName())) return sp.uuid();
         }
         return null;
     }
 
-    public static List<String> getKnownNameVariants(UUID uuid) {
-        var seen = seenPlayers.get(uuid);
-        if (seen == null) return Collections.emptyList();
-        List<String> variants = new ArrayList<>();
-        variants.add(seen.profileName());
-        if (seen.displayName() != null && !seen.displayName().equals(seen.profileName())) {
-            variants.add(seen.displayName());
-        }
-        return variants;
+    private static boolean matchesSeenName(String raw, String stripped, String stored) {
+        if (stored == null || stored.isEmpty()) return false;
+        if (raw.equals(stored)) return true;
+        if (!stripped.isEmpty() && stripped.equals(stored)) return true;
+        String storedStripped = stored.replaceAll("§.", "");
+        return raw.equals(storedStripped) || (!stripped.isEmpty() && stripped.equals(storedStripped));
     }
 
     public record SenderMeta(UUID senderUUID, Text senderName,
@@ -84,12 +99,17 @@ public class ChatMessageStore {
                              boolean whisper, String whisperPartner) {}
 
     private static final ThreadLocal<SenderMeta> PENDING_META = new ThreadLocal<>();
+    private static long pendingMetaSetTime;
 
-    public static void setPendingMeta(SenderMeta meta) { PENDING_META.set(meta); }
+    public static void setPendingMeta(SenderMeta meta) {
+        PENDING_META.set(meta);
+        pendingMetaSetTime = System.currentTimeMillis();
+    }
 
     public static SenderMeta consumePendingMeta() {
         SenderMeta m = PENDING_META.get();
         PENDING_META.remove();
+        if (m != null && System.currentTimeMillis() - pendingMetaSetTime > 2_000) return null;
         return m;
     }
 
@@ -97,19 +117,26 @@ public class ChatMessageStore {
     private static final List<PendingEcho> pendingEchoes = new ArrayList<>();
 
     private static long pendingWhisperEchoTime;
-    private static boolean suppressNextCapture;
+    private static String pendingWhisperEchoTarget;
+    private static long suppressCaptureTime;
 
-    public static void markPendingWhisperEcho() { pendingWhisperEchoTime = System.currentTimeMillis(); }
-    public static void markSuppressCapture() { suppressNextCapture = true; }
+    public static void markPendingWhisperEcho(String target) {
+        pendingWhisperEchoTime = System.currentTimeMillis();
+        pendingWhisperEchoTarget = target;
+    }
+    public static void markSuppressCapture() { suppressCaptureTime = System.currentTimeMillis(); }
 
     public static boolean hasPendingWhisperEcho() {
         return pendingWhisperEchoTime != 0 && System.currentTimeMillis() - pendingWhisperEchoTime < 10_000;
     }
-    public static void consumeWhisperEcho() { pendingWhisperEchoTime = 0; }
+    public static String getPendingWhisperTarget() { return pendingWhisperEchoTarget; }
+    public static void consumeWhisperEcho() { pendingWhisperEchoTime = 0; pendingWhisperEchoTarget = null; }
 
     public static boolean consumeSuppressCapture() {
-        if (suppressNextCapture) { suppressNextCapture = false; return true; }
-        return false;
+        if (suppressCaptureTime == 0) return false;
+        boolean fresh = System.currentTimeMillis() - suppressCaptureTime < 5_000;
+        suppressCaptureTime = 0;
+        return fresh;
     }
 
     private static void purgeStaleEchoes() {
@@ -134,23 +161,29 @@ public class ChatMessageStore {
     }
 
     public static void debugLog(String msg) {
-        var cfg = ChatBubbleClientSetup.config();
-        if (cfg.debugLog())
-            com.mojang.logging.LogUtils.getLogger().info(msg);
+        debugLog(() -> msg);
     }
 
-    public static boolean consumeEchoIfSenderMatches(Text senderName) {
+    public static void debugLog(java.util.function.Supplier<String> msg) {
+        if (ChatBubbleClientSetup.config().debugLog())
+            com.mojang.logging.LogUtils.getLogger().info(msg.get());
+    }
+
+    public static boolean consumeEchoIfSenderMatches(UUID senderUUID, Text senderName) {
         purgeStaleEchoes();
         if (pendingEchoes.isEmpty()) return false;
         var player = MinecraftClient.getInstance().player;
         if (player == null) return false;
-        String s = senderName.getString();
-        boolean match = s.contains(player.getName().getString());
-        if (!match && player.networkHandler != null) {
-            var info = player.networkHandler.getPlayerListEntry(player.getUuid());
-            if (info != null && info.getDisplayName() != null) {
-                String tab = info.getDisplayName().getString().trim();
-                match = !tab.isEmpty() && s.contains(tab);
+        boolean match = senderUUID != null && senderUUID.equals(player.getUuid());
+        if (!match) {
+            String s = senderName.getString();
+            match = containsWholeName(s, player.getName().getString());
+            if (!match && player.networkHandler != null) {
+                var info = player.networkHandler.getPlayerListEntry(player.getUuid());
+                if (info != null && info.getDisplayName() != null) {
+                    String tab = info.getDisplayName().getString().trim();
+                    match = !tab.isEmpty() && containsWholeName(s, tab);
+                }
             }
         }
         if (match) {
@@ -159,6 +192,28 @@ public class ChatMessageStore {
             return true;
         }
         return false;
+    }
+
+    static boolean containsWholeName(String haystack, String needle) {
+        if (haystack == null || needle == null || needle.isEmpty()) return false;
+        String h = haystack.replaceAll("§.", "");
+        String n = needle.replaceAll("§.", "");
+        if (n.isEmpty()) return false;
+        int from = 0;
+        while (true) {
+            int idx = h.indexOf(n, from);
+            if (idx < 0) return false;
+            int end = idx + n.length();
+            boolean leftOk = idx == 0 || !isNamePart(h.charAt(idx - 1));
+            boolean rightOk = end >= h.length() || !isNamePart(h.charAt(end));
+            if (leftOk && rightOk) return true;
+            from = end;
+        }
+    }
+
+    private static boolean isNamePart(char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+            || (c >= '0' && c <= '9') || c == '_';
     }
 
     private static void updateLatestOwnSenderName(Text senderName) {
@@ -221,16 +276,19 @@ public class ChatMessageStore {
     }
 
     public static void addMessage(Text content, UUID senderUUID, Text senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner) {
-        String messageHash = String.valueOf(content.getString().hashCode());
-
         if (content.getString().isBlank()) return;
 
         var client = MinecraftClient.getInstance();
-        String playerName = client.player != null
-            ? client.player.getName().getString() : "";
-        boolean own = (rawPlayerName != null && !rawPlayerName.isEmpty())
-            ? rawPlayerName.equals(playerName)
-            : senderName != null && senderName.getString().equals(playerName);
+        String playerName = client.player != null ? client.player.getName().getString() : "";
+        boolean own;
+        if (client.player != null) {
+            if (senderUUID != null && senderUUID.equals(client.player.getUuid())) own = true;
+            else if (rawPlayerName != null && !rawPlayerName.isEmpty()) own = rawPlayerName.equals(playerName);
+            else own = senderName != null && senderName.getString().equals(playerName);
+        } else {
+            own = false;
+        }
+        String messageHash = String.valueOf(content.getString().hashCode());
 
         var cfg = ChatBubbleClientSetup.config();
         if (cfg.antiSpam() && !messages.isEmpty()) {
@@ -290,12 +348,16 @@ public class ChatMessageStore {
         while (messages.size() > MAX)
             messages.remove(0);
 
+        rememberPlayer(senderUUID, rawPlayerName,
+            senderName != null ? senderName.getString() : null);
+
         boolean isMentionOrQuote = !own && !isSystem
             && com.niuqu.chatbubble.chat.MentionDetector.isMentioned(
                 content.getString(), playerName,
                 cfg.mentionRequireAt(), replySender);
 
         if (isMentionOrQuote) {
+            hasUnreadMentionFlag = true;
             com.niuqu.chatbubble.chat.notification.MentionNotificationController.INSTANCE.onMessageCaptured(
                 content, new SenderMeta(senderUUID, senderName, content, isSystem,
                     rawPlayerName, whisper, whisperPartner),
@@ -304,6 +366,7 @@ public class ChatMessageStore {
 
         if (!own && whisper && rawPlayerName != null
             && cfg.mentionWhisperBanner()) {
+            hasUnreadMentionFlag = true;
             com.niuqu.chatbubble.chat.notification.MentionNotificationController.INSTANCE.onWhisperReceived(
                 senderUUID, senderName, content, messages.size());
         }
@@ -325,7 +388,7 @@ public class ChatMessageStore {
             else if (!isSystem && cfg.soundPublic()) playSound = true;
         }
         if (playSound) {
-            debugLog("[e33chat] Sound trigger | mention=" + isMentionOrQuote + " | whisper=" + whisper + " | system=" + isSystem);
+            debugLog(() -> "[e33chat] Sound trigger | mention=" + isMentionOrQuote + " | whisper=" + whisper + " | system=" + isSystem);
             client.player.playSound(
                 net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(),
                 0.6F * cfg.soundVolume() / 100f, 1.0F);
@@ -433,20 +496,15 @@ public class ChatMessageStore {
 
     public static int getUnreadCount() { return unreadCount; }
 
-    public static void markAllRead() { unreadCount = 0; }
+    public static void markAllRead() { unreadCount = 0; hasUnreadMentionFlag = false; }
 
     public static void setScreenOpen(boolean open) {
         screenOpen = open;
-        if (open) unreadCount = 0;
+        if (open) { unreadCount = 0; hasUnreadMentionFlag = false; }
     }
 
     public static boolean hasUnreadMention(String playerName) {
-        if (playerName == null || playerName.isEmpty()) return false;
-        for (int i = messages.size() - unreadCount; i < messages.size(); i++) {
-            if (i < 0) continue;
-            if (messages.get(i).content().getString().contains("@" + playerName)) return true;
-        }
-        return false;
+        return hasUnreadMentionFlag;
     }
 
     public static Text quoteMessage(int index) {

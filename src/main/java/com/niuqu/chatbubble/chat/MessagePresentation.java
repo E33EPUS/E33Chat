@@ -79,23 +79,38 @@ public final class MessagePresentation {
             if (Character.isLetterOrDigit(next) || next == '_') return Optional.empty();
         }
 
-        int sep = after;
-        while (sep < text.length()) {
-            char ch = text.charAt(sep);
-            if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
-                || ch == '：' || ch == '»' || ch == '-' || ch == '|') sep++;
-            else break;
-        }
+        int sep = skipSeparators(text, after);
         if (sep <= after || sep >= text.length()) return Optional.empty();
 
         String displayLabel = text.substring(0, idx + name.length());
         return Optional.of(new PlayerLine(name, displayLabel, text.substring(sep).strip()));
     }
 
-    /**
-     * Count the length of decorative prefixes (like [VIP], <admin>, color codes, etc.)
-     * that should be skipped when calculating the effective position of a player name.
-     */
+    public static int skipSeparators(String text, int from) {
+        int sep = from;
+        while (sep < text.length()) {
+            char ch = text.charAt(sep);
+            if (ch == '§' && sep + 1 < text.length()) { sep += 2; continue; }
+            if (ch == '[' || ch == '(' || ch == '<' || ch == '【') {
+                char close = ch == '[' ? ']' : ch == '(' ? ')' : ch == '<' ? '>' : '】';
+                int end = text.indexOf(close, sep + 1);
+                if (end > sep && end - sep <= 32) { sep = end + 1; continue; }
+            }
+            if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
+                || ch == '：' || ch == '»' || ch == '-' || ch == '|') { sep++; continue; }
+            break;
+        }
+        return sep;
+    }
+
+    public static boolean isWhitespaceOnlyGap(String text, int from, int to) {
+        if (text == null || to <= from) return false;
+        for (int i = from; i < to && i < text.length(); i++) {
+            if (!Character.isWhitespace(text.charAt(i))) return false;
+        }
+        return true;
+    }
+
     private static int countDecorativePrefix(String text, int upTo) {
         int count = 0;
         int i = 0;
