@@ -61,6 +61,17 @@
 *测试*
 - 62 → 92 例：删除同义反复的侧边栏假测试，新增格式解析/整词边界/私聊格式/Animation 真覆盖
 
+**配置界面重做与 HUD 未读红点**
+- 设置界面按 UI 元素重排为 5 个标签页（聊天框 / HUD / 通知 / 侧边栏 / 高级），各页内再分子分类
+- 左侧改为可折叠、可滚动的子分类树（全展开时不再被挤出屏幕）；右侧分区标题去掉黑底橙字，改为灰字左对齐 + 右侧延伸细线，行高与选项对齐
+- 颜色行新增行内预设色板；"气泡与字体"子分类新增气泡预览带，随圆角实时变化
+- 控件按反馈换回原版开/关开关、选中条改回白色；数值项保留可手输输入框，仅音效音量用滑条
+- 编辑模型：打开时快照、实时生效，底部"保存 / 退出"并显示改动条数，ESC 弹确认放弃
+- 新增"音效总音量"并接线到全部 4 类提示音；面板不透明度默认 60 → 80
+- 提示文案统一为作用句通俗风格、数值项标注范围，删除无主键、修正私聊音效文案
+- 按反馈移除搜索框与恢复默认按钮
+- HUD 未读指示器换成与侧边栏私聊同款的跳动红点：裁出红点 nearest 放大后骑在聊天图标右上角
+
 **Panel background blur (synced from Forge)**
 - Optional blur effect behind the chat panel (GL blit multi-pass downscale, compatible with Oculus/Embeddium)
 - Configurable panel opacity (0-100%, default 60%)
@@ -119,6 +130,17 @@
 
 *Tests*
 - 62 → 92 cases: tautological sidebar tests removed; real coverage added for format parsing, word boundaries, whisper formats and Animation
+
+**Settings UI rebuild & HUD unread dot**
+- Settings regrouped into 5 UI-element tabs (Chat Screen / HUD / Notifications / Sidebar / Advanced), each with sub-categories
+- The left column is now a collapsible, scrollable sub-category tree (a fully expanded tree no longer overflows the screen); right-side section headers drop the black bar / orange text for a gray left-aligned label with a trailing hairline, row height matched to options
+- Color rows gain an inline preset palette; the Bubbles & Text sub-category gains a bubble preview band that follows the corner radius live
+- Toggles reverted to vanilla on/off and the selection bar to white per feedback; numeric options keep type-in boxes, only the sound volume uses a slider
+- Edit model: snapshot on open, live edits, Save / Exit with a changed-count and an ESC confirm-discard prompt
+- New master sound volume wired to all four notification chimes; panel opacity default 60 → 80
+- Tooltip copy unified into a verb-led plain style with ranges on numeric options; orphan keys dropped and the whisper-sound wording fixed
+- Search box and restore-defaults button removed per feedback
+- HUD unread indicator replaced with the sidebar's bouncing red dot: the red core is cropped and nearest-upscaled, perched on the chat icon's top-right corner
 
 ## v2.1.5
 
