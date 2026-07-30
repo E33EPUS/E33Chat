@@ -425,7 +425,11 @@ public class ChatBubbleConfigScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        renderBackground(g, mouseX, mouseY, partialTick);
+        // 1.21.1 的 GuiGraphics 是 batch 缓冲：fill/drawString 先攒着，flush 时按入队序上屏。
+        // super.render 第一行会调 renderBackground——若那里画半透明黑，它会排在我们手画文字
+        // 之后、按钮之前上屏，于是文字被这块黑盖暗、按钮却亮（Forge 1.20.1 的 GuiGraphics
+        // 提交时机不同故不裂）。故 renderBackground 置空、背景改在此处只画一次，super 那次空转。
+        g.fill(0, 0, width, height, 0xC0101010);
         g.drawString(font, title, width / 2 - font.width(title) / 2, 14, c().configTitle(), false);
 
         String tooltipKey = null;
@@ -633,7 +637,8 @@ public class ChatBubbleConfigScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.fill(0, 0, width, height, 0xC0101010);
+        // no-op：背景已在 render() 开头画一次。这里若再 fill，会被 super.render 排到手画文字
+        // 之后上屏而把文字盖暗（见 render() 注释）。
     }
 
     private int optAreaW() { return previewX - optLabelX - 4; }

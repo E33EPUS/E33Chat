@@ -133,28 +133,6 @@ class MessagePresentationTest {
             "a joined the game", List.of("a")).isEmpty());
     }
 
-    // ---- offline-server short/Chinese names ----
-
-    @Test void parsesBareChineseNameWithColon() {
-        var parsed = MessagePresentation.parseDecoratedPlayerLine(
-            "小明: 你好", List.of("小明"));
-        assertTrue(parsed.isPresent());
-        assertEquals("小明", parsed.orElseThrow().playerName());
-        assertEquals("你好", parsed.orElseThrow().content());
-    }
-
-    @Test void rejectsBareChineseNameBroadcast() {
-        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
-            "小明 加入了游戏", List.of("小明")).isEmpty());
-    }
-
-    @Test void parsesBracketedChineseName() {
-        var parsed = MessagePresentation.parseDecoratedPlayerLine(
-            "<小明> 你好", List.of("小明"));
-        assertTrue(parsed.isPresent());
-        assertEquals("你好", parsed.orElseThrow().content());
-    }
-
     @Test void parsesWithOfflineCachedNameInList() {
         var parsed = MessagePresentation.parseDecoratedPlayerLine(
             "[VIP]Steve >> hi", List.of("OfflineGuy", "Steve"));
@@ -222,7 +200,7 @@ class MessagePresentationTest {
         assertFalse(MessagePresentation.isWhitespaceOnlyGap("Steve", 5, 5));
     }
 
-    // ---- name-suffix decorations parse like prefixes ----
+    // ---- audit probes: formats that should parse (red = real gap) ----
 
     @Test void parsesNameSuffixBracketTitle() {
         var parsed = MessagePresentation.parseDecoratedPlayerLine(
@@ -244,6 +222,30 @@ class MessagePresentationTest {
             "Steve(VIP): hi", List.of("Steve"));
         assertTrue(parsed.isPresent());
         assertEquals("hi", parsed.orElseThrow().content());
+    }
+
+    // ---- audit probes: offline-server short/Chinese names ----
+
+    @Test void parsesBareChineseNameWithColon() {
+        // cracked servers allow Chinese names; 2-char bare name + colon
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "小明: 你好", List.of("小明"));
+        assertTrue(parsed.isPresent());
+        assertEquals("小明", parsed.orElseThrow().playerName());
+        assertEquals("你好", parsed.orElseThrow().content());
+    }
+
+    @Test void rejectsBareChineseNameBroadcast() {
+        // no separator after the name — broadcast sentence stays rejected
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "小明 加入了游戏", List.of("小明")).isEmpty());
+    }
+
+    @Test void parsesBracketedChineseName() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "<小明> 你好", List.of("小明"));
+        assertTrue(parsed.isPresent());
+        assertEquals("你好", parsed.orElseThrow().content());
     }
 
     @Test void unicodeArrowSeparatorNotSkipped() {
