@@ -37,7 +37,7 @@ public final class ConfigManager {
         return new ChatBubbleConfig(
             c.enabled(), c.theme() != null ? c.theme() : d.theme(),
             c.redDotEnabled(), c.hideChatIcon(), c.animationEnabled(),
-            c.strongHintEnabled(), c.mentionStrongHintEnabled(), c.systemChatAsBubble(),
+            c.strongHintEnabled(), c.systemChatAsBubble(),
             c.antiSpam(), c.chatHistoryEnabled(),
             c.previewEnabled(), c.previewLines(), c.previewWidth(), c.timeSeparatorMinutes(),
             c.panelWidth(), c.bubbleCornerRadius(),
@@ -45,10 +45,17 @@ public final class ConfigManager {
             c.otherBubbleColor() != null ? c.otherBubbleColor() : d.otherBubbleColor(),
             c.ownTextColor() != null ? c.ownTextColor() : d.ownTextColor(),
             c.otherTextColor() != null ? c.otherTextColor() : d.otherTextColor(),
-            c.soundPublic(), c.soundSystem(), c.soundMention(), c.soundWhisper(),
+            c.soundPublic(), c.soundSystem(), c.soundWhisper(),
             c.debugLog(), c.preserveInput(), c.colorCodes(),
             c.sidebarHidePatterns() != null ? c.sidebarHidePatterns() : d.sidebarHidePatterns(),
-            c.quickChatPhrases() != null ? c.quickChatPhrases() : d.quickChatPhrases());
+            c.quickChatPhrases() != null ? c.quickChatPhrases() : d.quickChatPhrases(),
+            c.mentionBannerEnabled(),
+            c.mentionBannerDuration() > 0 ? c.mentionBannerDuration() : d.mentionBannerDuration(),
+            c.mentionSoundEnabled(),
+            c.mentionRequireAt(),
+            c.mentionWhisperBanner(),
+            c.blurEnabled(), c.panelOpacity(), c.soundVolume(),
+            c.ownMentionNotify(), c.ownQuoteNotify(), c.bannerCornerRadius());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {
