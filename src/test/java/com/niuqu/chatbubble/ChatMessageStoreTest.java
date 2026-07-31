@@ -235,4 +235,167 @@ class ChatMessageStoreTest {
     @Test void repostDedup_firstRepostNeverDuplicate() {
         assertFalse(ChatMessageStore.isRepostDuplicate(null, 0, "<A>[私聊] hi", System.currentTimeMillis()));
     }
+
+    // ---- Plain-text history lines: date-time \t sender \t content \t flags ----
+
+    private static ChatMessageStore.ChatMessage testMsg(boolean own, boolean system) {
+        return new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.network.chat.Component.literal("Steve"),
+            net.minecraft.network.chat.Component.literal("今天去打龙吗"),
+            1782900000000L,
+            own, system, null, null, "", 1, null, false, null);
+    }
+
+    @Test void tsv_roundTripPreservesCore() {
+        var msg = testMsg(true, false);
+        var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
+        assertNotNull(back);
+        assertEquals(msg.time(), back.time());
+        assertEquals("Steve", back.senderName().getString());
+        assertEquals("今天去打龙吗", back.content().getString());
+        assertTrue(back.isOwn());
+        assertFalse(back.isSystem());
+    }
+
+    @Test void tsv_lineReadsLikeALog() {
+        String line = ChatMessageStore.toLine(testMsg(false, false));
+        // no JSON syntax at all: no braces, quotes or escapes
+        assertFalse(line.contains("{") || line.contains("\"") || line.contains("\\"), line);
+        assertTrue(line.endsWith("\t"), line);
+        // local-time rendering: date part is fixed, hour depends on timezone
+        assertTrue(line.startsWith("2026-07-01T"), line);
+        assertTrue(line.contains(":00:00\tSteve\t今天去打龙吗\t"), line);
+    }
+
+    @Test void tsv_flagsCombinable() {
+        var msg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.network.chat.Component.literal("Steve"),
+            net.minecraft.network.chat.Component.literal("hi"),
+            1782900000000L,
+            true, false, null, null, "", 1, null, true, null);
+        String line = ChatMessageStore.toLine(msg);
+        assertTrue(line.endsWith("\tMW"), line);
+        var back = ChatMessageStore.fromLine(line);
+        assertNotNull(back);
+        assertTrue(back.isOwn());
+        assertTrue(back.whisper());
+    }
+
+    @Test void tsv_systemFlag() {
+        String line = ChatMessageStore.toLine(testMsg(false, true));
+        assertTrue(line.endsWith("\tS"), line);
+        assertTrue(ChatMessageStore.fromLine(line).isSystem());
+    }
+
+    @Test void tsv_escapingRoundTrip() {
+        var msg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.network.chat.Component.literal("Steve"),
+            net.minecraft.network.chat.Component.literal("a\tb\nc\\d\r\nx"),
+            1782900000000L, false, false, null, null, "", 1, null, false, null);
+        String line = ChatMessageStore.toLine(msg);
+        // escaped, so the line still has exactly 4 tab-separated fields
+        assertEquals(4, line.split("\t", -1).length);
+        assertFalse(line.contains("\r"), line);
+        var back = ChatMessageStore.fromLine(line);
+        assertNotNull(back);
+        assertEquals("a\tb\nc\\d\r\nx", back.content().getString());
+    }
+
+    @Test void tsv_optionalColumnsWhisperPartnerAndReply() {
+        var msg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.network.chat.Component.literal("Steve"),
+            net.minecraft.network.chat.Component.literal("hi"),
+            1782900000000L,
+            false, false, "引用的内容", "Alex", "", 1, "Steve", true, "Alex");
+        String line = ChatMessageStore.toLine(msg);
+        // columns: time sender content flags partner replySender replyContent
+        assertEquals(7, line.split("\t", -1).length);
+        var back = ChatMessageStore.fromLine(line);
+        assertNotNull(back);
+        assertTrue(back.whisper());
+        assertEquals("Alex", back.whisperPartner());
+        assertEquals("引用的内容", back.replyContent());
+        assertEquals("Alex", back.replySender());
+    }
+
+    @Test void tsv_plainLineHasNoTrailingColumns() {
+        String line = ChatMessageStore.toLine(testMsg(false, false));
+        assertEquals(4, line.split("\t", -1).length);
+    }
+
+    @Test void tsv_styledSenderStoredAsPlainText() {
+        var styled = net.minecraft.network.chat.Component.literal("Steve")
+            .withStyle(net.minecraft.ChatFormatting.AQUA);
+        var msg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(), styled,
+            net.minecraft.network.chat.Component.literal("hi"),
+            1782900000000L, false, false, null, null, "", 1, null, false, null);
+        String line = ChatMessageStore.toLine(msg);
+        // styling is dropped entirely: no § codes in the file
+        assertFalse(line.contains("§"), line);
+        assertTrue(line.contains("\tSteve\thi\t"), line);
+        var back = ChatMessageStore.fromLine(line);
+        assertNotNull(back);
+        assertEquals("Steve", back.senderName().getString());
+    }
+
+    @Test void tsv_badLineReturnsNull() {
+        assertNull(ChatMessageStore.fromLine(""));
+        assertNull(ChatMessageStore.fromLine("two\tfields"));
+        assertNull(ChatMessageStore.fromLine("not-a-date\tSteve\thi\t"));
+        assertNull(ChatMessageStore.fromLine("2026-07-01T12:00:00\tSteve\t   \t"));
+    }
+
+    @Test void tsv_blankContentDropped() {
+        var msg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.network.chat.Component.literal("Steve"),
+            net.minecraft.network.chat.Component.literal("   "),
+            1782900000000L, false, false, null, null, "", 1, null, false, null);
+        assertNull(ChatMessageStore.fromLine(ChatMessageStore.toLine(msg)));
+    }
+
+    // ---- parseStyledText: section codes back into styled components ----
+
+    @Test void parseStyled_colorAndReset() {
+        var c = ChatMessageStore.parseStyledText("§6[称号]§bE33EPUS");
+        // getString() is plain text; the colors live in the styled siblings
+        assertEquals("[称号]E33EPUS", c.getString());
+        assertEquals(net.minecraft.ChatFormatting.GOLD.getColor(),
+            c.getSiblings().get(0).getStyle().getColor().getValue());
+        assertEquals(net.minecraft.ChatFormatting.AQUA.getColor(),
+            c.getSiblings().get(1).getStyle().getColor().getValue());
+    }
+
+    @Test void parseStyled_boldItalic() {
+        var c = ChatMessageStore.parseStyledText("§lhi");
+        assertTrue(c.getSiblings().get(0).getStyle().isBold());
+        var c2 = ChatMessageStore.parseStyledText("§o斜体");
+        assertTrue(c2.getSiblings().get(0).getStyle().isItalic());
+    }
+
+    @Test void parseStyled_plainTextNoStyle() {
+        var c = ChatMessageStore.parseStyledText("hello");
+        assertEquals("hello", c.getString());
+        assertTrue(c.getStyle().isEmpty());
+    }
+
+    @Test void parseStyled_unknownCodeFallsThrough() {
+        var c = ChatMessageStore.parseStyledText("ab§xcd");
+        assertEquals("ab§xcd", c.getString());
+    }
+
+    @Test void legacyJsonLineStillLoads() {
+        String legacy = "{\"sender\":\"Steve\",\"content\":\"hi\",\"time\":1782900000000,\"own\":true,\"system\":false}";
+        var back = ChatMessageStore.fromLine(legacy);
+        assertNotNull(back);
+        assertEquals("Steve", back.senderName().getString());
+        assertEquals("hi", back.content().getString());
+        assertTrue(back.isOwn());
+        assertEquals(1782900000000L, back.time());
+    }
 }

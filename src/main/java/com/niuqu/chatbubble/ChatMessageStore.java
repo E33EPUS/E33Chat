@@ -197,6 +197,7 @@ public class ChatMessageStore {
         return new EchoMatch(false, false);
     }
 
+
     public static void debugLog(java.util.function.Supplier<String> msg) {
         if (ChatBubbleConfig.DEBUG_LOG.get())
             com.mojang.logging.LogUtils.getLogger().info(msg.get());
@@ -280,13 +281,14 @@ public class ChatMessageStore {
     }
 
     private record PendingMeta(UUID senderUUID, String quoteSender, String quoteContent,
-                               List<String> mentionTargets, LocalTime createdAt) {}
+                               List<String> mentionTargets, long createdAt) {}
 
+    // time is epoch millis so history spans days/weeks without losing the date
     public record ChatMessage(
         UUID senderUUID,
         Component senderName,
         Component content,
-        LocalTime time,
+        long time,
         boolean isOwn,
         boolean isSystem,
         String replyContent,
@@ -341,7 +343,7 @@ public class ChatMessageStore {
                 }
                 messages.set(messages.size() - 1, new ChatMessage(
                     last.senderUUID(), last.senderName(), last.content(),
-                    LocalTime.now(),
+                    System.currentTimeMillis(),
                     last.isOwn(), last.isSystem(),
                     last.replyContent(), last.replySender(), last.messageHash(),
                     last.duplicateCount() + 1,
@@ -353,7 +355,7 @@ public class ChatMessageStore {
         }
 
         PendingMeta pending = pendingMetas.remove(messageHash);
-        if (pending != null && pending.createdAt().isBefore(LocalTime.now().minusSeconds(10))) {
+        if (pending != null && System.currentTimeMillis() - pending.createdAt() > 10_000) {
             pending = null;
         }
 
@@ -373,7 +375,7 @@ public class ChatMessageStore {
             senderUUID,
             senderName != null ? senderName : Component.literal(""),
             content,
-            LocalTime.now(),
+            System.currentTimeMillis(),
             own,
             isSystem,
             replyContent,
@@ -390,6 +392,7 @@ public class ChatMessageStore {
 
         while (messages.size() > MAX)
             messages.remove(0);
+        historyDirty = true;
 
         boolean isMentionOrQuote = !isSystem
             && com.niuqu.chatbubble.chat.MentionDetector.isMentioned(
@@ -426,7 +429,7 @@ public class ChatMessageStore {
         // @mention arriving while chat is open also pops — the HUD already draws the
         // hint above the open screen. Mutual exclusion with the preview is preserved by
         // the systemToHint / mentionToHint guards (shared with the preview enqueue).
-        if (systemToHint) {
+if (systemToHint) {
             strongHintQueue.removeIf(e -> !e.isMention());
             strongHintQueue.add(new HintEntry(singleLineComponent(content), false));
             if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
@@ -469,7 +472,7 @@ public class ChatMessageStore {
     }
 
     // Plain-text variant for the few Screen call sites that build a single-line String.
-    static public String singleLine(String s) {
+    public static String singleLine(String s) {
         return stripControls(s);
     }
 
@@ -553,7 +556,7 @@ public class ChatMessageStore {
         screenOpen = open;
         if (open) {
             unreadCount = 0;
-        hasUnreadMentionFlag = false;
+            hasUnreadMentionFlag = false;
         }
     }
 
@@ -721,13 +724,139 @@ public class ChatMessageStore {
     }
 
     private static File getHistoryFile(String worldKey) {
-        String safe = worldKey.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
-        String hash = Integer.toHexString(worldKey.hashCode());
-        return new File(Minecraft.getInstance().gameDirectory, "e33chat/history/" + safe + "_" + hash + ".json");
+        // Keep Unicode (Chinese world names stay readable); only strip characters
+        // that break file systems / path parsing. The SHA-256 short hash disambiguates
+        // worlds whose sanitized names collide.
+        String safe = worldKey.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_");
+        return new File(Minecraft.getInstance().gameDirectory,
+            "e33chat/history/" + safe + "_" + sha256Short(worldKey) + ".json");
     }
 
-    // Save fires on the tick after leaving the world (level already null) — fall back to
-    // the connection registries, then static builtins, so styles survive the quit-to-title save
+    // Pre-2.2.3 files used an ASCII-only sanitizer + String.hashCode; load them for
+    // migration when the new path does not exist yet
+    private static File getLegacyHistoryFile(String worldKey) {
+        String safe = worldKey.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
+        String hash = Integer.toHexString(worldKey.hashCode());
+        return new File(Minecraft.getInstance().gameDirectory,
+            "e33chat/history/" + safe + "_" + hash + ".json");
+    }
+
+    private static String sha256Short(String s) {
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(s.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 8; i++) sb.append(String.format("%02x", d[i]));
+            return sb.toString();
+        } catch (Exception e) {
+            return Integer.toHexString(s.hashCode());
+        }
+    }
+
+    // ---- Plain-text history lines: date-time \t sender \t content \t flags ----
+    // Open in any text editor and it reads like a log. Plain text only — colors
+    // and click/hover data are dropped; the decorated prefix still shows as literal
+    // text (e.g. "[称号]E33EPUS"). Flags: M=own, S=system, W=whisper (combinable,
+    // empty when none). Fields escape \t \n \\ so parsing is unambiguous.
+    // Pre-2.2.3 JSONL lines (starting with '{') still load.
+
+    static String toLine(ChatMessage msg) {
+        String time = java.time.LocalDateTime.ofInstant(
+            java.time.Instant.ofEpochMilli(msg.time()), java.time.ZoneId.systemDefault())
+            .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        String flags = (msg.isOwn() ? "M" : "") + (msg.isSystem() ? "S" : "") + (msg.whisper() ? "W" : "");
+        StringBuilder sb = new StringBuilder(time)
+            .append('\t').append(escapeField(msg.senderName().getString()))
+            .append('\t').append(escapeField(msg.content().getString()))
+            .append('\t').append(flags);
+        // Optional trailing columns, present only when the message has the data:
+        // whisper partner, reply sender, reply content — keeps ordinary lines short
+        if (msg.whisper() && msg.whisperPartner() != null)
+            sb.append('\t').append(escapeField(msg.whisperPartner()));
+        if (msg.replyContent() != null) {
+            sb.append('\t').append(msg.replySender() != null ? escapeField(msg.replySender()) : "");
+            sb.append('\t').append(escapeField(msg.replyContent()));
+        }
+        return sb.toString();
+    }
+
+    static ChatMessage fromLine(String line) {
+        if (line.startsWith("{")) return fromJsonLine(line);
+        String[] parts = line.split("\t", -1);
+        if (parts.length < 3) return null;
+        long millis;
+        try {
+            millis = java.time.LocalDateTime.parse(parts[0], DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        } catch (Exception e) {
+            return null;
+        }
+        String flags = parts.length > 3 ? parts[3] : "";
+        String content = unescapeField(parts[2]);
+        if (content.isBlank()) return null;
+        boolean whisper = flags.contains("W");
+        String partner = null;
+        String replySender = null;
+        String replyContent = null;
+        if (whisper && parts.length > 4) partner = unescapeField(parts[4]);
+        if (parts.length > 5) replySender = unescapeField(parts[5]);
+        if (parts.length > 6) replyContent = unescapeField(parts[6]);
+        return new ChatMessage(
+            new UUID(0, 0),
+            parseStyledText(unescapeField(parts[1])),
+            parseStyledText(content),
+            millis,
+            flags.contains("M"),
+            flags.contains("S"),
+            replyContent, replySender, "", 1, null,
+            whisper, partner
+        );
+    }
+
+    // Legacy JSONL branch: one message per line as {"sender":...,"content":...}
+    private static ChatMessage fromJsonLine(String line) {
+        Map<String, Object> obj;
+        try {
+            obj = GSON.fromJson(line, new TypeToken<Map<String, Object>>(){}.getType());
+        } catch (Exception e) {
+            return null;
+        }
+        if (obj == null) return null;
+        Object timeObj = obj.get("time");
+        if (!(timeObj instanceof Number)) return null;
+        UUID uuid = null;
+        try { uuid = UUID.fromString(String.valueOf(obj.get("uuid"))); } catch (Exception ignored) {}
+        Component senderName = componentFrom(obj, "senderJson", "sender");
+        Component content = componentFrom(obj, "contentJson", "content");
+        if (content == null || content.getString().isBlank()) return null;
+        return new ChatMessage(
+            uuid != null ? uuid : new UUID(0, 0),
+            senderName != null ? senderName : Component.literal(""),
+            content,
+            ((Number) timeObj).longValue(),
+            Boolean.TRUE.equals(obj.get("own")),
+            Boolean.TRUE.equals(obj.get("system")),
+            (String) obj.get("replyContent"),
+            (String) obj.get("replySender"),
+            "",
+            1,
+            (String) obj.get("rawPlayerName"),
+            Boolean.TRUE.equals(obj.get("whisper")),
+            (String) obj.get("whisperPartner")
+        );
+    }
+
+    private static Component componentFrom(Map<String, Object> obj, String jsonKey, String textKey) {
+        String json = (String) obj.get(jsonKey);
+        if (json != null) {
+            try { return Component.Serializer.fromJson(json, registries()); } catch (Exception ignored) {}
+        }
+        String text = (String) obj.get(textKey);
+        return text != null ? parseStyledText(text) : null;
+    }
+
+    // 1.21.1 Component codecs need a registry provider; fall back to the connection
+    // registries, then static builtins, so styles survive the quit-to-title save
     private static net.minecraft.core.HolderLookup.Provider registries() {
         var level = Minecraft.getInstance().level;
         if (level != null) return level.registryAccess();
@@ -737,76 +866,99 @@ public class ChatMessageStore {
             net.minecraft.core.registries.BuiltInRegistries.REGISTRY);
     }
 
-    private static String toJsonSafe(Component c) {
-        try {
-            return Component.Serializer.toJson(c, registries());
-        } catch (Exception e) {
-            try {
-                return Component.Serializer.toJson(Component.literal(c.getString()), registries());
-            } catch (Exception e2) {
-                return c.getString();
+    private static String escapeField(String s) {
+        return s.replace("\\", "\\\\").replace("\t", "\\t").replace("\r", "\\r").replace("\n", "\\n");
+    }
+
+    private static String unescapeField(String s) {
+        if (s.indexOf('\\') < 0) return s;
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '\\' && i + 1 < s.length()) {
+                char n = s.charAt(i + 1);
+                if (n == 't') { out.append('\t'); i++; continue; }
+                if (n == 'n') { out.append('\n'); i++; continue; }
+                if (n == 'r') { out.append('\r'); i++; continue; }
+                if (n == '\\') { out.append('\\'); i++; continue; }
+            }
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    // Section-sign codes ("§6...§r") back into a styled component; unknown codes
+    // (e.g. a stray §x from a plugin) fall through as literal text
+    static Component parseStyledText(String s) {
+        MutableComponent out = Component.empty();
+        Style style = Style.EMPTY;
+        StringBuilder buf = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (ch == '§' && i + 1 < s.length()) {
+                if (buf.length() > 0) {
+                    out.append(Component.literal(buf.toString()).withStyle(style));
+                    buf.setLength(0);
+                }
+                Style next = applySectionCode(style, s.charAt(i + 1));
+                if (next == null) {
+                    // Unknown code: keep it as literal text instead of swallowing it
+                    buf.append(ch).append(s.charAt(i + 1));
+                } else {
+                    style = next;
+                }
+                i++;
+            } else {
+                buf.append(ch);
             }
         }
+        if (buf.length() > 0) out.append(Component.literal(buf.toString()).withStyle(style));
+        return out;
     }
 
-    private static Component fromJsonSafe(String json) {
-        if (json == null) return null;
-        try {
-            return Component.Serializer.fromJson(json, registries());
-        } catch (Exception e) {
-            return null;
+    private static Style applySectionCode(Style style, char code) {
+        ChatFormatting cf = ChatFormatting.getByCode(code);
+        if (cf == null) return null;
+        switch (cf) {
+            case RESET: return Style.EMPTY;
+            case BOLD: return style.withBold(true);
+            case ITALIC: return style.withItalic(true);
+            case UNDERLINE: return style.withUnderlined(true);
+            case STRIKETHROUGH: return style.withStrikethrough(true);
+            case OBFUSCATED: return style.withObfuscated(true);
+            default: return style.withColor(cf);
         }
     }
 
-    private static void saveMessages(String worldKey) {
-        if (messages.isEmpty()) return;
-        File f = getHistoryFile(worldKey);
-        f.getParentFile().mkdirs();
-        List<Object> list = new ArrayList<>();
-        for (ChatMessage msg : messages) {
-            try {
-                var obj = new HashMap<String, Object>();
-                obj.put("senderUUID", msg.senderUUID().toString());
-                obj.put("senderName", msg.senderName().getString());
-                obj.put("senderNameJson", toJsonSafe(msg.senderName()));
-                obj.put("content", toJsonSafe(msg.content()));
-                obj.put("time", msg.time().format(DateTimeFormatter.ISO_LOCAL_TIME));
-                obj.put("isOwn", msg.isOwn());
-                obj.put("isSystem", msg.isSystem());
-                if (msg.replyContent() != null) {
-                    obj.put("replyContent", msg.replyContent());
-                    obj.put("replySender", msg.replySender());
-                }
-                if (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty()) {
-                    obj.put("rawPlayerName", msg.rawPlayerName());
-                }
-                if (msg.whisper()) {
-                    obj.put("whisper", true);
-                    if (msg.whisperPartner() != null) obj.put("whisperPartner", msg.whisperPartner());
-                }
-                list.add(obj);
-            } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
-        }
-        try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) {
-            GSON.toJson(list, w);
-        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
-    }
-
-    private static void loadMessages(String worldKey) {
-        File f = getHistoryFile(worldKey);
-        if (!f.exists()) return;
+    // Legacy file stores LocalTime (HH:mm:ss) with no date; anchor the file's
+    // last-saved day on the file mtime and walk backwards: an earlier message
+    // whose clock time is LATER than its successor crossed midnight
+    private static List<ChatMessage> loadLegacyFile(File f) {
+        List<ChatMessage> out = new ArrayList<>();
         try (Reader r = new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8)) {
             List<Map<String, Object>> list = GSON.fromJson(r, new TypeToken<List<Map<String, Object>>>(){}.getType());
-            if (list == null) return;
-            for (Map<String, Object> obj : list) {
+            if (list == null) return out;
+            java.time.ZoneId zone = java.time.ZoneId.systemDefault();
+            java.time.LocalDate day = java.time.Instant.ofEpochMilli(f.lastModified())
+                .atZone(zone).toLocalDate();
+            LocalTime latest = null;
+            for (int i = list.size() - 1; i >= 0; i--) {
+                Map<String, Object> obj = list.get(i);
                 try {
                     UUID uuid = UUID.fromString((String) obj.get("senderUUID"));
-                    Component senderName = fromJsonSafe((String) obj.get("senderNameJson"));
+                    Component senderName = null;
+                    String snJson = (String) obj.get("senderNameJson");
+                    if (snJson != null) {
+                        try { senderName = Component.Serializer.fromJson(snJson, registries()); } catch (Exception ignored2) {}
+                    }
                     if (senderName == null) senderName = Component.literal((String) obj.get("senderName"));
-                    Component content = fromJsonSafe((String) obj.get("content"));
-                    if (content == null) content = Component.literal((String) obj.getOrDefault("content", ""));
+                    Component content = Component.Serializer.fromJson((String) obj.get("content"), registries());
+                    if (content == null) content = Component.literal("");
                     if (content.getString().isBlank()) continue;
-                    LocalTime time = LocalTime.parse((String) obj.get("time"), DateTimeFormatter.ISO_LOCAL_TIME);
+                    LocalTime t = LocalTime.parse((String) obj.get("time"), DateTimeFormatter.ISO_LOCAL_TIME);
+                    if (latest != null && t.isAfter(latest)) day = day.minusDays(1);
+                    latest = t;
+                    long millis = java.time.LocalDateTime.of(day, t).atZone(zone).toInstant().toEpochMilli();
                     boolean isOwn = (Boolean) obj.getOrDefault("isOwn", false);
                     boolean isSystem = (Boolean) obj.getOrDefault("isSystem", false);
                     String replyContent = (String) obj.get("replyContent");
@@ -814,15 +966,112 @@ public class ChatMessageStore {
                     String rawPlayerName = (String) obj.get("rawPlayerName");
                     boolean whisper = Boolean.TRUE.equals(obj.get("whisper"));
                     String whisperPartner = (String) obj.get("whisperPartner");
-                    messages.add(new ChatMessage(uuid, senderName, content, time,
+                    out.add(0, new ChatMessage(uuid, senderName, content, millis,
                         isOwn, isSystem, replyContent, replySender, "", 1, rawPlayerName,
                         whisper, whisperPartner));
-                    if (!isSystem && !uuid.equals(new UUID(0, 0)))
-                        rememberPlayer(uuid, rawPlayerName, senderName.getString());
                 } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
             }
-            while (messages.size() > MAX) messages.remove(0);
         } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
+        return out;
+    }
+
+    private static void saveMessages(String worldKey) {
+        if (messages.isEmpty()) return;
+        File f = getHistoryFile(worldKey);
+        f.getParentFile().mkdirs();
+        // Atomic replace: write the tmp file fully, then move it over — a crash
+        // mid-write leaves the previous file intact instead of a truncated one
+        File tmp = new File(f.getParentFile(), f.getName() + ".tmp");
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(tmp), StandardCharsets.UTF_8)) {
+            for (ChatMessage msg : messages) {
+                w.write(toLine(msg));
+                w.write("\n");
+            }
+            w.flush();
+        } catch (Exception e) {
+            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
+            return;
+        }
+        try {
+            java.nio.file.Files.move(tmp.toPath(), f.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (Exception e) {
+            try {
+                java.nio.file.Files.move(tmp.toPath(), f.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception e2) {
+                com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e2);
+            }
+        }
+    }
+
+    // Periodic autosave: a crash only loses messages newer than the last flush.
+    // Called from the client tick; the world switch path in setCurrentWorld still
+    // saves on world change / quit. historyDirty skips rewrites when nothing new
+    // arrived since the last save.
+    private static final long AUTO_SAVE_MS = 30_000;
+    private static long lastAutoSave;
+    private static boolean historyDirty;
+
+    public static void maybeAutoSave() {
+        long now = System.currentTimeMillis();
+        if (currentWorldKey == null || !historyDirty || now - lastAutoSave < AUTO_SAVE_MS) return;
+        historyDirty = false;
+        lastAutoSave = now;
+        saveMessages(currentWorldKey);
+    }
+
+    private static void loadMessages(String worldKey) {
+        File f = getHistoryFile(worldKey);
+        if (!f.exists()) {
+            File legacy = getLegacyHistoryFile(worldKey);
+            if (legacy.exists()) f = legacy;
+        }
+        if (!f.exists()) return;
+        // Stale tmp file from a crash between write and rename — safe to discard
+        new File(f.getParentFile(), f.getName() + ".tmp").delete();
+        String head;
+        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(
+                new FileInputStream(f), StandardCharsets.UTF_8))) {
+            head = br.readLine();
+        } catch (Exception e) {
+            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
+            return;
+        }
+        if (head == null) return;
+        // Strip a UTF-8 BOM some editors write, which would break the JSON-array check
+        if (head.startsWith("﻿")) head = head.substring(1);
+        // Legacy files are a JSON array (starts with '['); new files are JSONL.
+        // A legacy file migrates to JSONL on the next save (memory is the source).
+        if (head.trim().startsWith("[")) {
+            List<ChatMessage> legacy = loadLegacyFile(f);
+            for (ChatMessage m : legacy) {
+                messages.add(m);
+                if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
+                    rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
+            }
+        } else {
+            try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(
+                    new FileInputStream(f), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    if (line.isBlank()) continue;
+                    try {
+                        ChatMessage m = fromLine(line);
+                        if (m == null) continue;
+                        messages.add(m);
+                        if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
+                            rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
+                    } catch (Exception e) {
+                        com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
+                    }
+                }
+            } catch (Exception e) {
+                com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
+            }
+        }
+        while (messages.size() > MAX) messages.remove(0);
     }
 
     private static File getTitlesFile() {
@@ -874,12 +1123,11 @@ public class ChatMessageStore {
 
     public static void applyChatMeta(UUID senderUUID, String messageHash, String quoteSender,
                                       String quoteContent, List<String> mentionTargets) {
-        LocalTime cutoff = LocalTime.now().minusSeconds(5);
         for (int i = messages.size() - 1; i >= 0; i--) {
             ChatMessage msg = messages.get(i);
             if (msg.messageHash().equals(messageHash) && msg.senderUUID().equals(senderUUID)) {
                 if (msg.replyContent() != null) continue;
-                if (msg.time().isBefore(cutoff)) continue;
+                if (System.currentTimeMillis() - msg.time() > 5_000) continue;
                 if (!quoteContent.isEmpty()) {
                     messages.set(i, new ChatMessage(
                         msg.senderUUID(), msg.senderName(), msg.content(), msg.time(),
@@ -905,7 +1153,7 @@ public class ChatMessageStore {
         }
         if (!quoteContent.isEmpty()) {
             pendingMetas.put(messageHash, new PendingMeta(senderUUID, quoteSender, quoteContent,
-                mentionTargets, LocalTime.now()));
+                mentionTargets, System.currentTimeMillis()));
         }
     }
 }

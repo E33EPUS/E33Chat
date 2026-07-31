@@ -8,7 +8,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -22,7 +21,7 @@ public record HistoryPayload(List<HistoryEntry> entries) implements CustomPacket
         UUID senderUUID,
         String senderName,
         String content,
-        LocalTime time,
+        long time,
         boolean isSystem,
         String replyContent,
         String replySender
@@ -38,7 +37,7 @@ public record HistoryPayload(List<HistoryEntry> entries) implements CustomPacket
                     UUID.fromString(ByteBufCodecs.STRING_UTF8.decode(buf)),
                     ByteBufCodecs.STRING_UTF8.decode(buf),
                     ByteBufCodecs.STRING_UTF8.decode(buf),
-                    LocalTime.parse(ByteBufCodecs.STRING_UTF8.decode(buf)),
+                    buf.readLong(),
                     buf.readBoolean(),
                     blankToNull(ByteBufCodecs.STRING_UTF8.decode(buf)),
                     blankToNull(ByteBufCodecs.STRING_UTF8.decode(buf))
@@ -54,7 +53,7 @@ public record HistoryPayload(List<HistoryEntry> entries) implements CustomPacket
                 ByteBufCodecs.STRING_UTF8.encode(buf, e.senderUUID().toString());
                 ByteBufCodecs.STRING_UTF8.encode(buf, e.senderName());
                 ByteBufCodecs.STRING_UTF8.encode(buf, e.content());
-                ByteBufCodecs.STRING_UTF8.encode(buf, e.time().toString());
+                buf.writeLong(e.time());
                 buf.writeBoolean(e.isSystem());
                 ByteBufCodecs.STRING_UTF8.encode(buf, e.replyContent() != null ? e.replyContent() : "");
                 ByteBufCodecs.STRING_UTF8.encode(buf, e.replySender() != null ? e.replySender() : "");

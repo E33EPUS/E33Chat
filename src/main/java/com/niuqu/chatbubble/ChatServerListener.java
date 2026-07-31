@@ -3,7 +3,6 @@ package com.niuqu.chatbubble;
 import com.niuqu.chatbubble.packets.ChatMetaPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncPayload;
 import com.niuqu.chatbubble.packets.HistoryPayload;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -53,7 +52,7 @@ public class ChatServerListener {
 
         addToHistory(new HistoryPayload.HistoryEntry(
             player.getUUID(), player.getName().getString(), rawText,
-            LocalTime.now(), false,
+            System.currentTimeMillis(), false,
             quote != null ? quote.quotedContent() : null,
             quote != null ? quote.quotedSenderName() : null));
     }
