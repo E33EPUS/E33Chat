@@ -11,11 +11,11 @@
   <img alt="Loader" src="https://img.shields.io/badge/Loader-Forge%20%7C%20NeoForge%20%7C%20Fabric-orange">
   <img alt="Side" src="https://img.shields.io/badge/Side-Client%20required,%20server%20optional-blue">
   <img alt="Java" src="https://img.shields.io/badge/Java-17%2B%20%7C%2021%2B-yellow">
-  <img alt="Version" src="https://img.shields.io/badge/Version-2.2.0-informational">
+  <img alt="Version" src="https://img.shields.io/badge/Version-2.2.3-informational">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-brightgreen">
 </p>
 
-E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-app style: bubbles with heads, @ mentions, a whisper sidebar, search, emoji & quick phrases, quote reply, notification banners, and a fully reworked settings screen.
+E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-app style: bubbles with heads, @ mentions, a whisper sidebar, search, emoji & quick phrases, quote reply, notification banners, local chat history, and a fully reworked settings screen.
 
 ---
 
@@ -25,7 +25,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Features](#features)
-- [Chat bubbles & preview](#chat-bubbles--preview)
+- [Chat bubbles & message display](#chat-bubbles--message-display)
 - [Whisper sidebar](#whisper-sidebar)
 - [Mentions & notifications](#mentions--notifications)
 - [Search, emoji & quick phrases](#search-emoji--quick-phrases)
@@ -78,7 +78,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 
 - 💬 **Chat bubbles** — Messages with player heads and names; custom bubble color, text color and corner radius; dark / light themes; panel background blur with adjustable opacity
 - 🛠️ **Settings screen** — Five UI-element tabs (Chat Screen / HUD / Notifications / Sidebar / Advanced) with a collapsible sub-category tree, inline color palette, a live bubble preview that follows the corner radius, snapshot-based save / exit, and always-on scrollbars with eased smooth scrolling
-- 💾 **Chat history** — Saved per world / server and restored on rejoin; time separators; consecutive duplicate messages merged (anti-spam)
+- 💾 **Chat history** — Saved per world / server and restored on rejoin; plain-text log format (readable in any text editor); WeChat-style time separators with date across days; auto-saved every 30 s, a crash loses at most 30 s; consecutive duplicate messages merged (anti-spam)
 - @ **Mention autocomplete** — Type `@` for a popup player list, or left-click a head to @ them; a sound + banner fires when you are @'d or quoted
 - 👥 **Whisper sidebar** — Online player list, click a name to whisper; bouncing unread dot; separate whisper banner + sound; public / whisper split view
 - 🔍 **Chat search** — Real-time matching of message content and sender name, jump with up / down, Chinese supported
@@ -86,19 +86,20 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - 📌 **Quick phrases** — Save common phrases and fill them with one click
 - 📋 **Copy & quote reply** — Right-click a message to copy or quote-reply
 - 👤 **Head actions** — Right-click a head to whisper / teleport, left-click to @
-- 🔔 **Notification banner** — Slide-in popup at the top covering @ / quote / whisper / system; master volume slider with per-type toggles
-- 👁️ **Message preview** — Bottom-left HUD preview of the latest messages + strong hint
+- 🔔 **Notification banner** — Slide-in popup at the top covering @ / quote / whisper / system, with a jump-to-mention button; master volume slider with per-type toggles
+- 🗨️ **Vanilla chat box** — No custom HUD preview anymore; the vanilla chat renders as usual (shifted up clear of the HUD icon), so ChatHeads / ChatAnimation-style mods work out of the box
 - 🌈 **Colored messages** — Supports `&` color / format codes, rendered locally without changing what is sent
 - 📝 **Input preserved** — Typed text is kept when the chat closes
 
 ---
 
-## Chat bubbles & preview
+## Chat bubbles & message display
 
 - Every message renders as a bubble with a head and player name
 - Your bubbles sit on the right, others on the left, each color configurable
 - Bubble corner radius 0–10 (0 = square)
-- The bottom-left HUD previews recent messages, fading out line by line
+- Whispers show as `<name>[私聊] content` and quote replies as `<name>[引用] content` (yellow tag); names keep server prefix decorations and team colors
+- The vanilla chat box renders on the HUD as usual (shifted up 8 px clear of the E33Chat icon); ChatHeads / ChatAnimation-style mods work automatically
 - A strong hint pops above the hotbar on @ / quote / system messages
 
 ---
@@ -120,7 +121,8 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - On @ or quote: a notification banner (slide-in, rounded, shadowed) + sound
 - Separate banner and sound for whispers
 - Optional "require @ prefix"
-- Advanced: self-@ / self-quote notification toggles (off by default, for testing)
+- Advanced: self-@ / self-quote / self-whisper notification toggles (off by default, for testing)
+- The banner has a "jump to mention" button
 - A master volume slider controls every notification sound
 
 ---
@@ -179,7 +181,7 @@ E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell playe
 | CustomSkinLoader | Shows offline players' heads once installed |
 | ModernUI | Bounds-safe underlines / click regions on clickable text |
 | Quark and similar item sharing | Item icons in system messages render correctly |
-| ChatHeads, ChatAnimation | Work normally when the vanilla chat screen is enabled |
+| ChatHeads, ChatAnimation | Work by default (the vanilla chat box keeps rendering, just shifted up clear of the HUD icon) |
 | Nickname plugins | Partially supported, see [FAQ](#faq) |
 
 ---
@@ -187,15 +189,14 @@ E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell playe
 ## Known limitations
 
 1. Only Forge 1.20.1, NeoForge 1.21.1 and Fabric 1.21.1 are supported
-2. The Fabric build is at 2.1.6; the 2.2.0 settings rebuild / HUD dot / scrollbars are not synced there yet
-3. When a nickname shares nothing with the real name and the plugin attaches neither a "click to whisper" event nor a tab-list rename, the message shows as a grey system line
-4. When the server rewrites player messages into a broadcast format isomorphic to chat (e.g. `系统>>Steve: xxx`), the client cannot reliably detect it
-5. Chat formats with only whitespace (no separator) between name and content cannot be parsed
-6. Same-name players colliding with system prefixes on cracked servers cannot be told apart in the extreme case
-7. NCR-encrypted chat (very niche) is shown as ciphertext
-8. Custom fonts may affect bubble width, wrapping and click regions
-9. The whisper command format is up to the server; `/msg`, `/tell`, `/w` are not all guaranteed
-10. Unicode arrow separators (`→`, `⇒`) are not auto-recognized — loosening this would misclassify comma broadcasts
+2. When a nickname shares nothing with the real name and the plugin attaches neither a "click to whisper" event nor a tab-list rename, the message shows as a grey system line
+3. When the server rewrites player messages into a broadcast format isomorphic to chat (e.g. `系统>>Steve: xxx`), the client cannot reliably detect it
+4. Chat formats with only whitespace (no separator) between name and content cannot be parsed
+5. Same-name players colliding with system prefixes on cracked servers cannot be told apart in the extreme case
+6. NCR-encrypted chat (very niche) is shown as ciphertext
+7. Custom fonts may affect bubble width, wrapping and click regions
+8. The whisper command format is up to the server; `/msg`, `/tell`, `/w` are not all guaranteed
+9. Unicode arrow separators (`→`, `⇒`) are not auto-recognized — loosening this would misclassify comma broadcasts
 
 ---
 
@@ -206,7 +207,7 @@ E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell playe
 
 - Chat history stays on your machine only — it is never uploaded or sent to the author or any third party
 - The server mod only relays messages (@ sync / quote sync / history sync); it collects no client data
-- The mod does not record your command input
+- Sensitive commands carrying credentials (`/login`, `/register`, ...) are skipped and never written to the history file
 - Whether to save history and whether to enable sync can both be turned off in config
 
 ---
@@ -225,7 +226,11 @@ Client config: `config/e33chat-client.toml` ｜ Server config: `saves/<world>/se
 
 ### Where is chat history stored?
 
-`.minecraft/e33chat/history/`, split per world / server.
+`.minecraft/e33chat/history/`, split per world / server. Plain-text format, one line per message (`time\tsender\tcontent`), readable in any text editor; time separators gain a date across days.
+
+### How often is the history saved?
+
+Every 30 seconds, plus on clean exits (world change / leaving the server). A crash or force-close loses at most the last 30 s; legacy JSON files are migrated automatically.
 
 ### How do I disable chat-history sync?
 
