@@ -54,7 +54,7 @@ public final class UiTextureManager {
         }
         int argb = el.themeColor(theme);
         NativeImage img = new NativeImage(1, 1, false);
-        img.setPixelRGBA(0, 0, TextureGenerators.solid(1, 1, argb)[0]);
+        img.setPixelRGBA(0, 0, TextureGenerators.argbToAbgr(argb));
         mc.getTextureManager().register(id, new DynamicTexture(img));
     }
 }
