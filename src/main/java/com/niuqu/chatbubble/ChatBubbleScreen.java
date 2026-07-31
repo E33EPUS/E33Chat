@@ -5,6 +5,9 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.texture.UiElement;
+import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -319,8 +322,8 @@ public class ChatBubbleScreen extends Screen {
     private static final int SIDEBAR_SEARCH_H = 14;
 
     private void renderSidebar(DrawContext g, int mouseX, int mouseY) {
-        g.fill(0, 0, SIDEBAR_W, height, c().sidebarBg());
-        g.fill(SIDEBAR_W - 1, 0, SIDEBAR_W, height, c().sidebarDivider());
+        g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, 0f, 0f, SIDEBAR_W, height, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), SIDEBAR_W - 1, 0, 0f, 0f, 1, height, 1, 1);
 
         int y = 2;
         int itemH = SIDEBAR_ITEM_H;
@@ -329,7 +332,7 @@ public class ChatBubbleScreen extends Screen {
         int sby = 2;
         int sbw = SIDEBAR_W - 5;
         int sbh = SIDEBAR_SEARCH_H;
-        g.fill(sbx - 1, sby, sbx + sbw, sby + sbh, c().inputBg());
+        g.drawTexture(UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, 0f, 0f, sbw + 1, sbh, 1, 1);
         boolean hoverSearch = mouseX >= sbx - 1 && mouseX <= sbx + sbw && mouseY >= sby && mouseY <= sby + sbh;
         if (hoverSearch || sidebarSearchBox.isFocused())
             g.drawBorder(sbx - 1, sby, sbw + 1, sbh, c().textMuted());
@@ -909,9 +912,7 @@ public class ChatBubbleScreen extends Screen {
         g.getMatrices().push();
         g.getMatrices().translate(panelOffset, 0, 0);
 
-        int panelBg = c().panelBg();
-        int opacity = (int) (ChatBubbleClientSetup.config().panelOpacity() / 100f * 255 * anim) & 0xFF;
-        int fadedBg = (opacity << 24) | (panelBg & 0x00FFFFFF);
+        float panelOpacity = ChatBubbleClientSetup.config().panelOpacity() / 100f * anim;
         // When sidebar is synced to main animation, extend panel bg to
         // sidebar's right edge so there's no gap between them.
         int fillLeft = (!sidebarAnimating && sidebarOpen)
@@ -920,7 +921,8 @@ public class ChatBubbleScreen extends Screen {
             g.draw();
             BlurRenderer.blurPanel(fillLeft, 0, panelX + panelW - fillLeft, height);
         }
-        g.fill(fillLeft, 0, panelX + panelW, height, fadedBg);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
+            fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
 
         renderTitleBar(g, mouseX, mouseY);
         renderMessages(g, mouseX, mouseY);
@@ -970,8 +972,8 @@ public class ChatBubbleScreen extends Screen {
 
     private void renderTitleBar(DrawContext g, int mouseX, int mouseY) {
         int ty = titleY;
-        g.fill(panelX, ty, panelX + panelW, ty + TITLE_H, c().titleBg());
-        g.fill(panelX, ty + TITLE_H, panelX + panelW, ty + TITLE_H + 1, c().divider());
+        g.drawTexture(UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, 0f, 0f, panelW, TITLE_H, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + TITLE_H, 0f, 0f, panelW, 1, 1, 1);
 
         int menuX = panelX + 3;
         int menuY = ty + (TITLE_H - ICON_S) / 2;
@@ -1134,9 +1136,8 @@ public class ChatBubbleScreen extends Screen {
         int trackBottom = effectiveMsgBottom;
         int trackH = trackBottom - trackTop;
 
-        int scrollRgb = c().scrollbar() & 0x00FFFFFF;
-        int trackColor = ((int) (0x1A * scrollbarAlpha) << 24) | scrollRgb;
-        g.fill(trackX, trackTop, trackX + SCROLLBAR_WIDTH, trackBottom, trackColor);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_TRACK),
+            trackX, trackTop, SCROLLBAR_WIDTH, trackBottom - trackTop, 0x1A / 255f * scrollbarAlpha);
 
         int thumbH = Math.max(MIN_THUMB_H, (int) ((long) trackH * trackH / messageTotalH));
         thumbH = Math.min(thumbH, trackH);
@@ -1148,9 +1149,9 @@ public class ChatBubbleScreen extends Screen {
             && mouseY >= thumbY && mouseY < thumbY + thumbH;
         scrollbarHovered = hovering || scrollbarDragging;
 
-        int thumbBase = scrollbarDragging ? 0xAA : scrollbarHovered ? 0x88 : 0x66;
-        int thumbColor = ((int) (thumbBase * scrollbarAlpha) << 24) | scrollRgb;
-        g.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, thumbColor);
+        float thumbBase = scrollbarDragging ? 0xAA : scrollbarHovered ? 0x88 : 0x66;
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_THUMB),
+            trackX, thumbY, SCROLLBAR_WIDTH, thumbH, thumbBase / 255f * scrollbarAlpha);
     }
 
     private void renderTimeSeparator(DrawContext g, long timeMillis, int y) {
@@ -1392,7 +1393,7 @@ public class ChatBubbleScreen extends Screen {
     private void renderNotificationBar(DrawContext g, int mouseX, int mouseY) {
         if (newMessageCount <= 0) return;
         int notifY = barTop - NOTIF_H;
-        g.fill(panelX, notifY - 1, panelX + panelW, notifY, c().divider());
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, notifY - 1, 0f, 0f, panelW, 1, 1, 1);
         int yellow = c().notificationText();
         int textY = notifY + (NOTIF_H - textRenderer.fontHeight) / 2;
         String ct = Text.translatable("e33chat.notif.new_messages", newMessageCount).getString() + " ▽";
@@ -1488,8 +1489,10 @@ public class ChatBubbleScreen extends Screen {
         int barW = sendX - 6 - barX;
         int barY = barTop - REPLY_BAR_H - notifOffset;
 
-        g.fill(barX, barY, barX + barW, barTop - notifOffset, c().panelBg());
-        g.fill(barX, barTop - notifOffset - 1, barX + barW, barTop - notifOffset, c().divider());
+        float panelBgAlpha = (c().panelBg() >>> 24) / 255f;
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
+            barX, barY, barW, barTop - notifOffset - barY, panelBgAlpha);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), barX, barTop - notifOffset - 1, 0f, 0f, barW, 1, 1, 1);
 
         String sender = target.senderName().getString();
         if (sender.isEmpty()) sender = Text.translatable("e33chat.sender.system").getString();
@@ -1608,8 +1611,8 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void renderBottomBar(DrawContext g, int mouseX, int mouseY) {
-        g.fill(panelX, barTop, panelX + panelW, height, c().barBg());
-        g.fill(panelX, barTop, panelX + panelW, barTop + 1, c().divider());
+        g.drawTexture(UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, 0f, 0f, panelW, height - barTop, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, 0f, 0f, panelW, 1, 1, 1);
 
         int iconY = barTop + (BAR_H - ICON_S) / 2;
 
@@ -1617,7 +1620,7 @@ public class ChatBubbleScreen extends Screen {
         int ibY = inputY;
         int ibW = input.getWidth();
         int ibH = INPUT_H;
-        g.fill(ibX - 1, ibY - 1, ibX + ibW, ibY, c().divider());
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, 0f, 0f, ibW + 1, 1, 1, 1);
         g.fill(ibX - 1, ibY, ibX + ibW, ibY + ibH, c().inputBg());
 
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + ibW && mouseY >= ibY && mouseY <= ibY + ibH;

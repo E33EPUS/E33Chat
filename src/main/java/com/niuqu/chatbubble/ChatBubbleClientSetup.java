@@ -23,6 +23,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
     private static ChatBubbleConfig config = ChatBubbleConfig.defaults();
     private static Path configPath;
     private static boolean leftWasDown;
+    private static boolean texturesLoaded;
 
     public static ChatBubbleConfig config() { return config; }
 
@@ -55,6 +56,10 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (!texturesLoaded) {
+                texturesLoaded = true;
+                com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
+            }
             if (!config.enabled()) return;
 
             String key;
