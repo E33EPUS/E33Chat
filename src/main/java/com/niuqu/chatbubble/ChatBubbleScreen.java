@@ -20,6 +20,7 @@ import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
+import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
 import com.niuqu.chatbubble.packets.QuoteSyncPayload;
 import com.niuqu.chatbubble.render.ChatBars;
 import com.niuqu.chatbubble.render.ChatContextMenus;
@@ -992,6 +993,13 @@ public class ChatBubbleScreen extends Screen {
         // follow the panel's pose translate, so slide it with the open/close animation
         input.setX(inputX + panelOffset);
         super.render(g, mouseX, mouseY, partialTick);
+
+        // Banner rendered here after super.render() so it's always on top of the panel
+        // (the HUD-layer render draws behind the screen batch on Forge/NeoForge).
+        MentionNotificationBanner.INSTANCE.render(g,
+            Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+            Minecraft.getInstance().getWindow().getGuiScaledHeight());
+
         g.pose().popPose();
 
     }
