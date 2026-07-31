@@ -1,5 +1,43 @@
 # Changelog
 
+## v2.2.3
+
+**聊天记录改造（从 Forge 同步）**
+- 时间戳从"时分秒"升级为完整时间（epoch millis，含日期）：聊天面板时间分隔线当天显示 `15:30`，隔天显示 `07-31 15:30`，跨年显示 `2025-12-31 15:30`（微信同款）
+- 记录文件改为**纯文本日志格式**（每行 `时间	发送者	内容	标记`，记事本直接可读；标记 M=自己 S=系统 W=私聊，可选尾列含私聊对象/引用回复），原子写入（先写临时文件再替换，写到一半崩溃不会损坏文件）
+- **崩溃保护**：每 30 秒自动保存一次，游戏崩溃/闪退最多丢 30 秒的聊天记录（此前只在换世界/退服时保存，崩溃全丢）
+- 旧格式记录自动迁移：旧 JSON 文件加载时按保存日期补齐缺失的日期（跨午夜自动回推一天），下次保存自动转为新格式；历史记录文件名保留中文世界名（旧文件仍兼容读取）
+- 服务器分发（新玩家登录补发最近聊天）时间戳同步升级为完整时间——**客户端与服务器需同时升级**（网络协议变更）
+- mod 描述修复乱码（Mod 列表统一显示英文）
+- 敏感命令不进历史记录（`/login` `/register` 等含凭据命令写入时跳过）
+- 历史记录保留天数（`history_retention_days`，0 = 永久保留）：进入世界时自动删除超过保留期的历史文件
+
+**消息格式（从 Forge v2.2.2 同步）**
+- 删除自定义 HUD 消息预览，原版聊天框恢复渲染并上移 8px；ChatHeads/ChatAnimation 等 mod 自动生效
+- 私聊消息（进/出/自己）显示为 `<发送者>[私聊] 内容`，引用回复显示为 `<发送者>[引用] 内容`（黄色标签），发送者名字保留服务器前缀装饰与团队颜色
+- 服务器双回显自动去重；高级页新增"自我私聊通知"（`own_whisper_notify`，默认关）
+- 测试 92 → 151
+
+***
+
+**Chat history rework (synced from Forge)**
+- Timestamps upgraded from time-of-day to full epoch millis (with date): the chat separator shows `15:30` same-day, `07-31 15:30` next-day, `2025-12-31 15:30` across years (WeChat-style)
+- History files switched to a **plain-text log format** (one line per message: `time\tsender\tcontent\tflags`, readable in any text editor; flags M=own S=system W=whisper, optional trailing columns for whisper partner / quote reply), written atomically (tmp file + replace, a crash mid-write never corrupts the file)
+- **Crash protection**: auto-save every 30 seconds — a crash now loses at most 30s of chat
+- Legacy files migrate automatically (dates back-filled from the file's save date); history filenames keep Chinese world names (old filenames still load)
+- Server distribution timestamp upgraded to full epoch millis — **client and server must upgrade together** (network protocol change)
+- Mod description mojibake fixed (English in the Mod List)
+- Sensitive commands never land in the history file (`/login` `/register` and similar credential-carrying commands are skipped)
+- History retention days (`history_retention_days`, 0 = keep forever): old history files are deleted on world join
+
+**Message format (synced from Forge v2.2.2)**
+- Custom HUD message preview removed; the vanilla chat renders again, shifted 8px up; ChatHeads/ChatAnimation-style mods work automatically
+- Whispers (in/out/self) show as `<sender>[私聊] content`, quote replies as `<sender>[引用] content` (yellow tag); sender names keep server prefix decorations and team colors
+- Server double-echo deduplicated; Advanced tab gains "Self-Whisper Notification" (`own_whisper_notify`, default off)
+- Tests 92 → 151
+
+***
+
 ## v2.1.2
 
 **架构回退（同步 NeoForge 2.0.0→2.1.2）**

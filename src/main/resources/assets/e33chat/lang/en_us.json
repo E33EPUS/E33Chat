@@ -63,12 +63,6 @@
   "e33chat.config.color_codes.desc": "Color your own bubbles using & codes (safe, never kicks you)",
   "e33chat.config.preview.sample_other": "Steve: hi",
   "e33chat.config.preview.sample_own": "hey there",
-  "e33chat.config.preview_enabled": "Message Preview",
-  "e33chat.config.preview_enabled.desc": "Preview the last few messages above the chat icon",
-  "e33chat.config.preview_lines": "Preview Lines",
-  "e33chat.config.preview_lines.desc": "Set the number of preview lines (3–10)",
-  "e33chat.config.preview_width": "Preview Width",
-  "e33chat.config.preview_width.desc": "Set the preview area width (50–400)",
   "e33chat.config.time_separator": "Time Separator",
   "e33chat.config.time_separator.desc": "Insert a time label between messages after a gap (0 = off)",
   "e33chat.config.time_separator.minute": " min",
@@ -139,5 +133,9 @@
   "e33chat.config.section.hud": "HUD Elements",
   "e33chat.config.section.sounds": "Sounds",
   "e33chat.config.section.general": "General",
-  "e33chat.config.section.messages": "Messages"
+  "e33chat.config.section.messages": "Messages",
+  "e33chat.config.history_retention": "History retention (days)",
+  "e33chat.config.history_retention.desc": "Delete history files older than this many days when joining a world (0 = keep forever)",
+  "e33chat.config.own_whisper_notify": "Self-Whisper Notification",
+  "e33chat.config.own_whisper_notify.desc": "Show banner + sound when you whisper yourself (testing aid)"
 }

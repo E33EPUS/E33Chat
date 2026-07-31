@@ -80,13 +80,14 @@ public class MentionNotificationController {
             + " | soundWhisper=" + ChatBubbleClientSetup.config().soundWhisper()
             + " | banner=" + ChatBubbleClientSetup.config().mentionWhisperBanner());
 
-        if (!isOwn && ChatBubbleClientSetup.config().soundWhisper()) {
+        boolean selfNotify = isOwn && ChatBubbleClientSetup.config().ownWhisperNotify();
+        if ((!isOwn || selfNotify) && ChatBubbleClientSetup.config().soundWhisper()) {
             mc.getSoundManager().play(PositionedSoundInstance.master(
                 SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 0.25f,
                 0.8f * ChatBubbleClientSetup.config().soundVolume() / 100f));
         }
 
-        if (!isOwn && ChatBubbleClientSetup.config().mentionWhisperBanner()) {
+        if ((!isOwn || selfNotify) && ChatBubbleClientSetup.config().mentionWhisperBanner()) {
             enqueueDeduped(senderUUID, senderName, content, messageIndex, NotificationType.WHISPER);
         }
     }

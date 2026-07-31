@@ -39,7 +39,7 @@ public final class ConfigManager {
             c.redDotEnabled(), c.hideChatIcon(), c.animationEnabled(),
             c.strongHintEnabled(), c.systemChatAsBubble(),
             c.antiSpam(), c.chatHistoryEnabled(),
-            c.previewEnabled(), c.previewLines(), c.previewWidth(), c.timeSeparatorMinutes(),
+            c.historyRetentionDays(), c.timeSeparatorMinutes(),
             c.panelWidth(), c.bubbleCornerRadius(),
             c.ownBubbleColor() != null ? c.ownBubbleColor() : d.ownBubbleColor(),
             c.otherBubbleColor() != null ? c.otherBubbleColor() : d.otherBubbleColor(),
@@ -57,7 +57,7 @@ public final class ConfigManager {
             c.blurEnabled(),
             c.panelOpacity() > 0 ? c.panelOpacity() : d.panelOpacity(),
             c.soundVolume() > 0 ? c.soundVolume() : d.soundVolume(),
-            c.ownMentionNotify(), c.ownQuoteNotify(),
+            c.ownMentionNotify(), c.ownQuoteNotify(), c.ownWhisperNotify(),
             c.bannerCornerRadius() > 0 ? c.bannerCornerRadius() : d.bannerCornerRadius());
     }
 

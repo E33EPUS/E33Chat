@@ -12,9 +12,7 @@ public record ChatBubbleConfig(
     boolean systemChatAsBubble,
     boolean antiSpam,
     boolean chatHistoryEnabled,
-    boolean previewEnabled,
-    int previewLines,
-    int previewWidth,
+    int historyRetentionDays,
     int timeSeparatorMinutes,
     int panelWidth,
     int bubbleCornerRadius,
@@ -40,18 +38,19 @@ public record ChatBubbleConfig(
     int soundVolume,
     boolean ownMentionNotify,
     boolean ownQuoteNotify,
+    boolean ownWhisperNotify,
     int bannerCornerRadius
 ) {
     public static ChatBubbleConfig defaults() {
         return new ChatBubbleConfig(
             true, "dark", true, false, true,
             true, false, false,
-            false, true, 3, 200, 5, 1000, 4,
+            false, 0, 5, 1000, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
             false, false, true, true, true, false,
             List.of(), List.of(),
             true, 4, true, true, true,
-            true, 80, 80, false, false, 4
+            true, 80, 80, false, false, false, 4
         );
     }
 
@@ -69,31 +68,31 @@ public record ChatBubbleConfig(
     public ChatBubbleConfig withTheme(String theme) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
             strongHintEnabled, systemChatAsBubble, antiSpam,
-            chatHistoryEnabled, previewEnabled, previewLines, previewWidth, timeSeparatorMinutes,
+            chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, quickChatPhrases,
             mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
-            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, bannerCornerRadius);
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
     }
 
     public ChatBubbleConfig withQuickChatPhrases(List<String> phrases) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
             strongHintEnabled, systemChatAsBubble, antiSpam,
-            chatHistoryEnabled, previewEnabled, previewLines, previewWidth, timeSeparatorMinutes,
+            chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, phrases,
             mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
-            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, bannerCornerRadius);
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
     }
 
     public ChatBubbleConfig withSidebarHidePatterns(List<String> patterns) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
             strongHintEnabled, systemChatAsBubble, antiSpam,
-            chatHistoryEnabled, previewEnabled, previewLines, previewWidth, timeSeparatorMinutes,
+            chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, patterns, quickChatPhrases,
             mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
-            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, bannerCornerRadius);
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
     }
 
     public boolean isSidebarHidden(String playerName) {

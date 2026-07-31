@@ -68,7 +68,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                 key = "world";
             }
             ChatMessageStore.setCurrentWorld(key);
-            ChatMessageStore.tickPreview();
+            ChatMessageStore.maybeAutoSave();
             ChatMessageStore.tickStrongHint();
 
             if (client.currentScreen == null) {

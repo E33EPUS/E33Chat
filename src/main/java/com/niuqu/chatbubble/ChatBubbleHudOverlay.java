@@ -3,7 +3,6 @@ package com.niuqu.chatbubble;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
-import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -11,9 +10,7 @@ import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.text.Text;
-import net.minecraft.text.StringVisitable;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.Language;
 
 public class ChatBubbleHudOverlay {
 
@@ -54,7 +51,7 @@ public class ChatBubbleHudOverlay {
         g.getMatrices().translate(0, 0, 300);
 
         MentionNotificationBanner.INSTANCE.tick();
-        if (mc.currentScreen == null || mc.currentScreen instanceof ChatBubbleScreen) {
+        if (mc.currentScreen == null) {
             MentionNotificationBanner.INSTANCE.render(g,
                 mc.getWindow().getScaledWidth(),
                 mc.getWindow().getScaledHeight());
@@ -69,49 +66,6 @@ public class ChatBubbleHudOverlay {
         int x = 3;
         int iconY = screenH - ICON_S - 20;
         int textY = iconY + ICON_S + 1;
-
-        if (cfg().previewEnabled()) {
-            List<ChatMessageStore.PreviewEntry> previews = ChatMessageStore.getPreviews();
-            if (previews != null && !previews.isEmpty()) {
-                int maxW = cfg().previewWidth();
-                int lineH = mc.textRenderer.fontHeight;
-                int gap = 2;
-
-                List<StringVisitable> displays = new ArrayList<>();
-                int maxTextW = 0;
-                int maxAlpha = 0;
-                for (var e : previews) {
-                    StringVisitable trimmed;
-                    if (mc.textRenderer.getWidth(e.text) > maxW - 4) {
-                        var cut = mc.textRenderer.trimToWidth(e.text, maxW - 4 - mc.textRenderer.getWidth("..."));
-                        trimmed = StringVisitable.concat(cut, StringVisitable.plain("..."));
-                    } else {
-                        trimmed = e.text;
-                    }
-                    displays.add(trimmed);
-                    maxTextW = Math.max(maxTextW, mc.textRenderer.getWidth(trimmed));
-                    int a = Animation.fadeIn(e.ticks, 10);
-                    if (a > maxAlpha) maxAlpha = a;
-                }
-
-                int px = x + ICON_S / 2 - maxTextW / 2;
-                if (px < 2) px = 2;
-                int bgX1 = px - 3;
-                if (bgX1 < 0) bgX1 = 0;
-
-                int bottomLineY = iconY - 5 - lineH;
-                int topLineY = bottomLineY - (displays.size() - 1) * (lineH + gap);
-                int bgAlpha = maxAlpha * 0xDD / 0xFF / 2;
-                int bgColor = (bgAlpha << 24) | 0x000000;
-                g.fill(bgX1, topLineY - 2, px + maxTextW + 3, bottomLineY + lineH + 2, bgColor);
-                var lang = Language.getInstance();
-                for (int i = displays.size() - 1; i >= 0; i--) {
-                    int lineY = bottomLineY - (displays.size() - 1 - i) * (lineH + gap);
-                    int lineAlpha = Animation.fadeIn(previews.get(i).ticks, 10);
-                    g.drawText(mc.textRenderer, lang.reorder(displays.get(i)), px, lineY, (lineAlpha << 24) | 0xFFFFFF, false);
-                }
-            }
-        }
 
         if (!cfg().hideChatIcon()) {
             ensureIconLoaded();

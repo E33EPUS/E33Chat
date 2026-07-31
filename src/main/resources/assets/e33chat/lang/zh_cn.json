@@ -63,12 +63,6 @@
   "e33chat.config.color_codes.desc": "让自己气泡识别 & 颜色码上色（安全，不会被踢）",
   "e33chat.config.preview.sample_other": "Steve: 你好",
   "e33chat.config.preview.sample_own": "你好呀",
-  "e33chat.config.preview_enabled": "启用消息预览",
-  "e33chat.config.preview_enabled.desc": "在聊天图标上方预览最近几条消息",
-  "e33chat.config.preview_lines": "预览行数",
-  "e33chat.config.preview_lines.desc": "设置预览区显示的行数（3–10）",
-  "e33chat.config.preview_width": "预览宽度",
-  "e33chat.config.preview_width.desc": "设置预览区的宽度（50–400）",
   "e33chat.config.time_separator": "时间分隔符",
   "e33chat.config.time_separator.desc": "每隔一段时间在消息间插入时间标签（0 为关闭）",
   "e33chat.config.time_separator.minute": "分钟",
@@ -139,5 +133,9 @@
   "e33chat.config.section.hud": "HUD 元素",
   "e33chat.config.section.sounds": "声音",
   "e33chat.config.section.general": "通用",
-  "e33chat.config.section.messages": "消息处理"
+  "e33chat.config.section.messages": "消息处理",
+  "e33chat.config.history_retention": "历史记录保留天数",
+  "e33chat.config.history_retention.desc": "进入世界时删除超过该天数的历史记录文件（0 = 永久保留）",
+  "e33chat.config.own_whisper_notify": "自我私聊通知",
+  "e33chat.config.own_whisper_notify.desc": "给自己发私聊时是否弹横幅与音效（测试用）"
 }

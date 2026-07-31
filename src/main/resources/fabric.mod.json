@@ -3,18 +3,29 @@
   "id": "e33chat",
   "version": "${version}",
   "name": "E33Chat",
-  "description": "Rebuilds the vanilla chat HUD in chat-app style | 以聊天APP风格重铸原版聊天框",
-  "authors": ["E33EPUS"],
+  "description": "Rebuilds the vanilla chat HUD in a chat-app style",
+  "authors": [
+    "E33EPUS"
+  ],
   "license": "MIT",
   "icon": "logo.png",
   "environment": "*",
   "entrypoints": {
-    "main": ["com.niuqu.chatbubble.ChatBubbleMod"],
-    "client": ["com.niuqu.chatbubble.ChatBubbleClientSetup"],
-    "modmenu": ["com.niuqu.chatbubble.integration.ModMenuIntegration"]
+    "main": [
+      "com.niuqu.chatbubble.ChatBubbleMod"
+    ],
+    "client": [
+      "com.niuqu.chatbubble.ChatBubbleClientSetup"
+    ],
+    "modmenu": [
+      "com.niuqu.chatbubble.integration.ModMenuIntegration"
+    ]
   },
   "mixins": [
-    {"config": "e33chat.mixins.json", "environment": "client"}
+    {
+      "config": "e33chat.mixins.json",
+      "environment": "client"
+    }
   ],
   "depends": {
     "fabricloader": ">=0.16.0",

@@ -77,12 +77,8 @@ public class ChatBubbleScreen extends Screen {
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
-    private static String timeKey(LocalTime t) {
-        int interval = ChatBubbleClientSetup.config().timeSeparatorMinutes();
-        if (interval <= 0) return "";
-        if (interval == 1) return t.format(TIME_FMT);
-        int m = (t.getMinute() / interval) * interval;
-        return String.format("%02d:%02d", t.getHour(), m);
+    private static String timeKey(long t) {
+        return ChatMessageStore.timeKey(t, ChatBubbleClientSetup.config().timeSeparatorMinutes());
     }
 
     private TextFieldWidget input;
@@ -1157,8 +1153,8 @@ public class ChatBubbleScreen extends Screen {
         g.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, thumbColor);
     }
 
-    private void renderTimeSeparator(DrawContext g, LocalTime time, int y) {
-        String text = time.format(TIME_FMT);
+    private void renderTimeSeparator(DrawContext g, long timeMillis, int y) {
+        String text = ChatMessageStore.formatTime(timeMillis);
         int tw = textRenderer.getWidth(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         g.fill(tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2, ChatBubbleTheme.alphaBlend(c().toastBg(), 0x44));

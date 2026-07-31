@@ -377,8 +377,15 @@ public class ChatListenerMixin {
         // Fallback: use full line
         Text playerContent = raw;
         Text senderName = Text.literal(name);
-        Text fullLine = params.applyChatDecoration(raw);
-        senderName = extractDecoratedName(fullLine, rawStr, name, senderName);
+        if (isWhisper) {
+            playerContent = Text.literal(MessagePresentation.extractWhisperContent(rawStr, name));
+            // The whisper line carries the server-decorated name ("你悄悄地对[称号]X说：")
+            // — reuse it so reposts show prefix/team-color like plain chat does
+            senderName = ChatMessageStore.extractWhisperDisplayName(params.applyChatDecoration(raw), senderName);
+        } else {
+            Text fullLine = params.applyChatDecoration(raw);
+            senderName = extractDecoratedName(fullLine, rawStr, name, senderName);
+        }
         ChatMessageStore.debugLog("[e33chat] PlayerChat | raw='" + rawStr + "' | sender='" + senderName.getString() + "' | content='" + playerContent.getString() + "'");
         ChatMessageStore.setPendingMeta(new SenderMeta(
             senderId != null ? senderId : new UUID(0, 0),
@@ -412,6 +419,7 @@ public class ChatListenerMixin {
             Text disSender = params.name();
             if (isWhisper) {
                 disContent = Text.literal(extractWhisperContent(msgStr, params.name().getString()));
+                disSender = ChatMessageStore.extractWhisperDisplayName(content, disSender);
             } else {
                 Text fullLine = params.applyChatDecoration(content);
                 disSender = extractDecoratedName(fullLine, msgStr, params.name().getString(), disSender);

@@ -5,7 +5,6 @@ import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -20,7 +19,7 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
         UUID senderUUID,
         String senderName,
         String content,
-        LocalTime time,
+        long time,
         boolean isSystem,
         String replyContent,
         String replySender
@@ -31,7 +30,7 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
             b.writeString(e.senderUUID().toString());
             b.writeString(e.senderName());
             b.writeString(e.content());
-            b.writeString(e.time().toString());
+            b.writeLong(e.time());
             b.writeBoolean(e.isSystem());
             b.writeString(e.replyContent() != null ? e.replyContent() : "");
             b.writeString(e.replySender() != null ? e.replySender() : "");
@@ -40,7 +39,7 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
             UUID.fromString(b.readString()),
             b.readString(),
             b.readString(),
-            LocalTime.parse(b.readString()),
+            b.readLong(),
             b.readBoolean(),
             nullOrEmpty(b.readString()),
             nullOrEmpty(b.readString())

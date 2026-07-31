@@ -13,7 +13,6 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 
-import java.time.LocalTime;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -71,7 +70,7 @@ public class ChatBubbleMod implements ModInitializer {
 
             addToHistory(new HistoryPayload.HistoryEntry(
                 sender.getUuid(), sender.getName().getString(), rawText,
-                LocalTime.now(), false,
+                System.currentTimeMillis(), false,
                 quote != null ? quote.quotedContent() : null,
                 quote != null ? quote.quotedSenderName() : null));
         });

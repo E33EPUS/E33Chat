@@ -65,12 +65,13 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean enabled, redDotEnabled, hideChatIcon, animationEnabled;
     private boolean strongHintEnabled, systemChatAsBubble;
     private boolean antiSpam, chatHistoryEnabled;
-    private boolean previewEnabled, soundPublic, soundSystem, soundWhisper;
+    private boolean soundPublic, soundSystem, soundWhisper;
     private boolean debugLog, preserveInput, colorCodes;
     private boolean mentionBannerEnabled, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner;
-    private boolean blurEnabled, ownMentionNotify, ownQuoteNotify;
-    private int mentionBannerDuration, previewLines, previewWidth, timeSeparatorMinutes;
+    private boolean blurEnabled, ownMentionNotify, ownQuoteNotify, ownWhisperNotify;
+    private int mentionBannerDuration, timeSeparatorMinutes;
     private int panelWidth, bubbleCornerRadius, panelOpacity, soundVolume, bannerCornerRadius;
+    private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
     private List<String> sidebarHidePatterns;
 
@@ -137,9 +138,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> systemChatAsBubble, v -> systemChatAsBubble = v));
         tracked.add(track(() -> antiSpam, v -> antiSpam = v));
         tracked.add(track(() -> chatHistoryEnabled, v -> chatHistoryEnabled = v));
-        tracked.add(track(() -> previewEnabled, v -> previewEnabled = v));
-        tracked.add(track(() -> previewLines, v -> previewLines = v));
-        tracked.add(track(() -> previewWidth, v -> previewWidth = v));
+        tracked.add(track(() -> historyRetentionDays, v -> historyRetentionDays = v));
         tracked.add(track(() -> timeSeparatorMinutes, v -> timeSeparatorMinutes = v));
         tracked.add(track(() -> preserveInput, v -> preserveInput = v));
         tracked.add(track(() -> colorCodes, v -> colorCodes = v));
@@ -164,6 +163,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> mentionWhisperBanner, v -> mentionWhisperBanner = v));
         tracked.add(track(() -> ownMentionNotify, v -> ownMentionNotify = v));
         tracked.add(track(() -> ownQuoteNotify, v -> ownQuoteNotify = v));
+        tracked.add(track(() -> ownWhisperNotify, v -> ownWhisperNotify = v));
         tracked.add(track(() -> bannerCornerRadius, v -> bannerCornerRadius = v));
     }
 
@@ -181,13 +181,13 @@ public class ChatBubbleConfigScreen extends Screen {
         ChatBubbleClientSetup.saveConfig(new ChatBubbleConfig(
             enabled, theme.name().toLowerCase(), redDotEnabled, hideChatIcon, animationEnabled,
             strongHintEnabled, systemChatAsBubble, antiSpam,
-            chatHistoryEnabled, previewEnabled, previewLines, previewWidth, timeSeparatorMinutes,
+            chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes,
             sidebarHidePatterns,
             ChatBubbleClientSetup.config().quickChatPhrases(),
             mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
-            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, bannerCornerRadius));
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius));
     }
 
     private void loadFromConfig() {
@@ -198,7 +198,7 @@ public class ChatBubbleConfigScreen extends Screen {
         strongHintEnabled = cfg.strongHintEnabled();
         systemChatAsBubble = cfg.systemChatAsBubble(); antiSpam = cfg.antiSpam();
         chatHistoryEnabled = cfg.chatHistoryEnabled();
-        previewEnabled = cfg.previewEnabled(); soundPublic = cfg.soundPublic();
+        soundPublic = cfg.soundPublic();
         soundSystem = cfg.soundSystem();
         soundWhisper = cfg.soundWhisper(); debugLog = cfg.debugLog();
         preserveInput = cfg.preserveInput(); colorCodes = cfg.colorCodes();
@@ -210,8 +210,9 @@ public class ChatBubbleConfigScreen extends Screen {
         blurEnabled = cfg.blurEnabled(); panelOpacity = cfg.panelOpacity();
         soundVolume = cfg.soundVolume();
         ownMentionNotify = cfg.ownMentionNotify(); ownQuoteNotify = cfg.ownQuoteNotify();
+        ownWhisperNotify = cfg.ownWhisperNotify();
         bannerCornerRadius = cfg.bannerCornerRadius();
-        previewLines = cfg.previewLines(); previewWidth = cfg.previewWidth();
+        historyRetentionDays = cfg.historyRetentionDays();
         timeSeparatorMinutes = cfg.timeSeparatorMinutes(); panelWidth = cfg.panelWidth();
         bubbleCornerRadius = cfg.bubbleCornerRadius();
         ownBubbleColor = cfg.ownBubbleColor(); otherBubbleColor = cfg.otherBubbleColor();
@@ -362,12 +363,6 @@ public class ChatBubbleConfigScreen extends Screen {
         hud.add(Opt.header("e33chat.config.section.icon"));
         hud.add(new Opt("e33chat.config.red_dot", y -> mkBoolButton(y, () -> redDotEnabled, v -> redDotEnabled = v), null));
         hud.add(new Opt("e33chat.config.hide_chat_icon", y -> mkBoolButton(y, () -> hideChatIcon, v -> hideChatIcon = v), null));
-        hud.add(Opt.header("e33chat.config.section.preview"));
-        hud.add(new Opt("e33chat.config.preview_enabled", y -> mkBoolButton(y, () -> previewEnabled, v -> previewEnabled = v), null));
-        hud.add(new Opt("e33chat.config.preview_lines",
-            y -> mkIntBox(y, String.valueOf(previewLines), 3, 10, 2, v -> previewLines = v), null));
-        hud.add(new Opt("e33chat.config.preview_width",
-            y -> mkIntBox(y, String.valueOf(previewWidth), 50, 400, 3, v -> previewWidth = v), null));
         hud.add(Opt.header("e33chat.config.section.stronghint"));
         hud.add(new Opt("e33chat.config.strong_hint", y -> mkBoolButton(y, () -> strongHintEnabled, v -> strongHintEnabled = v), null));
         cats.add(new Cat("e33chat.config.cat.hud", hud));
@@ -400,11 +395,13 @@ public class ChatBubbleConfigScreen extends Screen {
         List<Opt> advanced = new ArrayList<>();
         advanced.add(Opt.header("e33chat.config.section.history"));
         advanced.add(new Opt("e33chat.config.chat_history", y -> mkBoolButton(y, () -> chatHistoryEnabled, v -> chatHistoryEnabled = v), null));
+        advanced.add(new Opt("e33chat.config.history_retention", y -> mkIntBox(y, String.valueOf(historyRetentionDays), 0, 365, 3, v -> historyRetentionDays = v), null));
         advanced.add(new Opt("e33chat.config.preserve_input", y -> mkBoolButton(y, () -> preserveInput, v -> preserveInput = v), null));
         advanced.add(Opt.header("e33chat.config.section.debug"));
         advanced.add(new Opt("e33chat.config.debug_log", y -> mkBoolButton(y, () -> debugLog, v -> debugLog = v), null));
         advanced.add(new Opt("e33chat.config.own_mention_notify", y -> mkBoolButton(y, () -> ownMentionNotify, v -> ownMentionNotify = v), null));
         advanced.add(new Opt("e33chat.config.own_quote_notify", y -> mkBoolButton(y, () -> ownQuoteNotify, v -> ownQuoteNotify = v), null));
+        advanced.add(new Opt("e33chat.config.own_whisper_notify", y -> mkBoolButton(y, () -> ownWhisperNotify, v -> ownWhisperNotify = v), null));
         cats.add(new Cat("e33chat.config.cat.advanced", advanced));
     }
 
