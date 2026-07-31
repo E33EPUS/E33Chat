@@ -1,5 +1,57 @@
 # Changelog
 
+## v2.2.2
+
+**消息预览改为原版聊天框**
+- 删除自定义 HUD 消息预览（约 140 行，含 PreviewEntry/tickPreview/buildPreviewText），原版 `ChatComponent` 恢复渲染并上移 8px 避开 HUD 聊天图标
+- 兼容性红利：ChatHeads、ChatAnimation 等改造原版聊天框的 mod 自动生效（此前被 E33Chat 取消渲染）
+- 删除配置项：`preview_enabled` / `preview_lines` / `preview_width`（旧配置自动忽略）
+
+**原版聊天框统一消息格式**
+- 私聊消息（进/出/自己）显示为 `<发送者>[私聊] 内容` 玩家格式，替代原版系统格式（"你悄悄地对 X 说：..."）
+- 引用回复显示为 `<发送者>[引用] 内容`（黄色标签）——引用走普通聊天通道，靠 echo 记录携带引用标记识别
+- 发送者名字保留服务器前缀装饰与团队颜色（如 `[称号]E33EPUS`）
+- 服务器双回显（签名出站 + 入站两条）自动去重，只显示一行
+- 原版系统格式的消息全部抑制，不再混显
+
+**其他**
+- 高级页新增"自我私聊通知"（`own_whisper_notify`，默认关）：给自己发 /msg 时是否弹横幅与音效（测试用）
+- 测试 92 → 120 例：新增私聊内容提取、引用标记传递、repost 去重、装饰名模板提取（中英各 2 种）
+
+***
+
+**Message preview replaced by vanilla chat**
+- Custom HUD message preview removed (~140 lines: PreviewEntry/tickPreview/buildPreviewText); vanilla `ChatComponent` renders again, shifted 8px up to clear the HUD chat icon
+- Compatibility bonus: mods that restyle the vanilla chat (ChatHeads, ChatAnimation) work automatically (previously cancelled by E33Chat)
+- Removed config keys: `preview_enabled` / `preview_lines` / `preview_width` (old configs are ignored)
+
+**Unified vanilla-chat message format**
+- Whispers (in/out/self) now show as `<sender>[私聊] content` instead of the vanilla system line ("You whisper to X: ...")
+- Quote replies show as `<sender>[引用] content` (yellow tag) — quotes travel the plain-chat channel, identified via a quote flag carried on the echo record
+- Sender names keep server prefix decorations and team colors (e.g. `[称号]E33EPUS`)
+- Server double-echo (signed outgoing + incoming) is deduplicated to a single line
+- Vanilla system-format lines are fully suppressed, no mixed display
+
+**Other**
+- Advanced tab: new "Self-Whisper Notification" (`own_whisper_notify`, default off) — banner + sound when you /msg yourself (testing aid)
+- Tests 92 → 120: whisper content extraction, quote-flag propagation, repost dedup, decorated-name template extraction (2 zh + 2 en)
+
+***
+
+## v2.2.1
+
+**修复**
+- 提及横幅渲染到聊天面板之上（此前被面板遮挡）
+- 压缩 mod logo，减小 jar 体积
+
+***
+
+**Fixes**
+- Mention banner renders above the chat panel (was previously covered by it)
+- Compressed mod logo, smaller jar
+
+***
+
 ## v2.2.0
 
 **面板背景模糊**

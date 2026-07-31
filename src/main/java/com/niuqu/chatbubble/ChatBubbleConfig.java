@@ -17,9 +17,6 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.BooleanValue SYSTEM_CHAT_AS_BUBBLE;
     public static final ForgeConfigSpec.BooleanValue ANTI_SPAM;
     public static final ForgeConfigSpec.BooleanValue CHAT_HISTORY_ENABLED;
-    public static final ForgeConfigSpec.BooleanValue PREVIEW_ENABLED;
-    public static final ForgeConfigSpec.IntValue PREVIEW_LINES;
-    public static final ForgeConfigSpec.IntValue PREVIEW_WIDTH;
     public static final ForgeConfigSpec.IntValue TIME_SEPARATOR_MINUTES;
     public static final ForgeConfigSpec.ConfigValue<String> OWN_BUBBLE_COLOR;
     public static final ForgeConfigSpec.ConfigValue<String> OTHER_BUBBLE_COLOR;
@@ -47,6 +44,7 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.BooleanValue MENTION_WHISPER_BANNER;
     public static final ForgeConfigSpec.BooleanValue OWN_MENTION_NOTIFY;
     public static final ForgeConfigSpec.BooleanValue OWN_QUOTE_NOTIFY;
+    public static final ForgeConfigSpec.BooleanValue OWN_WHISPER_NOTIFY;
     public static final ForgeConfigSpec.IntValue BANNER_CORNER_RADIUS;
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -118,21 +116,6 @@ public class ChatBubbleConfig {
             .comment("Keep per-world chat history (restored when you rejoin)")
             .translation("e33chat.config.chat_history")
             .define("chat_history", false);
-
-        PREVIEW_ENABLED = builder
-            .comment("Show a recent-message preview above the HUD icon")
-            .translation("e33chat.config.preview_enabled")
-            .define("preview_enabled", true);
-
-        PREVIEW_LINES = builder
-            .comment("Preview line count (3-10)")
-            .translation("e33chat.config.preview_lines")
-            .defineInRange("preview_lines", 3, 3, 10);
-
-        PREVIEW_WIDTH = builder
-            .comment("Preview width in pixels (50-400)")
-            .translation("e33chat.config.preview_width")
-            .defineInRange("preview_width", 200, 50, 400);
 
         TIME_SEPARATOR_MINUTES = builder
             .comment("Minutes between time separators in the chat list (0 = off, 1-60)")
@@ -254,6 +237,11 @@ public class ChatBubbleConfig {
             .comment("Notify (sound + banner) when you quote yourself — testing aid")
             .translation("e33chat.config.own_quote_notify")
             .define("own_quote_notify", false);
+
+        OWN_WHISPER_NOTIFY = builder
+            .comment("Notify (sound + banner) when you whisper yourself (manual /msg) — testing aid")
+            .translation("e33chat.config.own_whisper_notify")
+            .define("own_whisper_notify", false);
 
         BANNER_CORNER_RADIUS = builder
             .comment("Banner corner radius (0 = square, max 10)")

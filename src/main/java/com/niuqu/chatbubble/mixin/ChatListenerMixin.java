@@ -408,6 +408,9 @@ public class ChatListenerMixin {
         Component senderName = Component.literal(gameProfile.getName());
         if (isWhisper) {
             playerContent = Component.literal(MessagePresentation.extractWhisperContent(rawStr, gameProfile.getName()));
+            // The whisper line carries the server-decorated name ("你悄悄地对[称号]X说：")
+            // — reuse it so reposts show prefix/team-color like plain chat does
+            senderName = ChatMessageStore.extractWhisperDisplayName(bound.decorate(raw), senderName);
         } else {
             Component fullLine = bound.decorate(raw);
             senderName = extractDecoratedName(fullLine, rawStr, gameProfile.getName(), senderName);
@@ -459,6 +462,7 @@ public class ChatListenerMixin {
         Component disSender = hasSender ? bound.name() : Component.translatable("e33chat.sender.system");
         if (isWhisper && hasSender) {
             disContent = Component.literal(MessagePresentation.extractWhisperContent(msgStr, bound.name().getString()));
+            disSender = ChatMessageStore.extractWhisperDisplayName(message, disSender);
         } else if (hasSender) {
             Component fullLine = bound.decorate(message);
             disSender = extractDecoratedName(fullLine, msgStr, bound.name().getString(), disSender);

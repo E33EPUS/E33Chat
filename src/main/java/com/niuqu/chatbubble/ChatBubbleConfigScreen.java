@@ -144,17 +144,11 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.color_codes", y -> mkBoolButton(y, ChatBubbleConfig.COLOR_CODES), null));
         cats.add(new Cat("e33chat.config.cat.chat", chat));
 
-        // HUD: icon / preview / strong hint
+        // HUD: icon / strong hint
         List<Opt> hud = new ArrayList<>();
         hud.add(Opt.header("e33chat.config.section.icon"));
         hud.add(new Opt("e33chat.config.red_dot", y -> mkBoolButton(y, ChatBubbleConfig.RED_DOT_ENABLED), null));
         hud.add(new Opt("e33chat.config.hide_chat_icon", y -> mkBoolButton(y, ChatBubbleConfig.HIDE_CHAT_ICON), null));
-        hud.add(Opt.header("e33chat.config.section.preview"));
-        hud.add(new Opt("e33chat.config.preview_enabled", y -> mkBoolButton(y, ChatBubbleConfig.PREVIEW_ENABLED), null));
-        hud.add(new Opt("e33chat.config.preview_lines",
-            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PREVIEW_LINES.get()), 3, 10, 2, ChatBubbleConfig.PREVIEW_LINES::set), null));
-        hud.add(new Opt("e33chat.config.preview_width",
-            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PREVIEW_WIDTH.get()), 50, 400, 3, ChatBubbleConfig.PREVIEW_WIDTH::set), null));
         hud.add(Opt.header("e33chat.config.section.stronghint"));
         hud.add(new Opt("e33chat.config.strong_hint", y -> mkBoolButton(y, ChatBubbleConfig.STRONG_HINT_ENABLED), null));
         cats.add(new Cat("e33chat.config.cat.hud", hud));
@@ -198,6 +192,7 @@ public class ChatBubbleConfigScreen extends Screen {
         advanced.add(new Opt("e33chat.config.debug_log", y -> mkBoolButton(y, ChatBubbleConfig.DEBUG_LOG), null));
         advanced.add(new Opt("e33chat.config.own_mention_notify", y -> mkBoolButton(y, ChatBubbleConfig.OWN_MENTION_NOTIFY), null));
         advanced.add(new Opt("e33chat.config.own_quote_notify", y -> mkBoolButton(y, ChatBubbleConfig.OWN_QUOTE_NOTIFY), null));
+        advanced.add(new Opt("e33chat.config.own_whisper_notify", y -> mkBoolButton(y, ChatBubbleConfig.OWN_WHISPER_NOTIFY), null));
         cats.add(new Cat("e33chat.config.cat.advanced", advanced));
     }
 
@@ -218,9 +213,6 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE));
         tracked.add(track(ChatBubbleConfig.ANTI_SPAM));
         tracked.add(track(ChatBubbleConfig.CHAT_HISTORY_ENABLED));
-        tracked.add(track(ChatBubbleConfig.PREVIEW_ENABLED));
-        tracked.add(track(ChatBubbleConfig.PREVIEW_LINES));
-        tracked.add(track(ChatBubbleConfig.PREVIEW_WIDTH));
         tracked.add(track(ChatBubbleConfig.TIME_SEPARATOR_MINUTES));
         tracked.add(track(ChatBubbleConfig.PRESERVE_INPUT));
         tracked.add(track(ChatBubbleConfig.COLOR_CODES));
@@ -245,6 +237,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(ChatBubbleConfig.MENTION_WHISPER_BANNER));
         tracked.add(track(ChatBubbleConfig.OWN_MENTION_NOTIFY));
         tracked.add(track(ChatBubbleConfig.OWN_QUOTE_NOTIFY));
+        tracked.add(track(ChatBubbleConfig.OWN_WHISPER_NOTIFY));
         tracked.add(track(ChatBubbleConfig.BANNER_CORNER_RADIUS));
     }
 

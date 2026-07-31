@@ -20,7 +20,6 @@ public enum ChatBubbleTheme {
         int systemText, int quoteBar, int duplicateLabel,
         int redDot, int redDotMention,
         int strongHintNormal, int strongHintMention,
-        int previewText,
         int configTitle, int configSection, int configLabel, int configBg,
         int bannerBg, int bannerText, int bannerBar
     ) {}
@@ -43,7 +42,6 @@ public enum ChatBubbleTheme {
                 0xFF888888, 0xFFFFFFFF, 0xFFFFAA00,
                 0xFFFF0000, 0xFFFF4444,
                 0xFFFFFFFF, 0xFFFFFF55,
-                0xFFFFFFFF,
                 0xFFFFFFFF, 0xFFFFAA00, 0xFFFFFFFF, 0xC0101010,
                 0xEE333333, 0xFFFFFF55, 0xFFFFFFFF
             );
@@ -63,7 +61,6 @@ public enum ChatBubbleTheme {
                 0xFF787860, 0xFFCC6600, 0xFFCC6600,
                 0xFFCC0000, 0xFFFF2222,
                 0xFF2D2D1F, 0xFFCC6600,
-                0xFF2D2D1F,
                 0xFF2D2D1F, 0xFFCC6600, 0xFF2D2D1F, 0xC0EDE8D3,
                 0xEEF0EDD8, 0xFFCC6600, 0xFF471900
             );

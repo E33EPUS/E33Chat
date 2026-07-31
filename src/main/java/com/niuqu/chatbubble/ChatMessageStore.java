@@ -24,15 +24,17 @@ public class ChatMessageStore {
     private static boolean screenOpen = false;
     private static String pendingReplyContent;
     private static String pendingReplySender;
-    private static final List<PreviewEntry> previews = new ArrayList<>();
-    private static final int PREVIEW_TICKS = 100;
-    private record HintEntry(Component text, boolean isMention) {}
+    private static long lastQuoteSendTime;
+    static final long QUOTE_ECHO_WINDOW_MS = 5_000;
+    static final long REPOST_DEDUP_MS = 1_000;
 
-    public static class PreviewEntry {
-        public final Component text;
-        public int ticks;
-        public PreviewEntry(Component text, int ticks) { this.text = text; this.ticks = ticks; }
+    // True when a repost would duplicate one just sent: the server echoes a whisper
+    // twice (signed outgoing + incoming variants) within ~15ms, and both would be
+    // rewritten to the same <name>[私聊] line without this guard.
+    public static boolean isRepostDuplicate(String lastRepostText, long lastRepostTime, String newText, long now) {
+        return newText.equals(lastRepostText) && now - lastRepostTime < REPOST_DEDUP_MS;
     }
+    private record HintEntry(Component text, boolean isMention) {}
     private static final java.util.LinkedList<HintEntry> strongHintQueue = new java.util.LinkedList<>();
     private static int strongHintTicks;
     public static final int STRONG_HINT_DURATION = 60;
@@ -123,18 +125,34 @@ public class ChatMessageStore {
         return m;
     }
 
-    private record PendingEcho(String text, long time) {}
+    // quoted: the sent message was a quote reply — carried on the echo record so a
+    // later unrelated message can never inherit the [引用] tag (quote replies travel
+    // as plain chat, so the echo's quoted flag is their only rewrite signal)
+    private record PendingEcho(String text, long time, boolean quoted) {}
     private static final List<PendingEcho> pendingEchoes = new ArrayList<>();
+    public record EchoMatch(boolean matched, boolean quoted) {}
 
     private static long pendingWhisperEchoTime;
     private static String pendingWhisperEchoTarget;
     private static long suppressCaptureTime;
+    private static boolean suppressQuoted;
 
     public static void markPendingWhisperEcho(String target) {
         pendingWhisperEchoTime = System.currentTimeMillis();
         pendingWhisperEchoTarget = target;
     }
-    public static void markSuppressCapture() { suppressCaptureTime = System.currentTimeMillis(); }
+    public static void markSuppressCapture() {
+        suppressCaptureTime = System.currentTimeMillis();
+        // Snapshot the most recent send's quote flag: the suppress echo arrives right
+        // after its own send, so the queue tail matches it better than the FIFO head
+        // (which can hold an older unconsumed echo from a filtered message)
+        suppressQuoted = !pendingEchoes.isEmpty() && pendingEchoes.get(pendingEchoes.size() - 1).quoted();
+    }
+    public static boolean consumeSuppressQuoted() {
+        boolean q = suppressQuoted;
+        suppressQuoted = false;
+        return q;
+    }
 
     public static boolean hasPendingWhisperEcho() {
         return pendingWhisperEchoTime != 0 && System.currentTimeMillis() - pendingWhisperEchoTime < 10_000;
@@ -160,30 +178,36 @@ public class ChatMessageStore {
 
     public static void incrementPendingEcho(String sentText) {
         purgeStaleEchoes();
-        pendingEchoes.add(new PendingEcho(sentText, System.currentTimeMillis()));
+        // Snapshot the quote residue onto this echo and clear it, so the next send
+        // (e.g. a plain follow-up) does not inherit the [引用] marker
+        boolean quoted = wasRecentQuoteAt(lastQuoteSendTime, System.currentTimeMillis());
+        lastQuoteSendTime = 0;
+        pendingEchoes.add(new PendingEcho(sentText, System.currentTimeMillis(), quoted));
     }
 
-    public static boolean consumeEchoBySystemChat(String incomingText) {
+    public static EchoMatch consumeEchoBySystemChat(String incomingText) {
         purgeStaleEchoes();
         for (int i = 0; i < pendingEchoes.size(); i++) {
             if (incomingText.equals(pendingEchoes.get(i).text())) {
+                boolean quoted = pendingEchoes.get(i).quoted();
                 pendingEchoes.remove(i);
-                return true;
+                return new EchoMatch(true, quoted);
             }
         }
-        return false;
+        return new EchoMatch(false, false);
     }
+
 
     public static void debugLog(java.util.function.Supplier<String> msg) {
         if (ChatBubbleConfig.DEBUG_LOG.get())
             com.mojang.logging.LogUtils.getLogger().info(msg.get());
     }
 
-    public static boolean consumeEchoIfSenderMatches(UUID senderUUID, Component senderName) {
+    public static EchoMatch consumeEchoIfSenderMatches(UUID senderUUID, Component senderName) {
         purgeStaleEchoes();
-        if (pendingEchoes.isEmpty()) return false;
+        if (pendingEchoes.isEmpty()) return new EchoMatch(false, false);
         var player = net.minecraft.client.Minecraft.getInstance().player;
-        if (player == null) return false;
+        if (player == null) return new EchoMatch(false, false);
         // Deterministic: signed-channel echoes carry the sender's real UUID
         boolean match = senderUUID != null && senderUUID.equals(player.getUUID());
         // Whole-word boundary match for decorated / color-translated servers
@@ -200,11 +224,11 @@ public class ChatMessageStore {
             }
         }
         if (match) {
-            pendingEchoes.remove(0);
+            PendingEcho e = pendingEchoes.remove(0);
             updateLatestOwnSenderName(senderName);
-            return true;
+            return new EchoMatch(true, e.quoted());
         }
-        return false;
+        return new EchoMatch(false, false);
     }
 
     // True when needle occurs in haystack with no name character (letter/digit/_)
@@ -388,18 +412,6 @@ public class ChatMessageStore {
         }
 
         boolean systemToHint = isSystem && ChatBubbleConfig.STRONG_HINT_ENABLED.get();
-        // Enqueue a per-line preview entry on every stored message not routed to the
-        // strong hint (mutual exclusion). Top-level (not gated on !screenOpen) so messages
-        // arriving while chat is open — including your own sends — also get a line; each
-        // line then fades on its own, oldest first.
-        if (ChatBubbleConfig.PREVIEW_ENABLED.get() && !systemToHint) {
-            Component sName = senderName != null ? senderName : Component.literal("");
-            Component pt = buildPreviewText(content, sName, isSystem);
-            if (!pt.getString().isBlank()) {
-                previews.add(new PreviewEntry(pt, PREVIEW_TICKS));
-                while (previews.size() > ChatBubbleConfig.PREVIEW_LINES.get()) previews.remove(0);
-            }
-        }
 
         boolean playSound = false;
         if (!own && Minecraft.getInstance().player != null && !isMentionOrQuote && !whisper) {
@@ -568,26 +580,71 @@ if (systemToHint) {
     public static void setPendingReply(String content, String sender) {
         pendingReplyContent = content;
         pendingReplySender = sender;
+        lastQuoteSendTime = System.currentTimeMillis();
     }
 
-    public static List<PreviewEntry> getPreviews() { return previews; }
-
-    // Single-line styled preview text (nickname/prefix/content colors preserved, '\n'
-    // flattened). Built once at enqueue time so each line keeps the bubble's colors.
-    private static Component buildPreviewText(Component content, Component name, boolean isSystem) {
-        Component body = singleLineComponent(content);
-        return name.getString().isEmpty()
-            ? (isSystem
-                ? Component.translatable("e33chat.sender.system").copy().append(Component.literal(": ")).append(body)
-                : body)
-            : Component.empty().append(name).append(Component.literal(": ")).append(body);
+    // True when a quote reply was sent within the echo window: the local bubble's
+    // addMessage consumes pendingReplyContent before the server echo returns, so
+    // the vanilla-chat [引用] tag can't read it — this timestamp is the residue.
+    static boolean wasRecentQuoteAt(long quoteSendTime, long now) {
+        return quoteSendTime != 0 && now - quoteSendTime < QUOTE_ECHO_WINDOW_MS;
     }
 
-    public static void tickPreview() {
-        var it = previews.iterator();
-        while (it.hasNext()) {
-            if (--it.next().ticks <= 0) it.remove(); // per-line lifetime; ticks also while open
+    public static boolean wasRecentQuote() {
+        return wasRecentQuoteAt(lastQuoteSendTime, System.currentTimeMillis());
+    }
+
+    // Content extraction from a vanilla whisper line ("你悄悄对 Steve 说: hi" -> "hi").
+    // meta wins when it is trusted (incoming whisper sets it); the outgoing-echo path
+    // never sets pending meta, so callers must pass null there to avoid stale residue.
+    // Skips any whitespace after the colon (half-width ": " or full-width "：").
+    public static String extractWhisperContent(String text, SenderMeta meta) {
+        if (meta != null && meta.rawContent() != null) {
+            String rc = meta.rawContent().getString();
+            if (!rc.isBlank()) return rc;
         }
+        int idx = Math.max(text.lastIndexOf(": "), text.lastIndexOf("："));
+        if (idx < 0) return text;
+        int start = idx + 1;
+        while (start < text.length() && Character.isWhitespace(text.charAt(start))) start++;
+        return text.substring(start).trim();
+    }
+
+    // Display-name extraction from a vanilla whisper line, keeping prefix decorations
+    // and colors: "你悄悄地对[称号]E33EPUS说：hi" -> "[称号]E33EPUS".
+    // Covers zh/en outgoing+incoming templates; falls back when no template matches.
+    public static Component extractWhisperDisplayName(Component fullLine, Component fallback) {
+        String fullStr = fullLine.getString();
+        // zh incoming: "[称号]Steve悄悄地对你说：hi" -> name = [0, "悄悄地对你说")
+        int qiaoIdx = fullStr.indexOf("悄悄地对你说");
+        if (qiaoIdx > 0) {
+            Component area = sliceStyled(fullLine, 0, qiaoIdx);
+            if (!area.getString().isBlank()) return area;
+        }
+        // zh outgoing: "你悄悄地对[称号]Steve说：hi" -> name = after "悄悄地对", before "说："
+        int duiIdx = fullStr.indexOf("悄悄地对");
+        if (duiIdx >= 0) {
+            int sayIdx = fullStr.indexOf("说：", duiIdx);
+            if (sayIdx > duiIdx) {
+                Component area = sliceStyled(fullLine, duiIdx + 4, sayIdx);
+                if (!area.getString().isBlank()) return area;
+            }
+        }
+        int toIdx = fullStr.indexOf("whisper to ");
+        if (toIdx >= 0) {
+            int start = toIdx + "whisper to ".length();
+            int colonIdx = fullStr.indexOf(":", start);
+            if (colonIdx > start) {
+                Component area = sliceStyled(fullLine, start, colonIdx);
+                if (!area.getString().isBlank()) return area;
+            }
+        }
+        int whisperIdx = fullStr.indexOf(" whispers to you");
+        if (whisperIdx > 0) {
+            Component area = sliceStyled(fullLine, 0, whisperIdx);
+            if (!area.getString().isBlank()) return area;
+        }
+        return fallback;
     }
 
     public static Component getStrongHintText() {
@@ -656,7 +713,6 @@ if (systemToHint) {
         messages.clear();
         unreadCount = 0;
         hasUnreadMentionFlag = false;
-        previews.clear();
         if (ChatBubbleConfig.CHAT_HISTORY_ENABLED.get() && isWorldSpecific(currentWorldKey))
             loadMessages(currentWorldKey);
     }
