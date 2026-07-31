@@ -8,7 +8,7 @@
 - **崩溃保护**：每 30 秒自动保存一次，游戏崩溃/闪退最多丢 30 秒的聊天记录（此前只在换世界/退服时保存，崩溃全丢）
 - 旧格式记录自动迁移：旧 JSON 文件加载时按保存日期补齐缺失的日期（跨午夜自动回推一天），下次保存自动转为新格式；历史记录文件名保留中文世界名（旧文件仍兼容读取）
 - 服务器分发（新玩家登录补发最近聊天）时间戳同步升级为完整时间——**客户端与服务器需同时升级**（网络协议变更）
-- mod 描述修复乱码并支持多语言（跟随 MC 语言显示，Mod 列表界面）
+- mod 描述修复乱码（Mod 列表统一显示英文）
 
 ***
 
@@ -18,7 +18,7 @@
 - **Crash protection**: auto-save every 30 seconds — a crash now loses at most 30s of chat (previously only saved on world switch / quit, so crashes lost everything)
 - Legacy files migrate automatically: old JSON files get dates back-filled from the file's save date (midnight crossings roll back a day), rewritten to the new format on next save; history filenames keep Chinese world names (old filenames still load)
 - Server distribution (recent chat sent to joining players) timestamp upgraded to full epoch millis — **client and server must upgrade together** (network protocol change)
-- Mod description mojibake fixed and localized (follows the game language in the Mod List)
+- Mod description mojibake fixed (English in the Mod List)
 
 ***
 

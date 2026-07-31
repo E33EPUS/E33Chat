@@ -125,6 +125,5 @@
   "e33chat.config.section.sound": "Sounds",
   "e33chat.config.section.playerlist": "Player List",
   "e33chat.config.section.history": "History & Input",
-  "e33chat.config.section.debug": "Debug & Testing",
-  "e33chat.mod.description": "Rebuilds the vanilla chat HUD in a chat-app style"
+  "e33chat.config.section.debug": "Debug & Testing"
 }
