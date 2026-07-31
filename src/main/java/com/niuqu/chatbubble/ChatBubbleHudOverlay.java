@@ -6,12 +6,9 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.FormattedText;
 import net.minecraft.resources.ResourceLocation;
 
 import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ChatBubbleHudOverlay {
 
@@ -67,56 +64,11 @@ public class ChatBubbleHudOverlay {
         int iconY = screenH - ICON_S - 20;
         int textY = iconY + ICON_S + 1;
 
-        // Message preview above icon: each line has its own lifetime (oldest fades first);
-        // hidden while any screen is open, but the per-line countdown keeps ticking.
-        List<ChatMessageStore.PreviewEntry> previews = ChatMessageStore.getPreviews();
-        if (ChatBubbleConfig.PREVIEW_ENABLED.get() && !previews.isEmpty()) {
-            int maxW = ChatBubbleConfig.PREVIEW_WIDTH.get();
-            int lineH = mc.font.lineHeight;
-            int gap = 2;
-
-            List<FormattedText> displays = new ArrayList<>();
-            int maxTextW = 0;
-            int maxAlpha = 0;
-            for (ChatMessageStore.PreviewEntry e : previews) {
-                FormattedText trimmed;
-                if (mc.font.width(e.text) > maxW - 4) {
-                    var cut = mc.font.substrByWidth(e.text, maxW - 4 - mc.font.width("..."));
-                    trimmed = FormattedText.composite(cut, FormattedText.of("..."));
-                } else {
-                    trimmed = e.text;
-                }
-                displays.add(trimmed);
-                maxTextW = Math.max(maxTextW, mc.font.width(trimmed));
-                int a = Animation.fadeIn(e.ticks, 10);
-                if (a > maxAlpha) maxAlpha = a;
-            }
-
-            int px = x + ICON_S / 2 - maxTextW / 2;
-            if (px < 2) px = 2;
-            int bgX1 = px - 3;
-            if (bgX1 < 0) bgX1 = 0;
-
-            int bottomLineY = iconY - 5 - lineH;
-            int topLineY = bottomLineY - (displays.size() - 1) * (lineH + gap);
-            int bgAlpha = maxAlpha * 0xDD / 0xFF / 2;
-            int bgColor = (bgAlpha << 24) | 0x000000;
-            g.fill(bgX1, topLineY - 2, px + maxTextW + 3, bottomLineY + lineH + 2, bgColor);
-            var lang = net.minecraft.locale.Language.getInstance();
-            for (int i = displays.size() - 1; i >= 0; i--) {
-                int lineY = bottomLineY - (displays.size() - 1 - i) * (lineH + gap);
-                int lineAlpha = Animation.fadeIn(previews.get(i).ticks, 10);
-                g.drawString(mc.font, lang.getVisualOrder(displays.get(i)), px, lineY, (lineAlpha << 24) | 0xFFFFFF, false);
-            }
-        }
-
         // Chat bubble icon (hidden if hide_chat_icon enabled)
         if (!ChatBubbleConfig.HIDE_CHAT_ICON.get()) {
             ensureIconLoaded();
             drawIcon(g, x, iconY);
 
-            // 未读角标：裁出 4x4 红点 nearest 放大到 TIP_DISP，红点中心骑图标右上顶点 (x+ICON_S, iconY)，
-            // 跳动沿 y 向下；不跳(wave=0)时红点中心精确在右上顶点。气泡横线在左/中，右上为框角空白，故不压文字。
             if (ChatBubbleConfig.RED_DOT_ENABLED.get() && ChatMessageStore.getUnreadCount() > 0) {
                 double wave = Math.abs(Math.sin(System.currentTimeMillis() / 300.0)) * 3;
                 int tipX = x + ICON_S - TIP_DISP / 2;

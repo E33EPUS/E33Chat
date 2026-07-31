@@ -77,12 +77,13 @@ public class MentionNotificationController {
             + " | own=" + isOwn
             + " | enabled=" + ChatBubbleConfig.MENTION_WHISPER_BANNER.get());
 
-        if (!isOwn && ChatBubbleConfig.SOUND_WHISPER.get()) {
+        boolean notify = !isOwn || ChatBubbleConfig.OWN_WHISPER_NOTIFY.get();
+        if (notify && ChatBubbleConfig.SOUND_WHISPER.get()) {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(
                 SoundEvents.EXPERIENCE_ORB_PICKUP, 0.8f * ChatBubbleConfig.soundVolume(), 0.25f));
         }
 
-        if (!isOwn && ChatBubbleConfig.MENTION_WHISPER_BANNER.get()) {
+        if (notify && ChatBubbleConfig.MENTION_WHISPER_BANNER.get()) {
             enqueueDeduped(senderUUID, senderName, content, messageIndex, NotificationType.WHISPER);
         }
     }
