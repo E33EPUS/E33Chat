@@ -336,8 +336,18 @@ public class ChatListenerMixin {
         Text raw = message.getContent();
         String rawStr = raw.getString();
         if (isXaeroWaypoint(rawStr)) return;
-
         String name = gameProfile.getName();
+
+        boolean isWhisper = false;
+        String whisperPartner = null;
+        if (params.type().matchesKey(MessageType.MSG_COMMAND_INCOMING)) {
+            isWhisper = true;
+            whisperPartner = name;
+        } else if (params.type().matchesKey(MessageType.MSG_COMMAND_OUTGOING)) {
+            isWhisper = true;
+            whisperPartner = params.targetName().map(Text::getString).orElse(null);
+        }
+
         // Try to extract content from "<name> " pattern for proper decoration stripping
         String pattern = "<" + name + "> ";
         int idx = rawStr.indexOf(pattern);
@@ -360,19 +370,19 @@ public class ChatListenerMixin {
             Text contentComp = ChatMessageStore.sliceStyled(raw, contentStart, rawStr.length());
             ChatMessageStore.setPendingMeta(new SenderMeta(
                 senderId != null ? senderId : new UUID(0, 0),
-                displayName, contentComp, false, name, false, null));
+                displayName, contentComp, false, name, isWhisper, whisperPartner));
             return;
         }
 
         // Fallback: use full line
         Text playerContent = raw;
-        Text senderName = Text.literal(gameProfile.getName());
+        Text senderName = Text.literal(name);
         Text fullLine = params.applyChatDecoration(raw);
-        senderName = extractDecoratedName(fullLine, rawStr, gameProfile.getName(), senderName);
+        senderName = extractDecoratedName(fullLine, rawStr, name, senderName);
         ChatMessageStore.debugLog("[e33chat] PlayerChat | raw='" + rawStr + "' | sender='" + senderName.getString() + "' | content='" + playerContent.getString() + "'");
         ChatMessageStore.setPendingMeta(new SenderMeta(
             senderId != null ? senderId : new UUID(0, 0),
-            senderName, playerContent, false, gameProfile.getName(), false, null));
+            senderName, playerContent, false, name, isWhisper, whisperPartner));
     }
 
     @Inject(method = "onProfilelessMessage", at = @At("HEAD"))
@@ -383,15 +393,18 @@ public class ChatListenerMixin {
 
         boolean isWhisper = false;
         String whisperPartner = null;
-        if (params.targetName().isPresent()) {
+        if (params.type().matchesKey(MessageType.MSG_COMMAND_INCOMING)) {
             isWhisper = true;
-            String localName = MinecraftClient.getInstance().player != null
-                ? MinecraftClient.getInstance().player.getName().getString() : "";
-            if (hasSender && params.name().getString().equals(localName)) {
-                whisperPartner = params.targetName().map(Text::getString).orElse(null);
-            } else {
-                whisperPartner = hasSender ? params.name().getString() : null;
-            }
+            whisperPartner = hasSender ? params.name().getString() : null;
+        } else if (params.type().matchesKey(MessageType.MSG_COMMAND_OUTGOING)) {
+            isWhisper = true;
+            whisperPartner = params.targetName().map(Text::getString).orElse(null);
+        }
+
+        // NCR fallback: keyword-based whisper detection for servers that strip chat type
+        if (!isWhisper) {
+            SenderMeta wm = detectWhisperInSystemMessage(msgStr, "disguised");
+            if (wm != null) { ChatMessageStore.setPendingMeta(wm); return; }
         }
 
         if (hasSender) {
