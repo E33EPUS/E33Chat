@@ -54,8 +54,11 @@ public final class ConfigManager {
             c.mentionSoundEnabled(),
             c.mentionRequireAt(),
             c.mentionWhisperBanner(),
-            c.blurEnabled(), c.panelOpacity(), c.soundVolume(),
-            c.ownMentionNotify(), c.ownQuoteNotify(), c.bannerCornerRadius());
+            c.blurEnabled(),
+            c.panelOpacity() > 0 ? c.panelOpacity() : d.panelOpacity(),
+            c.soundVolume() > 0 ? c.soundVolume() : d.soundVolume(),
+            c.ownMentionNotify(), c.ownQuoteNotify(),
+            c.bannerCornerRadius() > 0 ? c.bannerCornerRadius() : d.bannerCornerRadius());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {

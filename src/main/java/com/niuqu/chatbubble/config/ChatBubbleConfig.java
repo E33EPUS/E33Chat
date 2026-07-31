@@ -51,7 +51,7 @@ public record ChatBubbleConfig(
             false, false, true, true, true, false,
             List.of(), List.of(),
             true, 4, true, true, true,
-            true, 80, 80, false, false, 6
+            true, 80, 80, false, false, 4
         );
     }
 

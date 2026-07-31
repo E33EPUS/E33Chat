@@ -921,6 +921,10 @@ public class ChatBubbleScreen extends Screen {
         // sidebar's right edge so there's no gap between them.
         int fillLeft = (!sidebarAnimating && sidebarOpen)
             ? (int)(anim * SIDEBAR_W) : panelX;
+        if (ChatBubbleClientSetup.config().blurEnabled()) {
+            g.draw();
+            BlurRenderer.blurPanel(fillLeft, 0, panelX + panelW - fillLeft, height);
+        }
         g.fill(fillLeft, 0, panelX + panelW, height, fadedBg);
 
         renderTitleBar(g, mouseX, mouseY);
