@@ -718,7 +718,6 @@ public class ChatBubbleScreen extends Screen {
                 String emojiText = emojiPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD);
                 if (emojiText != null && !emojiText.isEmpty()) {
                     input.write(emojiText);
-                    input.setCursorToEnd(false);
                 }
                 return true;
             }
@@ -915,8 +914,8 @@ public class ChatBubbleScreen extends Screen {
         g.getMatrices().translate(panelOffset, 0, 0);
 
         int panelBg = c().panelBg();
-        int panelBgAlpha = (panelBg >> 24) & 0xFF;
-        int fadedBg = ((int) (panelBgAlpha * anim) << 24) | (panelBg & 0x00FFFFFF);
+        int opacity = (int) (ChatBubbleClientSetup.config().panelOpacity() / 100f * 255 * anim) & 0xFF;
+        int fadedBg = (opacity << 24) | (panelBg & 0x00FFFFFF);
         // When sidebar is synced to main animation, extend panel bg to
         // sidebar's right edge so there's no gap between them.
         int fillLeft = (!sidebarAnimating && sidebarOpen)

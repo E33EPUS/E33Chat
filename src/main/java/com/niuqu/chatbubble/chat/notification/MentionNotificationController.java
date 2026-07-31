@@ -52,7 +52,9 @@ public class MentionNotificationController {
         }
 
         if (ChatBubbleClientSetup.config().mentionBannerEnabled()) {
-            enqueueDeduped(meta.senderUUID(), meta.senderName(), content, messageIndex);
+            enqueueDeduped(meta.senderUUID(), meta.senderName(), content, messageIndex,
+                replySender != null ? MentionNotificationBanner.NotificationType.QUOTE
+                    : MentionNotificationBanner.NotificationType.MENTION);
         }
     }
 
@@ -72,16 +74,18 @@ public class MentionNotificationController {
 
         if (!isOwn && ChatBubbleClientSetup.config().mentionSoundEnabled()) {
             mc.getSoundManager().play(PositionedSoundInstance.master(
-                SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.0f));
+                SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 0.25f,
+                0.8f * ChatBubbleClientSetup.config().soundVolume() / 100f));
         }
 
         if (!isOwn && ChatBubbleClientSetup.config().mentionWhisperBanner()) {
-            Text whisperLabel = Text.literal("[私聊] ").append(senderName);
-            enqueueDeduped(senderUUID, whisperLabel, content, messageIndex);
+            enqueueDeduped(senderUUID, senderName, content, messageIndex,
+                MentionNotificationBanner.NotificationType.WHISPER);
         }
     }
 
-    private void enqueueDeduped(UUID uuid, Text name, Text content, int index) {
+    private void enqueueDeduped(UUID uuid, Text name, Text content, int index,
+                                 MentionNotificationBanner.NotificationType type) {
         String fp = uuid + "\0" + content.getString();
         long now = System.currentTimeMillis();
         Long last = recentFingerprints.get(fp);
@@ -91,7 +95,7 @@ public class MentionNotificationController {
             return;
         }
         recentFingerprints.put(fp, now);
-        MentionNotificationBanner.INSTANCE.enqueue(uuid, name, content, index);
+        MentionNotificationBanner.INSTANCE.enqueue(uuid, name, content, index, type);
         ChatMessageStore.debugLog("[e33chat] Banner enqueued | queueSize="
             + MentionNotificationBanner.INSTANCE.pendingCount());
     }

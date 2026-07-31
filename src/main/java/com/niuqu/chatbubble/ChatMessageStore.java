@@ -774,7 +774,8 @@ public class ChatMessageStore {
                         && !msg.content().getString().contains("@" + playerName)
                         && ChatBubbleClientSetup.config().mentionBannerEnabled()) {
                         com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.enqueue(
-                            senderUUID, msg.senderName(), msg.content(), i);
+                            senderUUID, msg.senderName(), msg.content(), i,
+                            com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.NotificationType.QUOTE);
                     }
                 }
                 return;

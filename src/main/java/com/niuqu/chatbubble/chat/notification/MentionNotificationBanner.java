@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatMessageStore;
+import com.niuqu.chatbubble.RoundRectRenderer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.DefaultSkinHelper;
@@ -17,15 +18,17 @@ import java.util.*;
 public class MentionNotificationBanner {
     public static final MentionNotificationBanner INSTANCE = new MentionNotificationBanner();
 
+    public enum NotificationType { MENTION, QUOTE, WHISPER }
+
     private static final long SLIDE_MS = 250;
     private static final long VISIBLE_MS_PERIOD = 1000;
     private static final int AVATAR = 24;
     private static final int AVATAR_HAT = 26;
-    private static final int AVATAR_X = 10;
+    private static final int AVATAR_X = 8;
     private static final int TEXT_X = AVATAR_X + AVATAR + 6;
-    private static final int BAR_W = 4;
     private static final int BANNER_H = 36;
     private static final int MAX_MSG_LINES = 2;
+    private static final int SHADOW_OFF = 2;
     private static final UUID NIL_UUID = new UUID(0, 0);
 
     private final Deque<PendingBanner> queue = new ArrayDeque<>();
@@ -38,8 +41,47 @@ public class MentionNotificationBanner {
 
     private MentionNotificationBanner() {}
 
-    public void enqueue(UUID senderUUID, Text senderName, Text content, int messageIndex) {
-        queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex));
+    public void enqueue(UUID senderUUID, Text senderName, Text content,
+                        int messageIndex, NotificationType type) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        String prefix = switch (type) {
+            case MENTION -> Text.translatable("e33chat.banner.mention").getString();
+            case QUOTE -> Text.translatable("e33chat.banner.quote").getString();
+            case WHISPER -> Text.translatable("e33chat.banner.whisper").getString();
+        };
+        Text labeledName = Text.literal(prefix).append(senderName);
+
+        int maxTextW = Math.min(mc.getWindow().getScaledWidth() - TEXT_X - 12, 200);
+        int dotsW = mc.textRenderer.getWidth("...");
+
+        List<OrderedText> nameLines = mc.textRenderer.wrapLines(labeledName, maxTextW);
+        OrderedText nameSeq;
+        if (nameLines.isEmpty()) {
+            nameSeq = OrderedText.EMPTY;
+        } else if (nameLines.size() > 1) {
+            String plainName = mc.textRenderer.trimToWidth(
+                labeledName.getString(), maxTextW - dotsW) + "...";
+            nameSeq = mc.textRenderer.wrapLines(Text.literal(plainName), maxTextW).get(0);
+        } else {
+            nameSeq = nameLines.get(0);
+        }
+
+        List<OrderedText> msgLines = mc.textRenderer.wrapLines(content, maxTextW);
+        if (msgLines.size() > MAX_MSG_LINES) {
+            String fullText = content.getString();
+            String plain = mc.textRenderer.trimToWidth(fullText, maxTextW * 2 - dotsW) + "...";
+            msgLines = mc.textRenderer.wrapLines(Text.literal(plain), maxTextW);
+            if (msgLines.size() > MAX_MSG_LINES)
+                msgLines = msgLines.subList(0, MAX_MSG_LINES);
+        }
+
+        int textW = mc.textRenderer.getWidth(nameSeq);
+        for (var line : msgLines) textW = Math.max(textW, mc.textRenderer.getWidth(line));
+        int bannerW = AVATAR_X + AVATAR + 6 + textW + 12;
+
+        queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex,
+            type, nameSeq, msgLines, textW, bannerW));
     }
 
     public int pendingCount() { return queue.size() + (current != null ? 1 : 0); }
@@ -84,7 +126,7 @@ public class MentionNotificationBanner {
         }
         if (state != prev) {
             String sender = current != null ? current.senderName.getString() : "?";
-            ChatMessageStore.debugLog("[e33chat] Banner " + prev + " -> "
+            ChatMessageStore.debugLog(() -> "[e33chat] Banner " + prev + " -> "
                 + state + " | queue=" + queue.size() + " | sender=" + sender);
         }
     }
@@ -102,79 +144,54 @@ public class MentionNotificationBanner {
                 ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_MS)
                 : 1f;
 
-        float slide = state == BannerState.SLIDING_DOWN
-            ? 1f - (1f - raw) * (1f - raw)
-            : state == BannerState.SLIDING_UP
-                ? raw * raw
-                : 1f;
+        float slide;
+        if (state == BannerState.SLIDING_DOWN) {
+            float c = 1.70158f;
+            slide = 1f + c * (float) Math.pow(raw - 1, 3) + c * (float) Math.pow(raw - 1, 2);
+        } else if (state == BannerState.SLIDING_UP) {
+            slide = raw * raw;
+        } else {
+            slide = 1f;
+        }
 
-        float alpha = raw;
+        float fadeRaw = Math.min(1f, raw / 0.6f);
+        float alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
 
-        int y = (int)((-BANNER_H) + slide * BANNER_H);
+        int y = (int) ((-BANNER_H) + slide * BANNER_H);
 
         var theme = com.niuqu.chatbubble.ChatBubbleTheme.valueOf(
             ChatBubbleClientSetup.config().theme().toUpperCase()).colors();
         int bg = theme.bannerBg();
-        int barColor = theme.bannerBar();
+        int cornerRadius = ChatBubbleClientSetup.config().bannerCornerRadius();
 
-        int maxTextW = Math.min(screenW - TEXT_X - 12, 200);
-        Text nameComp = current.senderName;
-        Text msgComp = current.content;
-        int dotsW = mc.textRenderer.getWidth("...");
-
-        // Message: wrapLines preserves per-line style.
-        List<OrderedText> msgLines = mc.textRenderer.wrapLines(msgComp, maxTextW);
-        if (msgLines.size() > MAX_MSG_LINES) {
-            String fullText = msgComp.getString();
-            String plain = mc.textRenderer.trimToWidth(fullText, maxTextW * 2 - dotsW) + "...";
-            msgLines = mc.textRenderer.wrapLines(Text.literal(plain), maxTextW);
-            if (msgLines.size() > MAX_MSG_LINES)
-                msgLines = msgLines.subList(0, MAX_MSG_LINES);
-        }
-
-        // Name: wrapLines preserves per-line style.
-        List<OrderedText> nameLines = mc.textRenderer.wrapLines(nameComp, maxTextW);
-        OrderedText nameSeq;
-        if (nameLines.isEmpty()) {
-            nameSeq = OrderedText.EMPTY;
-        } else if (nameLines.size() > 1) {
-            String plainName = mc.textRenderer.trimToWidth(
-                nameComp.getString(), maxTextW - dotsW) + "...";
-            nameSeq = mc.textRenderer.wrapLines(Text.literal(plainName), maxTextW).get(0);
-        } else {
-            nameSeq = nameLines.get(0);
-        }
-
-        int textW = mc.textRenderer.getWidth(nameSeq);
-        for (var line : msgLines) textW = Math.max(textW, mc.textRenderer.getWidth(line));
-
-        int bannerW = AVATAR_X + AVATAR + 6 + textW + 12;
+        OrderedText nameSeq = current.nameSeq;
+        List<OrderedText> msgLines = current.msgLines;
+        int textW = current.textW;
+        int bannerW = current.bannerW;
         int x = (screenW - bannerW) / 2;
 
-        // Background
-        int bgAlpha = (int)((bg >>> 24) * alpha);
-        g.fill(x, y, x + bannerW, y + BANNER_H, (bgAlpha << 24) | (bg & 0x00FFFFFF));
+        int shadowAlpha = (int) (0x30 * alpha);
+        int shadowColor = (shadowAlpha << 24);
+        RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
+            x + bannerW + SHADOW_OFF, y + BANNER_H + SHADOW_OFF, cornerRadius, shadowColor);
 
-        // Left color bar
-        int barAlpha = (int)(0xE0 * alpha);
-        g.fill(x, y, x + BAR_W, y + BANNER_H, (barAlpha << 24) | (barColor & 0x00FFFFFF));
+        int bgAlpha = (int) ((bg >>> 24) * alpha);
+        RoundRectRenderer.fill(g, x, y, x + bannerW, y + BANNER_H, cornerRadius,
+            (bgAlpha << 24) | (bg & 0x00FFFFFF));
 
-        // Avatar
         int avatarY = y + (BANNER_H - AVATAR_HAT) / 2;
-        Identifier skin = getSkin(current.senderUUID, nameComp.getString());
+        Identifier skin = getSkin(current.senderUUID, current.senderName.getString());
         RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-        // Name
         int textX = x + TEXT_X;
         int nameY = y + 6;
-        int nameAlpha = (int)((theme.textPrimary() >>> 24) * alpha);
+        int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
         int nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
         g.drawText(mc.textRenderer, nameSeq, textX, nameY, nameColor, false);
 
-        // Message lines (already styled from wrapLines)
-        int msgAlpha = (int)((theme.textSecondary() >>> 24) * alpha);
+        int msgAlpha = (int) ((theme.textSecondary() >>> 24) * alpha);
         int msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
         int msgY = nameY + mc.textRenderer.fontHeight + 2;
         for (int i = 0; i < msgLines.size(); i++)
@@ -195,7 +212,8 @@ public class MentionNotificationBanner {
         if (uuid != null && !uuid.equals(NIL_UUID)) {
             Identifier cached = skinCache.get(uuid);
             if (cached != null) return cached;
-            SkinTextures skin = mc.getSkinProvider().getSkinTextures(new GameProfile(uuid, name != null ? name : ""));
+            SkinTextures skin = mc.getSkinProvider().getSkinTextures(
+                new GameProfile(uuid, name != null ? name : ""));
             if (skin != null && skin.texture() != null) {
                 skinCache.put(uuid, skin.texture());
                 return skin.texture();
@@ -216,5 +234,7 @@ public class MentionNotificationBanner {
     private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }
 
     private record PendingBanner(UUID senderUUID, Text senderName, Text content,
-                                  int messageIndex) {}
+                                  int messageIndex, NotificationType type,
+                                  OrderedText nameSeq, List<OrderedText> msgLines,
+                                  int textW, int bannerW) {}
 }
