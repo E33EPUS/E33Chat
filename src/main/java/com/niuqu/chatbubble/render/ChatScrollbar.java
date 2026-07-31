@@ -1,5 +1,8 @@
 package com.niuqu.chatbubble.render;
 
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.texture.UiElement;
+import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.gui.GuiGraphics;
 
 public final class ChatScrollbar {
@@ -43,7 +46,7 @@ public final class ChatScrollbar {
 
     public static void render(GuiGraphics g, ChatLayout layout, int mouseX, int mouseY,
                               int maxScroll, int messageTotalH, int scrollOffset,
-                              boolean dragging, float alpha, int colorRgb,
+                              boolean dragging, float alpha,
                               int effectiveMsgBottom) {
         if (maxScroll <= 0) return;
         if (alpha <= 0.005f && !dragging) return;
@@ -52,13 +55,12 @@ public final class ChatScrollbar {
         int trackH = effectiveMsgBottom - layout.msgTop();
         int thumbH = thumbHeight(trackH, messageTotalH);
         int thumbY = thumbY(layout.msgTop(), trackH, thumbH, scrollOffset, maxScroll);
-        int rgb = colorRgb & 0x00FFFFFF;
 
-        int trackColor = ((int) (0x1A * alpha) << 24) | rgb;
-        g.fill(trackX, layout.msgTop(), trackX + WIDTH, effectiveMsgBottom, trackColor);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_TRACK),
+            trackX, layout.msgTop(), WIDTH, trackH, 0x1A / 255f * alpha);
 
-        int thumbBase = dragging ? 0xAA : isHoveringThumb(mouseX, mouseY, trackX, thumbY, thumbH) ? 0x88 : 0x66;
-        int thumbColor = ((int) (thumbBase * alpha) << 24) | rgb;
-        g.fill(trackX, thumbY, trackX + WIDTH, thumbY + thumbH, thumbColor);
+        float thumbBase = dragging ? 0xAA : isHoveringThumb(mouseX, mouseY, trackX, thumbY, thumbH) ? 0x88 : 0x66;
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_THUMB),
+            trackX, thumbY, WIDTH, thumbH, thumbBase / 255f * alpha);
     }
 }

@@ -2,6 +2,8 @@ package com.niuqu.chatbubble.render;
 
 import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.UiLayout;
+import com.niuqu.chatbubble.texture.UiElement;
+import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -20,8 +22,8 @@ public final class ChatBars {
                                        String title, String time,
                                        ResourceLocation menuIcon) {
         int ty = 0;
-        g.fill(panelX, ty, panelX + panelW, ty + ChatLayout.TITLE_H, c.titleBg());
-        g.fill(panelX, ty + ChatLayout.TITLE_H, panelX + panelW, ty + ChatLayout.TITLE_H + 1, c.divider());
+        g.blit(UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, panelW, ChatLayout.TITLE_H, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + ChatLayout.TITLE_H, panelW, 1, 0f, 0f, 1, 1, 1, 1);
 
         int menuX = panelX + 3;
         int menuY = ty + (ChatLayout.TITLE_H - ICON_S) / 2;
@@ -58,16 +60,16 @@ public final class ChatBars {
                                         ResourceLocation settingsIcon,
                                         ResourceLocation emojiIcon,
                                         ResourceLocation sendIcon) {
-        g.fill(panelX, barTop, panelX + panelW, screenH, c.barBg());
-        g.fill(panelX, barTop, panelX + panelW, barTop + 1, c.divider());
+        g.blit(UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, panelW, screenH - barTop, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, panelW, 1, 0f, 0f, 1, 1, 1, 1);
 
         int iconY = barTop + (ChatLayout.BAR_H - ICON_S) / 2;
 
         int ibX = inputX;
         int ibY = inputY;
         int ibH = INPUT_H;
-        g.fill(ibX - 1, ibY - 1, ibX + inputW, ibY, c.divider());
-        g.fill(ibX - 1, ibY, ibX + inputW, ibY + ibH, c.inputBg());
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, inputW + 1, 1, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.INPUT_BG), ibX - 1, ibY, inputW + 1, ibH, 0f, 0f, 1, 1, 1, 1);
 
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + inputW
             && mouseY >= ibY && mouseY <= ibY + ibH;

@@ -22,6 +22,9 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import com.niuqu.chatbubble.packets.QuoteSyncPacket;
 import com.niuqu.chatbubble.render.ChatBars;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.texture.UiElement;
+import com.niuqu.chatbubble.texture.UiTextureManager;
 import com.niuqu.chatbubble.render.ChatContextMenus;
 import com.niuqu.chatbubble.render.ChatLayout;
 import com.niuqu.chatbubble.render.ChatMessageRenderer;
@@ -942,10 +945,9 @@ public class ChatBubbleScreen extends Screen {
         g.pose().translate(panelOffset, 0, 0);
 
         // Panel background overlay — semi-transparent tint on top of blurred/clear world.
-        int panelBg = c().panelBg();
-        int opacity = (int)(ChatBubbleConfig.PANEL_OPACITY.get() / 100f * 255 * anim) & 0xFF;
-        int fadedBg = (opacity << 24) | (panelBg & 0x00FFFFFF);
-        g.fill(fillLeft, 0, panelX + panelW, height, fadedBg);
+        float opacity = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * anim;
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
+            fillLeft, 0, panelX + panelW - fillLeft, height, opacity);
 
         renderTitleBar(g, mouseX, mouseY);
         renderMessages(g, mouseX, mouseY);
@@ -1148,7 +1150,7 @@ public class ChatBubbleScreen extends Screen {
 
         ChatLayout layout = new ChatLayout(panelX, panelW, titleY, msgTop, msgBottom, barTop, width, height);
         ChatScrollbar.render(g, layout, mouseX, mouseY, maxScroll, messageTotalH, scrollOffset,
-            scrollbarDragging, scrollbarAlpha, c().scrollbar(), effectiveMsgBottom);
+            scrollbarDragging, scrollbarAlpha, effectiveMsgBottom);
     }
 
     private void renderTimeSeparator(GuiGraphics g, long timeMillis, int y) {
@@ -1216,7 +1218,7 @@ public class ChatBubbleScreen extends Screen {
     private void renderNotificationBar(GuiGraphics g, int mouseX, int mouseY) {
         if (newMessageCount <= 0) return;
         int notifY = barTop - NOTIF_H;
-        g.fill(panelX, notifY - 1, panelX + panelW, notifY, c().divider());
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), panelX, notifY - 1, panelW, 1, 0f, 0f, 1, 1, 1, 1);
         int yellow = c().notificationText();
         int textY = notifY + (NOTIF_H - font.lineHeight) / 2;
         String ct = newMessageCount + Component.translatable("e33chat.notif.new_messages").getString() + " ▽";
@@ -1266,8 +1268,10 @@ public class ChatBubbleScreen extends Screen {
         int barW = sendX - 6 - barX;
         int barY = barTop - REPLY_BAR_H - notifOffset;
 
-        g.fill(barX, barY, barX + barW, barTop - notifOffset, c().panelBg());
-        g.fill(barX, barTop - notifOffset - 1, barX + barW, barTop - notifOffset, c().divider());
+        float panelBgAlpha = (c().panelBg() >>> 24) / 255f;
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
+            barX, barY, barW, barTop - notifOffset - barY, panelBgAlpha);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), barX, barTop - notifOffset - 1, barW, 1, 0f, 0f, 1, 1, 1, 1);
 
         String sender = target.senderName().getString();
         if (sender.isEmpty()) sender = Component.translatable("e33chat.sender.system").getString();
