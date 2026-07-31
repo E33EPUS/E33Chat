@@ -6,7 +6,6 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.ClickEvent;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,31 +13,82 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ChatMessageRendererTest {
 
-    // ---- timeKey ----
+    // ---- timeKey: epoch-minute bucket carries the date ----
 
-    @Test
-    void timeKey_disabledReturnsEmpty() {
-        assertEquals("", ChatMessageRenderer.timeKey(LocalTime.of(14, 30), 0));
+    private static long millisAt(String dateTime) {
+        return java.time.LocalDateTime.parse(dateTime)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
 
     @Test
-    void timeKey_interval1() {
-        assertEquals("14:30", ChatMessageRenderer.timeKey(LocalTime.of(14, 30), 1));
+    void timeKey_disabledReturnsEmpty() {
+        assertEquals("", ChatMessageRenderer.timeKey(0, 0));
+    }
+
+    @Test
+    void timeKey_interval1_bucketIsMinute() {
+        long t = millisAt("2026-07-31T14:30:05");
+        assertEquals(t / 60_000L, Long.parseLong(ChatMessageRenderer.timeKey(t, 1)));
     }
 
     @Test
     void timeKey_interval5_roundsDown() {
-        assertEquals("14:30", ChatMessageRenderer.timeKey(LocalTime.of(14, 32), 5));
+        // 14:32 falls in the 14:30-14:34 bucket; 14:35 starts a new one
+        String early = ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:30"), 5);
+        assertEquals(early, ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:32"), 5));
+        assertNotEquals(early, ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:35"), 5));
     }
 
     @Test
     void timeKey_interval5_topOfHour() {
-        assertEquals("14:00", ChatMessageRenderer.timeKey(LocalTime.of(14, 2), 5));
+        // 14:02 and 14:00 share the 14:00 bucket
+        String top = ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:00"), 5);
+        assertEquals(top, ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:02"), 5));
     }
 
     @Test
     void timeKey_interval10() {
-        assertEquals("14:30", ChatMessageRenderer.timeKey(LocalTime.of(14, 35), 10));
+        String a = ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:30"), 10);
+        String b = ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:35"), 10);
+        String c = ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:40"), 10);
+        assertEquals(a, b);
+        assertNotEquals(a, c);
+    }
+
+    @Test
+    void timeKey_midnightCrossingGetsNewKey() {
+        String before = ChatMessageRenderer.timeKey(millisAt("2026-07-31T23:59:59"), 1);
+        String after = ChatMessageRenderer.timeKey(millisAt("2026-08-01T00:00:01"), 1);
+        assertNotEquals(before, after);
+    }
+
+    @Test
+    void timeKey_sameMinuteSameKey() {
+        String a = ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:30:05"), 1);
+        String b = ChatMessageRenderer.timeKey(millisAt("2026-07-31T14:30:55"), 1);
+        assertEquals(a, b);
+    }
+
+    // ---- formatTime: WeChat-style separator ----
+
+    @Test
+    void formatTime_sameDayShowsTimeOnly() {
+        long today = millisAt(java.time.LocalDateTime.now().toLocalDate() + "T15:30");
+        assertEquals("15:30", ChatMessageRenderer.formatTime(today));
+    }
+
+    @Test
+    void formatTime_otherDayShowsMonthDay() {
+        long yesterday = millisAt(java.time.LocalDate.now().minusDays(1) + "T15:30");
+        assertEquals(java.time.LocalDate.now().minusDays(1).format(
+            java.time.format.DateTimeFormatter.ofPattern("MM-dd")) + " 15:30",
+            ChatMessageRenderer.formatTime(yesterday));
+    }
+
+    @Test
+    void formatTime_otherYearShowsFullDate() {
+        long old = millisAt("2025-12-31T15:30");
+        assertEquals("2025-12-31 15:30", ChatMessageRenderer.formatTime(old));
     }
 
     // ---- findClickStyle ----

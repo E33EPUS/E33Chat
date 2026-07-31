@@ -125,5 +125,6 @@
   "e33chat.config.section.sound": "音效",
   "e33chat.config.section.playerlist": "玩家列表",
   "e33chat.config.section.history": "历史与输入",
-  "e33chat.config.section.debug": "调试与测试"
+  "e33chat.config.section.debug": "调试与测试",
+  "e33chat.mod.description": "以聊天APP风格重铸原版聊天框"
 }

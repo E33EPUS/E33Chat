@@ -7,6 +7,7 @@
   "client": [
     "ChatComponentMixin",
     "ChatListenerMixin",
-    "CommandSuggestionsMixin"
+    "CommandSuggestionsMixin",
+    "ModListInfoPanelMixin"
   ]
 }

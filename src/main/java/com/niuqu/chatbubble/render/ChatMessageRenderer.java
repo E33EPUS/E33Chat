@@ -15,7 +15,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -43,11 +42,22 @@ public final class ChatMessageRenderer {
         return h;
     }
 
-    public static String timeKey(LocalTime t, int interval) {
+    public static String timeKey(long timeMillis, int interval) {
         if (interval <= 0) return "";
-        if (interval == 1) return t.format(DateTimeFormatter.ofPattern("HH:mm"));
-        int m = (t.getMinute() / interval) * interval;
-        return String.format("%02d:%02d", t.getHour(), m);
+        // Epoch-minute bucket: carries the date, so a message crossing midnight
+        // gets a new key and its own separator automatically
+        return String.valueOf(timeMillis / (interval * 60_000L));
+    }
+
+    // WeChat-style separator: same day "15:30", other day "07-31 15:30",
+    // other year "2025-12-31 15:30"
+    public static String formatTime(long timeMillis) {
+        var dt = java.time.Instant.ofEpochMilli(timeMillis)
+            .atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (dt.toLocalDate().equals(today)) return dt.format(DateTimeFormatter.ofPattern("HH:mm"));
+        if (dt.getYear() == today.getYear()) return dt.format(DateTimeFormatter.ofPattern("MM-dd HH:mm"));
+        return dt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
     public static int computeTotalH(List<ChatMessageStore.ChatMessage> messages,
@@ -178,10 +188,10 @@ public final class ChatMessageRenderer {
         g.drawString(font, decorated, x, y, color, false);
     }
 
-    public static void renderTimeSeparator(GuiGraphics g, Font font, LocalTime time, int y,
+    public static void renderTimeSeparator(GuiGraphics g, Font font, long timeMillis, int y,
                                             int panelX, int panelW,
                                             ChatBubbleTheme.Colors c) {
-        String text = time.format(DateTimeFormatter.ofPattern("HH:mm"));
+        String text = formatTime(timeMillis);
         int tw = font.width(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         g.fill(tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2,

@@ -82,8 +82,8 @@ public class ChatBubbleScreen extends Screen {
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
-    private static String timeKey(LocalTime t) {
-        return ChatMessageRenderer.timeKey(t, ChatBubbleConfig.TIME_SEPARATOR_MINUTES.get());
+    private static String timeKey(long timeMillis) {
+        return ChatMessageRenderer.timeKey(timeMillis, ChatBubbleConfig.TIME_SEPARATOR_MINUTES.get());
     }
 
     private EditBox input;
@@ -1151,8 +1151,8 @@ public class ChatBubbleScreen extends Screen {
             scrollbarDragging, scrollbarAlpha, c().scrollbar(), effectiveMsgBottom);
     }
 
-    private void renderTimeSeparator(GuiGraphics g, LocalTime time, int y) {
-        ChatMessageRenderer.renderTimeSeparator(g, font, time, y, panelX, panelW, c());
+    private void renderTimeSeparator(GuiGraphics g, long timeMillis, int y) {
+        ChatMessageRenderer.renderTimeSeparator(g, font, timeMillis, y, panelX, panelW, c());
     }
 
     private List<FormattedCharSequence> wrapContent(Component c, int width) {
@@ -1507,7 +1507,7 @@ public class ChatBubbleScreen extends Screen {
         for (int i = 0; i < msgIndex && i < msgs.size(); i++) {
             var m = msgs.get(i);
             if (!m.isSystem()) {
-                String k = m.time().format(TIME_FMT);
+                String k = timeKey(m.time());
                 if (lk == null || !k.equals(lk)) {
                     lk = k;
                     cy += TIME_SEP_H + GAP;

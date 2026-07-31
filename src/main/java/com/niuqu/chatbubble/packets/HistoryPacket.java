@@ -7,7 +7,6 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -24,7 +23,7 @@ public class HistoryPacket {
         UUID senderUUID,
         String senderName,
         String content,
-        LocalTime time,
+        long time,
         boolean isSystem,
         String replyContent,
         String replySender
@@ -36,7 +35,7 @@ public class HistoryPacket {
             buf.writeUUID(e.senderUUID());
             buf.writeUtf(e.senderName());
             buf.writeUtf(e.content());
-            buf.writeUtf(e.time().toString());
+            buf.writeLong(e.time());
             buf.writeBoolean(e.isSystem());
             buf.writeUtf(e.replyContent() != null ? e.replyContent() : "");
             buf.writeUtf(e.replySender() != null ? e.replySender() : "");
@@ -51,7 +50,7 @@ public class HistoryPacket {
                 buf.readUUID(),
                 buf.readUtf(),
                 buf.readUtf(),
-                LocalTime.parse(buf.readUtf()),
+                buf.readLong(),
                 buf.readBoolean(),
                 blankToNull(buf.readUtf()),
                 blankToNull(buf.readUtf())

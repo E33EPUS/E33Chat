@@ -10,7 +10,6 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.network.PacketDistributor;
 
-import java.time.LocalTime;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -54,7 +53,7 @@ public class ChatServerListener {
 
         addToHistory(new HistoryPacket.HistoryEntry(
             player.getUUID(), player.getName().getString(), rawText,
-            LocalTime.now(), false,
+            System.currentTimeMillis(), false,
             quote != null ? quote.quotedContent() : null,
             quote != null ? quote.quotedSenderName() : null));
     }
