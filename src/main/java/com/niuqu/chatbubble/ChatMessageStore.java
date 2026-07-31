@@ -699,6 +699,7 @@ if (systemToHint) {
         if (ChatBubbleConfig.CHAT_HISTORY_ENABLED.get() && isWorldSpecific(currentWorldKey))
             saveMessages(currentWorldKey);
         currentWorldKey = name;
+        cleanupOldHistory();
         if (isRefinement || hasPendingMessages) {
             hasUnreadMentionFlag = false;
             if (ChatBubbleConfig.CHAT_HISTORY_ENABLED.get() && isWorldSpecific(currentWorldKey)) {
@@ -760,7 +761,29 @@ if (systemToHint) {
     // empty when none). Fields escape \t \n \\ so parsing is unambiguous.
     // Pre-2.2.3 JSONL lines (starting with '{') still load.
 
+    // Commands that carry credentials must never land in the history file —
+    // mirrors the AuthMe-family login/register aliases
+    static boolean isSensitiveCommand(String text) {
+        if (text == null) return false;
+        String s = ChatFormatting.stripFormatting(text);
+        if (s == null) return false;
+        s = s.trim();
+        if (!s.startsWith("/")) return false;
+        int sp = s.indexOf(' ');
+        String cmd = sp < 0 ? s.substring(1) : s.substring(1, sp);
+        if (cmd.isEmpty()) return false;
+        switch (cmd.toLowerCase(java.util.Locale.ROOT)) {
+            case "login": case "l": case "register": case "reg":
+            case "auth": case "password": case "passwd":
+            case "changepassword": case "changepass": case "cp":
+                return true;
+            default:
+                return false;
+        }
+    }
+
     static String toLine(ChatMessage msg) {
+        if (isSensitiveCommand(msg.content().getString())) return null;
         String time = java.time.LocalDateTime.ofInstant(
             java.time.Instant.ofEpochMilli(msg.time()), java.time.ZoneId.systemDefault())
             .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
@@ -973,7 +996,9 @@ if (systemToHint) {
         File tmp = new File(f.getParentFile(), f.getName() + ".tmp");
         try (Writer w = new OutputStreamWriter(new FileOutputStream(tmp), StandardCharsets.UTF_8)) {
             for (ChatMessage msg : messages) {
-                w.write(toLine(msg));
+                String line = toLine(msg);
+                if (line == null) continue;
+                w.write(line);
                 w.write("\n");
             }
             w.flush();
@@ -1002,6 +1027,29 @@ if (systemToHint) {
     private static final long AUTO_SAVE_MS = 30_000;
     private static long lastAutoSave;
     private static boolean historyDirty;
+
+    // Retention cleanup: files older than the configured days are dropped on
+    // world join (0 = keep forever, the default)
+    static boolean isExpired(long fileMtime, long now, int retentionDays) {
+        return retentionDays > 0 && now - fileMtime > retentionDays * 24L * 3600_000L;
+    }
+
+    private static void cleanupOldHistory() {
+        int days = ChatBubbleConfig.HISTORY_RETENTION_DAYS.get();
+        if (days <= 0) return;
+        File dir = new File(Minecraft.getInstance().gameDirectory, "e33chat/history");
+        File[] files = dir.listFiles((d, n) -> n.endsWith(".json"));
+        if (files == null) return;
+        long now = System.currentTimeMillis();
+        File current = currentWorldKey != null ? getHistoryFile(currentWorldKey) : null;
+        for (File f : files) {
+            if (f.equals(current)) continue;
+            if (isExpired(f.lastModified(), now, days)) {
+                com.mojang.logging.LogUtils.getLogger().info("[e33chat] History retention: deleting " + f.getName());
+                f.delete();
+            }
+        }
+    }
 
     public static void maybeAutoSave() {
         long now = System.currentTimeMillis();

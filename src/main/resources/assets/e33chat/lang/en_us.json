@@ -125,5 +125,7 @@
   "e33chat.config.section.sound": "Sounds",
   "e33chat.config.section.playerlist": "Player List",
   "e33chat.config.section.history": "History & Input",
-  "e33chat.config.section.debug": "Debug & Testing"
+  "e33chat.config.section.debug": "Debug & Testing",
+  "e33chat.config.history_retention": "History retention (days)",
+  "e33chat.config.history_retention.desc": "Delete history files older than this many days when joining a world (0 = keep forever)"
 }

@@ -9,6 +9,8 @@
 - 旧格式记录自动迁移：旧 JSON 文件加载时按保存日期补齐缺失的日期（跨午夜自动回推一天），下次保存自动转为新格式；历史记录文件名保留中文世界名（旧文件仍兼容读取）
 - 服务器分发（新玩家登录补发最近聊天）时间戳同步升级为完整时间——**客户端与服务器需同时升级**（网络协议变更）
 - mod 描述修复乱码（Mod 列表统一显示英文）
+- 敏感命令不进历史记录（`/login` `/register` 等含凭据命令写入时跳过）
+- 历史记录保留天数（`history_retention_days`，0 = 永久保留）：进入世界时自动删除超过保留期的历史文件
 
 ***
 
@@ -19,6 +21,8 @@
 - Legacy files migrate automatically: old JSON files get dates back-filled from the file's save date (midnight crossings roll back a day), rewritten to the new format on next save; history filenames keep Chinese world names (old filenames still load)
 - Server distribution (recent chat sent to joining players) timestamp upgraded to full epoch millis — **client and server must upgrade together** (network protocol change)
 - Mod description mojibake fixed (English in the Mod List)
+- Sensitive commands never land in the history file (`/login` `/register` and similar credential-carrying commands are skipped when written)
+- History retention days (`history_retention_days`, 0 = keep forever): history files older than the limit are deleted automatically on world join
 
 ***
 
