@@ -351,7 +351,7 @@ public class ChatMessageStore {
         rememberPlayer(senderUUID, rawPlayerName,
             senderName != null ? senderName.getString() : null);
 
-        boolean isMentionOrQuote = !own && !isSystem
+        boolean isMentionOrQuote = !isSystem
             && com.niuqu.chatbubble.chat.MentionDetector.isMentioned(
                 content.getString(), playerName,
                 cfg.mentionRequireAt(), replySender);
@@ -593,12 +593,17 @@ public class ChatMessageStore {
             saveMessages(currentWorldKey);
         currentWorldKey = name;
         if (isRefinement || hasPendingMessages) {
-            if (cfg.chatHistoryEnabled() && isWorldSpecific(currentWorldKey))
+            if (cfg.chatHistoryEnabled() && isWorldSpecific(currentWorldKey)) {
+                List<ChatMessage> early = new ArrayList<>(messages);
+                messages.clear();
                 loadMessages(currentWorldKey);
+                messages.addAll(early);
+            }
             return;
         }
         messages.clear();
         unreadCount = 0;
+        hasUnreadMentionFlag = false;
         previews.clear();
         if (cfg.chatHistoryEnabled() && isWorldSpecific(currentWorldKey))
             loadMessages(currentWorldKey);

@@ -969,12 +969,7 @@ public class ChatBubbleScreen extends Screen {
         super.render(g, mouseX, mouseY, delta);
         g.getMatrices().pop();
 
-        // Notification banner above the chat panel
-        g.getMatrices().push();
-        g.getMatrices().translate(0, 0, 200);
-        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.render(g,
-            width, height);
-        g.getMatrices().pop();
+        // Notification banner is rendered by ChatBubbleHudOverlay at z=300
     }
 
     private void renderTitleBar(DrawContext g, int mouseX, int mouseY) {

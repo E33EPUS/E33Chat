@@ -4,6 +4,7 @@ import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.chat.MentionDetector;
+import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.NotificationType;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
@@ -14,7 +15,6 @@ import java.util.*;
 public class MentionNotificationController {
     public static final MentionNotificationController INSTANCE = new MentionNotificationController();
 
-    // Fingerprint → last-seen timestamp, 1s TTL for self-echo dedup
     private final Map<String, Long> recentFingerprints = new LinkedHashMap<>() {
         protected boolean removeEldestEntry(Map.Entry<String, Long> e) {
             return size() > 32;
@@ -34,27 +34,33 @@ public class MentionNotificationController {
 
         if (!MentionDetector.isMentioned(text, localName, requireAt, replySender)) return;
 
-        boolean isOwn = meta.rawPlayerName() != null
-            && meta.rawPlayerName().equals(localName);
+        boolean isOwn = (meta.senderUUID() != null && meta.senderUUID().equals(mc.player.getUuid()))
+            || (meta.rawPlayerName() != null && meta.rawPlayerName().equals(localName));
         boolean chatOpen = mc.currentScreen instanceof ChatBubbleScreen;
+        NotificationType type = (replySender != null && replySender.equals(localName))
+            ? NotificationType.QUOTE : NotificationType.MENTION;
+        boolean selfNotify = isOwn && (type == NotificationType.QUOTE
+            ? ChatBubbleClientSetup.config().ownQuoteNotify()
+            : ChatBubbleClientSetup.config().ownMentionNotify());
 
-        ChatMessageStore.debugLog("[e33chat] Mention | sender="
+        ChatMessageStore.debugLog(() -> "[e33chat] Mention | sender="
             + (meta.rawPlayerName() != null ? meta.rawPlayerName() : "?")
             + " | chatOpen=" + chatOpen
             + " | own=" + isOwn
+            + " | type=" + type
+            + " | sound=" + ChatBubbleClientSetup.config().mentionSoundEnabled()
             + " | banner=" + ChatBubbleClientSetup.config().mentionBannerEnabled()
+            + " | selfNotify=" + selfNotify
             + " | preview=" + text.substring(0, Math.min(40, text.length())));
 
-        if (ChatBubbleClientSetup.config().mentionSoundEnabled()) {
+        if ((!isOwn || selfNotify) && ChatBubbleClientSetup.config().mentionSoundEnabled()) {
             mc.getSoundManager().play(PositionedSoundInstance.master(
                 SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 0.25f,
                 0.8f * ChatBubbleClientSetup.config().soundVolume() / 100f));
         }
 
-        if (ChatBubbleClientSetup.config().mentionBannerEnabled()) {
-            enqueueDeduped(meta.senderUUID(), meta.senderName(), content, messageIndex,
-                replySender != null ? MentionNotificationBanner.NotificationType.QUOTE
-                    : MentionNotificationBanner.NotificationType.MENTION);
+        if ((!isOwn || selfNotify) && ChatBubbleClientSetup.config().mentionBannerEnabled()) {
+            enqueueDeduped(meta.senderUUID(), meta.senderName(), content, messageIndex, type);
         }
     }
 
@@ -65,38 +71,39 @@ public class MentionNotificationController {
 
         boolean chatOpen = mc.currentScreen instanceof ChatBubbleScreen;
         String senderStr = senderName.getString().replaceAll("§.", "");
-        boolean isOwn = mc.player.getName().getString().equals(senderStr);
+        boolean isOwn = (senderUUID != null && senderUUID.equals(mc.player.getUuid()))
+            || mc.player.getName().getString().equals(senderStr);
 
-        ChatMessageStore.debugLog("[e33chat] Whisper banner | sender=" + senderStr
+        ChatMessageStore.debugLog(() -> "[e33chat] Whisper banner | sender=" + senderStr
             + " | chatOpen=" + chatOpen
             + " | own=" + isOwn
-            + " | enabled=" + ChatBubbleClientSetup.config().mentionWhisperBanner());
+            + " | soundWhisper=" + ChatBubbleClientSetup.config().soundWhisper()
+            + " | banner=" + ChatBubbleClientSetup.config().mentionWhisperBanner());
 
-        if (!isOwn && ChatBubbleClientSetup.config().mentionSoundEnabled()) {
+        if (!isOwn && ChatBubbleClientSetup.config().soundWhisper()) {
             mc.getSoundManager().play(PositionedSoundInstance.master(
                 SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 0.25f,
                 0.8f * ChatBubbleClientSetup.config().soundVolume() / 100f));
         }
 
         if (!isOwn && ChatBubbleClientSetup.config().mentionWhisperBanner()) {
-            enqueueDeduped(senderUUID, senderName, content, messageIndex,
-                MentionNotificationBanner.NotificationType.WHISPER);
+            enqueueDeduped(senderUUID, senderName, content, messageIndex, NotificationType.WHISPER);
         }
     }
 
     private void enqueueDeduped(UUID uuid, Text name, Text content, int index,
-                                 MentionNotificationBanner.NotificationType type) {
+                                 NotificationType type) {
         String fp = uuid + "\0" + content.getString();
         long now = System.currentTimeMillis();
         Long last = recentFingerprints.get(fp);
         if (last != null && now - last < 1000) {
-            ChatMessageStore.debugLog("[e33chat] Banner deduped | fp="
+            ChatMessageStore.debugLog(() -> "[e33chat] Banner deduped | fp="
                 + fp.substring(0, Math.min(40, fp.length())));
             return;
         }
         recentFingerprints.put(fp, now);
         MentionNotificationBanner.INSTANCE.enqueue(uuid, name, content, index, type);
-        ChatMessageStore.debugLog("[e33chat] Banner enqueued | queueSize="
+        ChatMessageStore.debugLog(() -> "[e33chat] Banner enqueued | queueSize="
             + MentionNotificationBanner.INSTANCE.pendingCount());
     }
 }

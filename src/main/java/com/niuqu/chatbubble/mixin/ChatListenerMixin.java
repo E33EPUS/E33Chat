@@ -485,10 +485,25 @@ public class ChatListenerMixin {
             || sysText.contains("私聊") || sysText.contains("密语") || sysText.contains("密聊");
         ChatMessageStore.debugLog("[e33chat] System(echo check) | text='" + sysText + "' | flag=" + hasEchoFlag + " | kw=" + hasKw);
         if (hasEchoFlag && hasKw) {
-            ChatMessageStore.consumeWhisperEcho();
-            ChatMessageStore.debugLog("[e33chat] System(echo suppressed) | text='" + sysText + "'");
-            ChatMessageStore.markSuppressCapture();
-            return;
+            boolean otherPlayerInText = false;
+            var conn = MinecraftClient.getInstance().player != null
+                ? MinecraftClient.getInstance().player.networkHandler : null;
+            if (conn != null) {
+                String localName = MinecraftClient.getInstance().player.getName().getString();
+                for (var info : conn.getPlayerList()) {
+                    String name = info.getProfile().getName();
+                    if (name != null && !name.equals(localName) && sysText.contains(name)) {
+                        otherPlayerInText = true;
+                        break;
+                    }
+                }
+            }
+            if (!otherPlayerInText) {
+                ChatMessageStore.consumeWhisperEcho();
+                ChatMessageStore.debugLog("[e33chat] System(echo suppressed) | text='" + sysText + "'");
+                ChatMessageStore.markSuppressCapture();
+                return;
+            }
         }
         ChatMessageStore.debugLog("[e33chat] System | text='" + sysText + "' | overlay=" + overlay);
 
