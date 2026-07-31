@@ -125,5 +125,7 @@
   "e33chat.config.section.sound": "音效",
   "e33chat.config.section.playerlist": "玩家列表",
   "e33chat.config.section.history": "历史与输入",
-  "e33chat.config.section.debug": "调试与测试"
+  "e33chat.config.section.debug": "调试与测试",
+  "e33chat.config.history_retention": "历史记录保留天数",
+  "e33chat.config.history_retention.desc": "进入世界时删除超过该天数的历史记录文件（0 = 永久保留）"
 }

@@ -187,6 +187,7 @@ public class ChatBubbleConfigScreen extends Screen {
         List<Opt> advanced = new ArrayList<>();
         advanced.add(Opt.header("e33chat.config.section.history"));
         advanced.add(new Opt("e33chat.config.chat_history", y -> mkBoolButton(y, ChatBubbleConfig.CHAT_HISTORY_ENABLED), null));
+        advanced.add(new Opt("e33chat.config.history_retention", y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.HISTORY_RETENTION_DAYS.get()), 0, 365, 3, ChatBubbleConfig.HISTORY_RETENTION_DAYS::set), null));
         advanced.add(new Opt("e33chat.config.preserve_input", y -> mkBoolButton(y, ChatBubbleConfig.PRESERVE_INPUT), null));
         advanced.add(Opt.header("e33chat.config.section.debug"));
         advanced.add(new Opt("e33chat.config.debug_log", y -> mkBoolButton(y, ChatBubbleConfig.DEBUG_LOG), null));

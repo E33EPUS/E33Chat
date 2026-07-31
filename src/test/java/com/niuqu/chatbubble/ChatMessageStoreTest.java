@@ -398,4 +398,70 @@ class ChatMessageStoreTest {
         assertTrue(back.isOwn());
         assertEquals(1782900000000L, back.time());
     }
+
+    // ---- sensitive commands never land in the history file ----
+
+    @Test void sensitiveCommand_loginWithPassword() {
+        assertTrue(ChatMessageStore.isSensitiveCommand("/login hunter2"));
+        assertTrue(ChatMessageStore.isSensitiveCommand("/l hunter2"));
+    }
+
+    @Test void sensitiveCommand_registerAndAuth() {
+        assertTrue(ChatMessageStore.isSensitiveCommand("/register hunter2 hunter2"));
+        assertTrue(ChatMessageStore.isSensitiveCommand("/reg hunter2"));
+        assertTrue(ChatMessageStore.isSensitiveCommand("/auth 123456"));
+    }
+
+    @Test void sensitiveCommand_changepass() {
+        assertTrue(ChatMessageStore.isSensitiveCommand("/changepassword old new"));
+        assertTrue(ChatMessageStore.isSensitiveCommand("/changepass old new"));
+        assertTrue(ChatMessageStore.isSensitiveCommand("/cp old new"));
+    }
+
+    @Test void sensitiveCommand_noArgStillSensitive() {
+        assertTrue(ChatMessageStore.isSensitiveCommand("/login"));
+        assertTrue(ChatMessageStore.isSensitiveCommand("  /register  "));
+    }
+
+    @Test void sensitiveCommand_caseInsensitive() {
+        assertTrue(ChatMessageStore.isSensitiveCommand("/LOGIN hunter2"));
+    }
+
+    @Test void sensitiveCommand_plainChatNotFlagged() {
+        assertFalse(ChatMessageStore.isSensitiveCommand("login please"));
+        assertFalse(ChatMessageStore.isSensitiveCommand("hi everyone"));
+        assertFalse(ChatMessageStore.isSensitiveCommand("/list"));
+        assertFalse(ChatMessageStore.isSensitiveCommand("/log"));
+        assertFalse(ChatMessageStore.isSensitiveCommand(null));
+    }
+
+    @Test void sensitiveCommand_skippedFromLine() {
+        var msg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.network.chat.Component.literal("Steve"),
+            net.minecraft.network.chat.Component.literal("/login hunter2"),
+            1782900000000L, false, false, null, null, "", 1, null, false, null);
+        assertNull(ChatMessageStore.toLine(msg));
+    }
+
+    // ---- retention cleanup ----
+
+    @Test void retention_zeroKeepsForever() {
+        assertFalse(ChatMessageStore.isExpired(0, 10_000_000L, 0));
+    }
+
+    @Test void retention_olderThanDaysExpires() {
+        long now = 10_000_000L;
+        assertTrue(ChatMessageStore.isExpired(now - 31L * 24 * 3600_000, now, 30));
+    }
+
+    @Test void retention_withinDaysNotExpired() {
+        long now = 10_000_000L;
+        assertFalse(ChatMessageStore.isExpired(now - 29L * 24 * 3600_000, now, 30));
+    }
+
+    @Test void retention_exactlyAtBoundaryKept() {
+        long now = 10_000_000L;
+        assertFalse(ChatMessageStore.isExpired(now - 30L * 24 * 3600_000, now, 30));
+    }
 }
