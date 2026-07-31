@@ -8,7 +8,7 @@
 - 默认纹理由代码生成（主题色烘焙），零资源包时视觉完全不变；资源包覆盖自动优先
 - 切换主题（dark/light）即时生效——纹理在启动时全部预注册，主题切换零卡顿
 - 透明度动态元素（面板开屏淡入、滚动条淡入淡出）走带 alpha 渲染通道，行为不变
-- 顺手删掉 Player Carry 时代残留的 `pack.mcmeta`
+- 修正 `pack.mcmeta` 描述（原为 Player Carry 时代残留文案；Forge 的 mod 资源包必须有 pack.mcmeta，删掉会导致资源包整体不加载）
 - 测试 151 → 155
 
 ***
@@ -19,7 +19,7 @@
 - Default textures are code-generated (theme colors baked); zero visual change without a resource pack; resource-pack overrides take priority automatically
 - Theme switching (dark/light) is instant — all textures pre-registered at startup, no reload hitch
 - Dynamic-alpha elements (panel fade-in, scrollbar fade) render through an alpha channel; behavior unchanged
-- Removed a stale `pack.mcmeta` left over from the Player Carry era
+- Fixed the `pack.mcmeta` description (was a leftover from the Player Carry era; Forge's mod resource pack requires pack.mcmeta — removing it disabled the whole resource pack)
 - Tests 151 → 155
 
 ***
