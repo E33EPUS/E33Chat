@@ -51,7 +51,7 @@ public class ChatBubbleHudOverlay {
         g.pose().translate(0, 0, 300);
 
         MentionNotificationBanner.INSTANCE.tick();
-        if (mc.screen == null || mc.screen instanceof ChatBubbleScreen) {
+        if (mc.screen == null) {
             MentionNotificationBanner.INSTANCE.render(g,
                 mc.getWindow().getGuiScaledWidth(),
                 mc.getWindow().getGuiScaledHeight());

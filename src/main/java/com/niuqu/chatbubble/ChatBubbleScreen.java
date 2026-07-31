@@ -991,6 +991,11 @@ public class ChatBubbleScreen extends Screen {
         // follow the panel's pose translate, so slide it with the open/close animation
         input.setX(inputX + panelOffset);
         super.render(g, mouseX, mouseY, partialTick);
+
+        com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.render(g,
+            Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+            Minecraft.getInstance().getWindow().getGuiScaledHeight());
+
         g.pose().popPose();
     }
 
