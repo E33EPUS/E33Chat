@@ -3,6 +3,8 @@ package com.niuqu.chatbubble.render;
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.ChatMessageStore;
+import com.niuqu.chatbubble.texture.UiElement;
+import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -61,8 +63,8 @@ public final class ChatSidebar {
                               String whisperPartner, ResourceLocation publicIcon,
                               ResourceLocation noOnlineIcon, ResourceLocation privateTipIcon,
                               EditBox searchBox, int scrollOffset, int maxScroll) {
-        g.fill(0, 0, WIDTH, 999, c.sidebarBg());
-        g.fill(WIDTH - 1, 0, WIDTH, 999, c.sidebarDivider());
+        g.blit(UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, WIDTH, 999, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), WIDTH - 1, 0, 1, 999, 0f, 0f, 1, 1, 1, 1);
 
         Minecraft mc = Minecraft.getInstance();
         int y = 2;
@@ -70,7 +72,7 @@ public final class ChatSidebar {
         int sbx = 2;
         int sby = 2;
         int sbw = WIDTH - 5;
-        g.fill(sbx - 1, sby, sbx + sbw, sby + SEARCH_H, c.inputBg());
+        g.blit(UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, sbw + 1, SEARCH_H, 0f, 0f, 1, 1, 1, 1);
         boolean hoverSearch = mouseX >= sbx - 1 && mouseX <= sbx + sbw
             && mouseY >= sby && mouseY <= sby + SEARCH_H;
         if (hoverSearch || searchBox.isFocused())

@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.2.4
+
+**纹理驱动 UI（资源包可覆盖，从 Forge 同步）**
+- 面板结构元素从硬编码色块改为纹理渲染：面板背景 / 标题栏 / 底栏 / 侧边栏背景 / 分割线 / 输入框背景 / 滚动条轨道与滑块
+- 纹理路径约定：`assets/e33chat/textures/gui/{dark|light}/panel_bg.png` 等——丢进资源包即可覆盖任意元素外观（渐变、图案、配色都可以）
+- 默认纹理由代码生成（主题色烘焙），零资源包时视觉完全不变；资源包覆盖自动优先
+- 切换主题（dark/light）即时生效——纹理在启动时全部预注册，主题切换零卡顿
+- 透明度动态元素（面板开屏淡入、滚动条淡入淡出）走带 alpha 渲染通道，行为不变
+- 测试 151 → 158
+
+***
+
+**Texture-driven UI (resource-pack overridable, synced from Forge)**
+- Panel elements switched from hardcoded color fills to texture rendering: panel background / title bar / bottom bar / sidebar background / dividers / input background / scrollbar track & thumb
+- Path convention: `assets/e33chat/textures/gui/{dark|light}/panel_bg.png` etc. — drop files into a resource pack to override any element (gradients, patterns, custom colors)
+- Default textures are code-generated (theme colors baked); zero visual change without a resource pack; resource-pack overrides take priority automatically
+- Theme switching (dark/light) is instant — all textures pre-registered at startup, no reload hitch
+- Dynamic-alpha elements (panel fade-in, scrollbar fade) render through an alpha channel; behavior unchanged
+- Tests 151 → 158
+
+***
+
 ## v2.2.3
 
 **聊天记录改造（从 Forge 同步）**
