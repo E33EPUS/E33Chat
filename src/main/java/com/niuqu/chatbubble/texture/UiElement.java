@@ -14,7 +14,11 @@ public enum UiElement {
     DIVIDER("divider", c -> c.divider()),
     INPUT_BG("input_bg", c -> c.inputBg()),
     SCROLLBAR_TRACK("scrollbar_track", c -> ChatBubbleTheme.alphaBlend(c.scrollbar(), 255)),
-    SCROLLBAR_THUMB("scrollbar_thumb", c -> ChatBubbleTheme.alphaBlend(c.scrollbar(), 255));
+    SCROLLBAR_THUMB("scrollbar_thumb", c -> ChatBubbleTheme.alphaBlend(c.scrollbar(), 255)),
+    CONTEXT_MENU_BG("context_menu_bg", c -> c.contextBg()),
+    POPUP_BG("popup_bg", c -> c.popupBg()),
+    TOAST_BG("toast_bg", c -> c.toastBg()),
+    WHISPER_BAR("whisper_bar", c -> c.whisperBar());
 
     private final String path;
     private final Function<ChatBubbleTheme.Colors, Integer> themeColor;
