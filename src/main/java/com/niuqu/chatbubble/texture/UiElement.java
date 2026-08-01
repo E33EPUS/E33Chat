@@ -18,7 +18,8 @@ public enum UiElement {
     CONTEXT_MENU_BG("context_menu_bg", c -> c.contextBg()),
     POPUP_BG("popup_bg", c -> c.popupBg()),
     TOAST_BG("toast_bg", c -> c.toastBg()),
-    WHISPER_BAR("whisper_bar", c -> c.whisperBar());
+    WHISPER_BAR("whisper_bar", c -> c.whisperBar()),
+    CONFIG_BG("config_bg", c -> c.configBg());
 
     private final String path;
     private final Function<ChatBubbleTheme.Colors, Integer> themeColor;
