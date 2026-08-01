@@ -23,6 +23,11 @@ public final class UiTextureManager {
         return el.rl(currentTheme());
     }
 
+    /** 指定主题下元素的纹理 ID（配置界面等固定主题场景使用）。*/
+    public static Identifier rl(UiElement el, ChatBubbleTheme theme) {
+        return el.rl(theme);
+    }
+
     public static ChatBubbleTheme currentTheme() {
         String theme = ChatBubbleClientSetup.config().theme();
         return "light".equalsIgnoreCase(theme) ? ChatBubbleTheme.LIGHT : ChatBubbleTheme.DARK;
