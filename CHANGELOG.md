@@ -9,6 +9,7 @@
 - 切换主题（dark/light）即时生效——纹理在启动时全部预注册，主题切换零卡顿
 - 透明度动态元素（面板开屏淡入、滚动条淡入淡出）走带 alpha 渲染通道，行为不变
 - 测试 151 → 158
+- **资源包热重载**：游戏内 F3+T 或切换资源包后 UI 纹理立即跟随更新，无需重启游戏
 
 ***
 
@@ -19,6 +20,7 @@
 - Theme switching (dark/light) is instant — all textures pre-registered at startup, no reload hitch
 - Dynamic-alpha elements (panel fade-in, scrollbar fade) render through an alpha channel; behavior unchanged
 - Tests 151 → 158
+- **Hot reload**: UI textures re-register on F3+T / resource-pack switch — no restart needed
 
 ***
 
