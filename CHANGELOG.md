@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.2.5
+
+**纹理化覆盖全部结构色元素**
+- 右键菜单（底色 + 边框）、@ 提及弹窗底、复制提示、私聊模式横条改为纹理渲染
+- 设置界面：全屏背景、左右树分割线、选项分隔线、预览区分割线、双滚动条（track/thumb 走动态 alpha 通道）
+- 表情面板（tab 栏 / 分割线 / 内容区）、常用语面板（面板底 / 输入框）、搜索面板（面板底 / 输入框）、设置菜单底统一纹理化
+- 新增纹理元素：`context_menu_bg` / `popup_bg` / `toast_bg` / `whisper_bar` / `config_bg` / `content_bg`
+- hover/选中状态色（菜单项高亮、关闭按钮、树选中竖条等）保持代码渲染，不纹理化
+- 三端同步：Forge / NeoForge / Fabric 共用同一套资源包路径约定
+- 测试 155 → 158
+
+***
+
+**Texture-driven all structural elements**
+- Context menu (bg + borders), @ mention popup, copy toast, whisper mode bar now render from textures
+- Config screen: full background, tree/option/preview dividers, both scrollbars (track/thumb via alpha channel)
+- Emoji (tab bar / divider / content), quick-chat (panel / input), search (panel / input), settings menu backgrounds unified
+- New texture elements: `context_menu_bg` / `popup_bg` / `toast_bg` / `whisper_bar` / `config_bg` / `content_bg`
+- Hover/selected state colors stay code-rendered, not textured
+- Synced across Forge / NeoForge / Fabric with one resource-pack path convention
+- Tests 155 → 158
+
+***
+
 ## v2.2.4
 
 **纹理驱动 UI（资源包可覆盖）**
