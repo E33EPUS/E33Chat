@@ -1,34 +1,60 @@
 # Changelog
 
+## v2.2.5
+
+**纹理化覆盖全部结构色元素**
+- 右键菜单（底色 + 边框）、@ 提及弹窗底、复制提示、私聊模式横条改为纹理渲染
+- 设置界面：全屏背景、左右树分割线、选项分隔线、预览区分割线、双滚动条（track/thumb 走动态 alpha 通道）
+- 表情面板（tab 栏 / 分割线 / 内容区）、常用语面板（面板底 / 输入框）、搜索面板（面板底 / 输入框）、设置菜单底统一纹理化
+- 新增纹理元素：`context_menu_bg` / `popup_bg` / `toast_bg` / `whisper_bar` / `config_bg` / `content_bg`
+- hover/选中状态色（菜单项高亮、关闭按钮、树选中竖条等）保持代码渲染，不纹理化
+- 三端同步：Forge / NeoForge / Fabric 共用同一套资源包路径约定
+- 测试 155 → 158
+
+***
+
+**Texture-driven all structural elements**
+- Context menu (bg + borders), @ mention popup, copy toast, whisper mode bar now render from textures
+- Config screen: full background, tree/option/preview dividers, both scrollbars (track/thumb via alpha channel)
+- Emoji (tab bar / divider / content), quick-chat (panel / input), search (panel / input), settings menu backgrounds unified
+- New texture elements: `context_menu_bg` / `popup_bg` / `toast_bg` / `whisper_bar` / `config_bg` / `content_bg`
+- Hover/selected state colors stay code-rendered, not textured
+- Synced across Forge / NeoForge / Fabric with one resource-pack path convention
+- Tests 155 → 158
+
+***
+
 ## v2.2.4
 
-**纹理驱动 UI（资源包可覆盖，从 Forge 同步）**
+**纹理驱动 UI（资源包可覆盖）**
 - 面板结构元素从硬编码色块改为纹理渲染：面板背景 / 标题栏 / 底栏 / 侧边栏背景 / 分割线 / 输入框背景 / 滚动条轨道与滑块
 - 纹理路径约定：`assets/e33chat/textures/gui/{dark|light}/panel_bg.png` 等——丢进资源包即可覆盖任意元素外观（渐变、图案、配色都可以）
 - 默认纹理由代码生成（主题色烘焙），零资源包时视觉完全不变；资源包覆盖自动优先
 - 切换主题（dark/light）即时生效——纹理在启动时全部预注册，主题切换零卡顿
 - 透明度动态元素（面板开屏淡入、滚动条淡入淡出）走带 alpha 渲染通道，行为不变
-- 测试 151 → 158
+- 修正 `pack.mcmeta` 描述（原为 Player Carry 时代残留文案；Forge 的 mod 资源包必须有 pack.mcmeta，删掉会导致资源包整体不加载）
+- 测试 151 → 155
 - **资源包热重载**：游戏内 F3+T 或切换资源包后 UI 纹理立即跟随更新，无需重启游戏
 
 ***
 
-**Texture-driven UI (resource-pack overridable, synced from Forge)**
+**Texture-driven UI (resource-pack overridable)**
 - Panel elements switched from hardcoded color fills to texture rendering: panel background / title bar / bottom bar / sidebar background / dividers / input background / scrollbar track & thumb
 - Path convention: `assets/e33chat/textures/gui/{dark|light}/panel_bg.png` etc. — drop files into a resource pack to override any element (gradients, patterns, custom colors)
 - Default textures are code-generated (theme colors baked); zero visual change without a resource pack; resource-pack overrides take priority automatically
 - Theme switching (dark/light) is instant — all textures pre-registered at startup, no reload hitch
 - Dynamic-alpha elements (panel fade-in, scrollbar fade) render through an alpha channel; behavior unchanged
-- Tests 151 → 158
+- Fixed the `pack.mcmeta` description (was a leftover from the Player Carry era; Forge's mod resource pack requires pack.mcmeta — removing it disabled the whole resource pack)
+- Tests 151 → 155
 - **Hot reload**: UI textures re-register on F3+T / resource-pack switch — no restart needed
 
 ***
 
 ## v2.2.3
 
-**聊天记录改造（从 Forge 同步）**
+**聊天记录改造**
 - 时间戳从"时分秒"升级为完整时间（epoch millis，含日期）：聊天面板时间分隔线当天显示 `15:30`，隔天显示 `07-31 15:30`，跨年显示 `2025-12-31 15:30`（微信同款）
-- 记录文件改为**纯文本日志格式**（每行 `时间	发送者	内容	标记`，记事本直接可读；标记 M=自己 S=系统 W=私聊，可选尾列含私聊对象/引用回复），原子写入（先写临时文件再替换，写到一半崩溃不会损坏文件）
+- 记录文件改为**纯文本日志格式**（每行 `时间	发送者	内容	标记`，记事本直接可读；标记 M=自己 S=系统 W=私聊），原子写入（先写临时文件再替换，写到一半崩溃不会损坏文件）
 - **崩溃保护**：每 30 秒自动保存一次，游戏崩溃/闪退最多丢 30 秒的聊天记录（此前只在换世界/退服时保存，崩溃全丢）
 - 旧格式记录自动迁移：旧 JSON 文件加载时按保存日期补齐缺失的日期（跨午夜自动回推一天），下次保存自动转为新格式；历史记录文件名保留中文世界名（旧文件仍兼容读取）
 - 服务器分发（新玩家登录补发最近聊天）时间戳同步升级为完整时间——**客户端与服务器需同时升级**（网络协议变更）
@@ -38,9 +64,9 @@
 
 ***
 
-**Chat history rework (synced from Forge)**
+**Chat history rework**
 - Timestamps upgraded from time-of-day to full epoch millis (with date): the chat separator shows `15:30` same-day, `07-31 15:30` next-day, `2025-12-31 15:30` across years (WeChat-style)
-- History files switched to a **plain-text log format** (one line per message: `time\tsender\tcontent\tflags`, readable in any text editor; flags M=own S=system W=whisper, optional trailing columns for whisper partner / quote reply), written atomically (tmp file + replace, a crash mid-write never corrupts the file)
+- History files switched to a **plain-text log format** (one line per message: `time\tsender\tcontent\tflags`, readable in any text editor; flags M=own S=system W=whisper), written atomically (tmp file + replace, a crash mid-write never corrupts the file)
 - **Crash protection**: auto-save every 30 seconds — a crash now loses at most 30s of chat (previously only saved on world switch / quit, so crashes lost everything)
 - Legacy files migrate automatically: old JSON files get dates back-filled from the file's save date (midnight crossings roll back a day), rewritten to the new format on next save; history filenames keep Chinese world names (old filenames still load)
 - Server distribution (recent chat sent to joining players) timestamp upgraded to full epoch millis — **client and server must upgrade together** (network protocol change)
@@ -52,37 +78,37 @@
 
 ## v2.2.2
 
-**消息预览改为原版聊天框（从 Forge 同步）**
+**消息预览改为原版聊天框**
 - 删除自定义 HUD 消息预览（约 140 行，含 PreviewEntry/tickPreview/buildPreviewText），原版 `ChatComponent` 恢复渲染并上移 8px 避开 HUD 聊天图标
 - 兼容性红利：ChatHeads、ChatAnimation 等改造原版聊天框的 mod 自动生效（此前被 E33Chat 取消渲染）
 - 删除配置项：`preview_enabled` / `preview_lines` / `preview_width`（旧配置自动忽略）
 
-**原版聊天框统一消息格式（从 Forge 同步）**
+**原版聊天框统一消息格式**
 - 私聊消息（进/出/自己）显示为 `<发送者>[私聊] 内容` 玩家格式，替代原版系统格式（"你悄悄地对 X 说：..."）
 - 引用回复显示为 `<发送者>[引用] 内容`（黄色标签）——引用走普通聊天通道，靠 echo 记录携带引用标记识别
 - 发送者名字保留服务器前缀装饰与团队颜色（如 `[称号]E33EPUS`）
 - 服务器双回显（签名出站 + 入站两条）自动去重，只显示一行
 - 原版系统格式的消息全部抑制，不再混显
 
-**其他（从 Forge 同步）**
+**其他**
 - 高级页新增"自我私聊通知"（`own_whisper_notify`，默认关）：给自己发 /msg 时是否弹横幅与音效（测试用）
 - 测试 92 → 120 例：新增私聊内容提取、引用标记传递、repost 去重、装饰名模板提取（中英各 2 种）
 
 ***
 
-**Message preview replaced by vanilla chat (synced from Forge)**
+**Message preview replaced by vanilla chat**
 - Custom HUD message preview removed (~140 lines: PreviewEntry/tickPreview/buildPreviewText); vanilla `ChatComponent` renders again, shifted 8px up to clear the HUD chat icon
 - Compatibility bonus: mods that restyle the vanilla chat (ChatHeads, ChatAnimation) work automatically (previously cancelled by E33Chat)
 - Removed config keys: `preview_enabled` / `preview_lines` / `preview_width` (old configs are ignored)
 
-**Unified vanilla-chat message format (synced from Forge)**
+**Unified vanilla-chat message format**
 - Whispers (in/out/self) now show as `<sender>[私聊] content` instead of the vanilla system line ("You whisper to X: ...")
 - Quote replies show as `<sender>[引用] content` (yellow tag) — quotes travel the plain-chat channel, identified via a quote flag carried on the echo record
 - Sender names keep server prefix decorations and team colors (e.g. `[称号]E33EPUS`)
 - Server double-echo (signed outgoing + incoming) is deduplicated to a single line
 - Vanilla system-format lines are fully suppressed, no mixed display
 
-**Other (synced from Forge)**
+**Other**
 - Advanced tab: new "Self-Whisper Notification" (`own_whisper_notify`, default off) — banner + sound when you /msg yourself (testing aid)
 - Tests 92 → 120: whisper content extraction, quote-flag propagation, repost dedup, decorated-name template extraction (2 zh + 2 en)
 
@@ -90,13 +116,13 @@
 
 ## v2.2.1
 
-**修复（从 Forge 同步）**
+**修复**
 - 提及横幅渲染到聊天面板之上（此前被面板遮挡）
 - 压缩 mod logo，减小 jar 体积
 
 ***
 
-**Fixes (synced from Forge)**
+**Fixes**
 - Mention banner renders above the chat panel (was previously covered by it)
 - Compressed mod logo, smaller jar
 
@@ -104,29 +130,11 @@
 
 ## v2.2.0
 
-**面板背景模糊（从 Forge 同步）**
+**面板背景模糊**
 - 聊天面板背景可选是否启用模糊效果（`glBlitFramebuffer` 多 pass 降采样，兼容 Oculus/Embeddium）
 - 面板不透明度可调（0-100%，默认 60%）
-- 通知横幅圆角半径可调（0-10，默认 6）
-- 配置项：`blur_enabled`（开关）、`panel_opacity`（0-100）、`banner_corner_radius`（0-10）
-
-**侧边栏动画架构修复（对齐 Forge v2.1.9）**
-- 动画状态从 ChatSidebar 移回 ChatBubbleScreen（push 模型替代 pull 模型）
-- ChatSidebar 改为纯静态工具类，不再持有实例状态
-- 修复动画缓动公式：开 = easeOutCubic，关 = (1-t)³
-
-**通知横幅升级（从 Forge 同步）**
-- 通知类型区分：MENTION（@提及）、QUOTE（引用回复）、WHISPER（私聊）
-- 横幅动画优化：easeOutBack 滑入，ease-in 滑出，阴影效果
-- 修复：自 @ 有横幅（对齐 Forge）
-- 修复：NeoForge 自 @ 无音效（聊天路由差异导致 isOwn 行为不同）
-
-**物品分享图标（从 Forge 同步）**
-- 系统消息中的 SHOW_ITEM hover 事件检测，渲染物品图标（兼容 Quark 等模组）
-
-**测试与调试（从 Forge 同步，审计中重写）**
-- ChatSidebarTest 旧同义反复用例已删除，改为布局契约测试（详见审计修复）
-- 构建时启用测试（`-PrunTests`，92 tests passing）
+- 配置项：`blur_enabled`（开关）、`panel_opacity`（0-100）
+- 注册至外观 category：面板区域
 
 **审计修复（全代码审计，双端同步）**
 
@@ -152,13 +160,13 @@
 - 修复服务端引用挂起被插件拦截后把旧引用挂到下一条消息（10 秒过期）
 
 *通知与界面*
-- 高级标签页新增"自我@通知"与"自我引用通知"开关（默认关，测试用；取代此前的自 @ 音效修复行为）
+- 高级标签页新增"自我@通知"与"自我引用通知"开关（默认关，测试用）
 - 表情/颜文字改为在光标处插入（原固定在末尾）
 - 聊天记录搜索同时匹配发送者名字
 - 修复左键自己头像无法插入 @（点击区域与渲染位置相反）
-- 玩家列表收缩时侧边栏不再滚出空白（clamp）
+- 修复玩家列表收缩时侧边栏可滚出空白（Forge 回传 NeoForge 的 clamp）
 - 修复侧边栏图标加载失败保护实际无效（catch 只是重复同一调用）
-- 玩家缓存 LRU 上限 512；tell-click 名字范围与 Forge 同步（长称号服）
+- 玩家缓存 LRU 上限 512；NeoForge tell-click 名字范围与 Forge 同步（长称号服）
 
 *测试*
 - 62 → 92 例：删除同义反复的侧边栏假测试，新增格式解析/整词边界/私聊格式/Animation 真覆盖
@@ -166,38 +174,20 @@
 **配置界面重做与 HUD 未读红点**
 - 设置界面按 UI 元素重排为 5 个标签页（聊天框 / HUD / 通知 / 侧边栏 / 高级），各页内再分子分类
 - 左侧改为可折叠、可滚动的子分类树（全展开时不再被挤出屏幕）；右侧分区标题去掉黑底橙字，改为灰字左对齐 + 右侧延伸细线，行高与选项对齐
-- 颜色行新增行内预设色板；"气泡与字体"子分类新增气泡预览带，随圆角实时变化
+- 颜色行新增行内预设色板；“气泡与字体”子分类新增气泡预览带，随圆角实时变化
 - 控件按反馈换回原版开/关开关、选中条改回白色；数值项保留可手输输入框，仅音效音量用滑条
-- 编辑模型：打开时快照、实时生效，底部"保存 / 退出"并显示改动条数，ESC 弹确认放弃
-- 新增"音效总音量"并接线到全部 4 类提示音；面板不透明度默认 60 → 80
+- 编辑模型：打开时快照、实时生效，底部“保存 / 退出”并显示改动条数，ESC 弹确认放弃
+- 新增“音效总音量”并接线到全部 4 类提示音；面板不透明度默认 60 → 80
 - 提示文案统一为作用句通俗风格、数值项标注范围，删除无主键、修正私聊音效文案
 - 按反馈移除搜索框与恢复默认按钮
 - 标签页与选项列表加常驻滚动条与缓出平滑滚动：可拖拽滑块、点击轨道翻页
 - HUD 未读指示器换成与侧边栏私聊同款的跳动红点：裁出红点 nearest 放大后骑在聊天图标右上角
 
-**Panel background blur (synced from Forge)**
+**Panel background blur**
 - Optional blur effect behind the chat panel (GL blit multi-pass downscale, compatible with Oculus/Embeddium)
 - Configurable panel opacity (0-100%, default 60%)
-- Configurable notification banner corner radius (0-10, default 6)
-- Config options: `blur_enabled` (toggle), `panel_opacity` (0-100), `banner_corner_radius` (0-10)
-
-**Sidebar animation architecture fix (aligned with Forge v2.1.9)**
-- Animation state moved from ChatSidebar back to ChatBubbleScreen (push model replaces pull model)
-- ChatSidebar refactored to pure static utility class
-- Fixed easing formulas: open = easeOutCubic, close = (1-t)³
-
-**Notification banner upgrade (synced from Forge)**
-- Notification type distinction: MENTION, QUOTE, WHISPER
-- Banner animation: easeOutBack slide-in, ease-in slide-out, shadow effect
-- Fix: self-@ shows banner (aligned with Forge)
-- Fix: NeoForge self-@ no sound (chat routing difference caused isOwn mismatch)
-
-**Item sharing icons (synced from Forge)**
-- SHOW_ITEM hover event detection in system messages, renders item icons (compatible with Quark etc.)
-
-**Tests & debug (synced from Forge, rewritten in audit)**
-- ChatSidebarTest's old tautological cases removed, now a layout-contract test (see audit fixes)
-- Tests enabled in build (`-PrunTests`, 92 tests passing)
+- Config options: `blur_enabled` (toggle), `panel_opacity` (0-100)
+- Registered under Appearance category: Panel section
 
 **Audit fixes (full-codebase audit, both loaders)**
 
@@ -223,13 +213,13 @@
 - Fixed a server-side pending quote blocked by a plugin tagging a later message with the stale quote (10s expiry)
 
 *Notifications & UI*
-- New advanced-tab switches "Self-@ Notification" and "Self-Quote Notification" (off by default, testing aid; supersedes the earlier self-@ sound fix)
+- New advanced-tab switches "Self-@ Notification" and "Self-Quote Notification" (off by default, testing aid)
 - Emoji/kaomoji now insert at the cursor (previously appended at the end)
 - Chat search now matches sender names too
 - Fixed left-clicking your own avatar not inserting @ (the hit region was the mirror of the rendered position)
-- Sidebar no longer scrolls past into blank space when the player list shrinks (clamp)
+- Fixed the sidebar scrolling past into blank space when the player list shrinks (Forge picked up NeoForge's clamp)
 - Fixed the sidebar icon crash protection being a no-op (the catch just repeated the same failing call)
-- Player cache LRU-capped at 512; tell-click name range synced with Forge (long-title servers)
+- Player cache LRU-capped at 512; NeoForge tell-click name range synced with Forge (long-title servers)
 
 *Tests*
 - 62 → 92 cases: tautological sidebar tests removed; real coverage added for format parsing, word boundaries, whisper formats and Animation
@@ -246,37 +236,115 @@
 - Category tree and option list gain always-on scrollbars with eased smooth scrolling: drag the thumb or click the track to page
 - HUD unread indicator replaced with the sidebar's bouncing red dot: the red core is cropped and nearest-upscaled, perched on the chat icon's top-right corner
 
-## v2.1.6 – v2.1.9（补记）
+## v2.1.9
 
-> 以下 Forge 端改动实际随本分支的 v2.2.0 同步合并落地，未单独发版；此节追溯补记以完整版本脉络，细节见上方 v2.2.0 块与同步提交。
+**Quark 兼容（仅物品分享）**
+- 分享物品图标：聊天栏分享物品时，消息旁渲染物品图标（通过 HoverEvent.SHOW_ITEM 检测，任何使用标准物品分享机制的 mod 均适用）
+- 表情按钮：暂不支持。Quark 表情按钮通过 Mixin 注入 `ChatScreen`，E33Chat 因类加载器冲突（log4j `MessageSupplier` LinkageError）无法继承 `ChatScreen`，表情按钮需额外方案
 
-**v2.1.9**
-- Quark 兼容物品分享图标（SHOW_ITEM hover 检测）；ModernUI 字符索引越界边界检查；ChatScreen 继承回退（log4j 类加载器冲突）
+**Crash 修复**
+- ModernUI 兼容：`renderLineWithClicks` 字符索引越界，ModernUI 文本引擎访问的字符索引超出样式列表长度，增加边界检查解决
+- ChatScreen 继承回退：`extends ChatScreen` 在 Quark 等 mod 触发事件监听器时引发 log4j `MessageSupplier` 类加载器冲突（LinkageError），回退为 `extends Screen`
 
-**v2.1.8**
-- 通知横幅重设计（SDF 圆角 + 类型前缀 + easeOutBack）；配置界面重组；ClickEvent fallback 合并（issue #9，2026-07-30 审计补漏才真正落地本端）；tell-click 名字长度放宽 max(32, len/3)
+**Mod 描述编码**
+- `gradle.properties` 添加 `-Dfile.encoding=UTF-8`，修复 mod 描述中文乱码
 
-**v2.1.7**
-- 架构拆分：ChatBubbleScreen 2125→1600 行（提取 ChatScrollbar / ChatContextMenus / ChatBars / ChatSidebar / ChatMessageRenderer）；测试基础设施
+**Quark compatibility (item sharing only)**
+- Item sharing icons: shared items in chat now render with item icons next to messages (via HoverEvent.Action.SHOW_ITEM detection, compatible with any mod using the standard item-sharing pattern)
+- Emote buttons: not supported. Quark's emote buttons are injected via Mixin targeting `ChatScreen`; E33Chat cannot extend `ChatScreen` due to a log4j classloader conflict (`MessageSupplier` LinkageError). Emote buttons require a separate integration approach.
 
-**v2.1.6**
-- 通知横幅空名 NPE / isOwn 颜色码 / 双重 tick 修复；提取 MentionNotificationController / MentionNotificationBanner
+**Crash fixes**
+- ModernUI compat: added bounds check in `renderLineWithClicks` — ModernUI's text engine visits more character indices than the styles list, causing ArrayIndexOutOfBoundsException
+- Reverted `extends ChatScreen`: triggered log4j `MessageSupplier` classloader conflict (LinkageError) when Quark fires mod event listeners; reverted to `extends Screen`
 
-## v2.1.6 – v2.1.9 (backfill)
+**Mod description encoding**
+- Added `-Dfile.encoding=UTF-8` to `gradle.properties` to fix Chinese character encoding in mod description
 
-> The Forge-side changes below actually landed on this branch folded into the v2.2.0 sync rather than as separate releases; this section retroactively indexes them (details in the v2.2.0 block and the sync commits above).
+## v2.1.8
 
-**v2.1.9**
-- Quark-compatible item sharing icons (SHOW_ITEM hover detection); ModernUI char-index bounds check; reverted ChatScreen inheritance (log4j classloader conflict)
+**通知横幅重设计**
+- SDF 圆角渲染：横幅从平直矩形改为圆角（可配置半径 0-10），带投影
+- 类型前缀：@提及显示 [@]、引用回复显示 [回复]、私聊显示 [私聊]，bake 进 `labeledName` 统一排版
+- easeOutBack 过冲动画：横幅滑入带弹性过冲效果，视觉更活泼
+- 移除左边色条，头像位置微调
 
-**v2.1.8**
-- Notification banner redesign (SDF rounded corners, type prefixes, easeOutBack); settings reorganization; ClickEvent fallback merge (issue #9 — only truly landed on this loader in the 2026-07-30 audit backfill); tell-click name limit relaxed to max(32, len/3)
+**配置界面重组**
+- 主题按钮改用 `Component.translatable()` 加载翻译 key
+- 预览行数从循环按钮改为 3-10 数字输入框
+- 通知标签页拆分为"@与引用"和"私聊"两个子区域，添加 `banner_corner_radius` 配置
+- 渲染循环增加区域分隔线
 
-**v2.1.7**
-- Architecture split: ChatBubbleScreen 2125→1600 lines (extracted ChatScrollbar / ChatContextMenus / ChatBars / ChatSidebar / ChatMessageRenderer); test infrastructure
+**ClickEvent 修复**
+- issue #9：`renderLineWithClicks` 中父级 ClickEvent 不会自动传播到子级字符样式，增加 fallback 合并逻辑——无 ClickEvent 的 span 从父级继承
 
-**v2.1.6**
-- Banner empty-name NPE / isOwn color-code / double-tick fixes; extracted MentionNotificationController / MentionNotificationBanner
+**私聊点击放宽**
+- tell-click 玩家名长度限制从 32 放宽为 `max(32, text.length()/3)`，适应长昵称
+
+**Notification banner redesign**
+- SDF rounded corners via `RoundRectRenderer.fill()` with custom GLSL shader, configurable radius (0-10), plus drop shadow
+- Type prefixes baked into `labeledName`: [@] for mention, [回复] for quote reply, [私聊] for whisper
+- easeOutBack overshoot animation: `1 + c*(t-1)³ + c*(t-1)²` with c=1.70158
+- Removed left color bar, adjusted avatar position
+
+**Config screen reorganization**
+- Theme button uses `Component.translatable()` for proper localization
+- `preview_lines` changed from cycle button to 3-10 integer input field
+- Notifications tab split into "@与引用" and "私聊" sub-sections, added `banner_corner_radius`
+- Section dividers in render loop
+
+**ClickEvent fix**
+- Issue #9 (Lucid Advancements compat): fallback ClickEvent from parent component now merges into child spans that lack their own ClickEvent
+
+**Tell-click limit relaxed**
+- Player name length limit for tell-click detection relaxed from 32 to `max(32, text.length()/3)` for long nickname servers
+
+## v2.1.7
+
+**架构拆分：ChatBubbleScreen 2125→1600 行**
+- 提取 `ChatScrollbar`：滚动条渲染、拖拽、alpha 淡入淡出
+- 提取 `ChatContextMenus`：右键菜单（复制/引用/TP/私聊）
+- 提取 `ChatBars`：标题栏 + 底部栏渲染
+- 提取 `ChatSidebar`：侧边栏渲染、搜索框、玩家列表滚动、动画状态
+- 提取 `ChatMessageRenderer`：消息泡泡渲染、换行、时间分隔符、可点击文本
+
+**测试基础设施**
+- 新增 `ChatScrollbarTest`（13 个）：thumb 高度/位置、alpha 状态、hover 判定
+- 新增 `ChatMessageRendererTest`（10 个）：timeKey 取整、findClickStyle 遍历
+- 新增 `ChatContextMenusTest`（7 个）：菜单位置 clamp、点击判定
+- debugLog 改为 Supplier 延迟求值
+
+**Architecture split: ChatBubbleScreen 2125→1600 lines**
+- Extracted `ChatScrollbar`: scrollbar rendering, drag, alpha fade
+- Extracted `ChatContextMenus`: right-click menus (copy/quote/TP/whisper)
+- Extracted `ChatBars`: title bar + bottom bar rendering
+- Extracted `ChatSidebar`: sidebar rendering, search box, player list scroll, animation state
+- Extracted `ChatMessageRenderer`: bubble rendering, word wrap, time separators, clickable text
+
+**Test infrastructure**
+- Added `ChatScrollbarTest` (13 tests): thumb height/position, alpha states, hover detection
+- Added `ChatMessageRendererTest` (10 tests): timeKey rounding, findClickStyle traversal
+- Added `ChatContextMenusTest` (7 tests): menu position clamping, click detection
+- debugLog refactored to Supplier-based lazy evaluation
+
+## v2.1.6
+
+**通知横幅修复**
+- 空玩家名崩溃：服务端插件发送的广播消息（无 sender UUID）不再触发 NPE
+- isOwn 颜色编码：`isOwn` 判定中的 color code 格式消息正确关联到发送者
+- 横幅双重 tick：修复 `tick()` 内 banner 计时被调用两次导致加速消失的问题
+
+**通知横幅重构**
+- 提取 `MentionNotificationController` 为独立控制器，队列管理与渲染解耦
+- 提取 `MentionNotificationBanner` 为独立横幅组件
+
+**Banner crash fix**
+- Empty player name crash: broadcast messages from server plugins (no sender UUID) no longer trigger NPE
+- isOwn color code bug: color-code formatted messages now correctly associate with sender for `isOwn` detection
+- Banner double-tick: fixed banner timer being ticked twice per frame causing accelerated dismissal
+
+**Banner refactor**
+- Extracted `MentionNotificationController` as standalone controller, decoupling queue management from rendering
+- Extracted `MentionNotificationBanner` as standalone banner component
 
 ## v2.1.5
 
@@ -463,50 +531,70 @@
 
 ## v2.0.1
 
+**NCR 兼容（常态生效）**
+- 移除"禁用聊天举报兼容"配置开关，玩家识别默认启用（大部分服务器只装 NCR 但不了解这个开关，导致玩家消息全部渲染成系统灰字）
+- 提取 MessagePresentation 格式解析器（纯函数 + 单元测试）：按在线玩家名锚点 + 通用分隔符识别，支持 `Steve: hi`、`<Steve> hi`、`Steve >> hi`、`[VIP]Steve: hi`、`<[VIP]Steve> hi`、全角冒号 `Steve： 你好`、`Steve » hi` 等格式，名字按长度降序匹配避免前缀名误抢
+- 分层识别：私聊检测前置（修复私聊被误判成公屏气泡）→ 格式解析 → tell-click 归属 → 系统消息兜底
+- disguised 通道：发送者名为空时也尝试按格式解析，救回该类玩家消息
+
 **修复**
-- NCR 兼容重构：通用名字检测替代硬编码格式匹配，支持任意聊天格式和名字前缀
+- 输入框开关面板动画期间不跟随面板移动
+
+**NCR compat (always active)**
+- Removed the "No Chat Reports compat" config toggle; player detection is now always on (most servers run NCR without users knowing about the toggle, leaving every player message rendered as gray system text)
+- Extracted MessagePresentation format parser (pure function + unit tests): anchors on online player names + generic separator detection; handles `Steve: hi`, `<Steve> hi`, `Steve >> hi`, `[VIP]Steve: hi`, `<[VIP]Steve> hi`, full-width colon `Steve： 你好`, `Steve » hi`, etc. Names matched longest-first to prevent prefix-name misattribution
+- Layered detection: whisper check first (fixes whispers misclassified as public bubbles) → format parse → tell-click attribution → system fallback
+- Disguised channel: when the sender name is empty, still tries format parsing to recover those player messages
 
 **Fix**
-- NCR compat refactor: generic name detection replaces hardcoded format matching, supports any chat format and name prefix
+- Input box now follows the panel during the open/close animation
 
 ## v2.0.0
 
 **更名**
 - 显示名从 E33EPUS's ChatScreen 改为 **E33Chat**
-- 1.20.1 v2.0.0 同步
 
 **Rename**
 - Display name changed from E33EPUS's ChatScreen to **E33Chat**
-- Synced 1.20.1 v2.0.0
+
+**新增**
+- 服务端聊天历史分发：新玩家进服自动同步最近 50 条聊天记录
+
+**修复**
+- 关闭动画配置后侧边栏不再有动画，打开/关闭均为即时切换
+
+**New**
+- Server-side chat history: new players receive the last 50 messages on join
+
+**Fix**
+- Sidebar no longer animates when animation config is disabled
 
 ## v1.9.9
 
 **重构**
-- ChatBubbleScreen 拆分为 5 个类：ChatEmojiPanel（表情）、ChatQuickChatPanel（常用语）、ChatSettingsMenu（设置菜单）、ChatSearchPanel（搜索）、ChatBubbleScreen（编排层）
+- ChatBubbleScreen 拆分为 5 个类：ChatEmojiPanel（表情）、ChatQuickChatPanel（常用语）、ChatSettingsMenu（设置菜单）、ChatSearchPanel（搜索）、ChatBubbleScreen（编排层），从 2220 行瘦至 1945 行
 - drawTextureIcon / iconTex / BAR_H 改为包内可见，面板类直接引用
-- 1.20.1 v1.9.9 架构同步
+- 修复 F3+T 资源重载后图标纹理丢失导致渲染崩溃的问题
+
+**Refactor**
+- Split ChatBubbleScreen into 5 classes: ChatEmojiPanel (emoji picker), ChatQuickChatPanel (quick phrases), ChatSettingsMenu (gear menu), ChatSearchPanel (search bar), ChatBubbleScreen (orchestrator); reduced from 2220 to 1945 lines
+- drawTextureIcon / iconTex / BAR_H relaxed to package-private for panel access
+- Fixed icon texture crash after F3+T resource reload (missing try-catch in drawTextureIcon)
+
+## v1.9.8
 
 **新增**
 - 聊天搜索：浮动输入框，实时子串匹配，上下箭头/滚轮切换匹配项，黄色高亮边框，计数器显示
 - 设置菜单重铸：从 3 列横排改为 4 行竖排上拉，图标居左文字居右，英文字段自适应截断
 
-**Refactor**
-- Split ChatBubbleScreen into 5 classes: ChatEmojiPanel (emoji picker), ChatQuickChatPanel (quick phrases), ChatSettingsMenu (gear menu), ChatSearchPanel (search bar), ChatBubbleScreen (orchestrator)
-- drawTextureIcon / iconTex / BAR_H relaxed to package-private for panel access
-- Synced 1.20.1 v1.9.9 architecture
+**修复**
+- 多条系统消息（tellraw）同时到达时强提示不再互相覆盖，改为排队依次显示
 
 **New**
 - Chat search: floating input above bottom bar, real-time substring matching, up/down/scroll to cycle matches, yellow highlight border, match counter
 - Settings menu redesigned: vertical 4-row popup (was horizontal 3-col), icons left + text right, auto-truncate long English labels
 
-## v1.9.8
-
-**修复**
-- 清理 ChatMessage 死字段 `addedTime`
-- 多条系统消息（tellraw）同时到达时强提示不再互相覆盖，改为排队依次显示
-
 **Fix**
-- Removed dead `addedTime` field from ChatMessage
 - Multiple simultaneous system messages (tellraw) no longer overwrite each other's strong hint; now queued and displayed in sequence
 
 ## v1.9.7
