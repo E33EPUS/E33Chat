@@ -437,7 +437,8 @@ public class ChatBubbleConfigScreen extends Screen {
         // super.render 第一行会调 renderBackground——若那里画半透明黑，它会排在我们手画文字
         // 之后、按钮之前上屏，于是文字被这块黑盖暗、按钮却亮（Forge 1.20.1 的 GuiGraphics
         // 提交时机不同故不裂）。故 renderBackground 置空、背景改在此处只画一次，super 那次空转。
-        g.fill(0, 0, width, height, 0xC0101010);
+        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONFIG_BG),
+            0, 0, width, height, 0f, 0f, 1, 1, 1, 1);
         tickAnims();  // 先推进平滑动画+同步控件 y，再画（下方绘制循环依赖更新后的 offset）
         g.drawString(font, title, width / 2 - font.width(title) / 2, 14, c().configTitle(), false);
 
@@ -479,7 +480,8 @@ public class ChatBubbleConfigScreen extends Screen {
         drawBar(g, tTrackX(), START_Y, viewBottom(), tTotalH(), treeScroll, calcTreeMaxScroll(), mouseX, mouseY, tBarDrag);
 
         // Divider between categories and options
-        g.fill(dividerX, START_Y - 6, dividerX + 1, viewBottom(), c().divider());
+        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
+            dividerX, START_Y - 6, 1, viewBottom() - (START_Y - 6), 0f, 0f, 1, 1, 1, 1);
 
         // 气泡预览带：仅 chat tab 的“气泡与字体”子分类显示，气泡用当前圆角实时渲染
         if (showPreview()) drawBubblePreview(g);
@@ -495,7 +497,8 @@ public class ChatBubbleConfigScreen extends Screen {
                 int lineX = optLabelX + font.width(label) + 8;
                 int lineEnd = optLabelX + optAreaW() + 4;
                 if (lineX < lineEnd)
-                    g.fill(lineX, y + 15, lineEnd, y + 16, c().divider());
+            g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
+                lineX, y + 15, lineEnd - lineX, 1, 0f, 0f, 1, 1, 1, 1);
                 y += HEADER_H;
                 continue;
             }
@@ -550,7 +553,8 @@ public class ChatBubbleConfigScreen extends Screen {
         int mx = optLabelX + optAreaW() - mw;
         RoundRectRenderer.fill(g, mx, top + 22, mx + mw, top + 36, rad, own);
         g.drawString(font, ownMsg, mx + 4, top + 25, ownT, false);
-        g.fill(optLabelX - 4, top + PREVIEW_H - 1, optLabelX + optAreaW() + 4, top + PREVIEW_H, c().divider());
+        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
+            optLabelX - 4, top + PREVIEW_H - 1, optAreaW() + 8, 1, 0f, 0f, 1, 1, 1, 1);
     }
 
     private void drawPreview(GuiGraphics g, int y, String hex) {
@@ -767,12 +771,15 @@ public class ChatBubbleConfigScreen extends Screen {
         int trackH = bot - top;
         int th = com.niuqu.chatbubble.render.ChatScrollbar.thumbHeight(trackH, totalH);
         int ty = com.niuqu.chatbubble.render.ChatScrollbar.thumbY(top, trackH, th, offset, maxScroll);
-        int rgb = c().scrollbar() & 0x00FFFFFF;
         int w = com.niuqu.chatbubble.render.ChatScrollbar.WIDTH;
-        g.fill(trackX, top, trackX + w, bot, (0x40 << 24) | rgb);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.SCROLLBAR_TRACK),
+            trackX, top, w, bot - top, 0x40 / 255f);
         int base = dragging ? 0xCC
             : com.niuqu.chatbubble.render.ChatScrollbar.isHoveringThumb(mx, my, trackX, ty, th) ? 0xAA : 0x88;
-        g.fill(trackX, ty, trackX + w, ty + th, (base << 24) | rgb);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.SCROLLBAR_THUMB),
+            trackX, ty, w, th, base / 255f);
     }
 
     @Override

@@ -1032,7 +1032,7 @@ public class ChatBubbleScreen extends Screen {
         if (whisperPartner != null) {
             indicatorH = 14;
             int indY = msgTop;
-            g.fill(panelX, indY, panelX + panelW, indY + indicatorH, c().whisperBar());
+            g.blit(UiTextureManager.rl(UiElement.WHISPER_BAR), panelX, indY, panelW, indicatorH, 0f, 0f, 1, 1, 1, 1);
             String modeText = Component.translatable("e33chat.whisper.mode").getString() + ": " + whisperPartner;
             int modeTW = font.width(modeText);
             g.drawString(font, Component.literal(modeText), panelX + (panelW - modeTW) / 2, indY + 2, c().textPrimary(), false);
@@ -1320,7 +1320,7 @@ public class ChatBubbleScreen extends Screen {
         int popupY = input.getY() - popupH - 2;
         if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
 
-        g.fill(popupX, popupY, popupX + popupW, popupY + popupH, c().popupBg());
+        g.blit(UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, popupW, popupH, 0f, 0f, 1, 1, 1, 1);
         g.renderOutline(popupX, popupY, popupW, popupH, c().divider());
 
         int startIdx = Math.max(0, mentionIdx - visible + 1);
@@ -1346,7 +1346,7 @@ public class ChatBubbleScreen extends Screen {
         int tw = font.width(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
-        g.fill(tx - 6, ty - 2, tx + tw + 6, ty + font.lineHeight + 2, c().toastBg());
+        g.blit(UiTextureManager.rl(UiElement.TOAST_BG), tx - 6, ty - 2, tx + tw + 6, ty + font.lineHeight + 2, 0f, 0f, 1, 1, 1, 1);
         g.drawString(font, Component.literal(text), tx, ty, color, false);
     }
 

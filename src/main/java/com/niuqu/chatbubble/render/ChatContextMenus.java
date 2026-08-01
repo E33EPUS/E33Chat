@@ -1,6 +1,8 @@
 package com.niuqu.chatbubble.render;
 
 import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.texture.UiElement;
+import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -38,11 +40,11 @@ public final class ChatContextMenus {
         int mx = menuX(contextX, panelX, panelW);
         int my = menuY(contextY, menuH, msgTop, true);
 
-        g.fill(mx, my, mx + CTX_W, my + menuH, c.contextBg());
-        g.fill(mx, my, mx + CTX_W, my + 1, c.divider());
-        g.fill(mx, my + menuH - 1, mx + CTX_W, my + menuH, c.divider());
-        g.fill(mx, my, mx + 1, my + menuH, c.divider());
-        g.fill(mx + CTX_W - 1, my, mx + CTX_W, my + menuH, c.divider());
+        g.blit(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), mx, my, CTX_W, menuH, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my, CTX_W, 1, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my + menuH - 1, CTX_W, 1, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my, 1, menuH, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx + CTX_W - 1, my, 1, menuH, 0f, 0f, 1, 1, 1, 1);
 
         boolean hoverCopy = isOverItem(mouseX, mouseY, mx, my, CTX_ITEM_H);
         int copyBg = hoverCopy ? c.contextHover() : c.sidebarItemSelected();
@@ -71,11 +73,11 @@ public final class ChatContextMenus {
         int mx = menuX(contextAvatarX, panelX, panelW);
         int my = menuY(contextAvatarY, menuH, msgTop, true);
 
-        g.fill(mx, my, mx + CTX_W, my + menuH, c.contextBg());
-        g.fill(mx, my, mx + CTX_W, my + 1, c.divider());
-        g.fill(mx, my + menuH - 1, mx + CTX_W, my + menuH, c.divider());
-        g.fill(mx, my, mx + 1, my + menuH, c.divider());
-        g.fill(mx + CTX_W - 1, my, mx + CTX_W, my + menuH, c.divider());
+        g.blit(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), mx, my, CTX_W, menuH, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my, CTX_W, 1, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my + menuH - 1, CTX_W, 1, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my, 1, menuH, 0f, 0f, 1, 1, 1, 1);
+        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx + CTX_W - 1, my, 1, menuH, 0f, 0f, 1, 1, 1, 1);
 
         boolean hoverTp = isOverItem(mouseX, mouseY, mx, my, CTX_ITEM_H);
         int tpBg = hoverTp ? c.contextHover() : c.sidebarItemSelected();
