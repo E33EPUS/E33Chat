@@ -38,6 +38,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -150,6 +151,12 @@ public class ChatBubbleScreen extends Screen {
     private int contextX, contextY;
     private int contextAvatarIndex = -1;
     private int contextAvatarX, contextAvatarY;
+
+    // Per-frame wrap cache: every message is measured once (layout pass) and
+    // rendered once (bubble pass), and both call msgHeight -> wrapContent.
+    // Without the cache each message gets re-wrapped 3x per frame.
+    private final Map<ChatMessageStore.ChatMessage, Integer> msgHeightCache =
+        new IdentityHashMap<>();
 
     // Bubble hit tracking
     private final List<int[]> bubbleRects = new ArrayList<>();
@@ -553,6 +560,13 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // Panel contents are translated by panelOffset during the open/close slide;
+        // undo the shift here so hit-testing matches what is drawn. The sidebar and
+        // EditBox render outside that translate (they set their own x), so they keep
+        // the original coordinate.
+        double origX = mouseX;
+        if (isPanelSliding()) mouseX -= currentPanelOffset();
+
         // @mention popup click
         if (showMentions && button == 0) {
             int popupX = input.getX();
@@ -577,7 +591,7 @@ public class ChatBubbleScreen extends Screen {
 
         // Sidebar clicks — route to sidebar for hit detection, Screen handles side effects
         int sidebarX = (int) getSidebarScreenX();
-        if (ChatSidebar.handleMouseClicked(mouseX, mouseY, whisperPartner, font,
+        if (ChatSidebar.handleMouseClicked(origX, mouseY, whisperPartner, font,
                 sidebarX, sidebarOpen || sidebarAnimating, sidebarSearchBox, sidebarScrollOffset)) {
             // Search box
             int searchY = 2;
@@ -819,7 +833,7 @@ public class ChatBubbleScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(origX, mouseY, button);
     }
 
     @Override
@@ -930,27 +944,21 @@ public class ChatBubbleScreen extends Screen {
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
+        float panelOpacity = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * anim;
         int fillLeft = (!sidebarAnimating && sidebarOpen)
             ? (int)(anim * SIDEBAR_W) : panelX;
 
-        int moveDist;
-        if (sidebarOpen) {
-            moveDist = closing ? panelW : SIDEBAR_W;
-        } else {
-            moveDist = panelW;
-        }
-        int panelOffset = (int) ((anim - 1.0f) * moveDist);
+        int panelOffset = currentPanelOffset();
 
-        if (ChatBubbleConfig.BLUR_ENABLED.get()) {
+        if (ChatBubbleConfig.BLUR_ENABLED.get() && panelOpacity < 0.999f) {
             BlurRenderer.blurPanel(fillLeft, 0, panelX + panelW - fillLeft, height);
         }
 
         g.pose().pushPose();
         g.pose().translate(panelOffset, 0, 0);
 
-        float opacity = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * anim;
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
-            fillLeft, 0, panelX + panelW - fillLeft, height, opacity);
+            fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
 
         renderTitleBar(g, mouseX, mouseY);
         renderMessages(g, mouseX, mouseY);
@@ -1018,6 +1026,7 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void renderMessages(GuiGraphics g, int mouseX, int mouseY) {
+        msgHeightCache.clear();
         bubbleRects.clear();
         clickableSpans.clear();
         List<ChatMessageStore.ChatMessage> messages;
@@ -1166,10 +1175,29 @@ public class ChatBubbleScreen extends Screen {
         return ChatMessageRenderer.wrapContent(c, font, width);
     }
 
+    private boolean isPanelSliding() {
+        return ChatBubbleConfig.ANIMATION_ENABLED.get() && getAnimProgress() < 1.0f;
+    }
+
+    private int currentPanelOffset() {
+        float anim = getAnimProgress();
+        int moveDist;
+        if (sidebarOpen) {
+            moveDist = closing ? panelW : SIDEBAR_W;
+        } else {
+            moveDist = panelW;
+        }
+        return (int) ((anim - 1.0f) * moveDist);
+    }
+
     private int getMsgHeight(ChatMessageStore.ChatMessage msg) {
+        Integer cached = msgHeightCache.get(msg);
+        if (cached != null) return cached;
         int bubbleMaxW = panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2
             - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
-        return ChatMessageRenderer.msgHeight(msg, font, bubbleMaxW);
+        int h = ChatMessageRenderer.msgHeight(msg, font, bubbleMaxW);
+        msgHeightCache.put(msg, h);
+        return h;
     }
 
 
