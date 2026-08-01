@@ -107,6 +107,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                 @Override
                 public void reload(ResourceManager manager) {
                     RoundRectRenderer.resetShader();
+                    com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
                 }
             }
         );
