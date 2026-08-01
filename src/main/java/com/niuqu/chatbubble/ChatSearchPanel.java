@@ -24,7 +24,8 @@ public class ChatSearchPanel {
         int px = panelX + panelW / 2 - PANEL_W / 2;
         int py = barTop - PANEL_H - 4;
 
-        g.fill(px, py, px + PANEL_W, py + PANEL_H, c.barBg());
+        g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+            px, py, 0f, 0f, PANEL_W, PANEL_H, 1, 1);
         g.drawBorder(px, py, PANEL_W, PANEL_H, c.divider());
 
         int inputX = px + 4;
@@ -41,7 +42,8 @@ public class ChatSearchPanel {
             counterW = font.getWidth(counter) + 6;
         }
 
-        g.fill(inputX, inputY, inputX + inputW, inputY + INPUT_H, c.inputBg());
+        g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
+            inputX, inputY, 0f, 0f, inputW, INPUT_H, 1, 1);
 
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + INPUT_H;

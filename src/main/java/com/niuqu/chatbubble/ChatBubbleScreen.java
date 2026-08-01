@@ -1021,7 +1021,7 @@ public class ChatBubbleScreen extends Screen {
         if (whisperPartner != null) {
             indicatorH = 14;
             int indY = msgTop;
-            g.fill(panelX, indY, panelX + panelW, indY + indicatorH, c().whisperBar());
+        g.drawTexture(UiTextureManager.rl(UiElement.WHISPER_BAR), panelX, indY, 0f, 0f, panelW, indicatorH, 1, 1);
             String modeText = Text.translatable("e33chat.whisper.mode").getString() + ": " + whisperPartner;
             int modeTW = textRenderer.getWidth(modeText);
             g.drawText(textRenderer, modeText, panelX + (panelW - modeTW) / 2, indY + 2, c().textPrimary(), false);
@@ -1422,11 +1422,11 @@ public class ChatBubbleScreen extends Screen {
         int menuY = contextY - menuH;
         if (menuY < msgTop) menuY = contextY + 4;
 
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + menuH, c().contextBg());
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + 1, c().divider());
-        g.fill(menuX, menuY + menuH - 1, menuX + CTX_W, menuY + menuH, c().divider());
-        g.fill(menuX, menuY, menuX + 1, menuY + menuH, c().divider());
-        g.fill(menuX + CTX_W - 1, menuY, menuX + CTX_W, menuY + menuH, c().divider());
+        g.drawTexture(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, 0f, 0f, CTX_W, menuH, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, CTX_W, 1, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, 0f, 0f, CTX_W, 1, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, 1, menuH, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 0f, 0f, 1, menuH, 1, 1);
 
         boolean hoverCopy = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
@@ -1452,11 +1452,11 @@ public class ChatBubbleScreen extends Screen {
         int menuY = contextAvatarY - menuH;
         if (menuY < msgTop) menuY = contextAvatarY + 4;
 
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + menuH, c().contextBg());
-        g.fill(menuX, menuY, menuX + CTX_W, menuY + 1, c().divider());
-        g.fill(menuX, menuY + menuH - 1, menuX + CTX_W, menuY + menuH, c().divider());
-        g.fill(menuX, menuY, menuX + 1, menuY + menuH, c().divider());
-        g.fill(menuX + CTX_W - 1, menuY, menuX + CTX_W, menuY + menuH, c().divider());
+        g.drawTexture(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, 0f, 0f, CTX_W, menuH, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, CTX_W, 1, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, 0f, 0f, CTX_W, 1, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, 1, menuH, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 0f, 0f, 1, menuH, 1, 1);
 
         boolean hoverTp = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
@@ -1534,7 +1534,7 @@ public class ChatBubbleScreen extends Screen {
         int popupY = input.getY() - popupH - 2;
         if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
 
-        g.fill(popupX, popupY, popupX + popupW, popupY + popupH, c().popupBg());
+        g.drawTexture(UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, 0f, 0f, popupW, popupH, 1, 1);
         g.drawBorder(popupX, popupY, popupW, popupH, c().divider());
 
         int startIdx = Math.max(0, mentionIdx - visible + 1);
@@ -1556,7 +1556,7 @@ public class ChatBubbleScreen extends Screen {
         int tw = textRenderer.getWidth(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
-        g.fill(tx - 6, ty - 2, tx + tw + 6, ty + textRenderer.fontHeight + 2, c().toastBg());
+        g.drawTexture(UiTextureManager.rl(UiElement.TOAST_BG), tx - 6, ty - 2, 0f, 0f, tw + 12, textRenderer.fontHeight + 4, 1, 1);
         g.drawText(textRenderer, text, tx, ty, color, false);
     }
 

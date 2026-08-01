@@ -31,7 +31,8 @@ public class ChatQuickChatPanel {
         int px = panelX + panelW / 2 - W / 2;
         int py = barTop - panelH - 4;
 
-        g.fill(px, py, px + W, py + panelH, c.barBg());
+        g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+            px, py, 0f, 0f, W, panelH, 1, 1);
         g.drawBorder(px, py, W, panelH, c.divider());
 
         int totalPhrases = phrases.size();
@@ -75,7 +76,8 @@ public class ChatQuickChatPanel {
         int inputX = px + 4;
         int inputW = W - 10;
         int inputH = 14;
-        g.fill(inputX, inputY, inputX + inputW, inputY + inputH, c.inputBg());
+        g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
+            inputX, inputY, 0f, 0f, inputW, inputH, 1, 1);
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + inputH;
         if (hoverInput || input.isFocused())
