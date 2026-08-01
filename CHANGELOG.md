@@ -10,6 +10,7 @@
 - 透明度动态元素（面板开屏淡入、滚动条淡入淡出）走带 alpha 渲染通道，行为不变
 - 修正 `pack.mcmeta` 描述（原为 Player Carry 时代残留文案；Forge 的 mod 资源包必须有 pack.mcmeta，删掉会导致资源包整体不加载）
 - 测试 151 → 155
+- **资源包热重载**：游戏内 F3+T 或切换资源包后 UI 纹理立即跟随更新，无需重启游戏
 
 ***
 
@@ -21,6 +22,7 @@
 - Dynamic-alpha elements (panel fade-in, scrollbar fade) render through an alpha channel; behavior unchanged
 - Fixed the `pack.mcmeta` description (was a leftover from the Player Carry era; Forge's mod resource pack requires pack.mcmeta — removing it disabled the whole resource pack)
 - Tests 151 → 155
+- **Hot reload**: UI textures re-register on F3+T / resource-pack switch — no restart needed
 
 ***
 

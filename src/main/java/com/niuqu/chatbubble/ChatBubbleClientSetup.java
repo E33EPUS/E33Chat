@@ -1,8 +1,16 @@
 package com.niuqu.chatbubble;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.PreparableReloadListener;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.ConfigScreenHandler;
+import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
@@ -18,6 +26,19 @@ public class ChatBubbleClientSetup {
             () -> new ConfigScreenHandler.ConfigScreenFactory(
                 (mc, screen) -> new ChatBubbleConfigScreen(screen)));
         FMLJavaModLoadingContext.get().getModEventBus().addListener(RoundRectRenderer::registerShaders);
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(ChatBubbleClientSetup::registerReloadListener);
         MinecraftForge.EVENT_BUS.register(new ChatBubbleClientListener());
+    }
+
+    private static void registerReloadListener(RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener(new PreparableReloadListener() {
+            @Override
+            public CompletableFuture<Void> reload(PreparableReloadListener.PreparationBarrier barrier, ResourceManager resourceManager,
+                                                  ProfilerFiller prepProfiler, ProfilerFiller reloadProfiler,
+                                                  Executor backgroundExecutor, Executor gameExecutor) {
+                return barrier.wait(null)
+                    .thenRunAsync(() -> com.niuqu.chatbubble.texture.UiTextureManager.preloadAll(), gameExecutor);
+            }
+        });
     }
 }
