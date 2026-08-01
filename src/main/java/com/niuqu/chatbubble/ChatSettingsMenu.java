@@ -21,7 +21,8 @@ public class ChatSettingsMenu {
         int px = gearX;
         int py = barTop - menuH - 4;
 
-        g.fill(px, py, px + W, py + menuH, c.barBg());
+        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+            px, py, W, menuH, 0f, 0f, 1, 1, 1, 1);
         g.renderOutline(px, py, W, menuH, c.divider());
 
         ResourceLocation[] icons = {
