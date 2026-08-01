@@ -24,7 +24,8 @@ public class ChatSettingsMenu {
         int px = gearX;
         int py = barTop - menuH - 4;
 
-        g.fill(px, py, px + W, py + menuH, c.barBg());
+        g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+            px, py, 0f, 0f, W, menuH, 1, 1);
         g.drawBorder(px, py, W, menuH, c.divider());
 
         Identifier[] icons = {
