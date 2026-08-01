@@ -64,7 +64,8 @@ public class ChatEmojiPanel {
             Component.translatable("e33chat.emoji.tab_kaomoji").getString()
         };
         int tabW = pw / tabLabels.length;
-        g.fill(px, py, px + pw, py + TAB_H + 1, c.titleBg());
+        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.TITLE_BAR),
+            px, py, pw, TAB_H + 1, 0f, 0f, 1, 1, 1, 1);
         for (int t = 0; t < tabLabels.length; t++) {
             int tx = px + t * tabW;
             if (t == tab) g.fill(tx, py, tx + tabW, py + TAB_H, c.inputBg());
@@ -72,12 +73,14 @@ public class ChatEmojiPanel {
             g.drawString(font, Component.literal(label),
                 tx + tabW / 2 - font.width(label) / 2, py + (TAB_H - font.lineHeight) / 2, c.textPrimary(), false);
         }
-        g.fill(px, py + TAB_H, px + pw, py + TAB_H + 1, c.divider());
+        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
+            px, py + TAB_H, pw, 1, 0f, 0f, 1, 1, 1, 1);
 
         // Content area
         int cy = py + TAB_H + 1;
         int ch = PANEL_H - TAB_H - 1;
-        g.fill(px, cy, px + pw, py + PANEL_H, c.barBg());
+        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+            px, cy, pw, py + PANEL_H - cy, 0f, 0f, 1, 1, 1, 1);
         g.renderOutline(px, py, pw, PANEL_H, c.divider());
 
         if (isKaomoji) {
