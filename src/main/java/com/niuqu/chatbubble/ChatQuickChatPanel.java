@@ -32,7 +32,7 @@ public class ChatQuickChatPanel {
         int py = barTop - panelH - 4;
 
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, py, 0f, 0f, W, panelH, 1, 1);
+            px, py, W, panelH, 0f, 0f, 16, 16, 16, 16);
         g.drawBorder(px, py, W, panelH, c.divider());
 
         int totalPhrases = phrases.size();
@@ -69,7 +69,7 @@ public class ChatQuickChatPanel {
             boolean hover = mouseX >= px + 4 && mouseX <= hoverRight
                 && mouseY >= rowY && mouseY <= rowY + ROW_H;
             if (hover) g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
-                px + 4, rowY, 0f, 0f, hoverRight - (px + 4), ROW_H, 1, 1);
+                px + 4, rowY, hoverRight - (px + 4), ROW_H, 0f, 0f, 16, 16, 16, 16);
             g.drawText(font, display, px + 6, rowY + 2, c.textPrimary(), false);
             int delX = hoverRight - 13;
             int delY = rowY + 1;
@@ -77,7 +77,7 @@ public class ChatQuickChatPanel {
             g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(hoverDel
                     ? com.niuqu.chatbubble.texture.UiElement.CLOSE_HOVER
                     : com.niuqu.chatbubble.texture.UiElement.CLOSE_BG),
-                delX, delY, 0f, 0f, 12, 12, 1, 1);
+                delX, delY, 12, 12, 0f, 0f, 16, 16, 16, 16);
             g.drawText(font, "✕", delX + 6 - font.getWidth("✕") / 2, delY + 2, c.closeText(), false);
         }
 
@@ -86,7 +86,7 @@ public class ChatQuickChatPanel {
         int inputW = W - 10;
         int inputH = 14;
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
-            inputX, inputY, 0f, 0f, inputW, inputH, 1, 1);
+            inputX, inputY, inputW, inputH, 0f, 0f, 16, 16, 16, 16);
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + inputH;
         if (hoverInput || input.isFocused())

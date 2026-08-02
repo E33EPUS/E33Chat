@@ -66,7 +66,7 @@ public class ChatBubbleScreen extends Screen {
 
     static Identifier iconTex(String name) {
         String theme = ChatBubbleClientSetup.config().theme().toLowerCase();
-        return Identifier.of("e33chat", "textures/gui/" + theme + "/" + name);
+        return Identifier.of("e33chat", "textures/gui/" + theme + "/" + name + ".png");
     }
 
 
@@ -319,8 +319,8 @@ public class ChatBubbleScreen extends Screen {
     private static final int SIDEBAR_SEARCH_H = 14;
 
     private void renderSidebar(DrawContext g, int mouseX, int mouseY) {
-        g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, 0f, 0f, SIDEBAR_W, height, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), SIDEBAR_W - 1, 0, 0f, 0f, 1, height, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, SIDEBAR_W, height, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), SIDEBAR_W - 1, 0, 1, height, 0f, 0f, 16, 16, 16, 16);
 
         int y = 2;
         int itemH = SIDEBAR_ITEM_H;
@@ -329,7 +329,7 @@ public class ChatBubbleScreen extends Screen {
         int sby = 2;
         int sbw = SIDEBAR_W - 5;
         int sbh = SIDEBAR_SEARCH_H;
-        g.drawTexture(UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, 0f, 0f, sbw + 1, sbh, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, sbw + 1, sbh, 0f, 0f, 16, 16, 16, 16);
         boolean hoverSearch = mouseX >= sbx - 1 && mouseX <= sbx + sbw && mouseY >= sby && mouseY <= sby + sbh;
         if (hoverSearch || sidebarSearchBox.isFocused())
             g.drawBorder(sbx - 1, sby, sbw + 1, sbh, c().textMuted());
@@ -341,9 +341,9 @@ public class ChatBubbleScreen extends Screen {
         boolean isPublic = whisperPartner == null;
         boolean hoverTab = mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= y && mouseY <= y + itemH;
         if (isPublic)
-            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, y, 0f, 0f, SIDEBAR_W, itemH, 1, 1);
+            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, y, SIDEBAR_W, itemH, 0f, 0f, 16, 16, 16, 16);
         else if (hoverTab)
-            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, y, 0f, 0f, SIDEBAR_W, itemH, 1, 1);
+            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, y, SIDEBAR_W, itemH, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("public_icon"), 2, y + 1, SIDEBAR_ICON_S);
         int nameX = 2 + SIDEBAR_ICON_S + 3;
         String publicLabel = Text.translatable("e33chat.sidebar.public").getString();
@@ -398,9 +398,9 @@ public class ChatBubbleScreen extends Screen {
                         boolean sel = name.equals(whisperPartner);
                         boolean hoverRow = mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= scrollY && mouseY <= scrollY + itemH;
                         if (sel)
-                            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, scrollY, 0f, 0f, SIDEBAR_W, itemH, 1, 1);
+                            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, scrollY, SIDEBAR_W, itemH, 0f, 0f, 16, 16, 16, 16);
                         else if (hoverRow)
-                            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, 0f, 0f, SIDEBAR_W, itemH, 1, 1);
+                            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, SIDEBAR_W, itemH, 0f, 0f, 16, 16, 16, 16);
 
                         Identifier skin = getSkin(info.getProfile().getId(), info.getProfile().getName());
                         drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18);
@@ -974,13 +974,13 @@ public class ChatBubbleScreen extends Screen {
 
     private void renderTitleBar(DrawContext g, int mouseX, int mouseY) {
         int ty = titleY;
-        g.drawTexture(UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, 0f, 0f, panelW, TITLE_H, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + TITLE_H, 0f, 0f, panelW, 1, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, panelW, TITLE_H, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + TITLE_H, panelW, 1, 0f, 0f, 16, 16, 16, 16);
 
         int menuX = panelX + 3;
         int menuY = ty + (TITLE_H - ICON_S) / 2;
         boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S && mouseY >= menuY && mouseY <= menuY + ICON_S;
-        if (hoverMenu) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, 0f, 0f, ICON_S + 2, ICON_S + 2, 1, 1);
+        if (hoverMenu) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("menu"), menuX, menuY, ICON_S);
 
         String title = getDisplayTitle();
@@ -999,7 +999,7 @@ public class ChatBubbleScreen extends Screen {
         boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12 && mouseY >= closeY && mouseY <= closeY + 12;
         int closeBg = hoverClose ? c().closeHoverBg() : c().closeBg();
         g.drawTexture(UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
-            closeX, closeY, 0f, 0f, 12, 12, 1, 1);
+            closeX, closeY, 12, 12, 0f, 0f, 16, 16, 16, 16);
         g.drawText(textRenderer, "✕", closeX + 6 - textRenderer.getWidth("✕") / 2, closeY + 2, c().closeText(), false);
     }
 
@@ -1025,7 +1025,7 @@ public class ChatBubbleScreen extends Screen {
         if (whisperPartner != null) {
             indicatorH = 14;
             int indY = msgTop;
-        g.drawTexture(UiTextureManager.rl(UiElement.WHISPER_BAR), panelX, indY, 0f, 0f, panelW, indicatorH, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.WHISPER_BAR), panelX, indY, panelW, indicatorH, 0f, 0f, 16, 16, 16, 16);
             String modeText = Text.translatable("e33chat.whisper.mode").getString() + ": " + whisperPartner;
             int modeTW = textRenderer.getWidth(modeText);
             g.drawText(textRenderer, modeText, panelX + (panelW - modeTW) / 2, indY + 2, c().textPrimary(), false);
@@ -1419,7 +1419,7 @@ public class ChatBubbleScreen extends Screen {
     private void renderNotificationBar(DrawContext g, int mouseX, int mouseY) {
         if (newMessageCount <= 0) return;
         int notifY = barTop - NOTIF_H;
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, notifY - 1, 0f, 0f, panelW, 1, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, notifY - 1, panelW, 1, 0f, 0f, 16, 16, 16, 16);
         int yellow = c().notificationText();
         int textY = notifY + (NOTIF_H - textRenderer.fontHeight) / 2;
         String ct = Text.translatable("e33chat.notif.new_messages", newMessageCount).getString() + " ▽";
@@ -1448,17 +1448,17 @@ public class ChatBubbleScreen extends Screen {
         int menuY = contextY - menuH;
         if (menuY < msgTop) menuY = contextY + 4;
 
-        g.drawTexture(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, 0f, 0f, CTX_W, menuH, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, CTX_W, 1, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, 0f, 0f, CTX_W, 1, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, 1, menuH, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 0f, 0f, 1, menuH, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, CTX_W, menuH, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, CTX_W, 1, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, CTX_W, 1, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 1, menuH, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 1, menuH, 0f, 0f, 16, 16, 16, 16);
 
         boolean hoverCopy = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
         int copyBg = hoverCopy ? c().contextHover() : c().sidebarItemSelected();
         g.drawTexture(UiTextureManager.rl(hoverCopy ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
-            menuX + 1, menuY + 1, 0f, 0f, CTX_W - 2, CTX_ITEM_H - 1, 1, 1);
+            menuX + 1, menuY + 1, CTX_W - 2, CTX_ITEM_H - 1, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("copy"), menuX + 5, menuY + 3, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.copy").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
 
@@ -1468,7 +1468,7 @@ public class ChatBubbleScreen extends Screen {
             && mouseY >= menuY + CTX_ITEM_H + 1 && mouseY <= menuY + menuH;
         int quoteBg = hoverQuote ? c().contextHover() : c().sidebarItemSelected();
         g.drawTexture(UiTextureManager.rl(hoverQuote ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
-            menuX + 1, menuY + CTX_ITEM_H + 1, 0f, 0f, CTX_W - 2, CTX_ITEM_H, 1, 1);
+            menuX + 1, menuY + CTX_ITEM_H + 1, CTX_W - 2, CTX_ITEM_H, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("quote"), menuX + 5, menuY + CTX_ITEM_H + 3, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.quote").getString(), menuX + 22, menuY + CTX_ITEM_H + 5, c().textPrimary(), false);
     }
@@ -1480,17 +1480,17 @@ public class ChatBubbleScreen extends Screen {
         int menuY = contextAvatarY - menuH;
         if (menuY < msgTop) menuY = contextAvatarY + 4;
 
-        g.drawTexture(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, 0f, 0f, CTX_W, menuH, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, CTX_W, 1, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, 0f, 0f, CTX_W, 1, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, 1, menuH, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 0f, 0f, 1, menuH, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, CTX_W, menuH, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, CTX_W, 1, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, CTX_W, 1, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 1, menuH, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 1, menuH, 0f, 0f, 16, 16, 16, 16);
 
         boolean hoverTp = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
         int tpBg = hoverTp ? c().contextHover() : c().sidebarItemSelected();
         g.drawTexture(UiTextureManager.rl(hoverTp ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
-            menuX + 1, menuY + 1, 0f, 0f, CTX_W - 2, CTX_ITEM_H - 1, 1, 1);
+            menuX + 1, menuY + 1, CTX_W - 2, CTX_ITEM_H - 1, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("tp"), menuX + 5, menuY + 3, 12);
         g.drawText(textRenderer, Text.translatable(ChatMessageStore.useTpa() ? "e33chat.context.tpa" : "e33chat.context.tp").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
 
@@ -1500,7 +1500,7 @@ public class ChatBubbleScreen extends Screen {
             && mouseY >= menuY + CTX_ITEM_H + 2 && mouseY <= menuY + menuH;
         int whBg = hoverWhisper ? c().contextHover() : c().sidebarItemSelected();
         g.drawTexture(UiTextureManager.rl(hoverWhisper ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
-            menuX + 1, menuY + CTX_ITEM_H + 2, 0f, 0f, CTX_W - 2, CTX_ITEM_H, 1, 1);
+            menuX + 1, menuY + CTX_ITEM_H + 2, CTX_W - 2, CTX_ITEM_H, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("whisper"), menuX + 5, menuY + CTX_ITEM_H + 4, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.whisper").getString(), menuX + 22, menuY + CTX_ITEM_H + 6, c().textPrimary(), false);
     }
@@ -1522,7 +1522,7 @@ public class ChatBubbleScreen extends Screen {
         float panelBgAlpha = (c().panelBg() >>> 24) / 255f;
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             barX, barY, barW, barTop - notifOffset - barY, panelBgAlpha);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), barX, barTop - notifOffset - 1, 0f, 0f, barW, 1, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), barX, barTop - notifOffset - 1, barW, 1, 0f, 0f, 16, 16, 16, 16);
 
         String sender = target.senderName().getString();
         if (sender.isEmpty()) sender = Text.translatable("e33chat.sender.system").getString();
@@ -1537,7 +1537,7 @@ public class ChatBubbleScreen extends Screen {
         boolean hoverX = mouseX >= cx && mouseX <= cx + 12 && mouseY >= cy && mouseY <= cy + 12;
         int xBg = hoverX ? c().closeHoverBg() : c().sidebarItemSelected();
         g.drawTexture(UiTextureManager.rl(hoverX ? UiElement.CLOSE_HOVER : UiElement.SIDEBAR_SELECTED),
-            cx, cy, 0f, 0f, 12, 12, 1, 1);
+            cx, cy, 12, 12, 0f, 0f, 16, 16, 16, 16);
         g.drawText(textRenderer, "✕", cx + 6 - textRenderer.getWidth("✕") / 2, cy + 2, c().closeText(), false);
     }
 
@@ -1565,7 +1565,7 @@ public class ChatBubbleScreen extends Screen {
         int popupY = input.getY() - popupH - 2;
         if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
 
-        g.drawTexture(UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, 0f, 0f, popupW, popupH, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, popupW, popupH, 0f, 0f, 16, 16, 16, 16);
         g.drawBorder(popupX, popupY, popupW, popupH, c().divider());
 
         int startIdx = Math.max(0, mentionIdx - visible + 1);
@@ -1645,8 +1645,8 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void renderBottomBar(DrawContext g, int mouseX, int mouseY) {
-        g.drawTexture(UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, 0f, 0f, panelW, height - barTop, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, 0f, 0f, panelW, 1, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, panelW, height - barTop, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, panelW, 1, 0f, 0f, 16, 16, 16, 16);
 
         int iconY = barTop + (BAR_H - ICON_S) / 2;
 
@@ -1654,8 +1654,8 @@ public class ChatBubbleScreen extends Screen {
         int ibY = inputY;
         int ibW = input.getWidth();
         int ibH = INPUT_H;
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, 0f, 0f, ibW + 1, 1, 1, 1);
-        g.drawTexture(UiTextureManager.rl(UiElement.INPUT_BG), ibX - 1, ibY, 0f, 0f, ibW + 1, ibH, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, ibW + 1, 1, 0f, 0f, 16, 16, 16, 16);
+        g.drawTexture(UiTextureManager.rl(UiElement.INPUT_BG), ibX - 1, ibY, ibW + 1, ibH, 0f, 0f, 16, 16, 16, 16);
 
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + ibW && mouseY >= ibY && mouseY <= ibY + ibH;
         if (hoverInput || input.isFocused())
@@ -1667,17 +1667,17 @@ public class ChatBubbleScreen extends Screen {
 
         boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverGear) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, 0f, 0f, ICON_S + 2, ICON_S + 2, 1, 1);
+        if (hoverGear) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("settings"), gearX, iconY, ICON_S);
 
         boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverEmoji || emojiPanel.visible) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, 0f, 0f, ICON_S + 2, ICON_S + 2, 1, 1);
+        if (hoverEmoji || emojiPanel.visible) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("emoji"), emojiX, iconY, ICON_S);
 
         boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverSend) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, 0f, 0f, ICON_S + 2, ICON_S + 2, 1, 1);
+        if (hoverSend) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("send"), sendX, iconY, ICON_S);
     }
 

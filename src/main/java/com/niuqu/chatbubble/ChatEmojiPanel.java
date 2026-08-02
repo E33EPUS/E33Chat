@@ -65,23 +65,23 @@ public class ChatEmojiPanel {
         };
         int tabW = pw / tabLabels.length;
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.TITLE_BAR),
-            px, py, 0f, 0f, pw, TAB_H + 1, 1, 1);
+            px, py, pw, TAB_H + 1, 0f, 0f, 16, 16, 16, 16);
         for (int t = 0; t < tabLabels.length; t++) {
             int tx = px + t * tabW;
             if (t == tab)
                 g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
-                    tx, py, 0f, 0f, tabW, TAB_H, 1, 1);
+                    tx, py, tabW, TAB_H, 0f, 0f, 16, 16, 16, 16);
             String label = tabLabels[t];
             g.drawText(font, label,
                 tx + tabW / 2 - font.getWidth(label) / 2, py + (TAB_H - font.fontHeight) / 2, c.textPrimary(), false);
         }
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
-            px, py + TAB_H, 0f, 0f, pw, 1, 1, 1);
+            px, py + TAB_H, pw, 1, 0f, 0f, 16, 16, 16, 16);
 
         int cy = py + TAB_H + 1;
         int ch = PANEL_H - TAB_H - 1;
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, cy, 0f, 0f, pw, py + PANEL_H - cy, 1, 1);
+            px, cy, pw, py + PANEL_H - cy, 0f, 0f, 16, 16, 16, 16);
         g.drawBorder(px, py, pw, PANEL_H, c.divider());
 
         if (isKaomoji) {
@@ -110,7 +110,7 @@ public class ChatEmojiPanel {
             if (mouseX >= ex && mouseX <= ex + SLOT - 1
                 && mouseY >= ey && mouseY <= ey + SLOT - 1)
                 g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
-                    ex, ey, 0f, 0f, SLOT - 1, SLOT - 1, 1, 1);
+                    ex, ey, SLOT - 1, SLOT - 1, 0f, 0f, 16, 16, 16, 16);
             String emoji = EMOTES[i];
             g.drawText(font, emoji,
                 ex + SLOT / 2 - font.getWidth(emoji) / 2,
@@ -139,7 +139,7 @@ public class ChatEmojiPanel {
             if (mouseX >= ex && mouseX <= ex + kColW - 1
                 && mouseY >= ey && mouseY <= ey + KAO_ITEM_H - 1)
                 g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
-                    ex, ey, 0f, 0f, kColW - 1, KAO_ITEM_H - 1, 1, 1);
+                    ex, ey, kColW - 1, KAO_ITEM_H - 1, 0f, 0f, 16, 16, 16, 16);
             g.drawText(font, KAO[i],
                 ex + 2, ey + (KAO_ITEM_H - font.fontHeight) / 2, c.textPrimary(), false);
         }

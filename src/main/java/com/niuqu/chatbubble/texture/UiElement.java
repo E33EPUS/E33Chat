@@ -37,9 +37,9 @@ public enum UiElement {
         this.path = path;
     }
 
-    /** 渲染/注册用的纹理 ID（不带 .png）。 */
+    /** 渲染/注册用的纹理 ID（带 .png——ResourceTexture 原样查资源，不自动补后缀）。 */
     public Identifier rl(ChatBubbleTheme theme) {
         return Identifier.of("e33chat",
-            "textures/gui/" + theme.name().toLowerCase() + "/" + path);
+            "textures/gui/" + theme.name().toLowerCase() + "/" + path + ".png");
     }
 }

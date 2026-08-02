@@ -610,7 +610,7 @@ public class ChatBubbleConfigScreen extends Screen {
     @Override
     public void render(DrawContext g, int mouseX, int mouseY, float partialTick) {
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONFIG_BG, ChatBubbleTheme.DARK),
-            0, 0, 0f, 0f, width, height, 1, 1);
+            0, 0, width, height, 0f, 0f, 16, 16, 16, 16);
         tickAnims();
         g.drawText(textRenderer, title, width / 2 - textRenderer.getWidth(title) / 2, 14, c().configTitle(), false);
 
@@ -624,7 +624,7 @@ public class ChatBubbleConfigScreen extends Screen {
             boolean hover = mouseX >= CAT_X && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + CAT_ROW_H;
             if (sel || hover)
                 g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG, ChatBubbleTheme.DARK),
-                    CAT_X, ly, 0f, 0f, CAT_W, CAT_ROW_H, 1, 1);
+                    CAT_X, ly, CAT_W, CAT_ROW_H, 0f, 0f, 16, 16, 16, 16);
             if (sel)
                 g.fill(CAT_X, ly, CAT_X + 2, ly + CAT_ROW_H, c().configTitle());
             drawTriangle(g, CAT_X + 6, ly + (CAT_ROW_H - 5) / 2, expanded[i],
@@ -640,7 +640,7 @@ public class ChatBubbleConfigScreen extends Screen {
                     boolean sh = mouseX >= CAT_X + 14 && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + SUB_ROW_H;
                     if (selSub || sh)
                         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG, ChatBubbleTheme.DARK),
-                            CAT_X + 14, ly, 0f, 0f, CAT_W - 14, SUB_ROW_H, 1, 1);
+                            CAT_X + 14, ly, CAT_W - 14, SUB_ROW_H, 0f, 0f, 16, 16, 16, 16);
                     if (selSub)
                         g.fill(CAT_X + 14, ly, CAT_X + 16, ly + SUB_ROW_H, c().configTitle());
                     g.drawText(textRenderer, Text.translatable(o.key()), CAT_X + 24, ly + (SUB_ROW_H - 8) / 2,
@@ -654,7 +654,7 @@ public class ChatBubbleConfigScreen extends Screen {
         drawBar(g, tTrackX(), START_Y, viewBottom(), tTotalH(), treeScroll, calcTreeMaxScroll(), mouseX, mouseY, tBarDrag);
 
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER, ChatBubbleTheme.DARK),
-            dividerX, START_Y - 6, 0f, 0f, 1, viewBottom() - (START_Y - 6), 1, 1);
+            dividerX, START_Y - 6, 1, viewBottom() - (START_Y - 6), 0f, 0f, 16, 16, 16, 16);
 
         if (showPreview()) drawBubblePreview(g);
 
@@ -668,7 +668,7 @@ public class ChatBubbleConfigScreen extends Screen {
                 int lineEnd = optLabelX + optAreaW() + 4;
                 if (lineX < lineEnd)
             g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER, ChatBubbleTheme.DARK),
-                lineX, y + 15, 0f, 0f, lineEnd - lineX, 1, 1, 1);
+                lineX, y + 15, lineEnd - lineX, 1, 0f, 0f, 16, 16, 16, 16);
                 y += HEADER_H;
                 continue;
             }
@@ -723,7 +723,7 @@ public class ChatBubbleConfigScreen extends Screen {
         RoundRectRenderer.fill(g, mx, top + 22, mx + mw, top + 36, rad, own);
         g.drawText(textRenderer, ownMsg, mx + 4, top + 25, ownT, false);
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER, ChatBubbleTheme.DARK),
-            optLabelX - 4, top + PREVIEW_H - 1, 0f, 0f, optAreaW() + 8, 1, 1, 1);
+            optLabelX - 4, top + PREVIEW_H - 1, optAreaW() + 8, 1, 0f, 0f, 16, 16, 16, 16);
     }
 
     private void drawPreview(DrawContext g, int y, String hex) {

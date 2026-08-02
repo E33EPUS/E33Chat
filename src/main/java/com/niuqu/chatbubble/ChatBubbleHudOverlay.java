@@ -21,7 +21,7 @@ public class ChatBubbleHudOverlay {
 
     private static Identifier chatIconTex() {
         String theme = cfg().theme().toLowerCase();
-        return Identifier.of("e33chat", "textures/gui/" + theme + "/chat_icon");
+        return Identifier.of("e33chat", "textures/gui/" + theme + "/chat_icon.png");
     }
 
     private static ChatBubbleTheme theme() {

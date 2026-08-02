@@ -25,7 +25,7 @@ public class ChatSettingsMenu {
         int py = barTop - menuH - 4;
 
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, py, 0f, 0f, W, menuH, 1, 1);
+            px, py, W, menuH, 0f, 0f, 16, 16, 16, 16);
         g.drawBorder(px, py, W, menuH, c.divider());
 
         Identifier[] icons = {
@@ -44,7 +44,7 @@ public class ChatSettingsMenu {
             boolean hover = mouseX >= px && mouseX <= px + W
                 && mouseY >= ry && mouseY <= ry + ROW_H;
             if (hover) g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
-                px + 1, ry, 0f, 0f, W - 2, ROW_H, 1, 1);
+                px + 1, ry, W - 2, ROW_H, 0f, 0f, 16, 16, 16, 16);
             ChatBubbleScreen.drawTextureIcon(g, icons[i], px + 3, ry + 2, 14);
             int maxTextW = W - 22;
             String label = font.trimToWidth(labels[i], maxTextW);

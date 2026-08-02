@@ -644,7 +644,7 @@ public class ServerConfigScreen extends Screen {
     @Override
     public void render(DrawContext g, int mouseX, int mouseY, float partialTick) {
         g.drawTexture(UiTextureManager.rl(UiElement.CONFIG_BG, ChatBubbleTheme.DARK),
-            0, 0, 0f, 0f, width, height, 1, 1);
+            0, 0, width, height, 0f, 0f, 16, 16, 16, 16);
         tickAnims();
         g.drawText(textRenderer, title, width / 2 - textRenderer.getWidth(title) / 2, 14, c().configTitle(), false);
 
@@ -658,7 +658,7 @@ public class ServerConfigScreen extends Screen {
             boolean hover = mouseX >= CAT_X && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + CAT_ROW_H;
             if (sel || hover)
                 g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG, ChatBubbleTheme.DARK),
-                    CAT_X, ly, 0f, 0f, CAT_W, CAT_ROW_H, 1, 1);
+                    CAT_X, ly, CAT_W, CAT_ROW_H, 0f, 0f, 16, 16, 16, 16);
             if (sel)
                 g.fill(CAT_X, ly, CAT_X + 2, ly + CAT_ROW_H, c().configTitle());
             g.drawText(textRenderer, Text.translatable(CAT_KEYS[i]), CAT_X + 18, ly + (CAT_ROW_H - 8) / 2,
@@ -671,7 +671,7 @@ public class ServerConfigScreen extends Screen {
 
         // 分类与选项区分隔线
         g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER, ChatBubbleTheme.DARK),
-            dividerX(), START_Y - 6, 0f, 0f, 1, viewBottom() - (START_Y - 6), 1, 1);
+            dividerX(), START_Y - 6, 1, viewBottom() - (START_Y - 6), 0f, 0f, 16, 16, 16, 16);
 
         // 右区选项行，硬裁剪到视口；普通行 label 垂直居中对齐按钮（y+6），教程小行顶部对齐（y+2）
         g.enableScissor(optLabelX() - 4, viewTop(), width, viewBottom());
@@ -685,7 +685,7 @@ public class ServerConfigScreen extends Screen {
                 int lineEnd = optLabelX() + optAreaW() + 4;
                 if (lineX < lineEnd)
                     g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER, ChatBubbleTheme.DARK),
-                        lineX, y + 15, 0f, 0f, lineEnd - lineX, 1, 1, 1);
+                        lineX, y + 15, lineEnd - lineX, 1, 0f, 0f, 16, 16, 16, 16);
                 y += row.height();
                 continue;
             }
