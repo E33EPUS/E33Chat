@@ -37,4 +37,28 @@ public final class ColoredTextureRenderer {
         BufferUploader.drawWithShader(bb.end());
         RenderSystem.disableBlend();
     }
+
+    /** 带整体 tint 色的纹理渲染：纹理色 × tint(r,g,b,a)。用于白色默认纹理 × 主题色动态着色。 */
+    public static void drawTinted(GuiGraphics g, ResourceLocation tex,
+                                  int x, int y, int w, int h, int argb) {
+        if (w <= 0 || h <= 0) return;
+        float a = (argb >>> 24) / 255f;
+        float r = (argb >> 16 & 0xFF) / 255f;
+        float gr = (argb >> 8 & 0xFF) / 255f;
+        float b = (argb & 0xFF) / 255f;
+        g.flush();
+        RenderSystem.setShaderTexture(0, tex);
+        RenderSystem.setShader(GameRenderer::getPositionColorTexShader);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        Matrix4f pose = g.pose().last().pose();
+        BufferBuilder bb = Tesselator.getInstance().getBuilder();
+        bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_TEX);
+        bb.vertex(pose, x, y, 0).color(r, gr, b, a).uv(0f, 0f).endVertex();
+        bb.vertex(pose, x, y + h, 0).color(r, gr, b, a).uv(0f, 1f).endVertex();
+        bb.vertex(pose, x + w, y + h, 0).color(r, gr, b, a).uv(1f, 1f).endVertex();
+        bb.vertex(pose, x + w, y, 0).color(r, gr, b, a).uv(1f, 0f).endVertex();
+        BufferUploader.drawWithShader(bb.end());
+        RenderSystem.disableBlend();
+    }
 }

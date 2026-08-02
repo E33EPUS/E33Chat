@@ -1373,7 +1373,10 @@ public class ChatBubbleScreen extends Screen {
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
         // Background fades with the text, at half opacity like the strong-hint bar
-        g.fill(tx - 6, ty - 2, tx + tw + 6, ty + font.lineHeight + 2, (alpha / 2) << 24);
+        // TOAST_BG 烘焙不透明 toastBg；纹理 × 动态 alpha = 半透明淡入淡出。2.2.4 黑块根因：
+        // 当时 blit 无 alpha 通道渲染不透明纯黑 → drawWithAlpha 后纹理可覆盖 + 透明度可控
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TOAST_BG),
+            tx - 6, ty - 2, tw + 12, font.lineHeight + 4, (alpha / 2) / 255f);
         g.drawString(font, Component.literal(text), tx, ty, color, false);
     }
 

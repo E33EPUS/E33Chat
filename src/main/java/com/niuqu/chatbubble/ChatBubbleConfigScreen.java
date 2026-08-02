@@ -825,6 +825,8 @@ public class ChatBubbleConfigScreen extends Screen {
 
     // 保存：保留改动直接关闭（Forge 自动落盘）
     private void doClose() {
+        // 圆角配置可能变了——重新烘焙默认纹理（register 同 ID 会释放旧纹理，安全可重复）
+        com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
         minecraft.setScreen(lastScreen);
     }
 

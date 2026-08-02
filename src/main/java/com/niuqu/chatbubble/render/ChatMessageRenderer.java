@@ -5,6 +5,9 @@ import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.UiLayout;
+import com.niuqu.chatbubble.texture.NineSliceRenderer;
+import com.niuqu.chatbubble.texture.UiElement;
+import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -194,8 +197,10 @@ public final class ChatMessageRenderer {
         String text = formatTime(timeMillis);
         int tw = font.width(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
-        g.fill(tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2,
-            ChatBubbleTheme.alphaBlend(c.toastBg(), 0x44));
+        // 时间分隔符背景纹理化：TIME_SEP_BG × 0x44 透明度（与旧 fill 视觉一致，资源包可覆盖）
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            UiTextureManager.rl(UiElement.TIME_SEP_BG),
+            tx - 6, y + 2, tw + 12, TIME_SEP_H - 4, 0x44 / 255f);
         g.drawString(font, Component.literal(text), tx, y + 3, c.timeColor(), false);
     }
 
@@ -286,8 +291,10 @@ public final class ChatMessageRenderer {
         int bg = own ? ownBubbleColor : otherBubbleColor;
         int fg = own ? ownTextColor : otherTextColor;
 
-        RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
-            cornerRadius, bg);
+        // 气泡背景纹理化：BUBBLE_BG 白色圆角纹理（半径跟随配置）× tint 用户气泡色。
+        // 零资源包视觉与旧 RoundRect 一致；资源包覆盖后形状（圆角/边框/图案）由贴图决定，tint 色仍在
+        NineSliceRenderer.drawTinted(g, UiTextureManager.rl(UiElement.BUBBLE_BG),
+            bubbleX, bubbleY, bubbleW, bubbleH, bg);
 
         Style fb = findClickStyle(msg.content());
         for (int li = 0; li < lines.size(); li++)
@@ -323,7 +330,9 @@ public final class ChatMessageRenderer {
             if (quoteX < panelX + ChatLayout.PAD) quoteX = panelX + ChatLayout.PAD;
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, c.contextHover());
+            // 引用块纹理化：QUOTE_BG 白色圆角纹理 × tint 引用色
+            NineSliceRenderer.drawTinted(g, UiTextureManager.rl(UiElement.QUOTE_BG),
+                quoteX, quoteY, quoteW, quoteH, c.contextHover());
             g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, c.textSecondary(), false);
         }
 
