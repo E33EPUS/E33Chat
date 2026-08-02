@@ -14,27 +14,23 @@ import org.joml.Matrix4f;
 /**
  * 自写 9-slice（stretch 版）——四角不拉伸、边单向拉伸、中心双向拉伸。
  * 与 vanilla blitNineSliced（tile 平铺，渐变纹理露馅）不同，stretch 对任意贴图形状不变形。
- * 纹理约定 16×16：四角区固定 4px（BORDER），中心 8×8 双向拉伸。
- * 默认 16×16 圆角纹理走此路径；1×1 纯色元素（toast/时间分隔符/HUD 提示条等）
- * 不经过本类，直接用 ColoredTextureRenderer。
+ * 纹理约定：尺寸 = border×4（四角区 border 恒定、中心 border×2 双向拉伸）；
+ * UV 按 1/(border×4) 缩放，border 与纹理尺寸自洽，任意圆角半径可表达。
+ * 默认圆角纹理由 UiTextureManager 按配置半径生成；1×1 纯色元素（toast/时间分隔符
+ * /HUD 提示条等）不经过本类，直接用 ColoredTextureRenderer。
  * 渲染用 POSITION_COLOR_TEX 顶点：tint 色动态着色（白色默认纹理 × 主题色），alpha 通道动态淡入淡出。
  */
 public final class NineSliceRenderer {
 
     private NineSliceRenderer() {}
 
-    /** 四角保留区（16 基准纹理像素，随纹理 UV 归一化自动适配任意尺寸贴图）。 */
-    public static final int BORDER = 4;
-
-    /** 16×16 纹理的 UV 缩放。 */
-    private static final float UV_SCALE = 1f / 16f;
-
     /**
      * 9-slice 渲染，tint 着色 + 整体 alpha。
-     * @param argb 完整 ARGB：RGB 作为 tint 乘到纹理色上，alpha 作为整体透明度
+     * @param border 四角保留区（= 圆角半径像素，纹理尺寸应为 border×4；0 = 纯拉伸）
+     * @param argb   完整 ARGB：RGB 作为 tint 乘到纹理色上，alpha 作为整体透明度
      */
     public static void drawTinted(GuiGraphics g, ResourceLocation tex,
-                                  int x, int y, int w, int h, int argb) {
+                                  int x, int y, int w, int h, int border, int argb) {
         if (w <= 0 || h <= 0) return;
         float a = (argb >>> 24) / 255f;
         if (a <= 0.003f) return;
@@ -52,12 +48,17 @@ public final class NineSliceRenderer {
         BufferBuilder bb = Tesselator.getInstance().getBuilder();
         bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_TEX);
 
-        int bw = Math.min(BORDER, w / 2);
-        int bh = Math.min(BORDER, h / 2);
+        int bw = Math.max(0, Math.min(border, w / 2));
+        int bh = Math.max(0, Math.min(border, h / 2));
+        if (bw <= 0 || bh <= 0) {
+            // 退化：纯拉伸
+            ColoredTextureRenderer.drawTinted(g, tex, x, y, w, h, argb);
+            return;
+        }
         int midW = w - 2 * bw;
         int midH = h - 2 * bh;
-        float uw = UV_SCALE;
-        float vh = UV_SCALE;
+        float uw = 1f / (border * 4f);
+        float vh = 1f / (border * 4f);
 
         // 顶行：左角 / 顶边(拉伸) / 右角
         quad(bb, pose, x, y, bw, bh, 0, 0, bw, bh, uw, vh, r, gr, b, a);
