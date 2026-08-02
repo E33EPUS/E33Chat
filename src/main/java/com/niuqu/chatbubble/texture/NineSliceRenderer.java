@@ -14,10 +14,9 @@ import org.joml.Matrix4f;
 /**
  * 自写 9-slice（stretch 版）——四角不拉伸、边单向拉伸、中心双向拉伸。
  * 与 vanilla nine-slice（tile 平铺，渐变纹理露馅）不同，stretch 对任意贴图形状不变形。
- * 纹理约定：尺寸 = border×4（四角区 border 恒定、中心 border×2 双向拉伸）；
- * UV 按 1/(border×4) 缩放，border 与纹理尺寸自洽，任意圆角半径可表达。
- * 默认圆角纹理由 UiTextureManager 按配置半径生成；1×1 纯色元素（toast/时间分隔符
- * /HUD 提示条等）不经过本类，直接用 ColoredTextureRenderer。
+ * border 从纹理实际尺寸推导（UiTextureManager.borderFor = 短边/4），保证采样与贴图严格 1:1——
+ * 任意尺寸贴图都不会放大失配：默认圆角纹理（半径×4）和资源包覆盖贴图自动适配。
+ * 1×1 纯色元素（toast/时间分隔符/HUD 提示条等）border=0 退化纯拉伸，不经过本类（用 ColoredTextureRenderer）。
  * 渲染用 POSITION_TEXTURE_COLOR 顶点：tint 色动态着色（白色默认纹理 × 主题色），alpha 通道动态淡入淡出。
  */
 public final class NineSliceRenderer {
@@ -26,11 +25,10 @@ public final class NineSliceRenderer {
 
     /**
      * 9-slice 渲染，tint 着色 + 整体 alpha。
-     * @param border 四角保留区（= 圆角半径像素，纹理尺寸应为 border×4；0 = 纯拉伸）
-     * @param argb   完整 ARGB：RGB 作为 tint 乘到纹理色上，alpha 作为整体透明度
+     * @param argb 完整 ARGB：RGB 作为 tint 乘到纹理色上，alpha 作为整体透明度
      */
     public static void drawTinted(DrawContext g, Identifier tex,
-                                  int x, int y, int w, int h, int border, int argb) {
+                                  int x, int y, int w, int h, int argb) {
         if (w <= 0 || h <= 0) return;
         float a = (argb >>> 24) / 255f;
         if (a <= 0.003f) return;
@@ -47,6 +45,7 @@ public final class NineSliceRenderer {
         Matrix4f pose = g.getMatrices().peek().getPositionMatrix();
         BufferBuilder bb = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
+        int border = UiTextureManager.borderFor(tex);
         int bw = Math.max(0, Math.min(border, w / 2));
         int bh = Math.max(0, Math.min(border, h / 2));
         if (bw <= 0 || bh <= 0) {
@@ -56,8 +55,9 @@ public final class NineSliceRenderer {
         }
         int midW = w - 2 * bw;
         int midH = h - 2 * bh;
-        float uw = 1f / (border * 4f);
-        float vh = 1f / (border * 4f);
+        int texSize = border * 4;
+        float uw = 1f / texSize;
+        float vh = 1f / texSize;
 
         // 顶行：左角 / 顶边(拉伸) / 右角
         quad(bb, pose, x, y, bw, bh, 0, 0, bw, bh, uw, vh, r, gr, b, a);
