@@ -1,6 +1,6 @@
 [简体中文](README.md) | [English](README_EN.md)
 
-# E33Chat
+<h1 align="center">E33Chat</h1>
 
 <p align="center">
   <em>Rebuilds the vanilla chat HUD in chat-app style</em>
@@ -11,7 +11,7 @@
   <img alt="Loader" src="https://img.shields.io/badge/Loader-Forge%20%7C%20NeoForge%20%7C%20Fabric-orange">
   <img alt="Side" src="https://img.shields.io/badge/Side-Client%20required,%20server%20optional-blue">
   <img alt="Java" src="https://img.shields.io/badge/Java-17%2B%20%7C%2021%2B-yellow">
-  <img alt="Version" src="https://img.shields.io/badge/Version-2.2.3-informational">
+  <img alt="Version" src="https://img.shields.io/badge/Version-2.2.7-informational">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-brightgreen">
 </p>
 
@@ -31,6 +31,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - [Search, emoji & quick phrases](#search-emoji--quick-phrases)
 - [Themes & settings](#themes--settings)
 - [Server-side bonus](#server-side-bonus)
+- [Server message-format templates](#server-message-format-templates)
 - [Message recognition & compatibility](#message-recognition--compatibility)
 - [Compatibility](#compatibility)
 - [Known limitations](#known-limitations)
@@ -51,8 +52,8 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 | Java | Required | 17+ (Forge 1.20.1) / 21+ (1.21.1) |
 | Forge | Per platform | 47.0.0+ (1.20.1) |
 | NeoForge | Per platform | 21.x (1.21.1) |
-| Fabric Loader | Per platform | 0.19.3+ (1.21.1) |
-| Fabric API | Per platform | 0.116.x+ (1.21.1) |
+| Fabric Loader | Per platform | 0.16.0+ (1.21.1) |
+| Fabric API | Per platform | Any compatible version (1.21.1) |
 | CustomSkinLoader | Optional | Shows offline players' heads |
 
 ---
@@ -91,6 +92,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - 🗨️ **Vanilla chat box** — No custom HUD preview anymore; the vanilla chat renders as usual (shifted up clear of the HUD icon), so ChatHeads / ChatAnimation-style mods work out of the box
 - 🌈 **Colored messages** — Supports `&` color / format codes, rendered locally without changing what is sent
 - 📝 **Input preserved** — Typed text is kept when the chat closes
+- 🧩 **Message-format templates** — The server declares its chat format so the mod can parse plugin/NCR-rewritten lines (configured via `/e33chat gui`)
 
 ---
 
@@ -156,20 +158,68 @@ The server mod is optional. Installing it additionally enables:
 - Cross-client @ mention sync (Chinese names included)
 - New players receive recent chat history on join
 - `use_tpa`: head teleport uses `/tpa` instead
+- Message-format templates: the server declares its chat format and syncs it to every client (see below)
 
-> History distribution and the `/tpa` switch must be enabled manually in the server config file.
+> History distribution and the `/tpa` switch must be enabled manually in the server config file; templates are configured via `/e33chat gui` or commands (or by editing the server config file directly).
+
+---
+
+## Server message-format templates
+
+Plugins (or No Chat Reports-style no-report mods) often rewrite chat lines: title prefixes, arrows instead of colons, colored names. E33Chat's built-in guards can only tell "a player is speaking" — they cannot read the exact name and body out of an unfamiliar format. **A template declares the format to the client**: where the display name, the body (and for whispers, the sender/receiver) sit. A template hit parses exactly and skips the guard chain.
+
+### Enabling
+
+Install E33Chat on the server → after players join, an OP runs `/e33chat gui` to open the **server-config screen**, adds templates in the Chat Templates / Whisper Templates categories, and saves. Templates sync automatically to every client (including players who join later).
+
+### Quick start
+
+1. **Generate from a message** — click "Generate from message…", paste a real line with a name (e.g. `[VIP]Steve: hello`), and the template is inferred automatically
+2. **One-click presets** — the preset section lists common plugin defaults (EssentialsX / DeluxeChat / CMI, ...); click `+` to add
+3. **Preview** — type any message in the preview box to see the parsed name and body instantly
+4. **Type manually** — copy the shape you see in chat; separators go in verbatim
+
+### Field placeholders
+
+| Placeholder | Meaning |
+|---|---|
+| `{display_name}` | Player display name (full decorated name with titles) |
+| `{name}` | Player name (equivalent to `{display_name}`; use one of the two) |
+| `{prefix}` | Prefix decoration (titles, ...) |
+| `{content}` | Message body (exactly one; may sit anywhere — suffix styles work too) |
+| `{sender}` / `{target}` | Whisper sender / receiver (marking the template as whisper) |
+| `{sep}` | Auto-matches `>>` / `:` / `：` / `»` / `>` or plain spaces — one template covers many separator styles |
+
+### Commands (OP)
+
+```
+/e33chat template list                      # list templates
+/e33chat template set chat <template>       # add a chat template
+/e33chat template set whisper <template>    # add a whisper template
+/e33chat template remove chat <index>       # remove
+/e33chat template clear chat                # clear (fall back to guards)
+/e33chat template test chat <index> <text>  # dry-run parse
+```
+
+An empty template list disables templates and falls back to the guards — everything works as before.
 
 ---
 
 ## Message recognition & compatibility
 
-E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell player messages apart from system / broadcast ones:
+E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell player messages apart from system / broadcast ones. System-channel messages are judged in this order (first hit wins):
 
-- Three-layer guard classification: conservatively grey by default, only promoted to a bubble when the structure confirms player chat
+1. **Classifier** — known translation keys (whisper / public chat / broadcast) route deterministically
+2. **Echo suppression** — your own messages are not shown again as grey lines
+3. **Template layer** (2.2.6+) — when the server configured templates, parse exactly per the declaration; see [Server message-format templates](#server-message-format-templates)
+4. **Whisper keywords** — whispers embedded in system lines (悄悄 / whisper / 私聊, etc., before the first colon)
+5. **Click events** — when the message carries a "click to whisper" structure, attribute by the real name in the command (nickname-server antenna)
+6. **Decorated player line** — name anchor + separator structure (`Steve: hi`, `<Steve> hi`, `Steve >> hi`, suffix titles, legacy `§` codes, bare Chinese short names)
+7. **Grey fallback** — when none confirms, conservatively show as a grey system line, never misattribute
+
+Supporting mechanics:
 - Auto-compatible with No Chat Reports and similar no-report plugins (since 2.1.0, no config needed)
-- Echo suppression: your own messages are not shown again as grey lines
 - Player identity is UUID-first with name fallback, easing same-name collisions on cracked servers
-- Recognized formats: `Steve: hi`, `<Steve> hi`, `Steve >> hi`, suffix titles `Steve[LV.10]: hi`, legacy `§` color codes, bare Chinese short names `小明: 你好`
 - Nickname plugins partially supported (see FAQ)
 
 ---
@@ -184,13 +234,14 @@ E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell playe
 | Quark and similar item sharing | Item icons in system messages render correctly |
 | ChatHeads, ChatAnimation | Work by default (the vanilla chat box keeps rendering, just shifted up clear of the HUD icon) |
 | Nickname plugins | Partially supported, see [FAQ](#faq) |
+| Chat-format plugins (EssentialsChat / CMI / DeluxeChat, ...) | Adaptable via server-configured templates (with common presets), see [Server message-format templates](#server-message-format-templates) |
 
 ---
 
 ## Known limitations
 
 1. Only Forge 1.20.1, NeoForge 1.21.1 and Fabric 1.21.1 are supported
-2. When a nickname shares nothing with the real name and the plugin attaches neither a "click to whisper" event nor a tab-list rename, the message shows as a grey system line
+2. When a nickname shares nothing with the real name and the plugin attaches neither a "click to whisper" event nor a tab-list rename, the message shows as a grey system line (templates cannot help either — the name gate shares the same resolution source as the guards)
 3. When the server rewrites player messages into a broadcast format isomorphic to chat (e.g. `系统>>Steve: xxx`), the client cannot reliably detect it
 4. Chat formats with only whitespace (no separator) between name and content cannot be parsed
 5. Same-name players colliding with system prefixes on cracked servers cannot be told apart in the extreme case
@@ -198,6 +249,10 @@ E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell playe
 7. Custom fonts may affect bubble width, wrapping and click regions
 8. The whisper command format is up to the server; `/msg`, `/tell`, `/w` are not all guaranteed
 9. Unicode arrow separators (`→`, `⇒`) are not auto-recognized — loosening this would misclassify comma broadcasts
+10. Templates only act on **system-channel** messages (the channel NCR / legacy plugins / hybrid servers downgrade player chat to); decorative-format plugins that keep the signed channel stay reliable on their own. Template edge cases:
+    - A decoration containing a separator (e.g. a colon in a title) may truncate the name — change the separator or reorder the template
+    - A completely unknown new player (never seen online) whispering cannot resolve the name and falls back to the guards
+    - `{prefix}` adjacent to `{display_name}` without an anchor is absorbed into the display name (same behavior as the guard path)
 
 ---
 
@@ -257,6 +312,14 @@ Partially. A message is attributed correctly when either holds:
 - The plugin updates the tab-list name
 
 When the nickname shares nothing with the real name and neither channel exists, the message shows as a grey system line.
+
+### The server changed the chat format (plugins/NCR) and messages don't line up?
+
+Use **message-format templates** (2.2.6+): as an OP run `/e33chat gui`, paste a real chat line in the Chat Templates tab via "Generate from message…", or add a common format from the presets, then save — it syncs to the whole server. An empty template list falls back to the guards.
+
+### The template still doesn't match?
+
+Templates require the name to resolve to a player (online / seen / yourself). A decoration containing a separator may truncate the name (change the separator); a nickname sharing nothing with the real name, while offline, is beyond both templates and guards and shows as grey — a known boundary.
 
 ### Can I include it in a modpack?
 
