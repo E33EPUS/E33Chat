@@ -5,8 +5,6 @@ import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.UiLayout;
-import com.niuqu.chatbubble.texture.UiElement;
-import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -199,10 +197,8 @@ public final class ChatMessageRenderer {
         String text = formatTime(timeMillis);
         int tw = font.width(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
-        // 时间分隔符背景纹理化：TIME_SEP_BG × 0x44 透明度（与旧 fill 视觉一致，资源包可覆盖）
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-            UiTextureManager.rl(UiElement.TIME_SEP_BG),
-            tx - 6, y + 2, tw + 12, TIME_SEP_H - 4, 0x44 / 255f);
+        g.fill(tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2,
+            ChatBubbleTheme.alphaBlend(c.toastBg(), 0x44));
         g.drawString(font, Component.literal(text), tx, y + 3, c.timeColor(), false);
     }
 
