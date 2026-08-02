@@ -121,6 +121,21 @@ public class ChatBubbleHudOverlay {
     }
 
     private static void loadIconTexture() {
+        // 资源包优先：chat_icon.png 可被资源包覆盖，未命中回退 jar 内置默认。
+        try {
+            Identifier loc = chatIconTex();
+            MinecraftClient mc = MinecraftClient.getInstance();
+            var res = mc.getResourceManager().getResource(Identifier.of(chatIconTex().getNamespace(), chatIconTex().getPath() + ".png"));
+            if (res.isPresent()) {
+                try (java.io.InputStream in = res.get().getInputStream()) {
+                    mc.getTextureManager().registerTexture(loc,
+                        new net.minecraft.client.texture.NativeImageBackedTexture(NativeImage.read(in)));
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] resource pack chat_icon failed to load, using jar default", e);
+        }
         try (java.io.InputStream in = ChatBubbleHudOverlay.class.getClassLoader()
                 .getResourceAsStream("assets/e33chat/textures/gui/" + cfg().theme().toLowerCase() + "/chat_icon.png")) {
             if (in != null) {

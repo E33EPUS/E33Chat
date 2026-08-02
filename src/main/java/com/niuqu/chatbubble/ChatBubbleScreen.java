@@ -1703,6 +1703,22 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private static void loadIconTexture(Identifier loc, String classpath) {
+        // 资源包优先：assets/e33chat/textures/gui/{theme}/{name}.png 可被资源包覆盖，
+        // 未命中才回退 jar 内置默认图标。
+        try {
+            Identifier png = Identifier.of(loc.getNamespace(), loc.getPath() + ".png");
+            MinecraftClient mc = MinecraftClient.getInstance();
+            var res = mc.getResourceManager().getResource(png);
+            if (res.isPresent()) {
+                try (InputStream in = res.get().getInputStream()) {
+                    mc.getTextureManager().registerTexture(loc,
+                        new NativeImageBackedTexture(NativeImage.read(in)));
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] resource pack icon {} failed to load, using jar default", loc, e);
+        }
         try (InputStream in = ChatBubbleScreen.class.getClassLoader().getResourceAsStream(classpath)) {
             if (in != null) {
                 NativeImage img = NativeImage.read(in);
