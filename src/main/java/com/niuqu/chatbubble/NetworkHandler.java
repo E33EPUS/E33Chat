@@ -2,8 +2,11 @@ package com.niuqu.chatbubble;
 
 import com.niuqu.chatbubble.packets.ChatMetaPacket;
 import com.niuqu.chatbubble.packets.ConfigSyncPacket;
+import com.niuqu.chatbubble.packets.ConfigSyncV2Packet;
 import com.niuqu.chatbubble.packets.HistoryPacket;
 import com.niuqu.chatbubble.packets.QuoteSyncPacket;
+import com.niuqu.chatbubble.packets.ServerConfigSavePacket;
+import com.niuqu.chatbubble.packets.ServerConfigScreenPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
@@ -42,6 +45,24 @@ public class NetworkHandler {
             .encoder(ConfigSyncPacket::encode)
             .decoder(ConfigSyncPacket::decode)
             .consumerMainThread(ConfigSyncPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(ConfigSyncV2Packet.class, 4)
+            .encoder(ConfigSyncV2Packet::encode)
+            .decoder(ConfigSyncV2Packet::decode)
+            .consumerMainThread(ConfigSyncV2Packet::handle)
+            .add();
+
+        CHANNEL.messageBuilder(ServerConfigScreenPacket.class, 5)
+            .encoder(ServerConfigScreenPacket::encode)
+            .decoder(ServerConfigScreenPacket::decode)
+            .consumerMainThread(ServerConfigScreenPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(ServerConfigSavePacket.class, 6)
+            .encoder(ServerConfigSavePacket::encode)
+            .decoder(ServerConfigSavePacket::decode)
+            .consumerMainThread(ServerConfigSavePacket::handle)
             .add();
     }
 }

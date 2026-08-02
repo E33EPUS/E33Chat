@@ -902,7 +902,7 @@ public class ChatBubbleScreen extends Screen {
             ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextMsgIndex);
             if (msg != null) {
                 minecraft.keyboardHandler.setClipboard(msg.content().getString());
-                copyToastTicks = 20;
+                copyToastTicks = 30;
             }
         } else if (ChatContextMenus.isOverItem(mx, my, menuX,
             menuY + ChatContextMenus.CTX_ITEM_H + 1, ChatContextMenus.CTX_ITEM_H)) {
@@ -941,13 +941,16 @@ public class ChatBubbleScreen extends Screen {
         float panelOpacity = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * anim;
         int fillLeft = (!sidebarAnimating && sidebarOpen)
             ? (int)(anim * SIDEBAR_W) : panelX;
+        int panelOffset = currentPanelOffset();
 
         // Panel background blur — copy region from main FB, multi-pass downscale blur,
         // write result back to panel region. No shader → Oculus/Embeddium compatible.
+        // 区域坐标必须与 PANEL_BG 完全一致（含 panelOffset），否则：
+        // 1) 面板滑入/滑出动画中 blur 区不随面板移动（原地生成/消失）
+        // 2) blur 左缘与内容（汉堡图标等，在 translate 内）错位 → 边缘被切开
         if (ChatBubbleConfig.BLUR_ENABLED.get() && panelOpacity < 0.999f) {
-            BlurRenderer.blurPanel(fillLeft, 0, panelX + panelW - fillLeft, height);
+            BlurRenderer.blurPanel(panelOffset + fillLeft, 0, panelX + panelW - fillLeft, height);
         }
-        int panelOffset = currentPanelOffset();
 
         // Panel contents slide in from left
         g.pose().pushPose();
@@ -1363,13 +1366,14 @@ public class ChatBubbleScreen extends Screen {
 
     private void renderToast(GuiGraphics g) {
         if (copyToastTicks <= 0) return;
-        int alpha = Animation.fadeIn(copyToastTicks, 5) << 24;
-        int color = alpha | (c().toastText() & 0x00FFFFFF);
+        int alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
+        int color = (alpha << 24) | (c().toastText() & 0x00FFFFFF);
         String text = Component.translatable("e33chat.toast.copied").getString();
         int tw = font.width(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
-        g.blit(UiTextureManager.rl(UiElement.TOAST_BG), tx - 6, ty - 2, tx + tw + 6, ty + font.lineHeight + 2, 0f, 0f, 1, 1, 1, 1);
+        // Background fades with the text, at half opacity like the strong-hint bar
+        g.fill(tx - 6, ty - 2, tx + tw + 6, ty + font.lineHeight + 2, (alpha / 2) << 24);
         g.drawString(font, Component.literal(text), tx, ty, color, false);
     }
 
@@ -1672,10 +1676,10 @@ public class ChatBubbleScreen extends Screen {
         if (localBubble) {
             ChatMessageStore.addMessage(ChatBubbleConfig.COLOR_CODES.get() ? parseColorCodes(displayText) : Component.literal(displayText),
                 minecraft.player.getUUID(),
-                Component.literal(minecraft.player.getName().getString()),
+                ChatMessageStore.ownDisplayName(),
                 false,
                 minecraft.player.getName().getString(),
-                whisperTarget != null, whisperTarget);
+                whisperTarget != null, whisperTarget, true);
             ChatMessageStore.incrementPendingEcho(text);
         }
         if (whisperTarget != null) ChatMessageStore.markPendingWhisperEcho(whisperTarget);

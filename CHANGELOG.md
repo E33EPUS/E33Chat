@@ -1,5 +1,61 @@
 # Changelog
 
+## v2.2.7
+
+**模板引擎加固与插件生态适配（Forge 先行）**
+- 修复：模板编译崩溃——同字段重复（`{prefix}{prefix}`）会生成重复正则命名组并抛 `PatternSyntaxException`，穿透命令/GUI/同步/保存全部入口；现显式拒绝并兜底 try/catch
+- 修复：`extractWhisperContent` 两处实现不一致（Store 版 lastIndexOf 会在内容含冒号时截断）；统一为首分隔符语义
+- 修复：模板路径的字面 § 色码（插件原样下发 `§6`）现在用 `parseStyledText` 还原成真实颜色，与守卫路径一致（不再显示裸 `§6` 字形）
+- 模板语法增强：`{content}` 可位于模板任意位置（支持后缀式格式，如 `{display_name}: {content} [聊天]`）；新增 `{sep}` 占位符——匹配 `>>` / 冒号 / `»` / `>` 或纯空格，一条模板覆盖多种分隔符风格；旧模板全部兼容
+- 预设库补真实插件默认格式：EssentialsX（`<{display_name}> {content}`、带前后缀示例）、DeluxeChat（`[Guest] {display_name} > {content}`）、CMI 私聊（`[/msg from {sender}] {content}`）等
+- 新增测试覆盖：模板崩溃回归、后缀式 content、`{sep}`、真实插件格式（含 § 码字面量）、多冒号内容不截断——测试 195 → 204
+- 仅 Forge 1.20.1（NeoForge / Fabric 后续同步）
+
+**Template engine hardening & plugin-ecosystem adaptation (Forge first)**
+- Fix: template compile crash — duplicated fields (`{prefix}{prefix}`) produced duplicate regex named groups and threw `PatternSyntaxException` through every entry point (command/GUI/sync/save); now rejected explicitly with a try/catch fallback
+- Fix: `extractWhisperContent` had two inconsistent implementations (the Store version truncated content containing colons via lastIndexOf); unified to first-separator semantics
+- Fix: literal §-codes in template output (plugins sending raw `§6`) are now rebuilt into real colors via `parseStyledText`, matching the guard path
+- Syntax: `{content}` may sit anywhere in a template (suffix styles like `{display_name}: {content} [聊天]` now work); new `{sep}` placeholder matches `>>`/colons/`»`/`>` or plain spaces — one template covers many separator styles; all old templates remain valid
+- Presets extended with real plugin defaults: EssentialsX (`<{display_name}> {content}`, prefixed example), DeluxeChat (`[Guest] {display_name} > {content}`), CMI whisper (`[/msg from {sender}] {content}`)
+- Tests 195 → 204 (crash regression, suffix content, `{sep}`, real plugin formats incl. literal §-codes, colon-rich content)
+- Forge 1.20.1 only (NeoForge / Fabric sync later)
+
+***
+
+## v2.2.6
+
+**服务端消息格式模板（声明式解析，Forge 先行）**
+- 新增模板层：服务端声明消息格式（字段占位符），客户端按声明精确剖开 sender/装饰名/内容/私聊方向——模板命中 = 证据最强，直接跳过启发式守卫
+- 模板语法：`{prefix}` `{display_name}` `{name}` `{content}` `{sender}` `{target}`；字面量分隔符原样转义（`»` `：` `>>` 等）
+- 服务端配置（`config/e33chat-server.toml`）：`chat_templates` / `whisper_templates` / `template_debug`；空列表 = 关闭模板，回到守卫识别
+- 游戏内命令（需 OP）：`/e33chat template list` / `set chat|whisper <模板>` / `remove <index>` / `clear` / `test <index> <文本>`（即时匹配预览），改完自动广播并写回 toml
+- 名称可解析门槛：姓名匹配不到在线/见过的玩家即视为未命中，`Server: 重启中` 这类系统消息不会被误判
+- 匹配失败自动回落三层守卫；`template_debug` 开启后记录失败样本（每分钟最多 5 条）与未知占位符提示
+- 同步走新通道（ConfigSyncV2Packet id 4），旧版客户端不受影响；`/reload` 与换世界自动重同步
+- 私聊模板支持 incoming/outgoing 方向解析（`{sender}`/`{target}`），回显抑制复用现有机制
+- **服务端配置 GUI**：`/e33chat gui`（OP）打开图形界面，可视化编辑全部服务端配置（use_tpa / 聊天历史 / 聊天与私聊模板 / 模板诊断），保存后服务端校验、写回 toml 并广播；界面视觉对齐客户端设置（主题控件/分割线/平滑滚动）
+- **模板简化**：GUI 内"从消息生成"（粘贴真实消息自动推断模板）、实时预览（输入示例消息即时显示解析结果）、常见格式预设、右上角教程（语法/示例/测试/FAQ，可滚动）
+- 仅 Forge 1.20.1（NeoForge / Fabric 后续同步）
+- 测试 158 → 195
+
+***
+
+**Server-configured message-format templates (declarative parsing, Forge first)**
+- New template layer: the server declares its message format (field placeholders); the client splits sender / decorated name / content / whisper direction exactly per the declaration — a template match is the strongest evidence and bypasses the heuristic guards
+- Template syntax: `{prefix}` `{display_name}` `{name}` `{content}` `{sender}` `{target}`; literal separators are escaped verbatim (`»` `：` `>>` …)
+- Server config (`config/e33chat-server.toml`): `chat_templates` / `whisper_templates` / `template_debug`; empty list = disabled, guards take over
+- In-game commands (OP required): `/e33chat template list` / `set chat|whisper <template>` / `remove <index>` / `clear` / `test <index> <text>` (instant match preview); changes broadcast immediately and persist to the toml
+- Name-resolution gate: a name that resolves to no online/seen player is not a match — system lines like `Server: restarting` are never misattributed
+- Failed matches fall back to the three-layer guards; `template_debug` logs miss samples (max 5/min) and unknown-placeholder warnings
+- Synced over a new channel (ConfigSyncV2Packet id 4); old clients unaffected; resyncs on `/reload` and world change
+- Whisper templates resolve incoming/outgoing direction via `{sender}`/`{target}`; echo suppression reuses the existing mechanism
+- **Server-config GUI**: `/e33chat gui` (OP) opens an in-game screen to edit every server setting (use_tpa / join history / chat & whisper templates / template debug); saving validates server-side, persists to the toml and rebroadcasts; visual language matches the client settings screen (themed widgets / dividers / smooth scrolling)
+- **Template simplifications**: in-GUI "generate from message" (paste a real chat line, the template is inferred), live preview (type a sample message, see the parsed fields instantly), common-format presets, and a scrollable tutorial (syntax / examples / testing / FAQ) at the top-right
+- Forge 1.20.1 only (NeoForge / Fabric follow-up)
+- Tests 158 → 195
+
+***
+
 ## v2.2.5
 
 **纹理化覆盖全部结构色元素**

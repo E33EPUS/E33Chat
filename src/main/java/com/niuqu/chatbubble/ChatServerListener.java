@@ -2,6 +2,7 @@ package com.niuqu.chatbubble;
 
 import com.niuqu.chatbubble.packets.ChatMetaPacket;
 import com.niuqu.chatbubble.packets.ConfigSyncPacket;
+import com.niuqu.chatbubble.packets.ConfigSyncV2Packet;
 import com.niuqu.chatbubble.packets.HistoryPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.CommandEvent;
@@ -81,6 +82,22 @@ public class ChatServerListener {
         NetworkHandler.CHANNEL.send(PacketDistributor.ALL.noArg(), meta);
     }
 
+    // Current server config snapshot for sync packets. Both ids are sent so old
+    // clients (which only know id 3) still receive use_tpa without desyncing.
+    public static void broadcastServerConfig() {
+        var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null || server.getPlayerList() == null) return;
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> p),
+                new ConfigSyncPacket(ChatServerConfig.USE_TPA.get()));
+            NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> p),
+                new ConfigSyncV2Packet(ChatServerConfig.USE_TPA.get(),
+                    new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
+                    new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get()),
+                    ChatServerConfig.TEMPLATE_DEBUG.get()));
+        }
+    }
+
     @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
@@ -89,6 +106,12 @@ public class ChatServerListener {
         NetworkHandler.CHANNEL.send(
             PacketDistributor.PLAYER.with(() -> player),
             new ConfigSyncPacket(ChatServerConfig.USE_TPA.get()));
+        NetworkHandler.CHANNEL.send(
+            PacketDistributor.PLAYER.with(() -> player),
+            new ConfigSyncV2Packet(ChatServerConfig.USE_TPA.get(),
+                new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
+                new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get()),
+                ChatServerConfig.TEMPLATE_DEBUG.get()));
 
         if (!ChatServerConfig.HISTORY_ENABLED.get()) return;
         if (historyBuffer.isEmpty()) return;
