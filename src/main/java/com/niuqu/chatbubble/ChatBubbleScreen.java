@@ -1168,9 +1168,7 @@ public class ChatBubbleScreen extends Screen {
         String text = ChatMessageStore.formatTime(timeMillis);
         int tw = textRenderer.getWidth(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
-        // 时间分隔符背景纹理化：TIME_SEP_BG × 0x44 透明度（与旧 fill 视觉一致，资源包可覆盖）
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TIME_SEP_BG),
-            tx - 6, y + 2, tw + 12, TIME_SEP_H - 4, 0x44 / 255f);
+        g.fill(tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2, ChatBubbleTheme.alphaBlend(c().toastBg(), 0x44));
         g.drawText(textRenderer, text, tx, y + 3, c().timeColor(), false);
     }
 
