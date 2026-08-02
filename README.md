@@ -387,6 +387,19 @@ git checkout Fabric-1.21.1
 - NeoForge 1.21.1 / Fabric 1.21.1：Java 21+
 - 运行测试：`./gradlew cleanTest test --offline -PrunTests`
 
+### 新增 UI 纹理
+
+UI 渲染只认路径约定 `assets/e33chat/textures/gui/{dark|light}/<元素名>.png`，默认纹理是 jar 内置 16×16 纯色 PNG，运行时 `blit` 懒加载（SimpleTexture）——**不需要任何注册代码**。新增一个纹理元素两步走：
+
+1. `texture/UiElement.java` 枚举加一个成员：`NEW_ELEMENT("new_element")`
+2. 跑生成脚本补齐 PNG（自动生成三端、校验 16×16 纯色）：
+   ```bash
+   python D:\Claude_ds\make_default_textures.py
+   ```
+   或在色表里加一行新色值；也可以手动复制现有 PNG 改色——脚本只是批量工具，不是运行时依赖
+
+复用现有元素（面板/分割线/hover 高亮等）则连这两步都不用。
+
 ---
 
 ## 问题反馈
