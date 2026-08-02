@@ -66,7 +66,7 @@ public class ChatBubbleScreen extends Screen {
 
     static ResourceLocation iconTex(String name) {
         String theme = ChatBubbleConfig.THEME.get().name().toLowerCase();
-        return ResourceLocation.fromNamespaceAndPath(ChatBubbleMod.MODID, "textures/gui/" + theme + "/" + name);
+        return ResourceLocation.fromNamespaceAndPath(ChatBubbleMod.MODID, "textures/gui/" + theme + "/" + name + ".png");
     }
 
 

@@ -10,6 +10,9 @@
 - **F3+T 即时生效**：改资源包 PNG → F3+T 重载 → 界面立即变（SimpleTexture 重读新 PNG；旧 DynamicTexture 不会）
 - 时间分隔线/调色板/@提及弹窗选中行保持 `g.fill`（半透明 blend 语义不变，避免滚动条式 blend 回归）
 - 测试 Forge/NeoForge 204 → 197、Fabric 175 → 168；三端同步
+- **修复上线 missing-texture**：`blit(rl)` 懒加载的 RL 必须带 `.png` 后缀（SimpleTexture 原样查资源，不自动补）；Fabric `drawTexture` 组件背景改 11 参分离版防 UV 越界
+
+**Fixed launch missing-texture**: lazy-load RLs must carry the `.png` suffix (SimpleTexture looks up the path verbatim, no auto-suffix); Fabric component backgrounds switched to the 11-arg split form to avoid UV overflow
 
 **All UI textures migrated to vanilla resource API (manual loading layer removed)**
 - All texturable UI (components + icons + state highlights) now render via `blit(ResourceLocation)` lazy loading — `TextureManager.getTexture` auto-creates a `SimpleTexture` on cache miss, reading from the resource stack: **user resource pack > mod-jar PNG**

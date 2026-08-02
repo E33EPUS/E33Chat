@@ -391,7 +391,7 @@ git checkout Fabric-1.21.1
 
 UI 渲染只认路径约定 `assets/e33chat/textures/gui/{dark|light}/<元素名>.png`，默认纹理是 jar 内置 16×16 纯色 PNG，运行时 `blit` 懒加载（SimpleTexture）——**不需要任何注册代码**。新增一个纹理元素两步走：
 
-1. `texture/UiElement.java` 枚举加一个成员：`NEW_ELEMENT("new_element")`
+1. `texture/UiElement.java` 枚举加一个成员：`NEW_ELEMENT("new_element")`（`rl()` 里拼路径时**必须带 `.png` 后缀**——SimpleTexture 原样查资源，不自动补）
 2. 跑生成脚本补齐 PNG（自动生成三端、校验 16×16 纯色）：
    ```bash
    python D:\Claude_ds\make_default_textures.py

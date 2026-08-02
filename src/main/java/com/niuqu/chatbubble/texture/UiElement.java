@@ -38,9 +38,9 @@ public enum UiElement {
         this.path = path;
     }
 
-    /** 渲染/注册用的纹理 ID（不带 .png）。 */
+    /** 渲染/注册用的纹理 ID（带 .png——SimpleTexture 原样查资源，不自动补后缀）。 */
     public ResourceLocation rl(ChatBubbleTheme theme) {
         return new ResourceLocation(ChatBubbleMod.MODID,
-            "textures/gui/" + theme.name().toLowerCase() + "/" + path);
+            "textures/gui/" + theme.name().toLowerCase() + "/" + path + ".png");
     }
 }
