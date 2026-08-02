@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.2.8
+
+**纹理化覆盖全部动态尺寸组件（9-slice，三端同步）**
+- 新增 `NineSliceRenderer`：自写 stretch 版 9-slice——四角不拉伸、边单向拉伸、中心双向拉伸（与 vanilla tile 平铺不同，渐变/图案不变形）；贴图约定 16×16、四角区 4px，1×1 纯色元素自动退化纯拉伸
+- 聊天气泡 / 引用回复块 / @提及横幅背景改为纹理渲染：白色圆角纹理（半径跟随配置）× tint 用户色——零资源包视觉不变，资源包可覆盖圆角/边框/图案；横幅阴影仍代码绘制
+- **toast 黑块根因修复**：2.2.4 纹理化时 `TOAST_BG` 烘焙不透明 `toastBg`（dark=纯黑）+ blit 无 alpha 通道 → 一整块不透明黑块；现烘焙强制不透明 + `drawWithAlpha` 动态 alpha 通道，纹理可覆盖、透明度可控
+- 时间分隔符 / HUD 强提示条改为纹理渲染（`time_sep_bg` / `strong_hint_bg`），资源包可覆盖底色
+- 常用语面板滚动条改为纹理：白色贴图 × tint（主题色 + hover 态）——`quick_scrollbar_track` / `quick_scrollbar_thumb`
+- 设置界面保存后重新烘焙默认纹理：气泡/横幅圆角配置修改即时生效
+- 新增纹理元素：`bubble_bg` / `quote_bg` / `banner_bg` / `time_sep_bg` / `strong_hint_bg` / `quick_scrollbar_track` / `quick_scrollbar_thumb`
+- `TextureGenerators.roundedRect` 纯函数（零 MC 依赖，可单测）；测试 Forge 204 / NeoForge 204 / Fabric 178 全绿
+- 附带示例资源包 `E33Chat-Texture-Demo`（已放入测试服 resourcepacks/）：气泡边框、彩色横幅等 9-slice 覆盖演示
+
+**Texture-driven all dynamic-size components (9-slice, all three platforms)**
+- New `NineSliceRenderer`: self-written stretch 9-slice — corners fixed, edges stretched one-way, center both ways (unlike vanilla tile tiling, gradients/patterns don't distort); 16×16 texture convention with a 4px corner area, 1×1 solids degrade to plain stretch automatically
+- Chat bubbles / quote blocks / @-mention banner now render from textures: white rounded-rect (radius follows config) × tint of user color — zero visual change without a resource pack, shapes/borders/patterns overridable; banner shadow stays code-drawn
+- **Toast black-block root cause fixed**: in 2.2.4 `TOAST_BG` baked opaque `toastBg` (pure black in dark) and the blit had no alpha channel → one opaque black block; now baked opaque + `drawWithAlpha` dynamic alpha — texture overridable, opacity controllable
+- Time separators / strong-hint bar now textured (`time_sep_bg` / `strong_hint_bg`), base color overridable
+- Quick-chat scrollbar now textured: white image × tint (theme color + hover state) — `quick_scrollbar_track` / `quick_scrollbar_thumb`
+- Settings screen re-bakes default textures on save: bubble/banner radius changes take effect immediately
+- New texture elements: `bubble_bg` / `quote_bg` / `banner_bg` / `time_sep_bg` / `strong_hint_bg` / `quick_scrollbar_track` / `quick_scrollbar_thumb`
+- `TextureGenerators.roundedRect` pure function (zero MC deps, unit-testable); tests Forge 204 / NeoForge 204 / Fabric 178 all green
+- Bundled demo pack `E33Chat-Texture-Demo` (placed in the test server's resourcepacks/): bubble borders, colored banners — 9-slice override demos
+
+***
+
 ## v2.2.7
 
 **模板引擎加固与插件生态适配（Forge 先行）**
