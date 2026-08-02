@@ -29,7 +29,7 @@ public final class ChatBars {
         int menuY = ty + (ChatLayout.TITLE_H - ICON_S) / 2;
         boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S
             && mouseY >= menuY && mouseY <= menuY + ICON_S;
-        if (hoverMenu) g.fill(menuX - 1, menuY - 1, menuX + ICON_S + 1, menuY + ICON_S + 1, c.iconHover());
+        if (hoverMenu) g.blit(UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
         drawIcon(g, menuIcon, menuX, menuY, ICON_S);
 
         int titleW = font.width(title);
@@ -46,8 +46,8 @@ public final class ChatBars {
         int closeY = ty + 6;
         boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12
             && mouseY >= closeY && mouseY <= closeY + 12;
-        int closeBg = hoverClose ? c.closeHoverBg() : c.closeBg();
-        g.fill(closeX, closeY, closeX + 12, closeY + 12, closeBg);
+        g.blit(UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
+            closeX, closeY, 12, 12, 0f, 0f, 1, 1, 1, 1);
         g.drawString(font, Component.literal("✕"), closeX + 6 - font.width("✕") / 2,
             closeY + 2, c.closeText(), false);
     }
@@ -82,18 +82,18 @@ public final class ChatBars {
 
         boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverGear) g.fill(gearX - 1, iconY - 1, gearX + ICON_S + 1, iconY + ICON_S + 1, c.iconHover());
+        if (hoverGear) g.blit(UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
         drawIcon(g, settingsIcon, gearX, iconY, ICON_S);
 
         boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverEmoji || emojiPanelVisible)
-            g.fill(emojiX - 1, iconY - 1, emojiX + ICON_S + 1, iconY + ICON_S + 1, c.iconHover());
+            g.blit(UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
         drawIcon(g, emojiIcon, emojiX, iconY, ICON_S);
 
         boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverSend) g.fill(sendX - 1, iconY - 1, sendX + ICON_S + 1, iconY + ICON_S + 1, c.iconHover());
+        if (hoverSend) g.blit(UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
         drawIcon(g, sendIcon, sendX, iconY, ICON_S);
     }
 

@@ -84,10 +84,11 @@ public final class ChatSidebar {
         y = sby + SEARCH_H + 3;
 
         boolean isPublic = whisperPartner == null;
-        int itemBg = isPublic ? c.sidebarItemSelected()
-            : (mouseX >= 0 && mouseX <= WIDTH && mouseY >= y && mouseY <= y + ITEM_H
-                ? c.sidebarItemHover() : 0);
-        if (itemBg != 0) g.fill(0, y, WIDTH, y + ITEM_H, itemBg);
+        boolean hoverTab = mouseX >= 0 && mouseX <= WIDTH && mouseY >= y && mouseY <= y + ITEM_H;
+        if (isPublic)
+            g.blit(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, y, WIDTH, ITEM_H, 0f, 0f, 1, 1, 1, 1);
+        else if (hoverTab)
+            g.blit(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, y, WIDTH, ITEM_H, 0f, 0f, 1, 1, 1, 1);
         drawIcon(g, publicIcon, 2, y + 1, ICON_S);
         int nameX = 2 + ICON_S + 3;
         String publicLabel = Component.translatable("e33chat.sidebar.public").getString();
@@ -140,11 +141,12 @@ public final class ChatSidebar {
 
                     if (scrollY + ITEM_H > startY && scrollY < visibleBottom) {
                         boolean sel = name.equals(whisperPartner);
-                        int sbg = sel ? c.sidebarItemSelected()
-                            : (mouseX >= 0 && mouseX <= WIDTH
-                                && mouseY >= scrollY && mouseY <= scrollY + ITEM_H
-                                ? c.sidebarItemHover() : 0);
-                        if (sbg != 0) g.fill(0, scrollY, WIDTH, scrollY + ITEM_H, sbg);
+                        boolean hoverRow = mouseX >= 0 && mouseX <= WIDTH
+                            && mouseY >= scrollY && mouseY <= scrollY + ITEM_H;
+                        if (sel)
+                            g.blit(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, scrollY, WIDTH, ITEM_H, 0f, 0f, 1, 1, 1, 1);
+                        else if (hoverRow)
+                            g.blit(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, WIDTH, ITEM_H, 0f, 0f, 1, 1, 1, 1);
 
                         ResourceLocation skin = getSkin(info.getProfile().getId(), name);
                         drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18);

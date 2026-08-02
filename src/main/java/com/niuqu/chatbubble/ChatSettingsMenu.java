@@ -40,7 +40,8 @@ public class ChatSettingsMenu {
             int ry = py + 2 + i * ROW_H;
             boolean hover = mouseX >= px && mouseX <= px + W
                 && mouseY >= ry && mouseY <= ry + ROW_H;
-            if (hover) g.fill(px + 1, ry, px + W - 1, ry + ROW_H, c.iconHover());
+            if (hover) g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                px + 1, ry, W - 2, ROW_H, 0f, 0f, 1, 1, 1, 1);
             ChatBubbleScreen.drawTextureIcon(g, icons[i], px + 3, ry + 2, 14);
             int maxTextW = W - 22;
             String label = font.plainSubstrByWidth(labels[i], maxTextW);

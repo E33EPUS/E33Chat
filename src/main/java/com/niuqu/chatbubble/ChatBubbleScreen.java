@@ -10,8 +10,6 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.texture.AbstractTexture;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -31,8 +29,6 @@ import com.niuqu.chatbubble.render.ChatSidebar;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
-import com.mojang.blaze3d.platform.NativeImage;
-import java.io.InputStream;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -68,18 +64,10 @@ public class ChatBubbleScreen extends Screen {
 
     private static final int INPUT_H = 14;
     private static final int ICON_S = 14;
-    private static ChatBubbleTheme loadedTheme;
 
     static ResourceLocation iconTex(String name) {
         String theme = ChatBubbleConfig.THEME.get().name().toLowerCase();
-        return ResourceLocation.fromNamespaceAndPath("e33chat", "textures/gui/" + theme + "/" + name);
-    }
-
-    private static void ensureIconsLoaded() {
-        var theme = ChatBubbleConfig.THEME.get();
-        if (loadedTheme == theme) return;
-        loadIconTextures();
-        loadedTheme = theme;
+        return ResourceLocation.fromNamespaceAndPath(ChatBubbleMod.MODID, "textures/gui/" + theme + "/" + name);
     }
 
 
@@ -237,7 +225,6 @@ public class ChatBubbleScreen extends Screen {
             false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdBgAlpha));
         commandSuggestions.updateCommandInfo();
 
-        ensureIconsLoaded();
 
         sidebarSearchBox = new EditBox(font, 2, 5, SIDEBAR_W - 5, 14, Component.literal(""));
         sidebarSearchBox.setMaxLength(20);
@@ -1317,8 +1304,8 @@ public class ChatBubbleScreen extends Screen {
         int cx = barX + barW - 16;
         int cy = barY + 3;
         boolean hoverX = mouseX >= cx && mouseX <= cx + 12 && mouseY >= cy && mouseY <= cy + 12;
-        int xBg = hoverX ? c().closeHoverBg() : c().sidebarItemSelected();
-        g.fill(cx, cy, cx + 12, cy + 12, xBg);
+        g.blit(UiTextureManager.rl(hoverX ? UiElement.CLOSE_HOVER : UiElement.SIDEBAR_SELECTED),
+            cx, cy, 12, 12, 0f, 0f, 1, 1, 1, 1);
         g.drawString(font, Component.literal("✕"), cx + 6 - font.width("✕") / 2, cy + 2, c().closeText(), false);
     }
 
@@ -1406,7 +1393,6 @@ public class ChatBubbleScreen extends Screen {
                 ChatBubbleTheme next = ChatBubbleConfig.THEME.get() == ChatBubbleTheme.DARK
                     ? ChatBubbleTheme.LIGHT : ChatBubbleTheme.DARK;
                 ChatBubbleConfig.THEME.set(next);
-                ensureIconsLoaded();
                 int editColor = ChatBubbleConfig.THEME.get() == ChatBubbleTheme.LIGHT
                     ? c().textSecondary() : c().textPrimary();
                 input.setTextColor(editColor);
@@ -1446,63 +1432,9 @@ public class ChatBubbleScreen extends Screen {
             iconTex("settings"), iconTex("emoji"), iconTex("send"));
     }
 
-    // HUD 未读角标复用 private_tip 等图标纹理，需跨类调用（package-private）
-    static void loadIconTextures() {
-        String theme = ChatBubbleConfig.THEME.get().name().toLowerCase();
-        String base = "assets/e33chat/textures/gui/" + theme + "/";
-        loadIconTexture(iconTex("settings"), base + "settings.png");
-        loadIconTexture(iconTex("send"), base + "send.png");
-        loadIconTexture(iconTex("emoji"), base + "emoji.png");
-        loadIconTexture(iconTex("menu"), base + "menu.png");
-        loadIconTexture(iconTex("public_icon"), base + "public_icon.png");
-        loadIconTexture(iconTex("private_tip"), base + "private_tip.png");
-        loadIconTexture(iconTex("no_online"), base + "no_online.png");
-        loadIconTexture(iconTex("theme"), base + "theme.png");
-        loadIconTexture(iconTex("quick_chat"), base + "quick_chat.png");
-        loadIconTexture(iconTex("copy"), base + "copy.png");
-        loadIconTexture(iconTex("quote"), base + "quote.png");
-        loadIconTexture(iconTex("tp"), base + "tp.png");
-        loadIconTexture(iconTex("whisper"), base + "whisper.png");
-        loadIconTexture(iconTex("search"), base + "search.png");
-    }
-
-    private static void loadIconTexture(ResourceLocation loc, String classpath) {
-        // 资源包优先：assets/e33chat/textures/gui/{theme}/{name}.png 可被资源包覆盖，
-        // 未命中才回退 jar 内置默认图标。
-        try {
-            ResourceLocation png = ResourceLocation.fromNamespaceAndPath(loc.getNamespace(), loc.getPath() + ".png");
-            Minecraft mc = Minecraft.getInstance();
-            var res = mc.getResourceManager().getResource(png);
-            if (res.isPresent()) {
-                try (InputStream in = res.get().open()) {
-                    mc.getTextureManager().register(loc, new DynamicTexture(NativeImage.read(in)));
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] resource pack icon {} failed to load, using jar default", loc, e);
-        }
-        try (InputStream in = ChatBubbleScreen.class.getClassLoader().getResourceAsStream(classpath)) {
-            if (in != null) {
-                NativeImage img = NativeImage.read(in);
-                DynamicTexture tex = new DynamicTexture(img);
-                Minecraft.getInstance().getTextureManager().register(loc, tex);
-            }
-        } catch (Exception e) {
-            com.mojang.logging.LogUtils.getLogger().error("[e33chat] Failed to load icon texture", e);
-        }
-    }
-
     static void drawTextureIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size) {
-        var tm = Minecraft.getInstance().getTextureManager();
-        AbstractTexture abstractTex;
-        try {
-            abstractTex = tm.getTexture(tex);
-        } catch (Exception e) {
-            loadIconTextures();
-            abstractTex = tm.getTexture(tex);
-        }
-        RenderSystem.setShaderTexture(0, abstractTex.getId());
+        // getTexture 无缓存时自动 new SimpleTexture 懒加载（资源包可覆盖，F3+T 即时生效）
+        RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.enableBlend();
         g.blit(tex, x, y, 0, 0, size, size, size, size);

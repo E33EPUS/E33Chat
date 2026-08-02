@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.2.8（纹理 API 迁移）
+
+**全 UI 纹理走原版资源 API（删手工加载层）**
+- 所有可纹理化 UI（组件 + 图标 + 状态高亮）改走 `blit(ResourceLocation)` 懒加载——`TextureManager.getTexture` 无缓存时自动 `new SimpleTexture` 从资源栈读取，**用户资源包 > mod jar 内置 PNG**
+- 默认纹理改为 jar 内置 16×16 纯色 PNG（`assets/e33chat/textures/gui/{dark|light}/` 23 元素 × 2 主题），色值与原代码生成完全一致，零资源包时外观零变化
+- **新增 6 个状态高亮纹理**：`hover_bg` / `sidebar_selected` / `sidebar_hover` / `context_hover` / `close_bg` / `close_hover`——hover/选中/关闭按钮背景全部从 `g.fill(颜色)` 改为纹理 blit，资源包可覆盖
+- **删除手工加载层**：`UiTextureManager.loadOrGenerate`/`preloadAll`、`loadIconTextures`/`loadIconTexture`/`ensureIconsLoaded`、`TextureGenerators` + 测试（7 例）
+- **F3+T 即时生效**：改资源包 PNG → F3+T 重载 → 界面立即变（SimpleTexture 重读新 PNG；旧 DynamicTexture 不会）
+- 时间分隔线/调色板/@提及弹窗选中行保持 `g.fill`（半透明 blend 语义不变，避免滚动条式 blend 回归）
+- 测试 Forge/NeoForge 204 → 197、Fabric 175 → 168；三端同步
+
+**All UI textures migrated to vanilla resource API (manual loading layer removed)**
+- All texturable UI (components + icons + state highlights) now render via `blit(ResourceLocation)` lazy loading — `TextureManager.getTexture` auto-creates a `SimpleTexture` on cache miss, reading from the resource stack: **user resource pack > mod-jar PNG**
+- Default textures are now jar-embedded 16×16 solid-color PNGs (23 elements × 2 themes) with colors identical to the old generated ones — zero visual change without a resource pack
+- **6 new state-highlight textures**: `hover_bg` / `sidebar_selected` / `sidebar_hover` / `context_hover` / `close_bg` / `close_hover` — hover/selected/close-button backgrounds switched from `g.fill(color)` to texture blits, overridable
+- **Removed manual loading**: `UiTextureManager.loadOrGenerate`/`preloadAll`, `loadIconTextures`/`loadIconTexture`/`ensureIconsLoaded`, `TextureGenerators` + its 7 tests
+- **F3+T hot reload**: edit a pack PNG → F3+T → UI updates instantly (SimpleTexture re-reads; old DynamicTexture didn't)
+- Time separator / palette / @mention selected row keep `g.fill` (translucent blend semantics unchanged — no scrollbar-style blend regression)
+- Tests Forge/NeoForge 204 → 197, Fabric 175 → 168; synced across all three platforms
+
+***
+
 ## v2.2.8（修订）
 
 **圆角组件回退 SDF（2.2.8 首版 9-slice 纹理化撤销）**

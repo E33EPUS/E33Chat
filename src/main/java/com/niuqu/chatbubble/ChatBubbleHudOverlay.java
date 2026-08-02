@@ -4,7 +4,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -19,21 +18,9 @@ public class ChatBubbleHudOverlay {
     private static final int SRC_V = 6;
     private static final int SRC_S = 4;
     private static final int TIP_DISP = 4;
-    private static ChatBubbleTheme loadedTheme;
-
     private static ResourceLocation chatIconTex() {
         String theme = ChatBubbleConfig.THEME.get().name().toLowerCase();
-        return ResourceLocation.fromNamespaceAndPath("e33chat", "textures/gui/" + theme + "/chat_icon");
-    }
-
-    private static void ensureIconLoaded() {
-        var theme = ChatBubbleConfig.THEME.get();
-        if (loadedTheme == theme) return;
-        loadIconTexture();
-        // HUD 未读角标复用聊天界面的 private_tip 纹理；没开过聊天界面时它尚未注册，
-        // 这里随主题加载一并注册全套图标，避免角标画成 missing 纹理
-        ChatBubbleScreen.loadIconTextures();
-        loadedTheme = theme;
+        return ResourceLocation.fromNamespaceAndPath(ChatBubbleMod.MODID, "textures/gui/" + theme + "/chat_icon");
     }
 
     private static ChatBubbleTheme.Colors c() {
@@ -66,7 +53,6 @@ public class ChatBubbleHudOverlay {
 
         // Chat bubble icon (hidden if hide_chat_icon enabled)
         if (!ChatBubbleConfig.HIDE_CHAT_ICON.get()) {
-            ensureIconLoaded();
             drawIcon(g, x, iconY);
 
             if (ChatBubbleConfig.RED_DOT_ENABLED.get() && ChatMessageStore.getUnreadCount() > 0) {
@@ -123,47 +109,10 @@ public class ChatBubbleHudOverlay {
         return mx >= 3 && mx <= 3 + ICON_S && my >= iconY && my <= iconY + ICON_S + mc.font.lineHeight + 2;
     }
 
-    private static void loadIconTexture() {
-        // 资源包优先：chat_icon.png 可被资源包覆盖，未命中回退 jar 内置默认。
-        try {
-            net.minecraft.resources.ResourceLocation loc = chatIconTex();
-            net.minecraft.resources.ResourceLocation png =
-                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(loc.getNamespace(), loc.getPath() + ".png");
-            Minecraft mc = Minecraft.getInstance();
-            var res = mc.getResourceManager().getResource(png);
-            if (res.isPresent()) {
-                try (java.io.InputStream in = res.get().open()) {
-                    mc.getTextureManager().register(loc,
-                        new net.minecraft.client.renderer.texture.DynamicTexture(
-                            com.mojang.blaze3d.platform.NativeImage.read(in)));
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] resource pack chat_icon failed to load, using jar default", e);
-        }
-        try (java.io.InputStream in = ChatBubbleHudOverlay.class.getClassLoader()
-                .getResourceAsStream("assets/e33chat/textures/gui/" + ChatBubbleConfig.THEME.get().name().toLowerCase() + "/chat_icon.png")) {
-            if (in != null) {
-                com.mojang.blaze3d.platform.NativeImage img = com.mojang.blaze3d.platform.NativeImage.read(in);
-                net.minecraft.client.renderer.texture.DynamicTexture tex =
-                    new net.minecraft.client.renderer.texture.DynamicTexture(img);
-                Minecraft.getInstance().getTextureManager().register(chatIconTex(), tex);
-            }
-        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().error("[e33chat] Failed to load HUD icon texture", e); }
-    }
 
     private static void drawIcon(GuiGraphics g, int x, int y) {
-        var mc = Minecraft.getInstance();
-        AbstractTexture abstractTex;
-        try {
-            abstractTex = mc.getTextureManager().getTexture(chatIconTex());
-        } catch (Exception e) {
-            // Texture lost (F3+T resource reload), reload it
-            loadIconTexture();
-            abstractTex = mc.getTextureManager().getTexture(chatIconTex());
-        }
-        RenderSystem.setShaderTexture(0, abstractTex.getId());
+        // getTexture 无缓存时自动 new SimpleTexture 懒加载（资源包可覆盖，F3+T 即时生效）
+        RenderSystem.setShaderTexture(0, chatIconTex());
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.enableBlend();
         g.blit(chatIconTex(), x, y, 0, 0, ICON_S, ICON_S, ICON_S, ICON_S);
@@ -173,15 +122,7 @@ public class ChatBubbleHudOverlay {
     // C 重载把“显示尺寸 disp”与“源尺寸 SRC_S”分开，UV=SRC_S/16 不越界，不会 wrap 碎裂。
     private static void drawScaledTip(GuiGraphics g, int x, int y, int disp) {
         ResourceLocation tex = ChatBubbleScreen.iconTex("private_tip");
-        var tm = Minecraft.getInstance().getTextureManager();
-        AbstractTexture abstractTex;
-        try {
-            abstractTex = tm.getTexture(tex);
-        } catch (Exception e) {
-            ChatBubbleScreen.loadIconTextures();
-            abstractTex = tm.getTexture(tex);
-        }
-        RenderSystem.setShaderTexture(0, abstractTex.getId());
+        RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.enableBlend();
         g.blit(tex, x, y, disp, disp, (float) SRC_U, (float) SRC_V, SRC_S, SRC_S, 16, 16);

@@ -32,8 +32,8 @@ public class ChatBubbleClientSetup {
             public CompletableFuture<Void> reload(PreparableReloadListener.PreparationBarrier barrier, ResourceManager resourceManager,
                                                   ProfilerFiller prepProfiler, ProfilerFiller reloadProfiler,
                                                   Executor backgroundExecutor, Executor gameExecutor) {
-                return barrier.wait(null)
-                    .thenRunAsync(() -> com.niuqu.chatbubble.texture.UiTextureManager.preloadAll(), gameExecutor);
+                // 纹理全部走 blit(RL) 懒加载（getTexture 自动 new SimpleTexture），F3+T 重载后自动重读资源包新 PNG
+                return barrier.wait(null);
             }
         });
     }

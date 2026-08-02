@@ -68,7 +68,9 @@ public class ChatEmojiPanel {
             px, py, pw, TAB_H + 1, 0f, 0f, 1, 1, 1, 1);
         for (int t = 0; t < tabLabels.length; t++) {
             int tx = px + t * tabW;
-            if (t == tab) g.fill(tx, py, tx + tabW, py + TAB_H, c.inputBg());
+            if (t == tab)
+                g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
+                    tx, py, tabW, TAB_H, 0f, 0f, 1, 1, 1, 1);
             String label = tabLabels[t];
             g.drawString(font, Component.literal(label),
                 tx + tabW / 2 - font.width(label) / 2, py + (TAB_H - font.lineHeight) / 2, c.textPrimary(), false);
@@ -108,7 +110,8 @@ public class ChatEmojiPanel {
             if (ey + SLOT <= cy || ey >= cy + ch) continue;
             if (mouseX >= ex && mouseX <= ex + SLOT - 1
                 && mouseY >= ey && mouseY <= ey + SLOT - 1)
-                g.fill(ex, ey, ex + SLOT - 1, ey + SLOT - 1, c.iconHover());
+                g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                    ex, ey, SLOT - 1, SLOT - 1, 0f, 0f, 1, 1, 1, 1);
             String emoji = EMOTES[i];
             g.drawString(font, Component.literal(emoji),
                 ex + SLOT / 2 - font.width(emoji) / 2,
@@ -136,7 +139,8 @@ public class ChatEmojiPanel {
             if (ey + KAO_ITEM_H <= cy || ey >= cy + ch) continue;
             if (mouseX >= ex && mouseX <= ex + kColW - 1
                 && mouseY >= ey && mouseY <= ey + KAO_ITEM_H - 1)
-                g.fill(ex, ey, ex + kColW - 1, ey + KAO_ITEM_H - 1, c.iconHover());
+                g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                    ex, ey, kColW - 1, KAO_ITEM_H - 1, 0f, 0f, 1, 1, 1, 1);
             g.drawString(font, Component.literal(KAO[i]),
                 ex + 2, ey + (KAO_ITEM_H - font.lineHeight) / 2, c.textPrimary(), false);
         }

@@ -153,9 +153,9 @@ E33Chat 是一款聊天增强模组，把原版聊天 HUD 重做成聊天 APP �
 
 ## UI 纹理自定义（资源包覆盖）
 
-界面结构元素走纹理渲染，默认纹理由代码自动生成（主题色烘焙）。往资源包丢一张同路径 PNG 即可覆盖——颜色、图案、渐变全部由贴图决定。
+界面结构元素、图标与状态高亮全部走纹理渲染，默认纹理为 jar 内置 16×16 纯色 PNG（SimpleTexture 懒加载）。往资源包丢一张同路径 PNG 即可覆盖——颜色、图案、渐变全部由贴图决定，F3+T 即时生效。
 
-**路径约定**：`assets/e33chat/textures/gui/{dark|light}/<元素名>.png`。默认贴图 1×1 拉伸；hover/选中等交互态颜色仍由代码渲染。
+**路径约定**：`assets/e33chat/textures/gui/{dark|light}/<元素名>.png`。默认贴图 16×16 纯色拉伸；hover/选中/关闭按钮等状态高亮同样纹理化（2.2.8 起可覆盖）。
 
 | 元素 | 文件 | 渲染说明 |
 |---|---|---|
@@ -166,6 +166,8 @@ E33Chat 是一款聊天增强模组，把原版聊天 HUD 重做成聊天 APP �
 | 「已复制」提示 | `toast_bg.png` | 拉伸 × 动态透明度（2.2.4 黑块已修：烘焙不透明 + alpha 通道） |
 | 常用语面板滚动条 | `quick_scrollbar_track.png` `quick_scrollbar_thumb.png` | 白色 × tint 主题色/hover 态 |
 | HUD 强提示条 | `strong_hint_bg.png` | 拉伸，可覆盖底色 |
+| 状态高亮（hover/选中/关闭） | `hover_bg.png` `sidebar_selected.png` `sidebar_hover.png` `context_hover.png` `close_bg.png` `close_hover.png` | 拉伸，2.2.8 起可覆盖 |
+| 图标（30 张） | `settings.png` `copy.png` 等 | 16×16 原尺寸，可覆盖 |
 
 > ⚠️ **聊天气泡 / 引用回复块 / @提及横幅**是 SDF 圆角（shader 数学渲染），任何圆角配置都平滑，但**不可被资源包覆盖**——它们不是纹理驱动（2.2.8 曾尝试 9-slice 纹理化，采样失配/放大问题多，已回退 SDF）。
 

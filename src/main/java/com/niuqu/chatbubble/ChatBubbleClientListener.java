@@ -82,14 +82,8 @@ public class ChatBubbleClientListener {
         ChatBubbleHudOverlay.renderStrongHint(event.getGuiGraphics());
     }
 
-    private static boolean texturesLoaded;
-
     @SubscribeEvent
     public void onClientTick(ClientTickEvent.Post event) {
-        if (!texturesLoaded) {
-            texturesLoaded = true;
-            com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
-        }
         Minecraft mc = Minecraft.getInstance();
         String key;
         if (mc.level == null || mc.player == null) {
