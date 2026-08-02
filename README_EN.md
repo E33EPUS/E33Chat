@@ -153,26 +153,23 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 
 ## UI texture customization (resource-pack overridable)
 
-Every UI element renders from a texture; the defaults are code-generated (theme colors baked in). Drop a PNG at the same path into a resource pack and any element is overridden — shape, gradient, pattern and palette all come from the image.
+UI structural elements render from textures; the defaults are code-generated (theme colors baked in). Drop a PNG at the same path into a resource pack and the element is overridden — colors, patterns and gradients all come from the image.
 
-**Path convention**: `assets/e33chat/textures/gui/{dark|light}/<element>.png` (since v2.2.4); v2.2.8 adds dynamic-size components rendered with 16×16 9-slice.
+**Path convention**: `assets/e33chat/textures/gui/{dark|light}/<element>.png`. Default textures are 1×1 stretch; hover/selected interaction colors stay code-rendered.
 
-| Element | File | Size convention | Rendering notes |
-|---|---|---|---|
-| Chat bubble background | `bubble_bg.png` | 16×16 rounded | corners fixed, edges stretched; white default × tint of user bubble color, radius follows config |
-| @-mention banner background | `banner_bg.png` | 16×16 rounded | same (tint banner color); drop shadow still code-drawn |
-| Quote reply block | `quote_bg.png` | 16×16 rounded | tint quote color |
-| Time separator | `time_sep_bg.png` | any | translucent bar; texture overrides base color & rounding |
-| "Copied" toast | `toast_bg.png` | any | texture × dynamic alpha (2.2.4 black-block fixed: bake opaque + alpha channel) |
-| Panel bg / title bar / bottom bar / sidebar / divider / input | `panel_bg.png` etc. | 1×1 stretch | since v2.2.4 |
-| Context menu / popup / whisper bar / config bg / content bg | `context_menu_bg.png` etc. | 1×1 stretch | v2.2.4–2.2.5 |
-| Scrollbar track / thumb | `scrollbar_track.png` `scrollbar_thumb.png` | 1×1 | dynamic alpha channel |
-| Quick-chat scrollbar | `quick_scrollbar_track.png` `quick_scrollbar_thumb.png` | 1×1 | white × tint (theme color / hover state) |
-| Strong-hint bar | `strong_hint_bg.png` | 1×1 | translucent black; texture overrides base color |
+| Element | File | Rendering notes |
+|---|---|---|
+| Panel bg / title bar / bottom bar / sidebar / divider / input | `panel_bg.png` etc. | stretch, since v2.2.4 |
+| Context menu / popup / whisper bar / config bg / content bg | `context_menu_bg.png` etc. | stretch, v2.2.4–2.2.5 |
+| Scrollbar track / thumb | `scrollbar_track.png` `scrollbar_thumb.png` | stretch, dynamic alpha channel |
+| Time separator | `time_sep_bg.png` | stretch, base color overridable |
+| "Copied" toast | `toast_bg.png` | stretch × dynamic alpha (2.2.4 black-block fixed: bake opaque + alpha channel) |
+| Quick-chat scrollbar | `quick_scrollbar_track.png` `quick_scrollbar_thumb.png` | white × tint (theme color / hover state) |
+| Strong-hint bar | `strong_hint_bg.png` | stretch, base color overridable |
 
-**9-slice convention**: dynamic-size components use a 16×16 baseline — a 4×4 corner stays fixed, edges stretch, the center stretches both ways (stretch variant, so gradients/patterns don't distort). 1×1 solid elements just stretch. Hover/selected interaction colors stay code-rendered and are not texture-controlled.
+> ⚠️ **Chat bubbles / quote blocks / @-mention banner** are SDF-rounded (shader math) — smooth at any corner-radius config, but **not resource-pack overridable**, since they are not texture-driven. (2.2.8 tried 9-slice texturing; sampling mismatch/upscaling issues, reverted to SDF.)
 
-**Example**: the bundled demo pack `E33Chat-Texture-Demo` (placed in the test server's `resourcepacks/`) shows bubbles with borders, colored banners, etc. — enable it in-game via Options → Resource Packs → Available, and compare. F3+T hot-reloads, no restart needed.
+**Example**: the `E33Chat-Texture-Demo` pack (in the test server's version resourcepacks dir) shows time-separator and toast overrides — enable it in-game via Options → Resource Packs → Available; F3+T hot-reloads, no restart needed.
 
 ---
 
