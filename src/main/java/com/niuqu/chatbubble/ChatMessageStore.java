@@ -60,6 +60,49 @@ public class ChatMessageStore {
     public static void setServerUseTpa(boolean v) { serverUseTpa = v; }
     public static boolean useTpa() { return serverUseTpa; }
 
+    // Server-configured message-format templates (empty = disabled, heuristic guards only)
+    private static volatile List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> serverChatTemplates = List.of();
+    private static volatile List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> serverWhisperTemplates = List.of();
+    private static volatile boolean serverTemplateDebug = false;
+
+    public static void setServerConfig(boolean useTpa, List<String> chatTemplates,
+                                       List<String> whisperTemplates, boolean templateDebug) {
+        serverUseTpa = useTpa;
+        serverChatTemplates = compileTemplates(chatTemplates);
+        serverWhisperTemplates = compileTemplates(whisperTemplates);
+        serverTemplateDebug = templateDebug;
+    }
+
+    // A template the server configured but the client rejects must not silently
+    // vanish — log the reason once at sync time
+    private static List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> compileTemplates(List<String> raws) {
+        if (raws == null || raws.isEmpty()) return List.of();
+        List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> out = new ArrayList<>();
+        for (String raw : raws) {
+            var result = com.niuqu.chatbubble.chat.TemplateMatcher.compile(raw);
+            if (result.template() != null) {
+                out.add(result.template());
+                if (!result.template().unknownFields().isEmpty()) {
+                    debugLog(() -> "[e33chat] template has unknown placeholders (treated as literal): "
+                        + result.template().unknownFields() + " | template='" + raw + "'");
+                }
+            } else {
+                debugLog(() -> "[e33chat] server template skipped: '" + raw + "' -> " + result.error());
+            }
+        }
+        return out;
+    }
+
+    public static List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> serverChatTemplates() {
+        return serverChatTemplates;
+    }
+
+    public static List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> serverWhisperTemplates() {
+        return serverWhisperTemplates;
+    }
+
+    public static boolean serverTemplateDebug() { return serverTemplateDebug; }
+
     public static void rememberPlayer(UUID uuid, String profileName, String displayName) {
         if (uuid == null || uuid.equals(new UUID(0, 0)) || profileName == null || profileName.isEmpty()) return;
         SeenPlayer existing = seenPlayers.get(uuid);
@@ -101,6 +144,27 @@ public class ChatMessageStore {
         if (!stripped.isEmpty() && stripped.equals(stored)) return true;
         String storedStripped = stored.replaceAll("§.", "");
         return raw.equals(storedStripped) || (!stripped.isEmpty() && stripped.equals(storedStripped));
+    }
+
+    // player? Online candidates + self + seen players. Mirrors the mixin's gate.
+    public static boolean isKnownPlayerName(String name) {
+        if (name == null || name.isEmpty()) return false;
+        var player = net.minecraft.client.MinecraftClient.getInstance().player;
+        if (player == null) return false;
+        String myName = player.getName().getString();
+        if (!myName.isEmpty() && (name.equals(myName) || name.contains(myName))) return true;
+        if (player.networkHandler != null) {
+            for (var info : player.networkHandler.getPlayerList()) {
+                String profile = info.getProfile().getName();
+                if (!profile.isEmpty() && (name.equals(profile) || name.contains(profile))) return true;
+                var tab = info.getDisplayName();
+                if (tab != null) {
+                    String ts = tab.getString();
+                    if (!ts.isEmpty() && (name.equals(ts) || name.contains(ts))) return true;
+                }
+            }
+        }
+        return findSeenUuid(name) != null;
     }
 
     public record SenderMeta(UUID senderUUID, Text senderName,
@@ -315,7 +379,7 @@ public class ChatMessageStore {
         return last.senderName().getString().equals(senderName.getString());
     }
 
-    public static void addMessage(Text content, UUID senderUUID, Text senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner) {
+    public static void addMessage(Text content, UUID senderUUID, Text senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner, boolean localSend) {
         String messageHash = String.valueOf(content.getString().hashCode());
 
         // A message that is only whitespace/control chars — e.g. a server chat-clear
@@ -336,6 +400,11 @@ public class ChatMessageStore {
                 ? rawPlayerName.equals(playerName)
                 : senderName != null && senderName.getString().equals(playerName);
         }
+
+        // Remember our own decorated name (titles/prefixes) whenever it appears in
+        // chat — the outgoing whisper echo has no self name to extract, and the tab
+        // list display name is null on vanilla servers.
+        if (own) cacheOwnDecoratedName(senderName);
 
         if (ChatBubbleClientSetup.config().antiSpam() && !messages.isEmpty()) {
             ChatMessage last = messages.get(messages.size() - 1);
@@ -411,7 +480,9 @@ public class ChatMessageStore {
                 messages.size(), replySender);
         }
 
-        if (whisper && rawPlayerName != null
+        // localSend = the user's own send feedback bubble — not a received whisper,
+        // so it never triggers the (self-)whisper banner/sound
+        if (whisper && rawPlayerName != null && !localSend
             && ChatBubbleClientSetup.config().mentionWhisperBanner()) {
             MentionNotificationController.INSTANCE.onWhisperReceived(
                 senderUUID, senderName, content, messages.size());
@@ -623,13 +694,16 @@ if (systemToHint) {
     // Content extraction from a vanilla whisper line ("你悄悄对 Steve 说: hi" -> "hi").
     // meta wins when it is trusted (incoming whisper sets it); the outgoing-echo path
     // never sets pending meta, so callers must pass null there to avoid stale residue.
-    // Skips any whitespace after the colon (half-width ": " or full-width "：").
+    // Uses the FIRST separator: the structural colon sits before the content, so
+    // content that itself contains ": " must not be truncated (lastIndexOf would).
+    // Consistent with MessagePresentation.extractWhisperContent.
     public static String extractWhisperContent(String text, SenderMeta meta) {
         if (meta != null && meta.rawContent() != null) {
             String rc = meta.rawContent().getString();
             if (!rc.isBlank()) return rc;
         }
-        int idx = Math.max(text.lastIndexOf(": "), text.lastIndexOf("："));
+        int idx = text.indexOf(": ");
+        if (idx < 0) idx = text.indexOf("：");
         if (idx < 0) return text;
         int start = idx + 1;
         while (start < text.length() && Character.isWhitespace(text.charAt(start))) start++;
@@ -645,32 +719,70 @@ if (systemToHint) {
         int qiaoIdx = fullStr.indexOf("悄悄地对你说");
         if (qiaoIdx > 0) {
             Text area = sliceStyled(fullLine, 0, qiaoIdx);
-            if (!area.getString().isBlank()) return area;
+            if (!area.getString().isBlank()) return stripItalic(area);
         }
-        // zh outgoing: "你悄悄地对[称号]Steve说：hi" -> name = after "悄悄地对", before "说："
+        // zh outgoing: "你悄悄地对[称号]Steve说：hi" — the name after "悄悄地对"
+        // is the TARGET, not the sender (the sender is "你" = self); the caller's
+        // fallback carries our own decorated name.
         int duiIdx = fullStr.indexOf("悄悄地对");
         if (duiIdx >= 0) {
             int sayIdx = fullStr.indexOf("说：", duiIdx);
-            if (sayIdx > duiIdx) {
-                Text area = sliceStyled(fullLine, duiIdx + 4, sayIdx);
-                if (!area.getString().isBlank()) return area;
-            }
+            if (sayIdx > duiIdx) return fallback;
         }
         int toIdx = fullStr.indexOf("whisper to ");
         if (toIdx >= 0) {
-            int start = toIdx + "whisper to ".length();
-            int colonIdx = fullStr.indexOf(":", start);
-            if (colonIdx > start) {
-                Text area = sliceStyled(fullLine, start, colonIdx);
-                if (!area.getString().isBlank()) return area;
-            }
+            int colonIdx = fullStr.indexOf(":", toIdx);
+            if (colonIdx > toIdx) return fallback;
         }
         int whisperIdx = fullStr.indexOf(" whispers to you");
         if (whisperIdx > 0) {
             Text area = sliceStyled(fullLine, 0, whisperIdx);
-            if (!area.getString().isBlank()) return area;
+            if (!area.getString().isBlank()) return stripItalic(area);
         }
         return fallback;
+    }
+
+    // Rebuild a component with italic cleared on every run — vanilla decorates
+    // whisper lines gray+italic and the decoration style bleeds into extracted
+    // names; 1.20.1 has no mapStyle, so walk the tree via visit.
+    private static Text stripItalic(Text src) {
+        MutableText out = Text.empty();
+        src.visit((style, text) -> {
+            out.append(Text.literal(text).fillStyle(style.withItalic(false)));
+            return java.util.Optional.<Object>empty();
+        }, net.minecraft.text.Style.EMPTY);
+        return out;
+    }
+
+    private static Text ownDecoratedName;
+
+    // Best available self name: tab list > decorated name seen in chat > bare name.
+    // Vanilla servers send no tab-list display name, so the chat cache is the
+    // reliable source for the outgoing whisper repost.
+    public static Text ownDisplayName() {
+        var player = net.minecraft.client.MinecraftClient.getInstance().player;
+        if (player != null && player.networkHandler != null) {
+            var info = player.networkHandler.getPlayerListEntry(player.getUuid());
+            if (info != null && info.getDisplayName() != null) {
+                return info.getDisplayName();
+            }
+        }
+        if (ownDecoratedName != null) return ownDecoratedName;
+        return player != null ? player.getName() : Text.literal("?");
+    }
+
+    public static Text cachedOwnDisplayName() {
+        return ownDecoratedName;
+    }
+
+    // Own-echoes skip addMessage entirely (consumeEchoIfSenderMatches returns
+    // early), so callers on the message path must cache the decorated name too.
+    public static void cacheOwnDecoratedName(Text senderName) {
+        var player = net.minecraft.client.MinecraftClient.getInstance().player;
+        String bare = player != null ? player.getName().getString() : "";
+        if (senderName == null || bare.isEmpty()) return;
+        String sn = senderName.getString();
+        if (!sn.isEmpty() && !sn.equals(bare)) ownDecoratedName = senderName;
     }
 
     public static Text getStrongHintText() {
@@ -935,7 +1047,7 @@ if (systemToHint) {
 
     // Section-sign codes ("§6...§r") back into a styled component; unknown codes
     // (e.g. a stray §x from a plugin) fall through as literal text
-    static Text parseStyledText(String s) {
+    public static Text parseStyledText(String s) {
         MutableText out = Text.empty();
         Style style = Style.EMPTY;
         StringBuilder buf = new StringBuilder();

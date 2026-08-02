@@ -882,7 +882,7 @@ public class ChatBubbleScreen extends Screen {
         if (mx >= menuX && mx <= menuX + CTX_W) {
             if (my >= menuY && my <= menuY + CTX_ITEM_H) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextMsgIndex);
-                if (msg != null) { client.keyboard.setClipboard(msg.content().getString()); copyToastTicks = 20; }
+                if (msg != null) { client.keyboard.setClipboard(msg.content().getString()); copyToastTicks = 30; }
             } else if (my >= menuY + CTX_ITEM_H + 1 && my <= menuY + CTX_ITEM_H * 2 + 1) {
                 replyTargetIndex = contextMsgIndex;
             }
@@ -1580,13 +1580,14 @@ public class ChatBubbleScreen extends Screen {
 
     private void renderToast(DrawContext g) {
         if (copyToastTicks <= 0) return;
-        int alpha = Animation.fadeIn(copyToastTicks, 5) << 24;
-        int color = alpha | (c().toastText() & 0x00FFFFFF);
+        int alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
+        int color = (alpha << 24) | (c().toastText() & 0x00FFFFFF);
         String text = Text.translatable("e33chat.toast.copied").getString();
         int tw = textRenderer.getWidth(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
-        g.drawTexture(UiTextureManager.rl(UiElement.TOAST_BG), tx - 6, ty - 2, 0f, 0f, tw + 12, textRenderer.fontHeight + 4, 1, 1);
+        // Background fades with the text, at half opacity like the strong-hint bar
+        g.fill(tx - 6, ty - 2, tx + tw + 6, ty + textRenderer.fontHeight + 2, (alpha / 2) << 24);
         g.drawText(textRenderer, text, tx, ty, color, false);
     }
 
@@ -1720,7 +1721,14 @@ public class ChatBubbleScreen extends Screen {
         RenderSystem.setShaderTexture(0, abstractTex.getGlId());
         RenderSystem.setShader(GameRenderer::getPositionTexProgram);
         RenderSystem.enableBlend();
-        g.drawTexture(tex, x, y, 0, 0, size, size, size, size);
+        if (size < 16) {
+            // 图标纹理约定 16x16（内容居中，四周 1px 透明边）。size<16 时采样内容区
+            // (偏移1,1) 1:1 绘制——全幅采样压缩会在 4x 缩放下把边缘半透明像素
+            // 线性放大成"切割"痕迹；1:1 整数放大则干净。
+            g.drawTexture(tex, x, y, 1.0F, 1.0F, size, size, 16, 16);
+        } else {
+            g.drawTexture(tex, x, y, 0, 0, size, size, size, size);
+        }
     }
 
     private static final UUID NIL_UUID = new UUID(0, 0);
@@ -1891,10 +1899,10 @@ public class ChatBubbleScreen extends Screen {
 
             ChatMessageStore.addMessage(contentForSend,
                 client.player.getUuid(),
-                Text.literal(playerName),
+                ChatMessageStore.ownDisplayName(),
                 false,
                 playerName,
-                whisperTarget != null, whisperTarget);
+                whisperTarget != null, whisperTarget, true);
             ChatMessageStore.incrementPendingEcho(text);
 
             // Trigger mention detection directly from send path.

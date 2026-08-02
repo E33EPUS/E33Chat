@@ -4,7 +4,9 @@ import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.config.ConfigManager;
 import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
+import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
 import com.niuqu.chatbubble.network.HistoryPayload;
+import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -48,6 +50,16 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         });
         ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPayload.ID, (payload, context) -> {
             context.client().execute(() -> ConfigSyncPayload.handle(payload));
+        });
+        ClientPlayNetworking.registerGlobalReceiver(ConfigSyncV2Payload.ID, (payload, context) -> {
+            context.client().execute(() -> ConfigSyncV2Payload.handle(payload));
+        });
+        // Server-config GUI: opened on the client only (server never loads the Screen)
+        ClientPlayNetworking.registerGlobalReceiver(ServerConfigScreenPayload.ID, (payload, context) -> {
+            context.client().execute(() -> MinecraftClient.getInstance().setScreen(new ServerConfigScreen(
+                MinecraftClient.getInstance().currentScreen,
+                payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
+                payload.chatTemplates(), payload.whisperTemplates())));
         });
 
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {

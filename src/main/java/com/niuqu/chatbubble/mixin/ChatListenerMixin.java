@@ -329,6 +329,82 @@ public class ChatListenerMixin {
         return null;
     }
 
+    private static long templateMissWindowStart;
+    private static int templateMissBurst;
+
+    private static void logTemplateMiss(String text) {
+        if (!ChatMessageStore.serverTemplateDebug()) return;
+        long now = System.currentTimeMillis();
+        if (now - templateMissWindowStart >= 60_000) {
+            templateMissWindowStart = now;
+            templateMissBurst = 0;
+        }
+        if (++templateMissBurst > 5) return;
+        String s = text.length() <= 100 ? text : text.substring(0, 100) + "…";
+        ChatMessageStore.debugLog(() -> "[e33chat] System(template miss) | text='" + s + "'");
+    }
+
+    private static boolean isTemplateNameKnown(String name) {
+        if (name == null || name.isEmpty()) return false;
+        var player = net.minecraft.client.MinecraftClient.getInstance().player;
+        if (player != null) {
+            String myName = player.getName().getString();
+            if (!myName.isEmpty() && (name.equals(myName) || name.contains(myName))) return true;
+        }
+        return findOnlinePlayer(name) != null || ChatMessageStore.findSeenUuid(name) != null;
+    }
+
+    // Server template parse: exact field split with style-preserving offsets.
+    // Returns null on no match (fall back to the guards) or when the line is our
+    // own echo (already bubbled via the authoritative player channel / suppressed).
+    private static SenderMeta matchByTemplate(Text message, String text) {
+        var r = com.niuqu.chatbubble.chat.TemplateMatcher.match(text, ChatMessageStore.serverChatTemplates(),
+            ChatMessageStore.serverWhisperTemplates(), ChatListenerMixin::isTemplateNameKnown);
+        if (r.isEmpty()) {
+            logTemplateMiss(text);
+            return null;
+        }
+        var tpl = r.orElseThrow();
+        String verified = tpl.verifiedName();
+        var info = findOnlinePlayer(verified);
+        UUID uid = info != null ? info.getProfile().getId() : ChatMessageStore.findSeenUuid(verified);
+        String rawName = info != null ? info.getProfile().getName() : verified;
+        var mc = net.minecraft.client.MinecraftClient.getInstance();
+        boolean isSelf = uid != null && mc.player != null && uid.equals(mc.player.getUuid());
+        if (isSelf) {
+            if (tpl.whisper()) {
+                // outgoing whisper echo — never bubble a second copy; the suppress
+                // flag absorbs it when the pipeline reaches addMessage
+                ChatMessageStore.markSuppressCapture();
+                ChatMessageStore.debugLog(() -> "[e33chat] System(template outgoing whisper) | text='" + text + "'");
+                return null;
+            }
+            // own public echo: the authoritative player channel already bubbled it;
+            // keep the decorated name for repost/echo rendering
+            ChatMessageStore.cacheOwnDecoratedName(
+                templateSlice(message, text, tpl.nameStart(), tpl.nameEnd()));
+            ChatMessageStore.debugLog(() -> "[e33chat] System(template own line) | text='" + text + "'");
+            return null;
+        }
+        Text nameComp = templateSlice(message, text, tpl.nameStart(), tpl.nameEnd());
+        Text contentComp = templateSlice(message, text, tpl.contentStart(), tpl.contentEnd());
+        boolean whisper = tpl.whisper();
+        String partner = whisper ? tpl.sender() : null;
+        ChatMessageStore.debugLog(() -> "[e33chat] System(template) | text='" + text + "' | name='" + nameComp.getString() + "' | whisper=" + whisper + " | partner=" + partner + " | content='" + contentComp.getString() + "'");
+        return new SenderMeta(uid != null ? uid : new UUID(0, 0), nameComp, contentComp,
+            false, rawName, whisper, partner);
+    }
+
+    // Template-path field slicing: if the captured region contains literal §-codes
+    // (some plugins embed raw "§6" text instead of real styles), rebuild it with
+    // parseStyledText to render actual colors; otherwise keep the original
+    // text slice (preserves real per-run styles like the guards do).
+    private static Text templateSlice(Text message, String text, int from, int to) {
+        String sub = text.substring(from, to);
+        if (sub.indexOf('§') >= 0) return ChatMessageStore.parseStyledText(sub);
+        return ChatMessageStore.sliceStyled(message, from, to);
+    }
+
     @Inject(method = "onChatMessage", at = @At("HEAD"))
     private void onPlayerChat(SignedMessage message, GameProfile gameProfile,
                                MessageType.Parameters params, CallbackInfo ci) {
@@ -339,12 +415,14 @@ public class ChatListenerMixin {
         String name = gameProfile.getName();
 
         boolean isWhisper = false;
+        boolean isOutgoing = false;
         String whisperPartner = null;
         if (params.type().matchesKey(MessageType.MSG_COMMAND_INCOMING)) {
             isWhisper = true;
             whisperPartner = name;
         } else if (params.type().matchesKey(MessageType.MSG_COMMAND_OUTGOING)) {
             isWhisper = true;
+            isOutgoing = true;
             whisperPartner = params.targetName().map(Text::getString).orElse(null);
         }
 
@@ -380,11 +458,20 @@ public class ChatListenerMixin {
         if (isWhisper) {
             playerContent = Text.literal(MessagePresentation.extractWhisperContent(rawStr, name));
             // The whisper line carries the server-decorated name ("你悄悄地对[称号]X说：")
-            // — reuse it so reposts show prefix/team-color like plain chat does
-            senderName = ChatMessageStore.extractWhisperDisplayName(params.applyChatDecoration(raw), senderName);
+            // — reuse it so reposts show prefix/team-color like plain chat does. The
+            // outgoing echo's name slot holds the TARGET (self is "你"), so fall back
+            // to the tab-list display name — same source as the system-channel
+            // suppress path, keeping the repost dedup guard's strings identical.
+            Text fallback = isOutgoing ? ChatMessageStore.ownDisplayName() : senderName;
+            senderName = ChatMessageStore.extractWhisperDisplayName(params.applyChatDecoration(raw), fallback);
         } else {
             Text fullLine = params.applyChatDecoration(raw);
             senderName = extractDecoratedName(fullLine, rawStr, name, senderName);
+        }
+        // Our own echoes never reach addMessage (echo guard returns early), so cache
+        // the decorated name here — the outgoing whisper repost needs it later.
+        if (senderId != null && senderId.equals(net.minecraft.client.MinecraftClient.getInstance().player.getUuid())) {
+            ChatMessageStore.cacheOwnDecoratedName(senderName);
         }
         ChatMessageStore.debugLog("[e33chat] PlayerChat | raw='" + rawStr + "' | sender='" + senderName.getString() + "' | content='" + playerContent.getString() + "'");
         ChatMessageStore.setPendingMeta(new SenderMeta(
@@ -399,12 +486,14 @@ public class ChatListenerMixin {
         boolean hasSender = params.name() != null;
 
         boolean isWhisper = false;
+        boolean isOutgoing = false;
         String whisperPartner = null;
         if (params.type().matchesKey(MessageType.MSG_COMMAND_INCOMING)) {
             isWhisper = true;
             whisperPartner = hasSender ? params.name().getString() : null;
         } else if (params.type().matchesKey(MessageType.MSG_COMMAND_OUTGOING)) {
             isWhisper = true;
+            isOutgoing = true;
             whisperPartner = params.targetName().map(Text::getString).orElse(null);
         }
 
@@ -419,7 +508,10 @@ public class ChatListenerMixin {
             Text disSender = params.name();
             if (isWhisper) {
                 disContent = Text.literal(extractWhisperContent(msgStr, params.name().getString()));
-                disSender = ChatMessageStore.extractWhisperDisplayName(content, disSender);
+                // outgoing disguised echo: params.name() is the TARGET — use our own
+                // display name, matching the signed/system-channel repost paths
+                Text fallback = isOutgoing ? ChatMessageStore.ownDisplayName() : disSender;
+                disSender = ChatMessageStore.extractWhisperDisplayName(content, fallback);
             } else {
                 Text fullLine = params.applyChatDecoration(content);
                 disSender = extractDecoratedName(fullLine, msgStr, params.name().getString(), disSender);
@@ -518,6 +610,14 @@ public class ChatListenerMixin {
         String text = message.getString();
         var connection = MinecraftClient.getInstance().player != null
             ? MinecraftClient.getInstance().player.networkHandler : null;
+
+        // Template layer: server-declared formats parse exactly (strongest evidence).
+        // Unconfigured or unmatched lines fall through to the heuristic guards below.
+        if ((!ChatMessageStore.serverChatTemplates().isEmpty()
+                || !ChatMessageStore.serverWhisperTemplates().isEmpty()) && connection != null) {
+            SenderMeta tpl = matchByTemplate(message, text);
+            if (tpl != null) { ChatMessageStore.setPendingMeta(tpl); return; }
+        }
 
         // Layer 1: whisper detection FIRST — before name matching can steal it
         SenderMeta wm = detectWhisperInSystemMessage(text, "whisper");

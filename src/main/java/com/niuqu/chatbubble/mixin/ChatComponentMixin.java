@@ -86,21 +86,10 @@ public class ChatComponentMixin {
         lastRepostTime = nowMs;
         ChatMessageStore.debugLog(() -> "[e33chat] Repost to vanilla | '" + repostStr + "' | quoting=" + quoting);
         e33chat$reposting = true;
-        ((ChatHud) (Object) this).addMessage(reformatted);
+        // 3-arg addMessage with a null indicator: the 1-arg overload forces
+        // MessageIndicator.system(), which logs "[System] [CHAT]" and styles the line
+        ((ChatHud) (Object) this).addMessage(reformatted, null, null);
         e33chat$reposting = false;
-    }
-
-    // Sender name for the outgoing-echo repost: the tab-list display name carries
-    // prefix/suffix and team color ("[称号]E33EPUS" in aqua), falling back to the
-    // profile name when the server provides no display name.
-    private static Text ownDisplayName(MinecraftClient mc) {
-        if (mc.player != null && mc.player.networkHandler != null) {
-            var info = mc.player.networkHandler.getPlayerListEntry(mc.player.getUuid());
-            if (info != null && info.getDisplayName() != null) {
-                return info.getDisplayName();
-            }
-        }
-        return mc.player != null ? mc.player.getName() : Text.literal("?");
     }
 
     private void captureMessage(Text finalComponent, CallbackInfo ci) {
@@ -124,7 +113,7 @@ public class ChatComponentMixin {
             // echo path's meta.senderName() — otherwise the repost dedup guard sees
             // different strings (tab name vs chat-decorated name) and shows both
             Text name = ChatMessageStore.extractWhisperDisplayName(finalComponent,
-                ownDisplayName(MinecraftClient.getInstance()));
+                ChatMessageStore.ownDisplayName());
             repostToVanilla(name, ChatMessageStore.extractWhisperContent(text, null),
                 ChatMessageStore.consumeSuppressQuoted());
             return;
@@ -176,6 +165,6 @@ public class ChatComponentMixin {
         Text logComp = finalComponent, logContent = content;
         SenderMeta logMeta = meta;
         ChatMessageStore.debugLog(() -> "[e33chat] Capture | final='" + logComp.getString() + "' | content='" + logContent.getString() + "' | whisper=" + logMeta.whisper() + " | partner=" + logMeta.whisperPartner() + " | isSystem=" + logMeta.isSystem());
-        ChatMessageStore.addMessage(content, meta.senderUUID(), meta.senderName(), meta.isSystem(), meta.rawPlayerName(), meta.whisper(), meta.whisperPartner());
+        ChatMessageStore.addMessage(content, meta.senderUUID(), meta.senderName(), meta.isSystem(), meta.rawPlayerName(), meta.whisper(), meta.whisperPartner(), false);
     }
 }
