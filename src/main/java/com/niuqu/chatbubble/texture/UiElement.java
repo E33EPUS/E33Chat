@@ -1,52 +1,45 @@
 package com.niuqu.chatbubble.texture;
 
 import com.niuqu.chatbubble.ChatBubbleTheme;
-import java.util.function.Function;
 import net.minecraft.util.Identifier;
 
-/** UI 纹理元素：资源包路径 + 默认主题色。路径约定 assets/e33chat/textures/gui/{theme}/{path}.png */
+/** UI 纹理元素：资源包路径。路径约定 assets/e33chat/textures/gui/{theme}/{path}.png，默认纹理为 jar 内置 16×16 PNG。 */
 public enum UiElement {
-    PANEL_BG("panel_bg", c -> ChatBubbleTheme.alphaBlend(c.panelBg(), 255)),
-    TITLE_BAR("title_bar", c -> c.titleBg()),
-    BOTTOM_BAR("bottom_bar", c -> c.barBg()),
-    SIDEBAR_BG("sidebar_bg", c -> c.sidebarBg()),
-    DIVIDER("divider", c -> c.divider()),
-    INPUT_BG("input_bg", c -> c.inputBg()),
-    SCROLLBAR_TRACK("scrollbar_track", c -> ChatBubbleTheme.alphaBlend(c.scrollbar(), 255)),
-    SCROLLBAR_THUMB("scrollbar_thumb", c -> ChatBubbleTheme.alphaBlend(c.scrollbar(), 255)),
-    CONTEXT_MENU_BG("context_menu_bg", c -> c.contextBg()),
-    POPUP_BG("popup_bg", c -> c.popupBg()),
-    TOAST_BG("toast_bg", c -> ChatBubbleTheme.alphaBlend(c.toastBg(), 255)),
-    WHISPER_BAR("whisper_bar", c -> c.whisperBar()),
-    CONFIG_BG("config_bg", c -> c.configBg()),
-    CONTENT_BG("content_bg", c -> c.barBg()),
-    TIME_SEP_BG("time_sep_bg", c -> ChatBubbleTheme.alphaBlend(c.toastBg(), 255)),
-    STRONG_HINT_BG("strong_hint_bg", c -> 0xFF000000),
+    PANEL_BG("panel_bg"),
+    TITLE_BAR("title_bar"),
+    BOTTOM_BAR("bottom_bar"),
+    SIDEBAR_BG("sidebar_bg"),
+    DIVIDER("divider"),
+    INPUT_BG("input_bg"),
+    SCROLLBAR_TRACK("scrollbar_track"),
+    SCROLLBAR_THUMB("scrollbar_thumb"),
+    CONTEXT_MENU_BG("context_menu_bg"),
+    POPUP_BG("popup_bg"),
+    TOAST_BG("toast_bg"),
+    WHISPER_BAR("whisper_bar"),
+    CONFIG_BG("config_bg"),
+    CONTENT_BG("content_bg"),
+    STRONG_HINT_BG("strong_hint_bg"),
     // 常用语面板滚动条：白色纹理 × tint 动态着色（主题色 + hover 态），颜色变亮的行为由 tint 控制
-    QUICK_SCROLLBAR_TRACK("quick_scrollbar_track", c -> 0xFFFFFFFF),
-    QUICK_SCROLLBAR_THUMB("quick_scrollbar_thumb", c -> 0xFFFFFFFF);
+    QUICK_SCROLLBAR_TRACK("quick_scrollbar_track"),
+    QUICK_SCROLLBAR_THUMB("quick_scrollbar_thumb"),
+    // 状态高亮
+    HOVER_BG("hover_bg"),
+    SIDEBAR_SELECTED("sidebar_selected"),
+    SIDEBAR_HOVER("sidebar_hover"),
+    CONTEXT_HOVER("context_hover"),
+    CLOSE_BG("close_bg"),
+    CLOSE_HOVER("close_hover");
 
     private final String path;
-    private final Function<ChatBubbleTheme.Colors, Integer> themeColor;
 
-    UiElement(String path, Function<ChatBubbleTheme.Colors, Integer> themeColor) {
+    UiElement(String path) {
         this.path = path;
-        this.themeColor = themeColor;
     }
 
     /** 渲染/注册用的纹理 ID（不带 .png）。 */
     public Identifier rl(ChatBubbleTheme theme) {
         return Identifier.of("e33chat",
             "textures/gui/" + theme.name().toLowerCase() + "/" + path);
-    }
-
-    /** 资源包文件路径（带 .png），供 getResource 查询。 */
-    public Identifier png(ChatBubbleTheme theme) {
-        return Identifier.of(rl(theme).getNamespace(), rl(theme).getPath() + ".png");
-    }
-
-    /** 默认纹理烘焙的主题色（完整 ARGB）。 */
-    public int themeColor(ChatBubbleTheme theme) {
-        return themeColor.apply(theme.colors());
     }
 }

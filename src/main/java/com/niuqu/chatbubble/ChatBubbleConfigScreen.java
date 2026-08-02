@@ -623,7 +623,8 @@ public class ChatBubbleConfigScreen extends Screen {
             boolean sel = i == selectedCat;
             boolean hover = mouseX >= CAT_X && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + CAT_ROW_H;
             if (sel || hover)
-                g.fill(CAT_X, ly, CAT_X + CAT_W, ly + CAT_ROW_H, c().iconHover());
+                g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG, ChatBubbleTheme.DARK),
+                    CAT_X, ly, 0f, 0f, CAT_W, CAT_ROW_H, 1, 1);
             if (sel)
                 g.fill(CAT_X, ly, CAT_X + 2, ly + CAT_ROW_H, c().configTitle());
             drawTriangle(g, CAT_X + 6, ly + (CAT_ROW_H - 5) / 2, expanded[i],
@@ -638,7 +639,8 @@ public class ChatBubbleConfigScreen extends Screen {
                     boolean selSub = i == selectedCat && sub == selectedSub;
                     boolean sh = mouseX >= CAT_X + 14 && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + SUB_ROW_H;
                     if (selSub || sh)
-                        g.fill(CAT_X + 14, ly, CAT_X + CAT_W, ly + SUB_ROW_H, c().iconHover());
+                        g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG, ChatBubbleTheme.DARK),
+                            CAT_X + 14, ly, 0f, 0f, CAT_W - 14, SUB_ROW_H, 1, 1);
                     if (selSub)
                         g.fill(CAT_X + 14, ly, CAT_X + 16, ly + SUB_ROW_H, c().configTitle());
                     g.drawText(textRenderer, Text.translatable(o.key()), CAT_X + 24, ly + (SUB_ROW_H - 8) / 2,
@@ -870,8 +872,7 @@ public class ChatBubbleConfigScreen extends Screen {
 
     private void doClose() {
         saveAll();
-        // 圆角配置可能变了——重新烘焙默认纹理（register 同 ID 会释放旧纹理，安全可重复）
-        com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
+        // 纹理走 drawTexture(Identifier) 懒加载，配置改动无需重新烘焙
         client.setScreen(lastScreen);
     }
 

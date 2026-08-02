@@ -1,18 +1,13 @@
 package com.niuqu.chatbubble.texture;
 
-import com.mojang.logging.LogUtils;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleTheme;
-import java.io.InputStream;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
 
 /**
- * UI 纹理管理：资源包优先 → 代码生成 fallback。
- * 启动时把 dark/light 两套主题的全部元素注册进 TextureManager；
- * 渲染时按当前主题动态取 RL，主题切换即时生效（纹理都已注册）。
+ * UI 纹理管理：仅负责按当前主题拼纹理 ID。
+ * 渲染处 drawTexture 直接引用 Identifier，TextureManager.getTexture 无缓存时自动 new ResourceTexture
+ * 从资源栈（用户资源包 > mod jar 内置 16×16 PNG）懒加载；F3+T 重载后自动重读新 PNG。
  */
 public final class UiTextureManager {
 
@@ -29,38 +24,7 @@ public final class UiTextureManager {
     }
 
     public static ChatBubbleTheme currentTheme() {
-        String theme = ChatBubbleClientSetup.config().theme();
-        return "light".equalsIgnoreCase(theme) ? ChatBubbleTheme.LIGHT : ChatBubbleTheme.DARK;
-    }
-
-    /** 启动注册：所有主题 × 所有元素。 */
-    public static void preloadAll() {
-        for (ChatBubbleTheme theme : ChatBubbleTheme.values()) {
-            for (UiElement el : UiElement.values()) {
-                loadOrGenerate(theme, el);
-            }
-        }
-    }
-
-    private static void loadOrGenerate(ChatBubbleTheme theme, UiElement el) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        Identifier id = el.rl(theme);
-        try {
-            var res = mc.getResourceManager().getResource(el.png(theme));
-            if (res.isPresent()) {
-                try (InputStream in = res.get().getInputStream()) {
-                    mc.getTextureManager().registerTexture(id,
-                        new NativeImageBackedTexture(NativeImage.read(in)));
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            LogUtils.getLogger().warn("[e33chat] resource pack texture {} failed to load, using generated default",
-                el.png(theme), e);
-        }
-        int argb = el.themeColor(theme);
-        NativeImage img = new NativeImage(1, 1, false);
-        img.setColor(0, 0, TextureGenerators.argbToAbgr(argb));
-        mc.getTextureManager().registerTexture(id, new NativeImageBackedTexture(img));
+        return ChatBubbleClientSetup.config().theme().equalsIgnoreCase("light")
+            ? ChatBubbleTheme.LIGHT : ChatBubbleTheme.DARK;
     }
 }

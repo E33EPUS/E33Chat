@@ -657,7 +657,8 @@ public class ServerConfigScreen extends Screen {
             boolean sel = i == selectedCat;
             boolean hover = mouseX >= CAT_X && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + CAT_ROW_H;
             if (sel || hover)
-                g.fill(CAT_X, ly, CAT_X + CAT_W, ly + CAT_ROW_H, c().iconHover());
+                g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG, ChatBubbleTheme.DARK),
+                    CAT_X, ly, 0f, 0f, CAT_W, CAT_ROW_H, 1, 1);
             if (sel)
                 g.fill(CAT_X, ly, CAT_X + 2, ly + CAT_ROW_H, c().configTitle());
             g.drawText(textRenderer, Text.translatable(CAT_KEYS[i]), CAT_X + 18, ly + (CAT_ROW_H - 8) / 2,

@@ -16,9 +16,6 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.text.*;
 import net.minecraft.util.Formatting;
@@ -66,19 +63,12 @@ public class ChatBubbleScreen extends Screen {
 
     private static final int INPUT_H = 14;
     private static final int ICON_S = 14;
-    private ChatBubbleTheme loadedTheme;
 
     static Identifier iconTex(String name) {
         String theme = ChatBubbleClientSetup.config().theme().toLowerCase();
         return Identifier.of("e33chat", "textures/gui/" + theme + "/" + name);
     }
 
-    private void ensureIconsLoaded() {
-        var t = theme();
-        if (loadedTheme == t) return;
-        loadIconTextures();
-        loadedTheme = t;
-    }
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -229,7 +219,6 @@ public class ChatBubbleScreen extends Screen {
         commandSuggestions.setWindowActive(true);
         commandSuggestions.refresh();
 
-        ensureIconsLoaded();
 
         sidebarSearchBox = new TextFieldWidget(textRenderer, 2, 5, SIDEBAR_W - 5, SIDEBAR_SEARCH_H, Text.literal(""));
         sidebarSearchBox.setMaxLength(20);
@@ -350,9 +339,11 @@ public class ChatBubbleScreen extends Screen {
         y = sby + sbh + 3;
 
         boolean isPublic = whisperPartner == null;
-        int pubBg = isPublic ? c().sidebarItemSelected()
-            : (mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= y && mouseY <= y + itemH ? c().sidebarItemHover() : 0);
-        if (pubBg != 0) g.fill(0, y, SIDEBAR_W, y + itemH, pubBg);
+        boolean hoverTab = mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= y && mouseY <= y + itemH;
+        if (isPublic)
+            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, y, 0f, 0f, SIDEBAR_W, itemH, 1, 1);
+        else if (hoverTab)
+            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, y, 0f, 0f, SIDEBAR_W, itemH, 1, 1);
         drawTextureIcon(g, iconTex("public_icon"), 2, y + 1, SIDEBAR_ICON_S);
         int nameX = 2 + SIDEBAR_ICON_S + 3;
         String publicLabel = Text.translatable("e33chat.sidebar.public").getString();
@@ -405,9 +396,11 @@ public class ChatBubbleScreen extends Screen {
 
                     if (scrollY + itemH > startY && scrollY < visibleBottom) {
                         boolean sel = name.equals(whisperPartner);
-                        int itemBg = sel ? c().sidebarItemSelected()
-                            : (mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= scrollY && mouseY <= scrollY + itemH ? c().sidebarItemHover() : 0);
-                        if (itemBg != 0) g.fill(0, scrollY, SIDEBAR_W, scrollY + itemH, itemBg);
+                        boolean hoverRow = mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= scrollY && mouseY <= scrollY + itemH;
+                        if (sel)
+                            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, scrollY, 0f, 0f, SIDEBAR_W, itemH, 1, 1);
+                        else if (hoverRow)
+                            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, 0f, 0f, SIDEBAR_W, itemH, 1, 1);
 
                         Identifier skin = getSkin(info.getProfile().getId(), info.getProfile().getName());
                         drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18);
@@ -987,7 +980,7 @@ public class ChatBubbleScreen extends Screen {
         int menuX = panelX + 3;
         int menuY = ty + (TITLE_H - ICON_S) / 2;
         boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S && mouseY >= menuY && mouseY <= menuY + ICON_S;
-        if (hoverMenu) g.fill(menuX - 1, menuY - 1, menuX + ICON_S + 1, menuY + ICON_S + 1, c().iconHover());
+        if (hoverMenu) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, 0f, 0f, ICON_S + 2, ICON_S + 2, 1, 1);
         drawTextureIcon(g, iconTex("menu"), menuX, menuY, ICON_S);
 
         String title = getDisplayTitle();
@@ -1005,7 +998,8 @@ public class ChatBubbleScreen extends Screen {
         int closeY = ty + 6;
         boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12 && mouseY >= closeY && mouseY <= closeY + 12;
         int closeBg = hoverClose ? c().closeHoverBg() : c().closeBg();
-        g.fill(closeX, closeY, closeX + 12, closeY + 12, closeBg);
+        g.drawTexture(UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
+            closeX, closeY, 0f, 0f, 12, 12, 1, 1);
         g.drawText(textRenderer, "✕", closeX + 6 - textRenderer.getWidth("✕") / 2, closeY + 2, c().closeText(), false);
     }
 
@@ -1463,7 +1457,8 @@ public class ChatBubbleScreen extends Screen {
         boolean hoverCopy = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
         int copyBg = hoverCopy ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, copyBg);
+        g.drawTexture(UiTextureManager.rl(hoverCopy ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            menuX + 1, menuY + 1, 0f, 0f, CTX_W - 2, CTX_ITEM_H - 1, 1, 1);
         drawTextureIcon(g, iconTex("copy"), menuX + 5, menuY + 3, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.copy").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
 
@@ -1472,7 +1467,8 @@ public class ChatBubbleScreen extends Screen {
         boolean hoverQuote = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY + CTX_ITEM_H + 1 && mouseY <= menuY + menuH;
         int quoteBg = hoverQuote ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 1, menuY + menuH - 1, quoteBg);
+        g.drawTexture(UiTextureManager.rl(hoverQuote ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            menuX + 1, menuY + CTX_ITEM_H + 1, 0f, 0f, CTX_W - 2, CTX_ITEM_H, 1, 1);
         drawTextureIcon(g, iconTex("quote"), menuX + 5, menuY + CTX_ITEM_H + 3, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.quote").getString(), menuX + 22, menuY + CTX_ITEM_H + 5, c().textPrimary(), false);
     }
@@ -1493,7 +1489,8 @@ public class ChatBubbleScreen extends Screen {
         boolean hoverTp = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
         int tpBg = hoverTp ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, tpBg);
+        g.drawTexture(UiTextureManager.rl(hoverTp ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            menuX + 1, menuY + 1, 0f, 0f, CTX_W - 2, CTX_ITEM_H - 1, 1, 1);
         drawTextureIcon(g, iconTex("tp"), menuX + 5, menuY + 3, 12);
         g.drawText(textRenderer, Text.translatable(ChatMessageStore.useTpa() ? "e33chat.context.tpa" : "e33chat.context.tp").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
 
@@ -1502,7 +1499,8 @@ public class ChatBubbleScreen extends Screen {
         boolean hoverWhisper = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY + CTX_ITEM_H + 2 && mouseY <= menuY + menuH;
         int whBg = hoverWhisper ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + CTX_ITEM_H + 2, menuX + CTX_W - 1, menuY + menuH - 1, whBg);
+        g.drawTexture(UiTextureManager.rl(hoverWhisper ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            menuX + 1, menuY + CTX_ITEM_H + 2, 0f, 0f, CTX_W - 2, CTX_ITEM_H, 1, 1);
         drawTextureIcon(g, iconTex("whisper"), menuX + 5, menuY + CTX_ITEM_H + 4, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.whisper").getString(), menuX + 22, menuY + CTX_ITEM_H + 6, c().textPrimary(), false);
     }
@@ -1538,7 +1536,8 @@ public class ChatBubbleScreen extends Screen {
         int cy = barY + 3;
         boolean hoverX = mouseX >= cx && mouseX <= cx + 12 && mouseY >= cy && mouseY <= cy + 12;
         int xBg = hoverX ? c().closeHoverBg() : c().sidebarItemSelected();
-        g.fill(cx, cy, cx + 12, cy + 12, xBg);
+        g.drawTexture(UiTextureManager.rl(hoverX ? UiElement.CLOSE_HOVER : UiElement.SIDEBAR_SELECTED),
+            cx, cy, 0f, 0f, 12, 12, 1, 1);
         g.drawText(textRenderer, "✕", cx + 6 - textRenderer.getWidth("✕") / 2, cy + 2, c().closeText(), false);
     }
 
@@ -1617,8 +1616,7 @@ public class ChatBubbleScreen extends Screen {
             case 2: { // theme
                 ChatBubbleTheme next = theme() == ChatBubbleTheme.DARK ? ChatBubbleTheme.LIGHT : ChatBubbleTheme.DARK;
                 ChatBubbleClientSetup.saveConfig(ChatBubbleClientSetup.config().withTheme(next.name().toLowerCase()));
-                ensureIconsLoaded();
-                int editColor = next == ChatBubbleTheme.LIGHT ? c().textSecondary() : c().textPrimary();
+                        int editColor = next == ChatBubbleTheme.LIGHT ? c().textSecondary() : c().textPrimary();
                 input.setEditableColor(editColor);
                 input.setUneditableColor(c().textMuted());
                 sidebarSearchBox.setEditableColor(editColor);
@@ -1657,7 +1655,7 @@ public class ChatBubbleScreen extends Screen {
         int ibW = input.getWidth();
         int ibH = INPUT_H;
         g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, 0f, 0f, ibW + 1, 1, 1, 1);
-        g.fill(ibX - 1, ibY, ibX + ibW, ibY + ibH, c().inputBg());
+        g.drawTexture(UiTextureManager.rl(UiElement.INPUT_BG), ibX - 1, ibY, 0f, 0f, ibW + 1, ibH, 1, 1);
 
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + ibW && mouseY >= ibY && mouseY <= ibY + ibH;
         if (hoverInput || input.isFocused())
@@ -1669,77 +1667,25 @@ public class ChatBubbleScreen extends Screen {
 
         boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverGear) g.fill(gearX - 1, iconY - 1, gearX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
+        if (hoverGear) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, 0f, 0f, ICON_S + 2, ICON_S + 2, 1, 1);
         drawTextureIcon(g, iconTex("settings"), gearX, iconY, ICON_S);
 
         boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverEmoji || emojiPanel.visible) g.fill(emojiX - 1, iconY - 1, emojiX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
+        if (hoverEmoji || emojiPanel.visible) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, 0f, 0f, ICON_S + 2, ICON_S + 2, 1, 1);
         drawTextureIcon(g, iconTex("emoji"), emojiX, iconY, ICON_S);
 
         boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverSend) g.fill(sendX - 1, iconY - 1, sendX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
+        if (hoverSend) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, 0f, 0f, ICON_S + 2, ICON_S + 2, 1, 1);
         drawTextureIcon(g, iconTex("send"), sendX, iconY, ICON_S);
     }
 
-    static void loadIconTextures() {
-        String theme = ChatBubbleClientSetup.config().theme().toLowerCase();
-        String base = "assets/e33chat/textures/gui/" + theme + "/";
-        loadIconTexture(iconTex("settings"), base + "settings.png");
-        loadIconTexture(iconTex("send"), base + "send.png");
-        loadIconTexture(iconTex("emoji"), base + "emoji.png");
-        loadIconTexture(iconTex("menu"), base + "menu.png");
-        loadIconTexture(iconTex("public_icon"), base + "public_icon.png");
-        loadIconTexture(iconTex("private_tip"), base + "private_tip.png");
-        loadIconTexture(iconTex("no_online"), base + "no_online.png");
-        loadIconTexture(iconTex("theme"), base + "theme.png");
-        loadIconTexture(iconTex("quick_chat"), base + "quick_chat.png");
-        loadIconTexture(iconTex("copy"), base + "copy.png");
-        loadIconTexture(iconTex("quote"), base + "quote.png");
-        loadIconTexture(iconTex("tp"), base + "tp.png");
-        loadIconTexture(iconTex("whisper"), base + "whisper.png");
-        loadIconTexture(iconTex("search"), base + "search.png");
-    }
 
-    private static void loadIconTexture(Identifier loc, String classpath) {
-        // 资源包优先：assets/e33chat/textures/gui/{theme}/{name}.png 可被资源包覆盖，
-        // 未命中才回退 jar 内置默认图标。
-        try {
-            Identifier png = Identifier.of(loc.getNamespace(), loc.getPath() + ".png");
-            MinecraftClient mc = MinecraftClient.getInstance();
-            var res = mc.getResourceManager().getResource(png);
-            if (res.isPresent()) {
-                try (InputStream in = res.get().getInputStream()) {
-                    mc.getTextureManager().registerTexture(loc,
-                        new NativeImageBackedTexture(NativeImage.read(in)));
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] resource pack icon {} failed to load, using jar default", loc, e);
-        }
-        try (InputStream in = ChatBubbleScreen.class.getClassLoader().getResourceAsStream(classpath)) {
-            if (in != null) {
-                NativeImage img = NativeImage.read(in);
-                NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
-                MinecraftClient.getInstance().getTextureManager().registerTexture(loc, tex);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     static void drawTextureIcon(DrawContext g, Identifier tex, int x, int y, int size) {
-        var tm = MinecraftClient.getInstance().getTextureManager();
-        AbstractTexture abstractTex;
-        try {
-            abstractTex = tm.getTexture(tex);
-        } catch (Exception e) {
-            loadIconTextures();
-            abstractTex = tm.getTexture(tex);
-        }
-        RenderSystem.setShaderTexture(0, abstractTex.getGlId());
+        // getTexture 无缓存时自动 new ResourceTexture 懒加载（资源包可覆盖，F3+T 即时生效）
+        RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionTexProgram);
         RenderSystem.enableBlend();
         if (size < 16) {
