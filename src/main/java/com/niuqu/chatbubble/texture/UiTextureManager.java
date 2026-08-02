@@ -59,15 +59,15 @@ public final class UiTextureManager {
         }
         int argb = el.themeColor(theme);
         if (el.kind().rounded()) {
-            // 16×16 圆角纹理：9-slice 渲染时四角恒定圆角、边拉伸；资源包覆盖后形状完全由贴图决定。
-            // 半径跟随用户配置（气泡/横幅圆角配置项），配置变更后重注册即时生效
+            // 圆角纹理：尺寸 = 半径×4（9-slice 四角区=半径，中心 2×半径 双向拉伸）。
+            // 半径跟随用户配置（气泡/横幅圆角配置项 0-10），配置变更后重注册即时生效。
+            // 16 下限保证最小圆角（4px）也有 16×16 纹理；radius=0 退化为纯色（半径 0 圆角=直角）
             int radius = radiusFor(el);
-            int[] px = TextureGenerators.roundedRect(
-                UiElement.DEFAULT_TEX_SIZE, UiElement.DEFAULT_TEX_SIZE, radius, argb, 0, 0);
-            NativeImage img = new NativeImage(UiElement.DEFAULT_TEX_SIZE, UiElement.DEFAULT_TEX_SIZE, false);
+            int texSize = Math.max(UiElement.DEFAULT_TEX_SIZE, radius * 4);
+            int[] px = TextureGenerators.roundedRect(texSize, texSize, radius, argb, 0, 0);
+            NativeImage img = new NativeImage(texSize, texSize, false);
             for (int i = 0; i < px.length; i++) {
-                img.setPixelRGBA(i % UiElement.DEFAULT_TEX_SIZE, i / UiElement.DEFAULT_TEX_SIZE,
-                    TextureGenerators.argbToAbgr(px[i]));
+                img.setPixelRGBA(i % texSize, i / texSize, TextureGenerators.argbToAbgr(px[i]));
             }
             mc.getTextureManager().register(id, new DynamicTexture(img));
             return;
