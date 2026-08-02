@@ -49,7 +49,7 @@ public final class ChatContextMenus {
         boolean hoverCopy = isOverItem(mouseX, mouseY, mx, my, CTX_ITEM_H);
         int copyBg = hoverCopy ? c.contextHover() : c.sidebarItemSelected();
         g.fill(mx + 1, my + 1, mx + CTX_W - 1, my + CTX_ITEM_H, copyBg);
-        drawIcon(g, copyIcon, mx + 5, my + 3, 14);
+        drawIcon(g, copyIcon, mx + 5, my + 3, 12);
         g.drawString(font, Component.translatable("e33chat.context.copy"),
             mx + 22, my + 4, c.textPrimary(), false);
 
@@ -58,7 +58,7 @@ public final class ChatContextMenus {
         boolean hoverQuote = isOverItem(mouseX, mouseY, mx, my + CTX_ITEM_H + 1, CTX_ITEM_H);
         int quoteBg = hoverQuote ? c.contextHover() : c.sidebarItemSelected();
         g.fill(mx + 1, my + CTX_ITEM_H + 1, mx + CTX_W - 1, my + menuH - 1, quoteBg);
-        drawIcon(g, quoteIcon, mx + 5, my + CTX_ITEM_H + 3, 14);
+        drawIcon(g, quoteIcon, mx + 5, my + CTX_ITEM_H + 3, 12);
         g.drawString(font, Component.translatable("e33chat.context.quote"),
             mx + 22, my + CTX_ITEM_H + 5, c.textPrimary(), false);
     }
@@ -82,7 +82,7 @@ public final class ChatContextMenus {
         boolean hoverTp = isOverItem(mouseX, mouseY, mx, my, CTX_ITEM_H);
         int tpBg = hoverTp ? c.contextHover() : c.sidebarItemSelected();
         g.fill(mx + 1, my + 1, mx + CTX_W - 1, my + CTX_ITEM_H, tpBg);
-        drawIcon(g, tpIcon, mx + 5, my + 3, 14);
+        drawIcon(g, tpIcon, mx + 5, my + 3, 12);
         String tpKey = useTpa ? "e33chat.context.tpa" : "e33chat.context.tp";
         g.drawString(font, Component.translatable(tpKey), mx + 22, my + 4, c.textPrimary(), false);
 
@@ -91,7 +91,7 @@ public final class ChatContextMenus {
         boolean hoverWhisper = isOverItem(mouseX, mouseY, mx, my + CTX_ITEM_H + 2, CTX_ITEM_H);
         int whBg = hoverWhisper ? c.contextHover() : c.sidebarItemSelected();
         g.fill(mx + 1, my + CTX_ITEM_H + 2, mx + CTX_W - 1, my + menuH - 1, whBg);
-        drawIcon(g, whisperIcon, mx + 5, my + CTX_ITEM_H + 4, 14);
+        drawIcon(g, whisperIcon, mx + 5, my + CTX_ITEM_H + 4, 12);
         g.drawString(font, Component.translatable("e33chat.context.whisper"),
             mx + 22, my + CTX_ITEM_H + 6, c.textPrimary(), false);
     }
