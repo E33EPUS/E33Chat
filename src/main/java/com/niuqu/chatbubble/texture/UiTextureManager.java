@@ -5,6 +5,8 @@ import com.mojang.logging.LogUtils;
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatBubbleTheme;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -13,10 +15,15 @@ import net.minecraft.resources.ResourceLocation;
  * UI 纹理管理：资源包优先 → 代码生成 fallback。
  * 启动时把 dark/light 两套主题的全部元素注册进 TextureManager；
  * 渲染时按当前主题动态取 RL，主题切换即时生效（纹理都已注册）。
+ * 同时记录每个纹理的尺寸（texSizes），NineSliceRenderer 据此推导 9-slice border
+ * ——border = 短边/4，保证采样与贴图严格 1:1，任意尺寸贴图都不会放大失配。
  */
 public final class UiTextureManager {
 
     private UiTextureManager() {}
+
+    /** 已注册纹理的尺寸（短边像素）。 */
+    private static final Map<ResourceLocation, Integer> TEX_SIZES = new HashMap<>();
 
     /** 当前配置主题下元素的纹理 ID。 */
     public static ResourceLocation rl(UiElement el) {
@@ -30,6 +37,13 @@ public final class UiTextureManager {
 
     public static ChatBubbleTheme currentTheme() {
         return ChatBubbleConfig.THEME.get();
+    }
+
+    /** 纹理的 9-slice border：四角保留区 = 短边/4（1×1 纯色 → 0 → 纯拉伸）。 */
+    public static int borderFor(ResourceLocation tex) {
+        Integer size = TEX_SIZES.get(tex);
+        if (size == null || size <= 1) return 0;
+        return size / 4;
     }
 
     /** 启动注册：所有主题 × 所有元素。 */
@@ -48,8 +62,9 @@ public final class UiTextureManager {
             var res = mc.getResourceManager().getResource(el.png(theme));
             if (res.isPresent()) {
                 try (InputStream in = res.get().open()) {
-                    mc.getTextureManager().register(id,
-                        new DynamicTexture(NativeImage.read(in)));
+                    NativeImage img = NativeImage.read(in);
+                    TEX_SIZES.put(id, Math.min(img.getWidth(), img.getHeight()));
+                    mc.getTextureManager().register(id, new DynamicTexture(img));
                     return;
                 }
             }
@@ -69,11 +84,13 @@ public final class UiTextureManager {
             for (int i = 0; i < px.length; i++) {
                 img.setPixelRGBA(i % texSize, i / texSize, TextureGenerators.argbToAbgr(px[i]));
             }
+            TEX_SIZES.put(id, texSize);
             mc.getTextureManager().register(id, new DynamicTexture(img));
             return;
         }
         NativeImage img = new NativeImage(1, 1, false);
         img.setPixelRGBA(0, 0, TextureGenerators.argbToAbgr(argb));
+        TEX_SIZES.put(id, 1);
         mc.getTextureManager().register(id, new DynamicTexture(img));
     }
 
