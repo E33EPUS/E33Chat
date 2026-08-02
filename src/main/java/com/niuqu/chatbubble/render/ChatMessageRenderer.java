@@ -5,7 +5,6 @@ import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.UiLayout;
-import com.niuqu.chatbubble.texture.NineSliceRenderer;
 import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.gui.Font;
@@ -294,11 +293,9 @@ public final class ChatMessageRenderer {
         int bg = own ? ownBubbleColor : otherBubbleColor;
         int fg = own ? ownTextColor : otherTextColor;
 
-        // 气泡背景纹理化：BUBBLE_BG 白色圆角纹理（默认尺寸=配置半径×4）× tint 用户气泡色。
-        // border 从纹理尺寸推导（贴图 1:1 采样，任意尺寸不放大失配）；
-        // 资源包覆盖后形状（圆角/边框/图案）由贴图决定，tint 色仍在
-        NineSliceRenderer.drawTinted(g, UiTextureManager.rl(UiElement.BUBBLE_BG),
-            bubbleX, bubbleY, bubbleW, bubbleH, bg);
+        // 气泡背景：SDF 圆角（shader 数学，任何半径平滑；配置实时生效，不可被资源包覆盖）
+        RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
+            cornerRadius, bg);
 
         Style fb = findClickStyle(msg.content());
         for (int li = 0; li < lines.size(); li++)
@@ -334,9 +331,8 @@ public final class ChatMessageRenderer {
             if (quoteX < panelX + ChatLayout.PAD) quoteX = panelX + ChatLayout.PAD;
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
-            // 引用块纹理化：QUOTE_BG 白色圆角纹理 × tint 引用色
-            NineSliceRenderer.drawTinted(g, UiTextureManager.rl(UiElement.QUOTE_BG),
-                quoteX, quoteY, quoteW, quoteH, c.contextHover());
+            // 引用块：SDF 圆角
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, c.contextHover());
             g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, c.textSecondary(), false);
         }
 
