@@ -66,12 +66,16 @@ public class ChatQuickChatPanel {
             String display = font.plainSubstrByWidth(phrase, textMaxW);
             boolean hover = mouseX >= px + 4 && mouseX <= hoverRight
                 && mouseY >= rowY && mouseY <= rowY + ROW_H;
-            if (hover) g.fill(px + 4, rowY, hoverRight, rowY + ROW_H, c.iconHover());
+            if (hover) g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                px + 4, rowY, hoverRight - (px + 4), ROW_H, 0f, 0f, 1, 1, 1, 1);
             g.drawString(font, Component.literal(display), px + 6, rowY + 2, c.textPrimary(), false);
             int delX = hoverRight - 13;
             int delY = rowY + 1;
             boolean hoverDel = mouseX >= delX && mouseX <= delX + 12 && mouseY >= delY && mouseY <= delY + 12;
-            g.fill(delX, delY, delX + 12, delY + 12, hoverDel ? c.closeHoverBg() : c.closeBg());
+            g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(hoverDel
+                    ? com.niuqu.chatbubble.texture.UiElement.CLOSE_HOVER
+                    : com.niuqu.chatbubble.texture.UiElement.CLOSE_BG),
+                delX, delY, 12, 12, 0f, 0f, 1, 1, 1, 1);
             g.drawString(font, Component.literal("✕"), delX + 6 - font.width("✕") / 2, delY + 2, c.closeText(), false);
         }
 
