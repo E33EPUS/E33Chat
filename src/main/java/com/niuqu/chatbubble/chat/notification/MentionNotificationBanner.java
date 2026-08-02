@@ -179,11 +179,11 @@ public class MentionNotificationBanner {
         RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
             x + bannerW + SHADOW_OFF, y + BANNER_H + SHADOW_OFF, cornerRadius, shadowColor);
 
-        // Background 纹理化：BANNER_BG 白色圆角纹理（尺寸=半径×4，9-slice 角区=半径）× tint 横幅色 × 动态 alpha。
-        // 零资源包视觉与旧 RoundRect 一致；资源包覆盖后形状由贴图决定，tint 色仍在
+        // Background 纹理化：BANNER_BG 白色圆角纹理（默认尺寸=配置半径×4）× tint 横幅色 × 动态 alpha。
+        // border 从纹理尺寸推导，阴影仍是 SDF 圆角（配置半径），两者默认对齐；资源包覆盖后形状由贴图决定
         int bgAlpha = (int)((bg >>> 24) * alpha);
         NineSliceRenderer.drawTinted(g, UiTextureManager.rl(UiElement.BANNER_BG),
-            x, y, bannerW, BANNER_H, cornerRadius, (bgAlpha << 24) | (bg & 0x00FFFFFF));
+            x, y, bannerW, BANNER_H, (bgAlpha << 24) | (bg & 0x00FFFFFF));
 
         // Avatar
         int avatarY = y + (BANNER_H - AVATAR_HAT) / 2;
