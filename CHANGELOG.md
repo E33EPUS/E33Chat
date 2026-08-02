@@ -1,6 +1,25 @@
 # Changelog
 
-## v2.2.5
+## v2.2.7（同步 Forge 2.2.7）
+
+**模板引擎加固 + 插件生态适配 + 服务端配置 GUI（从 Forge 完整同步）**
+- 服务端消息格式模板全套：声明式解析（`{prefix}` `{display_name}` `{name}` `{sep}` `{content}` `{sender}` `{target}`）、服务端配置（`chat_templates`/`whisper_templates`/`template_debug`）、同步通道 ConfigSyncV2Payload
+- 服务端配置 GUI：`/e33chat gui`（OP）图形化编辑全部服务端配置（use_tpa / 历史 / 模板 / 诊断），保存后服务端校验写回 toml 并广播；从消息生成 / 实时预览 / 常见格式预设 / 分节教程
+- 模板命令：`/e33chat template list/set/remove/clear/test`（OP，控制台等价物）
+- 修复：模板编译崩溃（同字段重复 / PatternSyntaxException 兜底）、extractWhisperContent 统一首分隔符（多冒号内容不截断）、字面 § 码 parseStyledText 还原
+- 语法增强：`{content}` 任意位置（后缀式）、`{sep}` 可选分隔符（一条模板覆盖 `>>`/冒号/`»`/空格）
+- 预设库补真实插件格式（EssentialsX / DeluxeChat / CMI 私聊）
+- 汉堡图标 4x 切割修复（drawIcon 1:1 内容区采样）
+- 测试 195 → 204（TemplateMatcherTest 等随 Forge 同步）
+
+**Template engine hardening + plugin adaptation + server-config GUI (full sync from Forge)**
+- Server message-format templates: declarative parsing, server config, ConfigSyncV2Payload sync channel
+- Server-config GUI: `/e33chat gui` (OP), template commands, presets, tutorial
+- Fixes: template compile crash, first-separator whisper content, literal §-codes
+- Syntax: `{content}` anywhere + `{sep}` separator placeholder
+- Icon 4x scaling fix; tests 195 → 204
+
+***
 
 **纹理化覆盖全部结构色元素**
 - 右键菜单（底色 + 边框）、@ 提及弹窗底、复制提示、私聊模式横条改为纹理渲染

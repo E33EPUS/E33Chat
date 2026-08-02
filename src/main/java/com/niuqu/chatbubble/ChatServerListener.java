@@ -2,6 +2,7 @@ package com.niuqu.chatbubble;
 
 import com.niuqu.chatbubble.packets.ChatMetaPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncPayload;
+import com.niuqu.chatbubble.packets.ConfigSyncV2Payload;
 import com.niuqu.chatbubble.packets.HistoryPayload;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -84,14 +85,31 @@ public class ChatServerListener {
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
-        // Always sync server-side settings so the client head menu matches the server
+        // Always sync server-side settings so the client head menu matches the server.
+        // Both payloads are sent: old clients only know ConfigSyncPayload (use_tpa),
+        // new clients pick up the templates from ConfigSyncV2Payload; unknown types
+        // are dropped harmlessly by old clients.
         PacketDistributor.sendToPlayer(player,
             new ConfigSyncPayload(ChatServerConfig.USE_TPA.get()));
+        PacketDistributor.sendToPlayer(player, buildConfigV2());
 
         if (!ChatServerConfig.HISTORY_ENABLED.get()) return;
         if (historyBuffer.isEmpty()) return;
         PacketDistributor.sendToPlayer(player,
             new HistoryPayload(new ArrayList<>(historyBuffer)));
+    }
+
+    /** Broadcast the full server config (templates included) to every player. */
+    public static void broadcastServerConfig() {
+        PacketDistributor.sendToAllPlayers(buildConfigV2());
+    }
+
+    private static ConfigSyncV2Payload buildConfigV2() {
+        return new ConfigSyncV2Payload(
+            ChatServerConfig.USE_TPA.get(),
+            new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
+            new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get()),
+            ChatServerConfig.TEMPLATE_DEBUG.get());
     }
 
     public static void onQuoteReceived(UUID senderUUID, String quotedSenderName,

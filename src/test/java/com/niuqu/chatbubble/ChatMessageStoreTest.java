@@ -115,6 +115,13 @@ class ChatMessageStoreTest {
         assertEquals("hi", ChatMessageStore.extractWhisperContent("你悄悄对 Steve 说: hi   ", null));
     }
 
+    @Test void extractWhisper_firstSeparatorNotLast() {
+        // 2.2.7: content may itself contain ": " — the structural colon is the FIRST
+        // one (lastIndexOf would truncate the content at its inner colon)
+        assertEquals("a: b", ChatMessageStore.extractWhisperContent("Steve: a: b", null));
+        assertEquals("a：b", ChatMessageStore.extractWhisperContent("Steve：a：b", null));
+    }
+
     // ---- wasRecentQuoteAt: quote reply residue drives the [引用] tag on the
     // outgoing echo (pendingReplyContent is consumed by the local bubble first).
     // Pure-function form (quoteTime, now) so tests never depend on shared state ----
@@ -193,8 +200,9 @@ class ChatMessageStoreTest {
     // keeping prefix ("[称号]") and team-color styles for the [私聊]/[引用] repost ----
 
     @Test void whisperName_zhOutgoing() {
+        // the name slot is the TARGET — the sender is self, so fallback wins
         var line = net.minecraft.network.chat.Component.literal("你悄悄地对[称号]E33EPUS说：hi");
-        assertEquals("[称号]E33EPUS", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.network.chat.Component.literal("E33EPUS")).getString());
+        assertEquals("E33EPUS", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.network.chat.Component.literal("E33EPUS")).getString());
     }
 
     @Test void whisperName_zhIncoming() {
@@ -203,13 +211,28 @@ class ChatMessageStoreTest {
     }
 
     @Test void whisperName_enOutgoing() {
+        // the name slot is the TARGET — the sender is self, so fallback wins
         var line = net.minecraft.network.chat.Component.literal("You whisper to [VIP]Steve: hi");
-        assertEquals("[VIP]Steve", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.network.chat.Component.literal("Steve")).getString());
+        assertEquals("Steve", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.network.chat.Component.literal("Steve")).getString());
     }
 
     @Test void whisperName_enIncoming() {
         var line = net.minecraft.network.chat.Component.literal("[VIP]Steve whispers to you: hi");
         assertEquals("[VIP]Steve", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.network.chat.Component.literal("Steve")).getString());
+    }
+
+    @Test void whisperName_incomingResetsVanillaItalic() {
+        // vanilla decorates whisper lines gray+italic; the extracted name must not
+        // inherit the line decoration's italic (applies to child runs, hence mapStyle)
+        var line = net.minecraft.network.chat.Component.literal("[称号]E33EPUS悄悄地对你说：hi")
+            .withStyle(s -> s.withItalic(true));
+        var name = ChatMessageStore.extractWhisperDisplayName(line,
+            net.minecraft.network.chat.Component.literal("E33EPUS"));
+        assertEquals("[称号]E33EPUS", name.getString());
+        var it = new boolean[]{true};
+        name.visit((style, text) -> { if (style.isItalic()) it[0] = false; return java.util.Optional.empty(); },
+            net.minecraft.network.chat.Style.EMPTY);
+        assertTrue(it[0], "whisper sender name must not be italic");
     }
 
     @Test void whisperName_noTemplateFallsBack() {
