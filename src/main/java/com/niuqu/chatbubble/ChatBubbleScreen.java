@@ -1466,7 +1466,7 @@ public class ChatBubbleScreen extends Screen {
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
         int copyBg = hoverCopy ? c().contextHover() : c().sidebarItemSelected();
         g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, copyBg);
-        drawTextureIcon(g, iconTex("copy"), menuX + 5, menuY + 3, 14);
+        drawTextureIcon(g, iconTex("copy"), menuX + 5, menuY + 3, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.copy").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
 
         g.fill(menuX + 4, menuY + CTX_ITEM_H, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 1, c().closeHoverBg());
@@ -1475,7 +1475,7 @@ public class ChatBubbleScreen extends Screen {
             && mouseY >= menuY + CTX_ITEM_H + 1 && mouseY <= menuY + menuH;
         int quoteBg = hoverQuote ? c().contextHover() : c().sidebarItemSelected();
         g.fill(menuX + 1, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 1, menuY + menuH - 1, quoteBg);
-        drawTextureIcon(g, iconTex("quote"), menuX + 5, menuY + CTX_ITEM_H + 3, 14);
+        drawTextureIcon(g, iconTex("quote"), menuX + 5, menuY + CTX_ITEM_H + 3, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.quote").getString(), menuX + 22, menuY + CTX_ITEM_H + 5, c().textPrimary(), false);
     }
 
@@ -1496,7 +1496,7 @@ public class ChatBubbleScreen extends Screen {
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
         int tpBg = hoverTp ? c().contextHover() : c().sidebarItemSelected();
         g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, tpBg);
-        drawTextureIcon(g, iconTex("tp"), menuX + 5, menuY + 3, 14);
+        drawTextureIcon(g, iconTex("tp"), menuX + 5, menuY + 3, 12);
         g.drawText(textRenderer, Text.translatable(ChatMessageStore.useTpa() ? "e33chat.context.tpa" : "e33chat.context.tp").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
 
         g.fill(menuX + 4, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 2, c().closeHoverBg());
@@ -1505,7 +1505,7 @@ public class ChatBubbleScreen extends Screen {
             && mouseY >= menuY + CTX_ITEM_H + 2 && mouseY <= menuY + menuH;
         int whBg = hoverWhisper ? c().contextHover() : c().sidebarItemSelected();
         g.fill(menuX + 1, menuY + CTX_ITEM_H + 2, menuX + CTX_W - 1, menuY + menuH - 1, whBg);
-        drawTextureIcon(g, iconTex("whisper"), menuX + 5, menuY + CTX_ITEM_H + 4, 14);
+        drawTextureIcon(g, iconTex("whisper"), menuX + 5, menuY + CTX_ITEM_H + 4, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.whisper").getString(), menuX + 22, menuY + CTX_ITEM_H + 6, c().textPrimary(), false);
     }
 
