@@ -6,6 +6,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.texture.NineSliceRenderer;
 import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -1168,7 +1169,9 @@ public class ChatBubbleScreen extends Screen {
         String text = ChatMessageStore.formatTime(timeMillis);
         int tw = textRenderer.getWidth(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
-        g.fill(tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2, ChatBubbleTheme.alphaBlend(c().toastBg(), 0x44));
+        // 时间分隔符背景纹理化：TIME_SEP_BG × 0x44 透明度（与旧 fill 视觉一致，资源包可覆盖）
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TIME_SEP_BG),
+            tx - 6, y + 2, tw + 12, TIME_SEP_H - 4, 0x44 / 255f);
         g.drawText(textRenderer, text, tx, y + 3, c().timeColor(), false);
     }
 
@@ -1288,8 +1291,10 @@ public class ChatBubbleScreen extends Screen {
             ? ChatBubbleConfig.parseHexColor(ChatBubbleClientSetup.config().ownTextColor(), 0xFFFFFFFF)
             : ChatBubbleConfig.parseHexColor(ChatBubbleClientSetup.config().otherTextColor(), c().textPrimary());
 
-        RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
-            ChatBubbleClientSetup.config().bubbleCornerRadius(), bg);
+        // 气泡背景纹理化：BUBBLE_BG 白色圆角纹理（半径跟随配置）× tint 用户气泡色。
+        // 零资源包视觉与旧 RoundRect 一致；资源包覆盖后形状（圆角/边框/图案）由贴图决定，tint 色仍在
+        NineSliceRenderer.drawTinted(g, UiTextureManager.rl(UiElement.BUBBLE_BG),
+            bubbleX, bubbleY, bubbleW, bubbleH, bg);
 
         Style fbP = findClickStyle(msg.content());
         for (int li = 0; li < lines.size(); li++)
@@ -1322,7 +1327,9 @@ public class ChatBubbleScreen extends Screen {
             if (own) { quoteX = bubbleX + bubbleW - quoteW; } else { quoteX = bubbleX; }
             if (quoteX < panelX + PAD) quoteX = panelX + PAD;
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, c().contextHover());
+            // 引用块纹理化：QUOTE_BG 白色圆角纹理 × tint 引用色
+            NineSliceRenderer.drawTinted(g, UiTextureManager.rl(UiElement.QUOTE_BG),
+                quoteX, quoteY, quoteW, quoteH, c().contextHover());
             g.drawText(textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, c().textSecondary(), false);
         }
 
@@ -1587,7 +1594,10 @@ public class ChatBubbleScreen extends Screen {
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
         // Background fades with the text, at half opacity like the strong-hint bar
-        g.fill(tx - 6, ty - 2, tx + tw + 6, ty + textRenderer.fontHeight + 2, (alpha / 2) << 24);
+        // TOAST_BG 烘焙不透明 toastBg；纹理 × 动态 alpha = 半透明淡入淡出。2.2.4 黑块根因：
+        // 当时 blit 无 alpha 通道渲染不透明纯黑 → drawWithAlpha 后纹理可覆盖 + 透明度可控
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TOAST_BG),
+            tx - 6, ty - 2, tw + 12, textRenderer.fontHeight + 4, (alpha / 2) / 255f);
         g.drawText(textRenderer, text, tx, ty, color, false);
     }
 

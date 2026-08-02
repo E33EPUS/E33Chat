@@ -37,4 +37,23 @@ class TextureGeneratorsTest {
     @Test void argbToAbgr_grayUnchanged() {
         assertEquals(0xD01E1E1E, TextureGenerators.argbToAbgr(0xD01E1E1E));
     }
+
+    @Test void roundedRect_zeroRadiusIsSolidFill() {
+        int[] px = TextureGenerators.roundedRect(4, 3, 0, 0xFF112233, 0, 0);
+        for (int p : px) assertEquals(0xFF112233, p);
+    }
+
+    @Test void roundedRect_cornersTransparent_centerFilled() {
+        int[] px = TextureGenerators.roundedRect(16, 16, 4, 0xFFFFFFFF, 0, 0);
+        assertEquals(0, px[0]);                    // 左上角外 → 透明
+        assertEquals(0, px[15]);                   // 右上角外 → 透明
+        assertEquals(0xFFFFFFFF, px[8 * 16 + 8]);  // 中心 → 填充
+    }
+
+    @Test void roundedRect_borderPaintsEdgeRing() {
+        int[] px = TextureGenerators.roundedRect(16, 16, 4, 0xFFFF0000, 2, 0xFF00FF00);
+        assertEquals(0xFF00FF00, px[4]);          // 左上边缘 → 边框色
+        assertEquals(0xFFFF0000, px[8 * 16 + 8]); // 中心 → 填充色
+        assertEquals(0, px[0]);                   // 角外 → 透明
+    }
 }

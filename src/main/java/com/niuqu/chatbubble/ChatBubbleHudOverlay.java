@@ -104,9 +104,10 @@ public class ChatBubbleHudOverlay {
         int hintX = (screenW - hintW) / 2;
         int hintY = mc.getWindow().getScaledHeight() - 22 - 30 - mc.textRenderer.fontHeight;
         int alpha = Animation.fadeInOut(ticks, 10, 40, 10);
-        int bgAlpha = alpha / 2;
-        int bgColor = (bgAlpha << 24) | 0x000000;
-        g.fill(hintX - 6, hintY - 3, hintX + hintW + 6, hintY + mc.textRenderer.fontHeight + 3, bgColor);
+        // 纹理 × 动态 alpha（半透明黑），资源包可覆盖提示条底色
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.STRONG_HINT_BG),
+            hintX - 6, hintY - 3, hintW + 12, mc.textRenderer.fontHeight + 6, (alpha / 2) / 255f);
         g.drawText(mc.textRenderer, hint, hintX, hintY, (alpha << 24) | 0xFFFFFF, false);
     }
 

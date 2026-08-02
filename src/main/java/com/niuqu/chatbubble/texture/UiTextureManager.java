@@ -59,8 +59,32 @@ public final class UiTextureManager {
                 el.png(theme), e);
         }
         int argb = el.themeColor(theme);
+        if (el.kind().rounded()) {
+            // 16×16 圆角纹理：9-slice 渲染时四角恒定圆角、边拉伸；资源包覆盖后形状完全由贴图决定。
+            // 半径跟随用户配置（气泡/横幅圆角配置项），配置变更后重注册即时生效
+            int radius = radiusFor(el);
+            int[] px = TextureGenerators.roundedRect(
+                UiElement.DEFAULT_TEX_SIZE, UiElement.DEFAULT_TEX_SIZE, radius, argb, 0, 0);
+            NativeImage img = new NativeImage(UiElement.DEFAULT_TEX_SIZE, UiElement.DEFAULT_TEX_SIZE, false);
+            for (int i = 0; i < px.length; i++) {
+                img.setColor(i % UiElement.DEFAULT_TEX_SIZE, i / UiElement.DEFAULT_TEX_SIZE,
+                    TextureGenerators.argbToAbgr(px[i]));
+            }
+            mc.getTextureManager().registerTexture(id, new NativeImageBackedTexture(img));
+            return;
+        }
         NativeImage img = new NativeImage(1, 1, false);
         img.setColor(0, 0, TextureGenerators.argbToAbgr(argb));
         mc.getTextureManager().registerTexture(id, new NativeImageBackedTexture(img));
+    }
+
+    /** 圆角元素的生成半径：跟随用户配置（0 = 直角），无配置项的元素用固定值。 */
+    private static int radiusFor(UiElement el) {
+        var cfg = ChatBubbleClientSetup.config();
+        switch (el) {
+            case BUBBLE_BG: return cfg.bubbleCornerRadius();
+            case BANNER_BG: return cfg.bannerCornerRadius();
+            default: return el.kind().radius; // QUOTE_BG 等无配置项元素
+        }
     }
 }
