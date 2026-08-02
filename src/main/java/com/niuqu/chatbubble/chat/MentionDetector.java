@@ -22,7 +22,7 @@ public final class MentionDetector {
             } else if (!requireAt) {
                 boolean leftOk = idx == 0 || !isNameCharacter(text.charAt(idx - 1));
                 boolean rightOk = end >= text.length() || !isNameCharacter(text.charAt(end));
-                if (leftOk && rightOk && text.charAt(idx - 1) != '@') return true;
+                if (leftOk && rightOk) return true;
             }
             idx = end;
         }
