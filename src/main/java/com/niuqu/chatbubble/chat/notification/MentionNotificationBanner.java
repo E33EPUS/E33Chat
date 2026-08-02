@@ -5,9 +5,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
-import com.niuqu.chatbubble.texture.NineSliceRenderer;
-import com.niuqu.chatbubble.texture.UiElement;
-import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.DefaultPlayerSkin;
@@ -179,11 +176,10 @@ public class MentionNotificationBanner {
         RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
             x + bannerW + SHADOW_OFF, y + BANNER_H + SHADOW_OFF, cornerRadius, shadowColor);
 
-        // Background 纹理化：BANNER_BG 白色圆角纹理（默认尺寸=配置半径×4）× tint 横幅色 × 动态 alpha。
-        // border 从纹理尺寸推导，阴影仍是 SDF 圆角（配置半径），两者默认对齐；资源包覆盖后形状由贴图决定
+        // Background：SDF 圆角（与阴影同 shader，半径配置实时生效；不可被资源包覆盖）
         int bgAlpha = (int)((bg >>> 24) * alpha);
-        NineSliceRenderer.drawTinted(g, UiTextureManager.rl(UiElement.BANNER_BG),
-            x, y, bannerW, BANNER_H, (bgAlpha << 24) | (bg & 0x00FFFFFF));
+        RoundRectRenderer.fill(g, x, y, x + bannerW, y + BANNER_H, cornerRadius,
+            (bgAlpha << 24) | (bg & 0x00FFFFFF));
 
         // Avatar
         int avatarY = y + (BANNER_H - AVATAR_HAT) / 2;
