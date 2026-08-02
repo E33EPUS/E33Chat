@@ -30,6 +30,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - [Mentions & notifications](#mentions--notifications)
 - [Search, emoji & quick phrases](#search-emoji--quick-phrases)
 - [Themes & settings](#themes--settings)
+- [UI texture customization (resource-pack overridable)](#ui-texture-customization-resource-pack-overridable)
 - [Server-side bonus](#server-side-bonus)
 - [Server message-format templates](#server-message-format-templates)
 - [Message recognition & compatibility](#message-recognition--compatibility)
@@ -147,6 +148,31 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - Snapshot on open, live preview, Save / Exit with a changed-count at the bottom, ESC prompts to confirm discard
 - Always-on scrollbars on the tabs and the option list, eased smooth scrolling, draggable thumb / click-to-page on the track
 - Numeric options accept typed input; sound volume uses a slider
+
+---
+
+## UI texture customization (resource-pack overridable)
+
+Every UI element renders from a texture; the defaults are code-generated (theme colors baked in). Drop a PNG at the same path into a resource pack and any element is overridden — shape, gradient, pattern and palette all come from the image.
+
+**Path convention**: `assets/e33chat/textures/gui/{dark|light}/<element>.png` (since v2.2.4); v2.2.8 adds dynamic-size components rendered with 16×16 9-slice.
+
+| Element | File | Size convention | Rendering notes |
+|---|---|---|---|
+| Chat bubble background | `bubble_bg.png` | 16×16 rounded | corners fixed, edges stretched; white default × tint of user bubble color, radius follows config |
+| @-mention banner background | `banner_bg.png` | 16×16 rounded | same (tint banner color); drop shadow still code-drawn |
+| Quote reply block | `quote_bg.png` | 16×16 rounded | tint quote color |
+| Time separator | `time_sep_bg.png` | any | translucent bar; texture overrides base color & rounding |
+| "Copied" toast | `toast_bg.png` | any | texture × dynamic alpha (2.2.4 black-block fixed: bake opaque + alpha channel) |
+| Panel bg / title bar / bottom bar / sidebar / divider / input | `panel_bg.png` etc. | 1×1 stretch | since v2.2.4 |
+| Context menu / popup / whisper bar / config bg / content bg | `context_menu_bg.png` etc. | 1×1 stretch | v2.2.4–2.2.5 |
+| Scrollbar track / thumb | `scrollbar_track.png` `scrollbar_thumb.png` | 1×1 | dynamic alpha channel |
+| Quick-chat scrollbar | `quick_scrollbar_track.png` `quick_scrollbar_thumb.png` | 1×1 | white × tint (theme color / hover state) |
+| Strong-hint bar | `strong_hint_bg.png` | 1×1 | translucent black; texture overrides base color |
+
+**9-slice convention**: dynamic-size components use a 16×16 baseline — a 4×4 corner stays fixed, edges stretch, the center stretches both ways (stretch variant, so gradients/patterns don't distort). 1×1 solid elements just stretch. Hover/selected interaction colors stay code-rendered and are not texture-controlled.
+
+**Example**: the bundled demo pack `E33Chat-Texture-Demo` (placed in the test server's `resourcepacks/`) shows bubbles with borders, colored banners, etc. — enable it in-game via Options → Resource Packs → Available, and compare. F3+T hot-reloads, no restart needed.
 
 ---
 
