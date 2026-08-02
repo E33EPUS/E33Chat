@@ -20,7 +20,7 @@ public class ChatBubbleHudOverlay {
     private static final int TIP_DISP = 4;
     private static ResourceLocation chatIconTex() {
         String theme = ChatBubbleConfig.THEME.get().name().toLowerCase();
-        return ResourceLocation.fromNamespaceAndPath(ChatBubbleMod.MODID, "textures/gui/" + theme + "/chat_icon");
+        return ResourceLocation.fromNamespaceAndPath(ChatBubbleMod.MODID, "textures/gui/" + theme + "/chat_icon.png");
     }
 
     private static ChatBubbleTheme.Colors c() {
