@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.2.8（修订）
+
+**圆角组件回退 SDF（2.2.8 首版 9-slice 纹理化撤销）**
+- 聊天气泡 / 引用回复块 / @提及横幅背景回退 `RoundRectRenderer`（SDF shader）——任何圆角配置平滑、配置实时生效
+- 撤销原因：9-slice 纹理采样与贴图尺寸失配（border 写死/传参 vs 贴图实际尺寸），导致圆角局部放大、锯齿、方形；两轮修复后仍不可靠，回退保稳定
+- 删除 `NineSliceRenderer` 与圆角纹理生成（`bubble_bg`/`quote_bg`/`banner_bg` 元素、`roundedRect`、ROUNDED 类型）
+- **保留的纹理化成果**：toast 黑块根因修复（烘焙不透明 + drawWithAlpha）、时间分隔符、HUD 强提示条、常用语滚动条、设置保存后重烘焙、1×1 拉伸组件全部不受影响
+- **代价**：气泡/引用/横幅不再可被资源包覆盖（SDF 是代码画）
+- 测试 207 → 204（删 3 个圆角纹理测试）；三端同步
+
+**Rounded components reverted to SDF (2.2.8 first-release 9-slice texturing undone)**
+- Chat bubbles / quote blocks / @-mention banner backgrounds back to `RoundRectRenderer` (SDF shader) — smooth at any corner-radius config, config-driven live
+- Why: 9-slice texture sampling mismatched the texture size (hardcoded/parameterized border vs actual texture), causing upscaled corners, jaggies and squares; unreliable after two fix rounds, reverted for stability
+- `NineSliceRenderer` and rounded-texture generation removed (`bubble_bg`/`quote_bg`/`banner_bg` elements, `roundedRect`, ROUNDED kinds)
+- **Kept texture work**: toast black-block root-cause fix (opaque bake + drawWithAlpha), time separator, strong-hint bar, quick-chat scrollbar, config-save re-bake, all 1×1 stretch elements unaffected
+- **Cost**: bubbles/quotes/banner are no longer resource-pack overridable (SDF is code-drawn)
+- Tests 207 → 204 (3 rounded-texture tests removed); synced across all three platforms
+
+***
+
 ## v2.2.8
 
 **纹理化覆盖全部动态尺寸组件（9-slice，三端同步）**
