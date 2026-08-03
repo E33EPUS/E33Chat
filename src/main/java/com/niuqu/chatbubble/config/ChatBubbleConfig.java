@@ -44,12 +44,12 @@ public record ChatBubbleConfig(
     public static ChatBubbleConfig defaults() {
         return new ChatBubbleConfig(
             true, "dark", true, false, true,
-            false, false,
+            false, true,
             false, 0, 5, 1000, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
             false, false, true, true, true, false,
             List.of(), List.of(),
-            true, false, 4, true, true, true,
+            true, true, 4, true, true, true,
             true, 80, 80, false, false, false, 4
         );
     }
