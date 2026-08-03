@@ -24,7 +24,8 @@ public class ChatBubbleClientListener {
             // our minimal bed screen so the Leave Bed button survives the chat rework
             event.setCanceled(true);
             Minecraft.getInstance().setScreen(new BedScreen());
-        } else if (event.getScreen() instanceof ChatScreen chatScreen) {
+        } else if (event.getScreen() instanceof ChatScreen chatScreen
+                && !(chatScreen instanceof ChatBubbleScreen)) {
             event.setCanceled(true);
             String initial = getChatInitialText(chatScreen);
             Minecraft.getInstance().setScreen(new ChatBubbleScreen(initial));

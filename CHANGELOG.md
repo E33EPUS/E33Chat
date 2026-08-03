@@ -8,6 +8,7 @@
 - 绕开父类方法（`keyPressed`/`mouseClicked`/`render` 访问 package-private `commandSuggestions`/`chatInputSuggestor`，跨包子类无法初始化）：自实现等价逻辑，父类输入框/建议框不会出现（保持 cancel 原版输入框）
 - `moveInHistory` 改走父类实现；配置保存/预设输入等逻辑不变
 - 版本号 2.2.8 → 2.2.9；三端同步，编译+测试全绿
+- **修复聊天键未响应**：extends ChatScreen 后 ChatBubbleScreen 命中自身 ScreenEvent.Opening 拦截（instanceof ChatScreen）→ setScreen 无限递归；拦截逻辑排除 ChatBubbleScreen 自身
 
 **WATUT compatibility (ChatBubbleScreen now extends ChatScreen)**
 - `ChatBubbleScreen` changed from `extends Screen` to `extends ChatScreen` on all three platforms — WATUT detects typing/GUI state via `instanceof ChatScreen` + reading `input.getValue()`; extending plain Screen made every check fail, so other players never saw the typing animation
