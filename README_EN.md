@@ -81,7 +81,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - 💬 **Chat bubbles** — Messages with player heads and names; custom bubble color, text color and corner radius; dark / light themes; panel background blur with adjustable opacity
 - 🛠️ **Settings screen** — Five UI-element tabs (Chat Screen / HUD / Notifications / Sidebar / Advanced) with a collapsible sub-category tree, inline color palette, a live bubble preview that follows the corner radius, snapshot-based save / exit, and always-on scrollbars with eased smooth scrolling
 - 💾 **Chat history** — Saved per world / server and restored on rejoin; plain-text log format (readable in any text editor); WeChat-style time separators with date across days; auto-saved every 30 s
-- ❌ **Anti-spam** — Consecutive duplicate messages merged with a counter
+- ✅ **Anti-spam** — Consecutive duplicate messages merged with a counter (on by default)
 - @ **Mention autocomplete** — Type `@` for a popup player list, or left-click a head to @ them; a sound + banner fires when you are @'d or quoted
 - 👥 **Whisper sidebar** — Online player list, click a name to whisper; bouncing unread dot; separate whisper banner + sound; public / whisper split view
 - 🔍 **Chat search** — Real-time matching of message content and sender name, jump with up / down, Chinese supported
