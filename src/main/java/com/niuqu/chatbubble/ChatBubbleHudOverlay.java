@@ -42,8 +42,8 @@ public class ChatBubbleHudOverlay {
                 mc.getWindow().getGuiScaledHeight());
         }
 
-        // Strong hint above hotbar — render even when a screen is open
-        if (ChatBubbleConfig.STRONG_HINT_ENABLED.get() || ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
+        // Mention strong hint above hotbar — render even when a screen is open
+        if (ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
             Component hint = ChatMessageStore.getStrongHintText();
             if (hint != null) {
                 int ticks = ChatMessageStore.getStrongHintTicks();
