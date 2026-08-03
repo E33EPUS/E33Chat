@@ -11,6 +11,7 @@
 - 时间分隔线/调色板/@提及弹窗选中行保持 `g.fill`（半透明 blend 语义不变，避免滚动条式 blend 回归）
 - 测试 Forge/NeoForge 204 → 197、Fabric 175 → 168；三端同步
 - **修复提及检测崩溃（社区 PR #10 by Spagles）**：消息以玩家名开头 + requireAt 关闭时 `text.charAt(-1)` 抛 `StringIndexOutOfBoundsException`；移除冗余的 `charAt(idx-1) != '@'` 检查（该分支恒为 true），新增 `MentionDetectorTest` 7 例回归
+- **2.2.8 收尾三端同步审计**：NeoForge/Fabric 补上 Forge 的面板滑入 blur 偏移补偿（`blurPanel(panelOffset + fillLeft, ...)`——blur 区跟随滑入动画，否则动画中 blur 左缘与内容错位）；Fabric lang 同步最新分类 key
 - **服务端配置审计 G1-G4（2.2.8 收尾）**：
   - G1 插件私聊词：`hasWhisperKeywordBeforeColon` 扩词——私信/密谈 + 英文 pm/message/msg/tell（词边界防 hepm/msgbox 误判）；WhisperFormatsTest 补 4 例
   - G2 广播仿冒：`parseGeneric` 拒绝名字前出现聊天分隔符（`系统>>Steve`/`公告»Steve`/`系统：Steve` 不再误归属成玩家）；MessagePresentationTest 补 3 例

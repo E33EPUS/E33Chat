@@ -938,7 +938,7 @@ public class ChatBubbleScreen extends Screen {
         int panelOffset = currentPanelOffset();
 
         if (ChatBubbleConfig.BLUR_ENABLED.get() && panelOpacity < 0.999f) {
-            BlurRenderer.blurPanel(fillLeft, 0, panelX + panelW - fillLeft, height);
+            BlurRenderer.blurPanel(panelOffset + fillLeft, 0, panelX + panelW - fillLeft, height);
         }
 
         g.pose().pushPose();
