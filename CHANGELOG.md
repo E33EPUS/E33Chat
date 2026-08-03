@@ -1,5 +1,41 @@
 # Changelog
 
+## v2.3.0
+
+**全面审计修复（2.2.0 → 2.3.0，三端同步）**
+- **私聊回显抑制词表对齐检测词表**：`PM to X: hi` / `Msg to X` 式出站回显此前不被抑制 → 误判为入站私聊（重复气泡+横幅），且 pendingEcho 残留会在 10s 内把 partner 的真实回复当回声吞掉（违反"宁重复不吞消息"）。补全 `pm/message/msg/tell/私信/密谈/对你说/to you` 词表 + 正则单词边界
+- **Fabric 服务端三处同步丢失修复**（2.1.0 重构把 `ChatServerListener` 并入 `ChatBubbleMod` 时未完整移植）：①mention 正则 `@(\w+)` → `@([\p{L}\p{N}_]+)`（中文玩家名跨客户端 @ 通知恢复）②引用 10s 过期（被反垃圾插件拦截的过期引用不再错误标记下一条消息）③`/msg`/`/tell`/`/w`/`/whisper` 私聊命令消费引用并广播引用元数据（Fabric API 无命令执行事件，用 `CommandManager.execute` mixin 等价实现）
+- **配置界面取消语义修复**：`HISTORY_RETENTION_DAYS` 漏进 snapshotAll → 改历史保留天数后退出/ESC 不回滚且无"已更改"提示
+- **100ms 同文本去重改对象同一性**：原先两条 100ms 内内容完全相同的真实消息（如双人连发 "gg"）第二条被吞 + PendingMeta 错配；vanilla 1-arg→3-arg 递归传的是同一 Component 对象，按对象身份去重即可
+- **指令补全列表跟光标**：Forge/Neo 的 `fixSuggestionsX` 无条件钉死输入框左端（v1.0 起），改为 `max(x, inputX)` 保底——恢复 vanilla 光标锚定，数学闭环保证列表右缘不超面板
+- **键盘焦点修复**：焦点在侧边栏搜索/常用语/搜索框时，上下键不再改主输入框历史
+- **quick chat 面板高缩放溢出**：固定宽 140 无 clamp，6x 缩放下左溢出屏幕 20px（emoji/search 修过它漏网）
+- **HistoryPacket 反 OOM**：decode count 上限 200（服务端本就封顶 50）
+- **Fabric debugLog 默认值对齐**：false（此前新装默认刷聊天 debug 日志）
+- **性能**：面板模糊（8 次全屏 blit）几何不变时每 3 帧才重算，静止聊天省 ~2/3 开销；动画期几何每帧变自动回退每帧重算
+- **GL blend 配对**：HUD 图标/红点等 5 处 enableBlend 后补 disableBlend
+- **HUD 键名提示色随主题**（此前硬编码白字，浅色背景下对比差）
+- **清理**：4 个死 lang 键（cancel/gen_hint/preview_hint/template_placeholder）
+- 测试：Forge 225 / NeoForge 225 / Fabric 196 全绿
+
+**Audit fixes (2.2.0 → 2.3.0, all platforms)**
+- Whisper echo keyword table aligned with the detector: "PM to X: hi"-style outgoing echoes were not suppressed → misclassified as incoming whispers, and the stale pendingEcho swallowed the partner's real reply within 10s. Added `pm/message/msg/tell/私信/密谈/对你说/to you` + word-boundary regex
+- Fabric server parity (lost when the 2.1.0 refactor merged `ChatServerListener` into `ChatBubbleMod`): ① mention regex `@(\w+)` → `@([\p{L}\p{N}_]+)` (Chinese player names work again) ② 10s quote expiry (blocked quotes no longer tag unrelated messages) ③ `/msg` `/tell` `/w` `/whisper` consume quotes and broadcast quote meta (Fabric has no command-execution event, so a `CommandManager.execute` mixin provides the equivalent)
+- Config screen cancel semantics: `HISTORY_RETENTION_DAYS` was missing from the snapshot, so changing it could not be reverted on ESC
+- 100ms same-text dedup replaced with object identity: two genuinely identical messages within 100ms (e.g. double "gg") were swallowed and misattributed; vanilla's 1-arg→3-arg recursion passes the same Component object, so identity works
+- Command suggestions follow the caret: Forge/Neo `fixSuggestionsX` pinned the list to the input's left edge (since v1.0); now `max(x, inputX)` restores vanilla caret anchoring with a provable no-overflow bound
+- Keyboard focus: Up/Down no longer moves the main input history while a sidebar/quick-chat/search field is focused
+- Quick-chat panel overflows at high GUI scale (fixed 140px, no clamp) — same fix as emoji/search
+- HistoryPacket OOM guard: decode count capped at 200 (server already caps at 50)
+- Fabric debugLog default aligned to false
+- Performance: panel blur (8 full-screen blits) now recomputes every 3rd frame when geometry is unchanged — animation still recomputes every frame
+- GL blend pairing: added disableBlend after 5 HUD icon/dot draws
+- HUD key-hint color follows the theme (was hardcoded white)
+- Cleanup: 4 dead lang keys removed
+- Tests: Forge 225 / NeoForge 225 / Fabric 196 all green
+
+***
+
 ## v2.2.9
 
 **WATUT 兼容（ChatBubbleScreen 改继承 ChatScreen）**
