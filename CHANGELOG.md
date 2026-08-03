@@ -9,6 +9,7 @@
 - `moveInHistory` 改走父类实现；配置保存/预设输入等逻辑不变
 - 版本号 2.2.8 → 2.2.9；三端同步，编译+测试全绿
 - **修复聊天键未响应**：extends ChatScreen 后 ChatBubbleScreen 命中自身 ScreenEvent.Opening 拦截（instanceof ChatScreen）→ setScreen 无限递归；拦截逻辑排除 ChatBubbleScreen 自身
+- **修复打字崩溃（NPE: CommandSuggestions null）**：父类 ChatScreen 的 onEdited/moveInHistory/resize 访问 package-private commandSuggestions（跨包子类无法初始化 = null）——responder 改绑自有方法、override moveInHistory（历史记录上/下键）、override resize；Fabric 端 yarn 字段 chatInputSuggestor 同源问题一并处理
 
 **WATUT compatibility (ChatBubbleScreen now extends ChatScreen)**
 - `ChatBubbleScreen` changed from `extends Screen` to `extends ChatScreen` on all three platforms — WATUT detects typing/GUI state via `instanceof ChatScreen` + reading `input.getValue()`; extending plain Screen made every check fail, so other players never saw the typing animation
