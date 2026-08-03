@@ -9,6 +9,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.client.util.SkinTextures;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -75,9 +76,8 @@ public class MentionNotificationBanner {
 
         List<OrderedText> msgLines = mc.textRenderer.wrapLines(content, maxTextW);
         if (msgLines.size() > MAX_MSG_LINES) {
-            String fullText = content.getString();
-            String plain = mc.textRenderer.trimToWidth(fullText, maxTextW * 2 - dotsW) + "...";
-            msgLines = mc.textRenderer.wrapLines(Text.literal(plain), maxTextW);
+            // Styled truncation: keeps per-run colors of multi-colored system lines
+            msgLines = mc.textRenderer.wrapLines(truncateStyled(content, maxTextW * 2 - dotsW, mc.textRenderer, "..."), maxTextW);
             if (msgLines.size() > MAX_MSG_LINES)
                 msgLines = msgLines.subList(0, MAX_MSG_LINES);
         }
@@ -255,6 +255,29 @@ public class MentionNotificationBanner {
         int hatOff = (hatSize - baseSize) / 2;
         g.drawTexture(skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64);
         RenderSystem.disableBlend();
+    }
+
+    // Width-limit a text run by run, keeping each run's style (colors of
+    // multi-colored system lines survive truncation), then append the ellipsis.
+    private static Text truncateStyled(Text src, int maxWidth,
+                                       net.minecraft.client.font.TextRenderer font, String suffix) {
+        int budget = maxWidth - font.getWidth(suffix);
+        MutableText out = Text.empty();
+        int[] used = {0};
+        src.visit((style, text) -> {
+            if (used[0] >= budget) return java.util.Optional.<Object>empty();
+            int w = font.getWidth(text);
+            if (used[0] + w <= budget) {
+                out.append(Text.literal(text).fillStyle(style));
+                used[0] += w;
+            } else {
+                String sub = font.trimToWidth(text, budget - used[0]);
+                out.append(Text.literal(sub).fillStyle(style));
+                used[0] = budget;
+            }
+            return java.util.Optional.<Object>empty();
+        }, net.minecraft.text.Style.EMPTY);
+        return out.append(Text.literal(suffix));
     }
 
     private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }

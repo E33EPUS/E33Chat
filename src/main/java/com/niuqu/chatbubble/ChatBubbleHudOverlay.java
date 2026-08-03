@@ -44,8 +44,6 @@ public class ChatBubbleHudOverlay {
                 mc.getWindow().getScaledHeight());
         }
 
-        if (mc.currentScreen == null) renderStrongHint(g);
-
         if (mc.currentScreen != null) { g.getMatrices().pop(); return; }
 
         String keyName = mc.options.chatKey.getBoundKeyLocalizedText().getString();
@@ -73,7 +71,9 @@ public class ChatBubbleHudOverlay {
         g.getMatrices().pop();
     }
 
-    public static void renderStrongHint(DrawContext g) {
+    // Fabric's HUD layer draws behind the screen batch; screens that render over
+    // it re-invoke this so the banner stays visible on top
+    public static void renderBannerForScreen(DrawContext g) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.options == null) return;
         if (mc.currentScreen instanceof ChatBubbleScreen) {
@@ -81,20 +81,6 @@ public class ChatBubbleHudOverlay {
                 mc.getWindow().getScaledWidth(),
                 mc.getWindow().getScaledHeight());
         }
-        if (!cfg().mentionBannerEnabled()) return;
-        Text hint = ChatMessageStore.getStrongHintText();
-        if (hint == null) return;
-        int ticks = ChatMessageStore.getStrongHintTicks();
-        int screenW = mc.getWindow().getScaledWidth();
-        int hintW = mc.textRenderer.getWidth(hint);
-        int hintX = (screenW - hintW) / 2;
-        int hintY = mc.getWindow().getScaledHeight() - 22 - 30 - mc.textRenderer.fontHeight;
-        int alpha = Animation.fadeInOut(ticks, 10, 40, 10);
-        // 纹理 × 动态 alpha（半透明黑），资源包可覆盖提示条底色
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.STRONG_HINT_BG),
-            hintX - 6, hintY - 3, hintW + 12, mc.textRenderer.fontHeight + 6, (alpha / 2) / 255f);
-        g.drawText(mc.textRenderer, hint, hintX, hintY, (alpha << 24) | 0xFFFFFF, false);
     }
 
     public static boolean isMouseOverIcon(double mx, double my) {

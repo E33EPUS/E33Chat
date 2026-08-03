@@ -82,7 +82,6 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             }
             ChatMessageStore.setCurrentWorld(key);
             ChatMessageStore.maybeAutoSave();
-            ChatMessageStore.tickStrongHint();
 
             if (client.currentScreen == null) {
                 boolean leftDown = org.lwjgl.glfw.GLFW.glfwGetMouseButton(
@@ -102,7 +101,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
 
         ScreenEvents.BEFORE_INIT.register((client, screen, width, height) ->
             ScreenEvents.afterRender(screen).register((scr, g, mouseX, mouseY, delta) -> {
-                if (config.enabled()) ChatBubbleHudOverlay.renderStrongHint(g);
+                if (config.enabled()) ChatBubbleHudOverlay.renderBannerForScreen(g);
             })
         );
 
