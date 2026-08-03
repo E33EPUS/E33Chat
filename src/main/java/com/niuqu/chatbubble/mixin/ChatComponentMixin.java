@@ -114,6 +114,12 @@ public class ChatComponentMixin {
             // different strings (tab name vs chat-decorated name) and shows both
             Text name = ChatMessageStore.extractWhisperDisplayName(finalComponent,
                 ChatMessageStore.ownDisplayName());
+            // Vanilla outgoing lines carry only the target ("你悄悄地对X说" / "You
+            // whisper to X") — ownDisplayName() then supplies our name. Either way
+            // the local bubble was created with a bare name: patch it now that the
+            // echo reveals the real self display name.
+            ChatMessageStore.cacheOwnDecoratedName(name);
+            ChatMessageStore.updateLatestOwnSenderName(name);
             repostToVanilla(name, ChatMessageStore.extractWhisperContent(text, null),
                 ChatMessageStore.consumeSuppressQuoted());
             return;

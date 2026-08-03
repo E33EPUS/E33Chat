@@ -240,6 +240,30 @@ class ChatMessageStoreTest {
         assertEquals("Steve", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.text.Text.literal("Steve")).getString());
     }
 
+    @Test void whisperName_zhOutgoingPluginDecoratedSender() {
+        // Some plugins echo the outgoing line with the SENDER's decorated name
+        // in front ("[称号]E33EPUS悄悄地对Steve说") — extract it instead of the bare fallback.
+        var line = net.minecraft.text.Text.literal("[称号]E33EPUS悄悄地对Steve说：hi");
+        assertEquals("[称号]E33EPUS", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.text.Text.literal("E33EPUS")).getString());
+    }
+
+    @Test void whisperName_enOutgoingPluginDecoratedSender() {
+        var line = net.minecraft.text.Text.literal("[VIP]E33EPUS whisper to Steve: hi");
+        assertEquals("[VIP]E33EPUS", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.text.Text.literal("E33EPUS")).getString());
+    }
+
+    @Test void whisperName_zhOutgoingVanillaStillFallsBack() {
+        // vanilla "你悄悄地对X说" must keep falling back to self — the prefix "你" is
+        // the pronoun, not a real name
+        var line = net.minecraft.text.Text.literal("你悄悄地对[称号]E33EPUS说：hi");
+        assertEquals("E33EPUS", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.text.Text.literal("E33EPUS")).getString());
+    }
+
+    @Test void whisperName_enOutgoingVanillaStillFallsBack() {
+        var line = net.minecraft.text.Text.literal("You whisper to [VIP]Steve: hi");
+        assertEquals("Steve", ChatMessageStore.extractWhisperDisplayName(line, net.minecraft.text.Text.literal("Steve")).getString());
+    }
+
     // ---- isRepostDuplicate: the server echoes a whisper twice (~15ms apart);
     // both would rewrite to the same <name>[私聊] line without this guard ----
 
