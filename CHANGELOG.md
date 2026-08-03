@@ -33,6 +33,9 @@
 - HUD key-hint color follows the theme (was hardcoded white)
 - Cleanup: 4 dead lang keys removed
 - Tests: Forge 225 / NeoForge 225 / Fabric 196 all green
+- **服务端命令走 lang 翻译**：`/e33chat template` 系列与模板保存校验的回复此前硬编码中文（英文客户端显示中文）；全部改为 lang 键（含测试输出/校验错误/聊天私聊类别名），系统横幅 lang 描述同步为"默认开启"
+- **Server commands now localize**: `/e33chat template` replies and template-save validation were hardcoded Chinese (English clients saw Chinese); all moved to lang keys (including test output, validation errors, chat/whisper kind names), and the system-banner description now says "on by default"
+
 
 ***
 

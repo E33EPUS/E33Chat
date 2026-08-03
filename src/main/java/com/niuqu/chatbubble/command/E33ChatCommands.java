@@ -45,8 +45,8 @@ public class E33ChatCommands {
                     IntegerArgumentType.getInteger(ctx, "index"))))));
 
         tpl.then(Commands.literal("clear")
-            .then(Commands.literal("chat").executes(ctx -> clear(ctx.getSource(), ChatServerConfig.CHAT_TEMPLATES, "聊天")))
-            .then(Commands.literal("whisper").executes(ctx -> clear(ctx.getSource(), ChatServerConfig.WHISPER_TEMPLATES, "私聊"))));
+            .then(Commands.literal("chat").executes(ctx -> clear(ctx.getSource(), ChatServerConfig.CHAT_TEMPLATES, true)))
+            .then(Commands.literal("whisper").executes(ctx -> clear(ctx.getSource(), ChatServerConfig.WHISPER_TEMPLATES, false))));
 
         tpl.then(Commands.literal("test")
             .then(Commands.literal("chat").then(Commands.argument("index", IntegerArgumentType.integer(1))
@@ -82,16 +82,16 @@ public class E33ChatCommands {
     }
 
     private static int list(CommandSourceStack src) {
-        src.sendSuccess(() -> Component.literal("聊天模板 (" + ChatServerConfig.CHAT_TEMPLATES.get().size() + " 条):"), false);
+        src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_list_chat_header", ChatServerConfig.CHAT_TEMPLATES.get().size()), false);
         printTemplates(src, ChatServerConfig.CHAT_TEMPLATES.get());
-        src.sendSuccess(() -> Component.literal("私聊模板 (" + ChatServerConfig.WHISPER_TEMPLATES.get().size() + " 条):"), false);
+        src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_list_whisper_header", ChatServerConfig.WHISPER_TEMPLATES.get().size()), false);
         printTemplates(src, ChatServerConfig.WHISPER_TEMPLATES.get());
         return 1;
     }
 
     private static void printTemplates(CommandSourceStack src, List<? extends String> templates) {
         if (templates.isEmpty()) {
-            src.sendSuccess(() -> Component.literal("  (空 — 使用启发式守卫识别)"), false);
+            src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_list_empty"), false);
             return;
         }
         int i = 1;
@@ -104,51 +104,51 @@ public class E33ChatCommands {
     private static int set(CommandSourceStack src, ForgeConfigSpec.ConfigValue<List<? extends String>> spec, String raw) {
         TemplateMatcher.CompileResult result = TemplateMatcher.compile(raw);
         if (result.template() == null) {
-            src.sendFailure(Component.literal("模板无效: " + result.error()));
+            src.sendFailure(Component.translatable("e33chat.server.tpl_set_invalid", result.error()));
             return 0;
         }
         if (!result.template().unknownFields().isEmpty()) {
-            src.sendSuccess(() -> Component.literal("警告: 未识别占位符 " + result.template().unknownFields()
-                + " 将按字面量处理"), false);
+            src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_set_unknown_fields", result.template().unknownFields()), false);
         }
         List<String> next = new ArrayList<>(spec.get());
         if (next.contains(raw)) {
-            src.sendFailure(Component.literal("模板已存在，无需重复添加"));
+            src.sendFailure(Component.translatable("e33chat.server.tpl_set_duplicate"));
             return 0;
         }
         next.add(raw);
         updateTemplates(src, spec, next);
-        src.sendSuccess(() -> Component.literal("已添加模板（当前 " + next.size() + " 条）: " + raw), false);
+        src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_set_added", next.size(), raw), false);
         return 1;
     }
 
     private static int remove(CommandSourceStack src, ForgeConfigSpec.ConfigValue<List<? extends String>> spec, int index) {
         List<String> next = new ArrayList<>(spec.get());
         if (index < 1 || index > next.size()) {
-            src.sendFailure(Component.literal("索引无效（1-" + next.size() + "），用 /e33chat template list 查看") );
+            src.sendFailure(Component.translatable("e33chat.server.tpl_remove_bad_index", next.size()) );
             return 0;
         }
         String removed = next.remove(index - 1);
         updateTemplates(src, spec, next);
-        src.sendSuccess(() -> Component.literal("已移除: " + removed), false);
+        src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_remove_done", removed), false);
         return 1;
     }
 
-    private static int clear(CommandSourceStack src, ForgeConfigSpec.ConfigValue<List<? extends String>> spec, String kind) {
+    private static int clear(CommandSourceStack src, ForgeConfigSpec.ConfigValue<List<? extends String>> spec, boolean chat) {
         updateTemplates(src, spec, List.of());
-        src.sendSuccess(() -> Component.literal(kind + "模板已清空（恢复守卫识别）"), false);
+        src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_clear_done",
+            Component.translatable(chat ? "e33chat.server.kind_chat" : "e33chat.server.kind_whisper")), false);
         return 1;
     }
 
     private static int test(CommandSourceStack src, ForgeConfigSpec.ConfigValue<List<? extends String>> spec, int index, String text) {
         List<? extends String> raws = spec.get();
         if (index < 1 || index > raws.size()) {
-            src.sendFailure(Component.literal("索引无效（1-" + raws.size() + "）"));
+            src.sendFailure(Component.translatable("e33chat.server.tpl_test_bad_index", raws.size()));
             return 0;
         }
         TemplateMatcher.CompileResult result = TemplateMatcher.compile(raws.get(index - 1));
         if (result.template() == null) {
-            src.sendFailure(Component.literal("该模板当前无法解析: " + result.error()));
+            src.sendFailure(Component.translatable("e33chat.server.tpl_test_unparseable", result.error()));
             return 0;
         }
         boolean whisper = result.template().whisper();
@@ -157,22 +157,28 @@ public class E33ChatCommands {
             whisper ? List.of(result.template()) : List.of(),
             name -> isKnownOnServer(src, name));
         if (match.isEmpty()) {
-            src.sendSuccess(() -> Component.literal("未匹配 — 该消息会回落到启发式守卫"), false);
+            src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_test_no_match"), false);
             return 1;
         }
         var r = match.orElseThrow();
-        src.sendSuccess(() -> Component.literal("匹配成功 (" + (whisper ? "私聊" : "聊天") + " 模板):"), false);
-        if (r.prefix() != null) src.sendSuccess(() -> Component.literal("  prefix = " + r.prefix()), false);
+        src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_test_matched",
+                Component.translatable(whisper ? "e33chat.server.kind_whisper" : "e33chat.server.kind_chat")), false);
+        if (r.prefix() != null) src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_test_field_prefix", r.prefix()), false);
         if (r.displayName() != null) {
-            src.sendSuccess(() -> Component.literal("  " + (whisper ? "sender/target" : "display_name")
-                + " = " + r.displayName() + (r.verifiedName() != null ? "（已确认是玩家）" : "")), false);
+            src.sendSuccess(() -> {
+                var field = Component.translatable("e33chat.server.tpl_test_field_name",
+                    whisper ? "sender/target" : "display_name", r.displayName());
+                return r.verifiedName() != null
+                    ? field.copy().append(Component.translatable("e33chat.server.tpl_test_verified"))
+                    : field;
+            }, false);
         }
         if (r.sender() != null && r.target() != null) {
-            src.sendSuccess(() -> Component.literal("  sender = " + r.sender() + " | target = " + r.target()), false);
+            src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_test_field_sender", r.sender(), r.target()), false);
         }
-        src.sendSuccess(() -> Component.literal("  content = " + r.content()), false);
-        src.sendSuccess(() -> Component.literal("  偏移: name[" + r.nameStart() + "," + r.nameEnd()
-            + ") content[" + r.contentStart() + "," + r.contentEnd() + ")"), false);
+        src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_test_field_content", r.content()), false);
+        src.sendSuccess(() -> Component.translatable("e33chat.server.tpl_test_field_offset",
+                r.nameStart(), r.nameEnd(), r.contentStart(), r.contentEnd()), false);
         return 1;
     }
 

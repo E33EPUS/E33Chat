@@ -60,8 +60,8 @@ public class ServerConfigSavePacket {
                     .withStyle(ChatFormatting.RED));
                 return;
             }
-            String error = validateTemplates("聊天", chatTemplates);
-            if (error == null) error = validateTemplates("私聊", whisperTemplates);
+            Component error = validateTemplates(true, chatTemplates);
+            if (error == null) error = validateTemplates(false, whisperTemplates);
             if (error != null) {
                 player.sendSystemMessage(Component.translatable("e33chat.server.save_failed", error)
                     .withStyle(ChatFormatting.RED));
@@ -84,11 +84,13 @@ public class ServerConfigSavePacket {
         ctx.get().setPacketHandled(true);
     }
 
-    private static String validateTemplates(String kind, List<String> templates) {
+    private static Component validateTemplates(boolean chat, List<String> templates) {
         for (int i = 0; i < templates.size(); i++) {
             TemplateMatcher.CompileResult result = TemplateMatcher.compile(templates.get(i));
             if (result.template() == null) {
-                return kind + "模板 #" + (i + 1) + ": " + result.error();
+                return Component.translatable("e33chat.server.template_invalid",
+                    Component.translatable(chat ? "e33chat.server.kind_chat" : "e33chat.server.kind_whisper"),
+                    i + 1, result.error());
             }
         }
         return null;
