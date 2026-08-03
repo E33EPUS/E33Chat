@@ -83,14 +83,14 @@ public class ChatBubbleScreen extends ChatScreen {
     public static int getInputX() { return inputX; }
     public static int getInputY() { return inputY; }
     private final String initialText;
+    private String historyBuffer = "";
+    private int historyPos = -1;
     private int scrollOffset;
     private int maxScroll;
     private boolean scrollToBottom = true;
     private boolean firstRender = true;
     private static String savedInput = "";
     private static final java.util.Map<UUID, Identifier> skinCache = new java.util.HashMap<>();
-    private String historyBuffer = "";
-    private int historyPos = -1;
 
     final ChatEmojiPanel emojiPanel = new ChatEmojiPanel();
     final ChatSettingsMenu settingsMenu = new ChatSettingsMenu();
@@ -173,6 +173,7 @@ public class ChatBubbleScreen extends ChatScreen {
     protected void init() {
         historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
         ChatMessageStore.setScreenOpen(true);
+        historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
         animStart = Util.getMeasuringTimeMs();
         closing = false;
         firstRender = true;
@@ -209,7 +210,7 @@ public class ChatBubbleScreen extends ChatScreen {
         chatField.setEditableColor(editColor);
         chatField.setUneditableColor(c().textMuted());
         chatField.setText(initialText.isEmpty() && ChatBubbleClientSetup.config().preserveInput() && !savedInput.isEmpty() ? savedInput : initialText);
-        chatField.setChangedListener(this::onEdited);
+        chatField.setChangedListener(this::onInputEdited);
         chatField.setFocusUnlocked(false);
         addDrawableChild(chatField);
 
@@ -440,7 +441,7 @@ public class ChatBubbleScreen extends ChatScreen {
         showMentions = false;
     }
 
-    private void onEdited(String text) {
+    private void onInputEdited(String text) {
         showMentions = false;
         int atIdx = text.lastIndexOf('@');
         if (atIdx >= 0 && client.player != null && client.player.networkHandler != null) {
@@ -554,8 +555,8 @@ public class ChatBubbleScreen extends ChatScreen {
         if (keyCode == 257 || keyCode == 335) {
             sendMessage(); return true;
         }
-        if (keyCode == 265) { super.setChatFromHistory(-1); return true; }
-        if (keyCode == 264) { super.setChatFromHistory(1); return true; }
+        if (keyCode == 265) { setChatFromHistory(-1); return true; }
+        if (keyCode == 264) { setChatFromHistory(1); return true; }
         return false;
     }
 
@@ -1897,6 +1898,32 @@ public class ChatBubbleScreen extends ChatScreen {
         scrollToBottom = true;
     }
 
+
+    // 父类 setChatFromHistory 访问 package-private chatInputSuggestor（跨包 null），
+    // override 用自己的实现（history 字段也私有化到本类）
+    @Override
+    public void setChatFromHistory(int offset) {
+        int size = client.inGameHud.getChatHud().getMessageHistory().size();
+        int newPos = MathHelper.clamp(historyPos + offset, 0, size);
+        if (newPos != historyPos) {
+            if (newPos == size) {
+                historyPos = size;
+                chatField.setText(historyBuffer);
+            } else {
+                if (historyPos == size) historyBuffer = chatField.getText();
+                chatField.setText(client.inGameHud.getChatHud().getMessageHistory().get(newPos));
+                historyPos = newPos;
+            }
+        }
+    }
+
+    // 父类 resize 访问 package-private chatInputSuggestor（跨包 null）→ 自实现
+    @Override
+    public void resize(MinecraftClient client, int width, int height) {
+        String cur = chatField.getText();
+        this.init(client, width, height);
+        chatField.setText(cur);
+    }
 
     @Override
     public void removed() {
