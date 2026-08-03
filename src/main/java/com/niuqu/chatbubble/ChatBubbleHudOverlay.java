@@ -64,7 +64,7 @@ public class ChatBubbleHudOverlay {
             String keyDisplay = "[" + keyName + "]";
             int keyW = mc.font.width(keyDisplay);
             int keyX = keyW > ICON_S ? x : x + (ICON_S - keyW) / 2;
-            g.drawString(mc.font, keyDisplay, keyX, textY, 0xFFFFFFFF, false);
+            g.drawString(mc.font, keyDisplay, keyX, textY, c().textPrimary(), false);
         }
 
         g.pose().popPose();
@@ -85,6 +85,7 @@ public class ChatBubbleHudOverlay {
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.enableBlend();
         g.blit(chatIconTex(), x, y, 0, 0, ICON_S, ICON_S, ICON_S, ICON_S);
+        RenderSystem.disableBlend();
     }
 
     // 裁源放大绘制红点：源取 SRC_U/SRC_V 起的 SRC_S×SRC_S（红点 bbox），nearest 拉伸到 disp×disp。
@@ -95,5 +96,6 @@ public class ChatBubbleHudOverlay {
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.enableBlend();
         g.blit(tex, x, y, disp, disp, (float) SRC_U, (float) SRC_V, SRC_S, SRC_S, 16, 16);
+        RenderSystem.disableBlend();
     }
 }

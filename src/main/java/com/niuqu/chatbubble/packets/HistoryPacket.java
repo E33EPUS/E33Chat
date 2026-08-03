@@ -43,7 +43,9 @@ public class HistoryPacket {
     }
 
     public static HistoryPacket decode(FriendlyByteBuf buf) {
-        int count = buf.readInt();
+        // Guard against a hostile/broken packet: the server caps history at
+        // HISTORY_MAX=50, so a huge count would OOM on preallocation
+        int count = Math.min(Math.max(buf.readInt(), 0), 200);
         List<HistoryEntry> entries = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             entries.add(new HistoryEntry(

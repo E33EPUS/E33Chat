@@ -214,6 +214,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE));
         tracked.add(track(ChatBubbleConfig.ANTI_SPAM));
         tracked.add(track(ChatBubbleConfig.CHAT_HISTORY_ENABLED));
+        tracked.add(track(ChatBubbleConfig.HISTORY_RETENTION_DAYS));
         tracked.add(track(ChatBubbleConfig.TIME_SEPARATOR_MINUTES));
         tracked.add(track(ChatBubbleConfig.PRESERVE_INPUT));
         tracked.add(track(ChatBubbleConfig.COLOR_CODES));

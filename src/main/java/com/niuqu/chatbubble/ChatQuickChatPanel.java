@@ -25,7 +25,9 @@ public class ChatQuickChatPanel {
         int separatorH = visiblePhrases > 0 ? 4 : 0;
         int panelH = 8 + listH + separatorH + 20;
 
-        int px = panelX + panelW / 2 - W / 2;
+        // 高 GUI 缩放（6x）时 panelW 收缩到 ~100 < 固定宽 140 → 居中会左溢出屏幕。
+        // clamp 到面板内：min>max 时 Mth.clamp 返回下限（panelX+2），不会反转溢出
+        int px = Mth.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
 
         g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
@@ -112,7 +114,9 @@ public class ChatQuickChatPanel {
         int separatorH = visiblePhrases > 0 ? 4 : 0;
         int panelH = 8 + listH + separatorH + 20;
 
-        int px = panelX + panelW / 2 - W / 2;
+        // 高 GUI 缩放（6x）时 panelW 收缩到 ~100 < 固定宽 140 → 居中会左溢出屏幕。
+        // clamp 到面板内：min>max 时 Mth.clamp 返回下限（panelX+2），不会反转溢出
+        int px = Mth.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
 
         if (mx < px || mx > px + W || my < py || my > py + panelH) {

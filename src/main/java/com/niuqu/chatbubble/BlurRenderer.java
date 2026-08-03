@@ -72,11 +72,29 @@ public class BlurRenderer {
      * Call during render(), BEFORE drawing the panel background fill.
      * Parameters are in GUI logical coordinates.
      */
+
+    private static long lastGeo;
+    private static int skipFrame;
+
+    // 面板几何（逻辑坐标+guiScale）与上次一致时，模糊结果几乎不变——每 3 帧才重算一次，
+    // 静止聊天场景省 ~2/3 的 8-blit 开销；动画/缩放变化期几何每帧变，自动回退到每帧重算
+    private static boolean shouldSkip(int x, int y, int w, int h, int guiScale) {
+        long geo = ((long) x << 48) | ((long) y << 32) | ((long) w << 16) | (h & 0xFFFF);
+        geo = geo * 31 + guiScale;
+        if (geo != lastGeo) {
+            lastGeo = geo;
+            skipFrame = 0;
+            return false;
+        }
+        return ++skipFrame % 3 != 0;
+    }
+
     public static void blurPanel(int x, int y, int w, int h) {
         Minecraft mc = Minecraft.getInstance();
         int mainFb = mc.getMainRenderTarget().frameBufferId;
         int fbH = mc.getMainRenderTarget().height;
         if (w <= 0 || h <= 0) return;
+        if (shouldSkip(x, y, w, h, (int) mc.getWindow().getGuiScale())) return;
 
         // Save GL state that MC's rendering pipeline depends on
         int oldFb = GL30.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
