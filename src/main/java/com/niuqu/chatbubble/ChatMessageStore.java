@@ -321,7 +321,7 @@ public class ChatMessageStore {
 
     // The local echo bubble is created with the bare name before the server's
     // decorated version (titles/prefixes) is known — patch it when the echo arrives
-    private static void updateLatestOwnSenderName(Component senderName) {
+    public static void updateLatestOwnSenderName(Component senderName) {
         for (int i = messages.size() - 1; i >= 0 && i >= messages.size() - 5; i--) {
             ChatMessage m = messages.get(i);
             if (!m.isOwn()) continue;
@@ -699,16 +699,35 @@ if (systemToHint) {
         }
         // zh outgoing: "你悄悄地对[称号]Steve说：hi" — the name after "悄悄地对"
         // is the TARGET, not the sender (the sender is "你" = self); the caller's
-        // fallback carries our own decorated name.
+        // fallback carries our own decorated name. Some plugins echo the outgoing
+        // line with the sender's decorated name ("[称号]E33EPUS悄悄地对Steve说") —
+        // extract that prefix instead of falling back to the bare name.
         int duiIdx = fullStr.indexOf("悄悄地对");
         if (duiIdx >= 0) {
             int sayIdx = fullStr.indexOf("说：", duiIdx);
-            if (sayIdx > duiIdx) return fallback;
+            if (sayIdx > duiIdx) {
+                String prefix = fullStr.substring(0, duiIdx).trim();
+                if (!prefix.isEmpty() && !prefix.equals("你")) {
+                    Component area = sliceStyled(fullLine, fullStr.indexOf(prefix), fullStr.indexOf(prefix) + prefix.length());
+                    if (!area.getString().isBlank()) return stripItalic(area);
+                }
+                return fallback;
+            }
         }
+        // "X whisper to Y: hi" — X is the sender (decorated on plugin servers).
+        // Vanilla English outgoing is "You whisper to X" (X = target), so "You"
+        // is not a real name and falls back.
         int toIdx = fullStr.indexOf("whisper to ");
         if (toIdx >= 0) {
             int colonIdx = fullStr.indexOf(":", toIdx);
-            if (colonIdx > toIdx) return fallback;
+            if (colonIdx > toIdx) {
+                String prefix = fullStr.substring(0, toIdx).trim();
+                if (!prefix.isEmpty() && !prefix.equalsIgnoreCase("you")) {
+                    Component area = sliceStyled(fullLine, fullStr.indexOf(prefix), fullStr.indexOf(prefix) + prefix.length());
+                    if (!area.getString().isBlank()) return stripItalic(area);
+                }
+                return fallback;
+            }
         }
         int whisperIdx = fullStr.indexOf(" whispers to you");
         if (whisperIdx > 0) {
@@ -732,9 +751,11 @@ if (systemToHint) {
 
     private static Component ownDecoratedName;
 
-    // Best available self name: tab list > decorated name seen in chat > bare name.
-    // Vanilla servers send no tab-list display name, so the chat cache is the
-    // reliable source for the outgoing whisper repost.
+    // Best available self name: tab list > decorated name seen in chat > scoreboard
+    // team (color/prefix/suffix) > bare name. Vanilla servers send no tab-list
+    // display name, so the chat cache is the reliable source for the outgoing
+    // whisper repost; NCR servers add no cache before the first own line, so the
+    // team color is the only blue-name source there.
     public static Component ownDisplayName() {
         var player = net.minecraft.client.Minecraft.getInstance().player;
         if (player != null && player.connection != null) {
@@ -744,6 +765,23 @@ if (systemToHint) {
             }
         }
         if (ownDecoratedName != null) return ownDecoratedName;
+        if (player != null && player.getTeam() != null) {
+            var team = player.getTeam();
+            Component pfx = team.getPlayerPrefix();
+            Component sfx = team.getPlayerSuffix();
+            ChatFormatting col = team.getColor();
+            boolean hasPfx = pfx != null && !pfx.getString().isEmpty();
+            boolean hasSfx = sfx != null && !sfx.getString().isEmpty();
+            if (hasPfx || hasSfx || col != null) {
+                MutableComponent name = Component.literal(player.getName().getString());
+                if (col != null) name = name.withStyle(col);
+                MutableComponent out = Component.empty();
+                if (hasPfx) out.append(pfx);
+                out.append(name);
+                if (hasSfx) out.append(sfx);
+                return out;
+            }
+        }
         return player != null ? player.getName() : Component.literal("?");
     }
 
