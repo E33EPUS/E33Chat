@@ -752,6 +752,14 @@ public class ChatBubbleScreen extends ChatScreen {
                 return true;
             }
             if (quickChatPanel.visible) {
+                // 输入框聚焦不依赖 widget 点击命中链路（1.21.1/yarn TextFieldWidget 点击不自动聚焦）：
+                // 直接几何判定命中就聚焦，覆盖所有情况
+                if (ChatQuickChatPanel.isInsideInput((int) mouseX, (int) mouseY, panelX, panelW, barTop,
+                        ChatBubbleClientSetup.config().quickChatPhrases().size())) {
+                    quickChatInput.setVisible(true);
+                    setFocused(quickChatInput);
+                    return true;
+                }
                 int result = quickChatPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
                 if (result >= 0) {
                     chatField.setText(ChatBubbleClientSetup.config().quickChatPhrases().get(result));
