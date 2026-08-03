@@ -57,10 +57,12 @@ public class MentionNotificationBanner {
         Text labeledName = Text.literal(prefix).append(senderName);
 
         // System banners carry no sender — plain text, no avatar, flush text start.
+        // [系统] 标签与第一行内容同行，内容宽度预算扣掉标签宽，避免同行溢出横幅
         boolean hasAvatar = type != NotificationType.SYSTEM;
         int textOriginX = hasAvatar ? TEXT_X : TEXT_X_PLAIN;
         int maxTextW = Math.min(MAX_TEXT_W, mc.getWindow().getScaledWidth() - textOriginX - 12);
         int dotsW = mc.textRenderer.getWidth("...");
+        int contentMaxW = hasAvatar ? maxTextW : Math.max(40, maxTextW - mc.textRenderer.getWidth(prefix));
 
         List<OrderedText> nameLines = mc.textRenderer.wrapLines(labeledName, maxTextW);
         OrderedText nameSeq;
@@ -74,16 +76,20 @@ public class MentionNotificationBanner {
             nameSeq = nameLines.get(0);
         }
 
-        List<OrderedText> msgLines = mc.textRenderer.wrapLines(content, maxTextW);
+        List<OrderedText> msgLines = mc.textRenderer.wrapLines(content, contentMaxW);
         if (msgLines.size() > MAX_MSG_LINES) {
             // Styled truncation: keeps per-run colors of multi-colored system lines
-            msgLines = mc.textRenderer.wrapLines(truncateStyled(content, maxTextW * 2 - dotsW, mc.textRenderer, "..."), maxTextW);
+            msgLines = mc.textRenderer.wrapLines(truncateStyled(content, contentMaxW * 2 - dotsW, mc.textRenderer, "..."), contentMaxW);
             if (msgLines.size() > MAX_MSG_LINES)
                 msgLines = msgLines.subList(0, MAX_MSG_LINES);
         }
 
         int textW = mc.textRenderer.getWidth(nameSeq);
         for (var line : msgLines) textW = Math.max(textW, mc.textRenderer.getWidth(line));
+        if (!hasAvatar && !msgLines.isEmpty()) {
+            // 纯文本：[系统] 与第一行内容并排，横幅宽度按合并行算
+            textW = Math.max(textW, mc.textRenderer.getWidth(nameSeq) + mc.textRenderer.getWidth(msgLines.get(0)));
+        }
         int bannerW = textOriginX + textW + 12;
 
         queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex,
@@ -219,9 +225,11 @@ public class MentionNotificationBanner {
             int totalH = lineH * msgLines.size();
             int textY = y + (BANNER_H - totalH) / 2;
             g.drawText(mc.textRenderer, nameSeq, textX, textY, nameColor, false);
-            for (int i = 0; i < msgLines.size(); i++)
+            int contentX = textX + mc.textRenderer.getWidth(nameSeq);
+            g.drawText(mc.textRenderer, msgLines.get(0), contentX, textY, msgColor, false);
+            for (int i = 1; i < msgLines.size(); i++)
                 g.drawText(mc.textRenderer, msgLines.get(i), textX,
-                    textY + (i + 1) * lineH, msgColor, false);
+                    textY + i * lineH, msgColor, false);
         }
     }
 
