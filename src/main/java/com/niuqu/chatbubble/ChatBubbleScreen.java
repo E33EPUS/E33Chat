@@ -1001,6 +1001,11 @@ public class ChatBubbleScreen extends ChatScreen {
         emojiPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ICON_S, PAD);
         quickChatPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, quickChatInput);
         searchPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx);
+        // 输入框 widget 在 z=50 的 renderables 循环渲染，会被这里 z=100 的不透明面板背景盖住
+        // （5bb740e 弹层 z 提升引入）——面板打开时在同 z 重画一次，文字/光标才可见。
+        // widget 无背景（setBordered(false)），只画文字/光标，不遮挡面板内容
+        if (quickChatPanel.visible && quickChatInput != null) quickChatInput.render(g, mouseX, mouseY, partialTick);
+        if (searchPanel.visible && searchInput != null) searchInput.render(g, mouseX, mouseY, partialTick);
         g.pose().popPose();
 
         g.pose().popPose();
