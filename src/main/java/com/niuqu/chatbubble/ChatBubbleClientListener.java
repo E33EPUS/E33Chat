@@ -80,7 +80,7 @@ public class ChatBubbleClientListener {
     @SubscribeEvent
     public void onScreenRender(ScreenEvent.Render.Post event) {
         if (!ChatBubbleConfig.ENABLED.get()) return;
-        ChatBubbleHudOverlay.renderStrongHint(event.getGuiGraphics());
+        ChatBubbleHudOverlay.renderBannerForScreen(event.getGuiGraphics());
     }
 
     @SubscribeEvent
@@ -98,7 +98,6 @@ public class ChatBubbleClientListener {
         }
         ChatMessageStore.setCurrentWorld(key);
         ChatMessageStore.maybeAutoSave();
-        ChatMessageStore.tickStrongHint();
     }
 
     @SubscribeEvent

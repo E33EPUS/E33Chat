@@ -20,7 +20,6 @@ public enum UiElement {
     WHISPER_BAR("whisper_bar"),
     CONFIG_BG("config_bg"),
     CONTENT_BG("content_bg"),
-    STRONG_HINT_BG("strong_hint_bg"),
     // 常用语面板滚动条：白色纹理 × tint 动态着色（主题色 + hover 态），颜色变亮的行为由 tint 控制
     QUICK_SCROLLBAR_TRACK("quick_scrollbar_track"),
     QUICK_SCROLLBAR_THUMB("quick_scrollbar_thumb"),

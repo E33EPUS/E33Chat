@@ -41,8 +41,6 @@ public class ChatBubbleHudOverlay {
                 mc.getWindow().getGuiScaledHeight());
         }
 
-        if (mc.screen == null) renderStrongHint(g);
-
         if (mc.screen != null) { g.pose().popPose(); return; }
 
         String keyName = mc.options.keyChat.getTranslatedKeyMessage().getString();
@@ -73,8 +71,8 @@ public class ChatBubbleHudOverlay {
     }
 
     // On 1.21.1 screens draw over the HUD pass, so when a screen is open this is
-    // invoked again from ScreenEvent.Render.Post to keep the hint visible on top
-    public static void renderStrongHint(GuiGraphics g) {
+    // invoked from ScreenEvent.Render.Post to keep the banner visible on top
+    public static void renderBannerForScreen(GuiGraphics g) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options == null) return;
         if (mc.screen instanceof ChatBubbleScreen) {
@@ -82,22 +80,6 @@ public class ChatBubbleHudOverlay {
                 mc.getWindow().getGuiScaledWidth(),
                 mc.getWindow().getGuiScaledHeight());
         }
-        if (!ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) return;
-        Component hint = ChatMessageStore.getStrongHintText();
-        if (hint == null) return;
-        int ticks = ChatMessageStore.getStrongHintTicks();
-        int screenW = mc.getWindow().getGuiScaledWidth();
-        int hintW = mc.font.width(hint);
-        int hintX = (screenW - hintW) / 2;
-        int hintY = mc.getWindow().getGuiScaledHeight() - 22 - 30 - mc.font.lineHeight;
-        int alpha = Animation.fadeInOut(ticks, 10, 40, 10);
-        // 纹理 × 动态 alpha（半透明黑），资源包可覆盖提示条底色
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.STRONG_HINT_BG),
-            hintX - 6, hintY - 3, hintW + 12, mc.font.lineHeight + 6, (alpha / 2) / 255f);
-        // Colors are baked into the hint Component (mention = yellow, system = its
-        // own colors); pass white only as a fallback so embedded colors always win.
-        g.drawString(mc.font, hint, hintX, hintY, (alpha << 24) | 0xFFFFFF, false);
     }
 
     public static boolean isMouseOverIcon(double mx, double my) {

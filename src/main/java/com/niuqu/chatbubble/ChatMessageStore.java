@@ -34,10 +34,6 @@ public class ChatMessageStore {
     public static boolean isRepostDuplicate(String lastRepostText, long lastRepostTime, String newText, long now) {
         return newText.equals(lastRepostText) && now - lastRepostTime < REPOST_DEDUP_MS;
     }
-    private record HintEntry(Component text, boolean isMention) {}
-    private static final java.util.LinkedList<HintEntry> strongHintQueue = new java.util.LinkedList<>();
-    private static int strongHintTicks;
-    public static final int STRONG_HINT_DURATION = 60;
 
     private static String currentWorldKey;
     private static final Map<String, String> worldTitles = new HashMap<>();
@@ -781,25 +777,6 @@ public class ChatMessageStore {
         if (!sn.isEmpty() && !sn.equals(bare)) ownDecoratedName = senderName;
     }
 
-    public static Component getStrongHintText() {
-        if (strongHintQueue.isEmpty()) return null;
-        return strongHintTicks > 0 ? strongHintQueue.peek().text() : null;
-    }
-
-    public static int getStrongHintTicks() { return strongHintTicks; }
-
-    public static void tickStrongHint() {
-        if (strongHintTicks > 0) {
-            strongHintTicks--;
-            if (strongHintTicks <= 0) {
-                strongHintQueue.poll();
-                if (!strongHintQueue.isEmpty()) {
-                    strongHintTicks = STRONG_HINT_DURATION;
-                }
-            }
-        }
-    }
-
     public static int size() {
         return messages.size();
     }
@@ -1322,10 +1299,6 @@ public class ChatMessageStore {
                         && ChatBubbleConfig.MENTION_SOUND_ENABLED.get()) {
                         Minecraft.getInstance().player.playSound(
                             net.minecraft.sounds.SoundEvents.NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleConfig.soundVolume(), 1.0F);
-                        if (!screenOpen && ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
-                            strongHintQueue.add(new HintEntry(Component.translatable("e33chat.notif.mention"), true));
-                            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
-                        }
                     }
                 }
                 return;
