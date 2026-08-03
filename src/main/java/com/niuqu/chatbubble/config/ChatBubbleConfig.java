@@ -47,7 +47,7 @@ public record ChatBubbleConfig(
             false, true,
             false, 0, 5, 1000, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
-            false, false, true, true, true, false,
+            false, false, true, false, true, false,
             List.of(), List.of(),
             true, true, 4, true, true, true,
             true, 80, 80, false, false, false, 4

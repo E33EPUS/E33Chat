@@ -3,6 +3,9 @@
   "minVersion": "0.8",
   "package": "com.niuqu.chatbubble.mixin",
   "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "CommandManagerMixin"
+  ],
   "client": [
     "ChatComponentMixin",
     "ChatInputSuggestorMixin",

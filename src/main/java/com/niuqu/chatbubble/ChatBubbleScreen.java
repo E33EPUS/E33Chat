@@ -555,8 +555,8 @@ public class ChatBubbleScreen extends ChatScreen {
         if (keyCode == 257 || keyCode == 335) {
             sendMessage(); return true;
         }
-        if (keyCode == 265) { setChatFromHistory(-1); return true; }
-        if (keyCode == 264) { setChatFromHistory(1); return true; }
+        if (keyCode == 265 && this.getFocused() == chatField) { setChatFromHistory(-1); return true; }
+        if (keyCode == 264 && this.getFocused() == chatField) { setChatFromHistory(1); return true; }
 
         // 不调 super.keyPressed（= ChatScreen，内部访问 package-private chatInputSuggestor = null → NPE）。
         // self 实现 Screen.keyPressed 等价分发：先给 focused widget（chatField TextFieldWidget 处理

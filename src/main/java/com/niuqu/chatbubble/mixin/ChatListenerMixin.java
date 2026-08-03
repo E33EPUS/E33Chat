@@ -22,6 +22,12 @@ import java.util.*;
 
 @Mixin(value = net.minecraft.client.network.message.MessageHandler.class, priority = 500)
 public class ChatListenerMixin {
+    // 与 MessagePresentation.hasWhisperKeywordBeforeColon 检测词表对齐：缺词会让 "PM to X: hi" 式
+    // 出站回显不触发抑制 → 误判入站私聊，且 pendingEcho 残留 → 10s 内 partner 真回复被当 echo 吞
+    private static final java.util.regex.Pattern ECHO_WHISPER_PATTERN =
+        java.util.regex.Pattern.compile("\b(?:pm|message|msg|tell)\b");
+
+
 
     private static Text extractDecoratedName(Text fullLine, String contentStr,
                                               String rawName, Text fallback) {
@@ -584,7 +590,10 @@ public class ChatListenerMixin {
         String sysText = message.getString();
         boolean hasEchoFlag = ChatMessageStore.hasPendingWhisperEcho();
         boolean hasKw = sysText.contains("悄悄") || sysText.contains("whispers") || sysText.contains("whisper")
-            || sysText.contains("私聊") || sysText.contains("密语") || sysText.contains("密聊");
+            || sysText.contains("私聊") || sysText.contains("密语") || sysText.contains("密聊")
+            || sysText.contains("私信") || sysText.contains("密谈")
+            || sysText.contains("对你说") || sysText.contains("to you")
+            || ECHO_WHISPER_PATTERN.matcher(sysText.toLowerCase()).find();
         ChatMessageStore.debugLog("[e33chat] System(echo check) | text='" + sysText + "' | flag=" + hasEchoFlag + " | kw=" + hasKw);
         if (hasEchoFlag && hasKw) {
             boolean otherPlayerInText = false;

@@ -20,8 +20,7 @@ import java.util.UUID;
 
 @Mixin(value = ChatHud.class, priority = 500)
 public class ChatComponentMixin {
-    private String lastText;
-    private long lastTime;
+    private Text lastComponent;
     private boolean e33chat$shifted;
     private boolean e33chat$reposting;
     private String lastRepostText;
@@ -96,12 +95,12 @@ public class ChatComponentMixin {
         if (!ChatBubbleClientSetup.config().enabled()) return;
         if (e33chat$reposting) return;
 
-        // 3-arg addMessage calls 1-arg internally — skip the duplicate
+        // 1-arg addMessage calls 3-arg internally with the SAME Component object —
+        // dedupe on object identity so two genuinely identical messages (same text,
+        // different objects) are never swallowed
+        if (finalComponent == lastComponent) return;
+        lastComponent = finalComponent;
         String text = finalComponent.getString();
-        long now = System.currentTimeMillis();
-        if (text.equals(lastText) && now - lastTime < 100) return;
-        lastText = text;
-        lastTime = now;
 
         // Outgoing whisper echo via the system channel ("你悄悄对 Steve 说: hi"):
         // suppress the vanilla line and repost it as <me>[私聊] hi. Checked BEFORE
