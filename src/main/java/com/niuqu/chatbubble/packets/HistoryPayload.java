@@ -30,7 +30,7 @@ public record HistoryPayload(List<HistoryEntry> entries) implements CustomPacket
     public static final StreamCodec<ByteBuf, HistoryPayload> STREAM_CODEC = new StreamCodec<>() {
         @Override
         public HistoryPayload decode(ByteBuf buf) {
-            int count = buf.readInt();
+            int count = Math.min(Math.max(buf.readInt(), 0), 200);
             List<HistoryEntry> entries = new ArrayList<>(count);
             for (int i = 0; i < count; i++) {
                 entries.add(new HistoryEntry(
