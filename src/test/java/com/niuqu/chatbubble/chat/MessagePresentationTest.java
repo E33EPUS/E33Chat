@@ -278,6 +278,34 @@ class MessagePresentationTest {
             "系统：Steve: hi", List.of("Steve")).isEmpty());
     }
 
+    @Test void rejectsBroadcastLabelWordPrefix() {
+        // 无分隔符的广播标签（bracket 包裹/空格分隔）同样不该归属成玩家
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "[系统]Steve: hi", List.of("Steve")).isEmpty());
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "【公告】Steve: hi", List.of("Steve")).isEmpty());
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "公告 Steve: hi", List.of("Steve")).isEmpty());
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "<系统> Steve: hi", List.of("Steve")).isEmpty());
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "Server Steve: hi", List.of("Steve")).isEmpty());
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "服务器|Steve: hi", List.of("Steve")).isEmpty());
+    }
+
+    @Test void broadcastLabelDoesNotRejectRealTitles() {
+        // 含"系统/服务器"前缀的真实称号/名字不受影响（整词匹配，不误伤）
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "[系统管理员]Steve: hi", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("Steve", parsed.orElseThrow().playerName());
+        var p2 = MessagePresentation.parseDecoratedPlayerLine(
+            "服务器管理员 Steve: hi", List.of("Steve"));
+        assertTrue(p2.isPresent());
+        assertEquals("Steve", p2.orElseThrow().playerName());
+    }
+
     @Test void decoratedChatStillParses() {
         // 名字前是合法装饰（称号文本/括号/色码）不受影响
         var parsed = MessagePresentation.parseDecoratedPlayerLine(

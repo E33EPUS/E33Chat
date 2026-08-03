@@ -69,6 +69,9 @@ public final class MessagePresentation {
         if (beforeName.indexOf('>') >= 0 || beforeName.indexOf('»') >= 0
             || beforeName.indexOf('|') >= 0 || beforeName.indexOf(':') >= 0
             || beforeName.indexOf('：') >= 0) return Optional.empty();
+        // Broadcast label words (系统/公告/Server/...) before the name — bracket
+        // wrapped or space separated — are labels too, not a player line
+        if (isBroadcastLabelPrefix(ct, idx)) return Optional.empty();
 
         int minLen = 3;
         // angle-bracket wrapped short name: <a> hi
@@ -226,6 +229,32 @@ public final class MessagePresentation {
             if (!Character.isWhitespace(text.charAt(i))) return false;
         }
         return true;
+    }
+
+    // Broadcast label words: when one of these sits directly before a player name
+    // (with optional []【】<>() wrapping), the line is a broadcast label like
+    // "[系统]Steve: xxx" or "公告 Steve: xxx", not player chat. Whole-label match
+    // only — a real title containing the word ("[系统管理员]", "Serveradmin")
+    // is never rejected.
+    private static final java.util.Set<String> BROADCAST_LABELS = java.util.Set.of(
+        "系统", "公告", "服务器", "广播", "提示", "通知",
+        "system", "server", "notice", "broadcast", "announcement", "alert");
+
+    static boolean isBroadcastLabelPrefix(String cleanText, int nameIdx) {
+        String zone = cleanText.substring(0, nameIdx).trim();
+        if (zone.isEmpty()) return false;
+        while (zone.length() >= 2) {
+            char open = zone.charAt(0);
+            char close = zone.charAt(zone.length() - 1);
+            if ((open == '[' && close == ']') || (open == '【' && close == '】')
+                || (open == '<' && close == '>') || (open == '(' && close == ')')) {
+                zone = zone.substring(1, zone.length() - 1).trim();
+            } else {
+                break;
+            }
+        }
+        if (zone.isEmpty()) return false;
+        return BROADCAST_LABELS.contains(zone.toLowerCase(java.util.Locale.ROOT));
     }
 
     private static int countDecorativePrefix(String text, int upTo) {
