@@ -494,6 +494,29 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         if (keyCode == 265) { moveInHistory(-1); return true; }
         if (keyCode == 264) { moveInHistory(1); return true; }
+
+        // 不调 super.keyPressed（= ChatScreen，内部访问 package-private commandSuggestions = null → NPE）。
+        // self 实现 Screen.keyPressed 等价分发：先给 focused widget（input EditBox 处理
+        // backspace/删除/左右/Home/End/Ctrl+A/C/V/X），再 Tab/箭头焦点导航。
+        if (this.getFocused() != null && this.getFocused().keyPressed(keyCode, scanCode, modifiers))
+            return true;
+        net.minecraft.client.gui.navigation.FocusNavigationEvent nav = switch (keyCode) {
+            case 258 -> new net.minecraft.client.gui.navigation.FocusNavigationEvent.TabNavigation(!Screen.hasShiftDown());
+            case 262 -> new net.minecraft.client.gui.navigation.FocusNavigationEvent.ArrowNavigation(net.minecraft.client.gui.navigation.ScreenDirection.RIGHT);
+            case 263 -> new net.minecraft.client.gui.navigation.FocusNavigationEvent.ArrowNavigation(net.minecraft.client.gui.navigation.ScreenDirection.LEFT);
+            case 264 -> new net.minecraft.client.gui.navigation.FocusNavigationEvent.ArrowNavigation(net.minecraft.client.gui.navigation.ScreenDirection.DOWN);
+            case 265 -> new net.minecraft.client.gui.navigation.FocusNavigationEvent.ArrowNavigation(net.minecraft.client.gui.navigation.ScreenDirection.UP);
+            default -> null;
+        };
+        if (nav != null) {
+            net.minecraft.client.gui.ComponentPath path = super.nextFocusPath(nav);
+            if (path == null && nav instanceof net.minecraft.client.gui.navigation.FocusNavigationEvent.TabNavigation) {
+                // 1.20.1 的 Screen.clearFocus 是 private，self 等价：让当前焦点路径失焦
+                if (this.getCurrentFocusPath() != null) this.getCurrentFocusPath().applyFocus(false);
+                path = super.nextFocusPath(nav);
+            }
+            if (path != null) this.changeFocus(path);
+        }
         return false;
     }
 
@@ -965,10 +988,6 @@ public class ChatBubbleScreen extends ChatScreen {
         renderBottomBar(g, mouseX, mouseY);
         renderMentionPopup(g, mouseX, mouseY);
 
-        g.enableScissor(panelX, 0, panelX + panelW, height);
-        if (suggestions != null) suggestions.render(g, mouseX, mouseY);
-        g.disableScissor();
-
         g.pose().popPose();
 
         // Sidebar on top of chat panel, with its own slide animation.
@@ -994,6 +1013,11 @@ public class ChatBubbleScreen extends ChatScreen {
         for (net.minecraft.client.gui.components.Renderable w : this.renderables) {
             w.render(g, mouseX, mouseY, partialTick);
         }
+
+        // 建议框定位基于 input.getScreenX()（屏幕坐标），与 input 同坐标空间渲染
+        g.enableScissor(panelX, 0, panelX + panelW, height);
+        if (suggestions != null) suggestions.render(g, mouseX, mouseY);
+        g.disableScissor();
 
         com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.INSTANCE.render(g,
             Minecraft.getInstance().getWindow().getGuiScaledWidth(),
