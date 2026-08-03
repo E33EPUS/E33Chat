@@ -151,24 +151,26 @@ public class ChatBubbleConfigScreen extends Screen {
         hud.add(new Opt("e33chat.config.hide_chat_icon", y -> mkBoolButton(y, ChatBubbleConfig.HIDE_CHAT_ICON), null));
         cats.add(new Cat("e33chat.config.cat.hud", hud));
 
-        // 通知: mention banner / whisper / sound
+        // 通知: 按消息类型分（@ / 私聊 / 系统）+ 横幅通用 + 音效
         List<Opt> notify = new ArrayList<>();
         notify.add(Opt.header("e33chat.config.section.mention"));
         notify.add(new Opt("e33chat.config.mention_banner_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_BANNER_ENABLED), null));
+        notify.add(new Opt("e33chat.config.mention_sound_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_SOUND_ENABLED), null));
+        notify.add(new Opt("e33chat.config.mention_require_at", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_REQUIRE_AT), null));
+        notify.add(Opt.header("e33chat.config.section.whisper"));
+        notify.add(new Opt("e33chat.config.mention_whisper_banner", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_WHISPER_BANNER), null));
+        notify.add(new Opt("e33chat.config.sound_whisper", y -> mkBoolButton(y, ChatBubbleConfig.SOUND_WHISPER), null));
+        notify.add(Opt.header("e33chat.config.section.system"));
         notify.add(new Opt("e33chat.config.system_banner_enabled", y -> mkBoolButton(y, ChatBubbleConfig.SYSTEM_BANNER_ENABLED), null));
+        notify.add(new Opt("e33chat.config.sound_system", y -> mkBoolButton(y, ChatBubbleConfig.SOUND_SYSTEM), null));
+        notify.add(Opt.header("e33chat.config.section.banner"));
         notify.add(new Opt("e33chat.config.mention_banner_duration",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.MENTION_BANNER_DURATION.get()), 2, 10, 2, ChatBubbleConfig.MENTION_BANNER_DURATION::set), null));
         notify.add(new Opt("e33chat.config.banner_corner_radius",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BANNER_CORNER_RADIUS.get()), 0, 10, 2, ChatBubbleConfig.BANNER_CORNER_RADIUS::set), null));
-        notify.add(new Opt("e33chat.config.mention_require_at", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_REQUIRE_AT), null));
-        notify.add(Opt.header("e33chat.config.section.whisper"));
-        notify.add(new Opt("e33chat.config.mention_whisper_banner", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_WHISPER_BANNER), null));
         notify.add(Opt.header("e33chat.config.section.sound"));
         notify.add(new Opt("e33chat.config.sound_volume",
             y -> mkIntSlider(y, ChatBubbleConfig.SOUND_VOLUME, 0, 100), null));
-        notify.add(new Opt("e33chat.config.mention_sound_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_SOUND_ENABLED), null));
-        notify.add(new Opt("e33chat.config.sound_whisper", y -> mkBoolButton(y, ChatBubbleConfig.SOUND_WHISPER), null));
-        notify.add(new Opt("e33chat.config.sound_system", y -> mkBoolButton(y, ChatBubbleConfig.SOUND_SYSTEM), null));
         notify.add(new Opt("e33chat.config.sound_public", y -> mkBoolButton(y, ChatBubbleConfig.SOUND_PUBLIC), null));
         cats.add(new Cat("e33chat.config.cat.notify", notify));
 
