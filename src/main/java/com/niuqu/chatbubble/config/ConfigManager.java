@@ -50,6 +50,7 @@ public final class ConfigManager {
             c.sidebarHidePatterns() != null ? c.sidebarHidePatterns() : d.sidebarHidePatterns(),
             c.quickChatPhrases() != null ? c.quickChatPhrases() : d.quickChatPhrases(),
             c.mentionBannerEnabled(),
+            c.systemBannerEnabled(),
             c.mentionBannerDuration() > 0 ? c.mentionBannerDuration() : d.mentionBannerDuration(),
             c.mentionSoundEnabled(),
             c.mentionRequireAt(),

@@ -28,6 +28,7 @@ public record ChatBubbleConfig(
     List<String> sidebarHidePatterns,
     List<String> quickChatPhrases,
     boolean mentionBannerEnabled,
+    boolean systemBannerEnabled,
     int mentionBannerDuration,
     boolean mentionSoundEnabled,
     boolean mentionRequireAt,
@@ -48,7 +49,7 @@ public record ChatBubbleConfig(
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
             false, false, true, true, true, false,
             List.of(), List.of(),
-            true, 4, true, true, true,
+            true, false, 4, true, true, true,
             true, 80, 80, false, false, false, 4
         );
     }
@@ -70,7 +71,7 @@ public record ChatBubbleConfig(
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, quickChatPhrases,
-            mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
+            mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
     }
 
@@ -80,7 +81,7 @@ public record ChatBubbleConfig(
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, phrases,
-            mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
+            mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
     }
 
@@ -90,7 +91,7 @@ public record ChatBubbleConfig(
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, patterns, quickChatPhrases,
-            mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
+            mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
     }
 

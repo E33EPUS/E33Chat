@@ -962,12 +962,17 @@ public class ChatBubbleScreen extends ChatScreen {
         renderContextMenu(g, mouseX, mouseY);
         renderAvatarContextMenu(g, mouseX, mouseY);
         renderToast(g);
+        renderBottomBar(g, mouseX, mouseY);
+        renderMentionPopup(g, mouseX, mouseY);
+        // 弹层面板（设置/表情/快捷/搜索）画在底栏之上，z 高一层——侧边栏同 z 后画
+        // 会盖住它们，提升弹层 z 到侧边栏之上避免遮挡
+        g.getMatrices().push();
+        g.getMatrices().translate(0, 0, 100);
         settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex);
         emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD);
         quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
         searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx);
-        renderBottomBar(g, mouseX, mouseY);
-        renderMentionPopup(g, mouseX, mouseY);
+        g.getMatrices().pop();
 
         g.getMatrices().pop();
 

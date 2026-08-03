@@ -489,8 +489,9 @@ public class ChatMessageStore {
         }
 
         // System messages pop as a banner like @/whisper/quote (no sender name —
-        // the system label is enough, avoiding "[系统] 系统")
-        if (isSystem && ChatBubbleClientSetup.config().mentionBannerEnabled()) {
+        // the system label is enough, avoiding "[系统] 系统"). Independent toggle,
+        // off by default.
+        if (isSystem && ChatBubbleClientSetup.config().systemBannerEnabled()) {
             MentionNotificationController.INSTANCE.onSystemMessage(content, messages.size());
         }
 

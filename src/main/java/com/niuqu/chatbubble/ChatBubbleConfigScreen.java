@@ -67,7 +67,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean antiSpam, chatHistoryEnabled;
     private boolean soundPublic, soundSystem, soundWhisper;
     private boolean debugLog, preserveInput, colorCodes;
-    private boolean mentionBannerEnabled, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner;
+    private boolean mentionBannerEnabled, systemBannerEnabled, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner;
     private boolean blurEnabled, ownMentionNotify, ownQuoteNotify, ownWhisperNotify;
     private int mentionBannerDuration, timeSeparatorMinutes;
     private int panelWidth, bubbleCornerRadius, panelOpacity, soundVolume, bannerCornerRadius;
@@ -156,6 +156,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> soundPublic, v -> soundPublic = v));
         tracked.add(track(() -> soundVolume, v -> soundVolume = v));
         tracked.add(track(() -> mentionBannerEnabled, v -> mentionBannerEnabled = v));
+        tracked.add(track(() -> systemBannerEnabled, v -> systemBannerEnabled = v));
         tracked.add(track(() -> mentionBannerDuration, v -> mentionBannerDuration = v));
         tracked.add(track(() -> mentionSoundEnabled, v -> mentionSoundEnabled = v));
         tracked.add(track(() -> mentionRequireAt, v -> mentionRequireAt = v));
@@ -185,7 +186,7 @@ public class ChatBubbleConfigScreen extends Screen {
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes,
             sidebarHidePatterns,
             ChatBubbleClientSetup.config().quickChatPhrases(),
-            mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
+            mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius));
     }
 
@@ -201,6 +202,7 @@ public class ChatBubbleConfigScreen extends Screen {
         soundWhisper = cfg.soundWhisper(); debugLog = cfg.debugLog();
         preserveInput = cfg.preserveInput(); colorCodes = cfg.colorCodes();
         mentionBannerEnabled = cfg.mentionBannerEnabled();
+        systemBannerEnabled = cfg.systemBannerEnabled();
         mentionBannerDuration = cfg.mentionBannerDuration();
         mentionSoundEnabled = cfg.mentionSoundEnabled();
         mentionRequireAt = cfg.mentionRequireAt();
@@ -369,6 +371,7 @@ public class ChatBubbleConfigScreen extends Screen {
         List<Opt> notify = new ArrayList<>();
         notify.add(Opt.header("e33chat.config.section.mention"));
         notify.add(new Opt("e33chat.config.mention_banner_enabled", y -> mkBoolButton(y, () -> mentionBannerEnabled, v -> mentionBannerEnabled = v), null));
+        notify.add(new Opt("e33chat.config.system_banner_enabled", y -> mkBoolButton(y, () -> systemBannerEnabled, v -> systemBannerEnabled = v), null));
         notify.add(new Opt("e33chat.config.mention_banner_duration",
             y -> mkIntBox(y, String.valueOf(mentionBannerDuration), 2, 10, 2, v -> mentionBannerDuration = v), null));
         notify.add(new Opt("e33chat.config.banner_corner_radius",

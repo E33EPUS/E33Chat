@@ -26,6 +26,8 @@ public class MentionNotificationBanner {
     private static final int AVATAR_HAT = 26;
     private static final int AVATAR_X = 8;
     private static final int TEXT_X = AVATAR_X + AVATAR + 6;
+    private static final int TEXT_X_PLAIN = 8;   // no-avatar banners (system) start text flush left
+    private static final int MAX_TEXT_W = 170;   // fixed content-area width cap for every banner
     private static final int BANNER_H = 36;
     private static final int MAX_MSG_LINES = 2;
     private static final int SHADOW_OFF = 2;
@@ -53,7 +55,10 @@ public class MentionNotificationBanner {
         };
         Text labeledName = Text.literal(prefix).append(senderName);
 
-        int maxTextW = Math.min(mc.getWindow().getScaledWidth() - TEXT_X - 12, 200);
+        // System banners carry no sender — plain text, no avatar, flush text start.
+        boolean hasAvatar = type != NotificationType.SYSTEM;
+        int textOriginX = hasAvatar ? TEXT_X : TEXT_X_PLAIN;
+        int maxTextW = Math.min(MAX_TEXT_W, mc.getWindow().getScaledWidth() - textOriginX - 12);
         int dotsW = mc.textRenderer.getWidth("...");
 
         List<OrderedText> nameLines = mc.textRenderer.wrapLines(labeledName, maxTextW);
@@ -79,10 +84,10 @@ public class MentionNotificationBanner {
 
         int textW = mc.textRenderer.getWidth(nameSeq);
         for (var line : msgLines) textW = Math.max(textW, mc.textRenderer.getWidth(line));
-        int bannerW = AVATAR_X + AVATAR + 6 + textW + 12;
+        int bannerW = textOriginX + textW + 12;
 
         queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex,
-            type, nameSeq, msgLines, textW, bannerW));
+            type, hasAvatar, nameSeq, msgLines, textW, bannerW));
     }
 
     public int pendingCount() { return queue.size() + (current != null ? 1 : 0); }
@@ -165,6 +170,7 @@ public class MentionNotificationBanner {
         int bg = theme.bannerBg();
         int cornerRadius = ChatBubbleClientSetup.config().bannerCornerRadius();
 
+        // Avatar (only for real senders; system banners stay plain text)
         OrderedText nameSeq = current.nameSeq;
         List<OrderedText> msgLines = current.msgLines;
         int textW = current.textW;
@@ -181,24 +187,42 @@ public class MentionNotificationBanner {
         RoundRectRenderer.fill(g, x, y, x + bannerW, y + BANNER_H, cornerRadius,
             (bgAlpha << 24) | (bg & 0x00FFFFFF));
 
-        int avatarY = y + (BANNER_H - AVATAR_HAT) / 2;
-        Identifier skin = getSkin(current.senderUUID, current.senderName.getString());
-        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-        drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        int textX = x + (current.hasAvatar ? TEXT_X : TEXT_X_PLAIN);
+        int nameColor, msgColor;
+        if (current.hasAvatar) {
+            int avatarY = y + (BANNER_H - AVATAR_HAT) / 2;
+            Identifier skin = getSkin(current.senderUUID, current.senderName.getString());
+            RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+            drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
+            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-        int textX = x + TEXT_X;
-        int nameY = y + 6;
-        int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
-        int nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
-        g.drawText(mc.textRenderer, nameSeq, textX, nameY, nameColor, false);
+            // Name (prefix already baked into nameSeq in enqueue)
+            int nameY = y + 6;
+            int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
+            nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
+            g.drawText(mc.textRenderer, nameSeq, textX, nameY, nameColor, false);
 
-        int msgAlpha = (int) ((theme.textSecondary() >>> 24) * alpha);
-        int msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
-        int msgY = nameY + mc.textRenderer.fontHeight + 2;
-        for (int i = 0; i < msgLines.size(); i++)
-            g.drawText(mc.textRenderer, msgLines.get(i), textX,
-                msgY + i * mc.textRenderer.fontHeight, msgColor, false);
+            // Message lines
+            int msgAlpha = (int) ((theme.textSecondary() >>> 24) * alpha);
+            msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
+            int msgY = nameY + mc.textRenderer.fontHeight + 2;
+            for (int i = 0; i < msgLines.size(); i++)
+                g.drawText(mc.textRenderer, msgLines.get(i), textX,
+                    msgY + i * mc.textRenderer.fontHeight, msgColor, false);
+        } else {
+            // Plain-text banner: [系统] label + content vertically centered, single row
+            int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
+            nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
+            int msgAlpha = (int) ((theme.textSecondary() >>> 24) * alpha);
+            msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
+            int lineH = mc.textRenderer.fontHeight;
+            int totalH = lineH * msgLines.size();
+            int textY = y + (BANNER_H - totalH) / 2;
+            g.drawText(mc.textRenderer, nameSeq, textX, textY, nameColor, false);
+            for (int i = 0; i < msgLines.size(); i++)
+                g.drawText(mc.textRenderer, msgLines.get(i), textX,
+                    textY + (i + 1) * lineH, msgColor, false);
+        }
     }
 
     public int currentMessageIndex() {
@@ -236,7 +260,7 @@ public class MentionNotificationBanner {
     private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }
 
     private record PendingBanner(UUID senderUUID, Text senderName, Text content,
-                                  int messageIndex, NotificationType type,
+                                  int messageIndex, NotificationType type, boolean hasAvatar,
                                   OrderedText nameSeq, List<OrderedText> msgLines,
                                   int textW, int bannerW) {}
 }
