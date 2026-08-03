@@ -37,7 +37,7 @@ public final class ConfigManager {
         return new ChatBubbleConfig(
             c.enabled(), c.theme() != null ? c.theme() : d.theme(),
             c.redDotEnabled(), c.hideChatIcon(), c.animationEnabled(),
-            c.strongHintEnabled(), c.systemChatAsBubble(),
+            c.systemChatAsBubble(),
             c.antiSpam(), c.chatHistoryEnabled(),
             c.historyRetentionDays(), c.timeSeparatorMinutes(),
             c.panelWidth(), c.bubbleCornerRadius(),

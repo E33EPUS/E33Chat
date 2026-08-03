@@ -63,7 +63,7 @@ public class ChatBubbleConfigScreen extends Screen {
     // ---- mutable copies (loadFromConfig → widget edits → saveToConfig) ----
     private ChatBubbleTheme theme;
     private boolean enabled, redDotEnabled, hideChatIcon, animationEnabled;
-    private boolean strongHintEnabled, systemChatAsBubble;
+    private boolean systemChatAsBubble;
     private boolean antiSpam, chatHistoryEnabled;
     private boolean soundPublic, soundSystem, soundWhisper;
     private boolean debugLog, preserveInput, colorCodes;
@@ -134,7 +134,6 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> redDotEnabled, v -> redDotEnabled = v));
         tracked.add(track(() -> hideChatIcon, v -> hideChatIcon = v));
         tracked.add(track(() -> animationEnabled, v -> animationEnabled = v));
-        tracked.add(track(() -> strongHintEnabled, v -> strongHintEnabled = v));
         tracked.add(track(() -> systemChatAsBubble, v -> systemChatAsBubble = v));
         tracked.add(track(() -> antiSpam, v -> antiSpam = v));
         tracked.add(track(() -> chatHistoryEnabled, v -> chatHistoryEnabled = v));
@@ -180,7 +179,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private void saveAll() {
         ChatBubbleClientSetup.saveConfig(new ChatBubbleConfig(
             enabled, theme.name().toLowerCase(), redDotEnabled, hideChatIcon, animationEnabled,
-            strongHintEnabled, systemChatAsBubble, antiSpam,
+            systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes,
@@ -195,7 +194,6 @@ public class ChatBubbleConfigScreen extends Screen {
         try { theme = ChatBubbleTheme.valueOf(cfg.theme().toUpperCase()); } catch (Exception e) { theme = ChatBubbleTheme.DARK; }
         enabled = cfg.enabled(); redDotEnabled = cfg.redDotEnabled();
         hideChatIcon = cfg.hideChatIcon(); animationEnabled = cfg.animationEnabled();
-        strongHintEnabled = cfg.strongHintEnabled();
         systemChatAsBubble = cfg.systemChatAsBubble(); antiSpam = cfg.antiSpam();
         chatHistoryEnabled = cfg.chatHistoryEnabled();
         soundPublic = cfg.soundPublic();
@@ -366,8 +364,6 @@ public class ChatBubbleConfigScreen extends Screen {
         hud.add(Opt.header("e33chat.config.section.icon"));
         hud.add(new Opt("e33chat.config.red_dot", y -> mkBoolButton(y, () -> redDotEnabled, v -> redDotEnabled = v), null));
         hud.add(new Opt("e33chat.config.hide_chat_icon", y -> mkBoolButton(y, () -> hideChatIcon, v -> hideChatIcon = v), null));
-        hud.add(Opt.header("e33chat.config.section.stronghint"));
-        hud.add(new Opt("e33chat.config.strong_hint", y -> mkBoolButton(y, () -> strongHintEnabled, v -> strongHintEnabled = v), null));
         cats.add(new Cat("e33chat.config.cat.hud", hud));
 
         List<Opt> notify = new ArrayList<>();

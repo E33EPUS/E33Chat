@@ -81,7 +81,7 @@ public class ChatBubbleHudOverlay {
                 mc.getWindow().getScaledWidth(),
                 mc.getWindow().getScaledHeight());
         }
-        if (!cfg().strongHintEnabled() && !cfg().mentionBannerEnabled()) return;
+        if (!cfg().mentionBannerEnabled()) return;
         Text hint = ChatMessageStore.getStrongHintText();
         if (hint == null) return;
         int ticks = ChatMessageStore.getStrongHintTicks();

@@ -8,7 +8,6 @@ public record ChatBubbleConfig(
     boolean redDotEnabled,
     boolean hideChatIcon,
     boolean animationEnabled,
-    boolean strongHintEnabled,
     boolean systemChatAsBubble,
     boolean antiSpam,
     boolean chatHistoryEnabled,
@@ -44,7 +43,7 @@ public record ChatBubbleConfig(
     public static ChatBubbleConfig defaults() {
         return new ChatBubbleConfig(
             true, "dark", true, false, true,
-            true, false, false,
+            false, false,
             false, 0, 5, 1000, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
             false, false, true, true, true, false,
@@ -67,7 +66,7 @@ public record ChatBubbleConfig(
 
     public ChatBubbleConfig withTheme(String theme) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
-            strongHintEnabled, systemChatAsBubble, antiSpam,
+            systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, quickChatPhrases,
@@ -77,7 +76,7 @@ public record ChatBubbleConfig(
 
     public ChatBubbleConfig withQuickChatPhrases(List<String> phrases) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
-            strongHintEnabled, systemChatAsBubble, antiSpam,
+            systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, phrases,
@@ -87,7 +86,7 @@ public record ChatBubbleConfig(
 
     public ChatBubbleConfig withSidebarHidePatterns(List<String> patterns) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
-            strongHintEnabled, systemChatAsBubble, antiSpam,
+            systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, patterns, quickChatPhrases,

@@ -488,7 +488,11 @@ public class ChatMessageStore {
                 senderUUID, senderName, content, messages.size());
         }
 
-        boolean systemToHint = isSystem && ChatBubbleClientSetup.config().strongHintEnabled();
+        // System messages pop as a banner like @/whisper/quote (no sender name —
+        // the system label is enough, avoiding "[系统] 系统")
+        if (isSystem && ChatBubbleClientSetup.config().mentionBannerEnabled()) {
+            MentionNotificationController.INSTANCE.onSystemMessage(content, messages.size());
+        }
 
         boolean playSound = false;
         if (!own && MinecraftClient.getInstance().player != null && !isMentionOrQuote && !whisper) {
@@ -498,16 +502,6 @@ public class ChatMessageStore {
         if (playSound) {
             MinecraftClient.getInstance().player.playSound(
                 net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
-        }
-
-        // Strong hints enqueue at top level (not gated on !screenOpen) so a system /
-        // @mention arriving while chat is open also pops — the HUD already draws the
-        // hint above the open screen. Mutual exclusion with the preview is preserved by
-        // the systemToHint / mentionToHint guards (shared with the preview enqueue).
-if (systemToHint) {
-            strongHintQueue.removeIf(e -> !e.isMention());
-            strongHintQueue.add(new HintEntry(singleLineComponent(content), false));
-            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
         }
 
         if (!screenOpen) {
@@ -528,19 +522,6 @@ if (systemToHint) {
             int from = Math.max(start, s), to = Math.min(end, e);
             if (from < to)
                 out.append(Text.literal(text.substring(from - s, to - s)).fillStyle(style));
-            return Optional.<Object>empty();
-        }, Style.EMPTY);
-        return out;
-    }
-
-    // Flatten the component into styled runs with control chars (newline, tab, ...)
-    // replaced by spaces — for single-line contexts (the strong hint) that can't break
-    // on '\n' and would otherwise draw "LF" boxes. Keeps style + click/hover events.
-    private static Text singleLineComponent(Text c) {
-        MutableText out = Text.empty();
-        c.visit((style, text) -> {
-            String cleaned = stripControls(text);
-            if (!cleaned.isEmpty()) out.append(Text.literal(cleaned).fillStyle(style));
             return Optional.<Object>empty();
         }, Style.EMPTY);
         return out;
