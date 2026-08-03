@@ -756,8 +756,10 @@ public class ChatBubbleScreen extends ChatScreen {
                 // 直接几何判定命中就聚焦，覆盖所有情况
                 if (ChatQuickChatPanel.isInsideInput((int) mouseX, (int) mouseY, panelX, panelW, barTop,
                         ChatBubbleClientSetup.config().quickChatPhrases().size())) {
+                    // 与 sidebar 搜索框聚焦同款（Fabric 实测需显式失焦主输入框，否则焦点链被 chatField 占用）
                     quickChatInput.setVisible(true);
                     setFocused(quickChatInput);
+                    chatField.setFocused(false);
                     return true;
                 }
                 int result = quickChatPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
