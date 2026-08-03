@@ -303,15 +303,17 @@ public class ChatListenerMixin {
     private static SenderMeta detectWhisperInSystemMessage(String text, String logTag) {
         var connection = Minecraft.getInstance().player.connection;
         if (connection == null) return null;
+        // G3: 消息嵌 legacy 色码（S§6t§beve）时整条剥 § 再做名字锚点匹配
+        String clean = text.replaceAll("§.", "");
         for (var info : connection.getOnlinePlayers()) {
             String profile = info.getProfile().getName();
             for (String cand : nameCandidates(info)) {
-                int idx = text.indexOf(cand);
+                int idx = clean.indexOf(cand);
                 if (idx >= 0 && idx < 30) {
-                    if (MessagePresentation.hasWhisperKeywordBeforeColon(text)) {
-                        String content = MessagePresentation.extractWhisperContent(text, cand);
+                    if (MessagePresentation.hasWhisperKeywordBeforeColon(clean)) {
+                        String content = MessagePresentation.extractWhisperContent(clean, cand);
                         UUID senderId = info.getProfile().getId();
-                        ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + ") | text='" + text + "' | name=" + cand + " | content='" + content + "'");
+                        ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + ") | text='" + clean + "' | name=" + cand + " | content='" + content + "'");
                         return new SenderMeta(
                             senderId,
                             Component.literal(cand),
@@ -326,13 +328,13 @@ public class ChatListenerMixin {
         }
         // cache fallback: try seen (offline) players
         for (var sp : ChatMessageStore.knownNameVariants()) {
-            int idx = text.indexOf(sp);
+            int idx = clean.indexOf(sp);
             if (idx >= 0 && idx < 30) {
-                if (MessagePresentation.hasWhisperKeywordBeforeColon(text)) {
+                if (MessagePresentation.hasWhisperKeywordBeforeColon(clean)) {
                     UUID su = ChatMessageStore.findSeenUuid(sp);
                     if (su != null) {
-                        String content = MessagePresentation.extractWhisperContent(text, sp);
-                        ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + "/cache) | text='" + text + "' | name=" + sp + " | content='" + content + "'");
+                        String content = MessagePresentation.extractWhisperContent(clean, sp);
+                        ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + "/cache) | text='" + clean + "' | name=" + sp + " | content='" + content + "'");
                         return new SenderMeta(
                             su,
                             Component.literal(sp),
@@ -362,7 +364,11 @@ public class ChatListenerMixin {
         }
         if (++templateMissBurst > 5) return;
         String s = text.length() <= 100 ? text : text.substring(0, 100) + "…";
-        ChatMessageStore.debugLog(() -> "[e33chat] System(template miss) | text='" + s + "'");
+        // G4: 诊断信息含已配置模板列表（原始串），方便核对模板是否写错/漏配
+        StringBuilder tpl = new StringBuilder();
+        for (var t : ChatMessageStore.serverChatTemplates()) tpl.append("\n  chat: ").append(t.raw());
+        for (var t : ChatMessageStore.serverWhisperTemplates()) tpl.append("\n  whisper: ").append(t.raw());
+        ChatMessageStore.debugLog(() -> "[e33chat] System(template miss) | text='" + s + "' | templates=" + tpl);
     }
 
     private static boolean isTemplateNameKnown(String name) {
@@ -594,9 +600,10 @@ public class ChatListenerMixin {
             var parsed = MessagePresentation.parseDecoratedPlayerLine(msgStr, onlineNames);
             if (parsed.isPresent()) {
                 var pl = parsed.orElseThrow();
-                int nameIdx = msgStr.indexOf(pl.playerName());
-                int nameEnd = nameIdx + pl.playerName().length();
-                int contentStart = MessagePresentation.skipSeparators(msgStr, nameEnd);
+                // 偏移来自 parser（双侧剥 § 后的映射），嵌色名 S§6t§beve 也正确
+                int nameIdx = pl.nameStart();
+                int nameEnd = pl.nameEnd();
+                int contentStart = pl.contentStart();
                 // Whitespace-only gap = broadcast sentence (Steve joined the game),
                 // not chat: server chat formats always separate name and content
                 if (MessagePresentation.isWhitespaceOnlyGap(msgStr, nameEnd, contentStart)) {
@@ -628,6 +635,8 @@ public class ChatListenerMixin {
             }
         }
 
+        // 守卫全未命中 → 灰字兜底（系统消息）
+        ChatMessageStore.debugLog(() -> "[e33chat] Disguised(guard fallback -> gray) | text='" + msgStr + "'");
         boolean isSystem = !ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE.get();
         ChatMessageStore.setPendingMeta(new SenderMeta(
             new UUID(0, 0),
@@ -713,9 +722,10 @@ public class ChatListenerMixin {
             var parsed = MessagePresentation.parseDecoratedPlayerLine(text, onlineNames);
             if (parsed.isPresent()) {
                 var pl = parsed.orElseThrow();
-                int nameIdx = text.indexOf(pl.playerName());
-                int nameEnd = nameIdx + pl.playerName().length();
-                int contentStart = MessagePresentation.skipSeparators(text, nameEnd);
+                // 偏移来自 parser（双侧剥 § 后的映射），嵌色名 S§6t§beve 也正确
+                int nameIdx = pl.nameStart();
+                int nameEnd = pl.nameEnd();
+                int contentStart = pl.contentStart();
                 // Whitespace-only gap = broadcast sentence (Steve joined the game),
                 // not chat: server chat formats always separate name and content
                 if (MessagePresentation.isWhitespaceOnlyGap(text, nameEnd, contentStart)) {
@@ -747,7 +757,8 @@ public class ChatListenerMixin {
             }
         }
 
-        // Fallback: real system message
+        // Fallback: real system message（模板 miss + 守卫1/2/3 全未命中 → 灰字兜底）
+        ChatMessageStore.debugLog(() -> "[e33chat] System(guard fallback -> gray) | text='" + text + "'");
         boolean isSystem = !ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE.get();
         ChatMessageStore.setPendingMeta(new SenderMeta(
             new UUID(0, 0),
