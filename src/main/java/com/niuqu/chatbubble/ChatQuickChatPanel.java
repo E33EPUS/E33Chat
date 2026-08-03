@@ -103,6 +103,20 @@ public class ChatQuickChatPanel {
         input.setVisible(true);
     }
 
+    // 输入框几何判定（与 render/handleClick 同款公式）：点击在输入框区域内直接聚焦，
+    // 不依赖 widget 点击命中链路（yarn/1.21.1 TextFieldWidget 点击不自动聚焦）
+    public static boolean isInsideInput(int mx, int my, int panelX, int panelW, int barTop, int totalPhrases) {
+        int visiblePhrases = Math.min(totalPhrases, MAX_VISIBLE);
+        int listH = visiblePhrases * ROW_H;
+        int separatorH = visiblePhrases > 0 ? 4 : 0;
+        int panelH = 8 + listH + separatorH + 20;
+        int px = Mth.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
+        int py = barTop - panelH - 4;
+        int inputX = px + 4;
+        int inputY = py + 4 + listH + separatorH + 4;
+        return mx >= inputX && mx <= inputX + W - 10 && my >= inputY && my <= inputY + 14;
+    }
+
     public int handleClick(int mx, int my,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
