@@ -106,7 +106,7 @@ public class ChatBubbleConfig {
         ANTI_SPAM = builder
             .comment("Collapse consecutive identical messages into one bubble with a counter")
             .translation("e33chat.config.anti_spam")
-            .define("anti_spam", false);
+            .define("anti_spam", true);
 
         CHAT_HISTORY_ENABLED = builder
             .comment("Keep per-world chat history (restored when you rejoin)")
@@ -210,9 +210,9 @@ public class ChatBubbleConfig {
             .define("banner_enabled", true);
 
         SYSTEM_BANNER_ENABLED = builder
-            .comment("Pop a banner for system messages (deaths/joins/broadcasts). Off by default.")
+            .comment("Pop a banner for system messages (deaths/joins/broadcasts).")
             .translation("e33chat.config.system_banner_enabled")
-            .define("system_banner_enabled", false);
+            .define("system_banner_enabled", true);
 
         MENTION_BANNER_DURATION = builder
             .comment("How long the notification banner stays visible (seconds, 2-10)")
