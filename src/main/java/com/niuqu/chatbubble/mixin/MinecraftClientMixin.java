@@ -26,7 +26,8 @@ public class MinecraftClientMixin {
             ci.cancel();
             BedScreen.setScreenBeforeSleep(MinecraftClient.getInstance().currentScreen);
             MinecraftClient.getInstance().setScreen(new BedScreen());
-        } else if (screen instanceof ChatScreen chatScreen) {
+        } else if (screen instanceof ChatScreen chatScreen
+                && !(chatScreen instanceof ChatBubbleScreen)) {
             ci.cancel();
             String initial = getChatInitialText(chatScreen);
             MinecraftClient.getInstance().setScreen(new ChatBubbleScreen(initial));
