@@ -25,7 +25,9 @@ public class CommandSuggestionsMixin {
         index = 1, require = 0)
     private int fixSuggestionsX(int x) {
         if (Minecraft.getInstance().screen instanceof ChatBubbleScreen) {
-            return ChatBubbleScreen.getInputX();
+            // vanilla x 已按光标 token 锚定并 clamp 到输入框右缘；只兜底左缘，
+            // 不再钉死到输入框左端（否则补全列表永远不跟光标）
+            return Math.max(x, ChatBubbleScreen.getInputX());
         }
         return x;
     }
