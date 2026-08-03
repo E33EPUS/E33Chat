@@ -58,6 +58,30 @@ class WhisperFormatsTest {
         assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Steve: I used /msg"));
     }
 
+    // ---- G1 误判回归：名字/前缀恰是短英文词 → 不算私聊 ----
+
+    @Test void playerNamedAfterKeywordIsPublicChat() {
+        // 玩家名恰是 Msg/Tell/PM 发公屏——zone 只有名字本身，不是私聊格式
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Msg: 大家好"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Tell: hi everyone"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("pm: hello"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Message: hi"));
+    }
+
+    @Test void bracketPrefixKeywordIsPublicChat() {
+        // [PM]/[TELL]/[MSG] 是装饰前缀不是私聊动作
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("[PM]Steve: 大家好"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("[TELL] Alex: hi"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("[MSG]Bob: hi"));
+    }
+
+    @Test void keywordWithRealStructureStillWhisper() {
+        // 词 + 名字/目标同时存在 = 真私聊格式
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve PM you: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("PM Steve: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve msg you: hi"));
+    }
+
     // ---- extractWhisperContent ----
 
     @Test void extractsAfterColon() {
