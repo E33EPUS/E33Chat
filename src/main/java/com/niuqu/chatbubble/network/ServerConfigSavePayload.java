@@ -48,8 +48,8 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
     /** Server-side handler: validate, persist, rebroadcast (called from ChatBubbleMod). */
     public static void handleServer(ServerConfigSavePayload payload, ServerPlayerEntity player,
                                     java.util.function.Consumer<ServerConfig> applyAndSave) {
-        String error = validateTemplates("聊天", payload.chatTemplates());
-        if (error == null) error = validateTemplates("私聊", payload.whisperTemplates());
+        Text error = validateTemplates(true, payload.chatTemplates());
+        if (error == null) error = validateTemplates(false, payload.whisperTemplates());
         if (error != null) {
             player.sendMessage(Text.translatable("e33chat.server.save_failed", error)
                 .formatted(Formatting.RED), false);
@@ -65,11 +65,13 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
         player.sendMessage(Text.translatable("e33chat.server.saved"), false);
     }
 
-    private static String validateTemplates(String kind, List<String> templates) {
+    private static Text validateTemplates(boolean chat, List<String> templates) {
         for (int i = 0; i < templates.size(); i++) {
             TemplateMatcher.CompileResult result = TemplateMatcher.compile(templates.get(i));
             if (result.template() == null) {
-                return kind + "模板 #" + (i + 1) + ": " + result.error();
+                return Text.translatable("e33chat.server.template_invalid",
+                    Text.translatable(chat ? "e33chat.server.kind_chat" : "e33chat.server.kind_whisper"),
+                    i + 1, result.error());
             }
         }
         return null;
