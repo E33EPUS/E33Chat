@@ -4,7 +4,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
@@ -40,26 +39,6 @@ public class ChatBubbleHudOverlay {
             MentionNotificationBanner.INSTANCE.render(g,
                 mc.getWindow().getGuiScaledWidth(),
                 mc.getWindow().getGuiScaledHeight());
-        }
-
-        // Mention strong hint above hotbar — render even when a screen is open
-        if (ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
-            Component hint = ChatMessageStore.getStrongHintText();
-            if (hint != null) {
-                int ticks = ChatMessageStore.getStrongHintTicks();
-                int screenW = mc.getWindow().getGuiScaledWidth();
-                int hintW = mc.font.width(hint);
-                int hintX = (screenW - hintW) / 2;
-                int hintY = mc.getWindow().getGuiScaledHeight() - 22 - 30 - mc.font.lineHeight;
-                int alpha = Animation.fadeInOut(ticks, 10, 40, 10);
-                // 纹理 × 动态 alpha（半透明黑），资源包可覆盖提示条底色
-                com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-                    com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.STRONG_HINT_BG),
-                    hintX - 6, hintY - 3, hintW + 12, mc.font.lineHeight + 6, (alpha / 2) / 255f);
-                // Colors are baked into the hint Component (mention = yellow, system = its
-                // own colors); pass white only as a fallback so embedded colors always win.
-                g.drawString(mc.font, hint, hintX, hintY, (alpha << 24) | 0xFFFFFF, false);
-            }
         }
 
         if (mc.screen != null) { g.pose().popPose(); return; }

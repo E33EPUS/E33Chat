@@ -93,7 +93,6 @@ public class ChatBubbleClientListener {
         }
         ChatMessageStore.setCurrentWorld(key);
         ChatMessageStore.maybeAutoSave();
-        ChatMessageStore.tickStrongHint();
     }
 
     @SubscribeEvent

@@ -74,9 +74,8 @@ public class MentionNotificationBanner {
 
         List<FormattedCharSequence> msgLines = mc.font.split(content, maxTextW);
         if (msgLines.size() > MAX_MSG_LINES) {
-            String fullText = content.getString();
-            String plain = mc.font.plainSubstrByWidth(fullText, maxTextW * 2 - dotsW) + "...";
-            msgLines = mc.font.split(Component.literal(plain), maxTextW);
+            // Styled truncation: keeps per-run colors of multi-colored system lines
+            msgLines = mc.font.split(truncateStyled(content, maxTextW * 2 - dotsW, mc.font, "..."), maxTextW);
             if (msgLines.size() > MAX_MSG_LINES)
                 msgLines = msgLines.subList(0, MAX_MSG_LINES);
         }
@@ -256,6 +255,29 @@ public class MentionNotificationBanner {
         int hatOff = (hatSize - baseSize) / 2;
         g.blit(skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64);
         RenderSystem.disableBlend();
+    }
+
+    // Width-limit a component run by run, keeping each run's style (colors of
+    // multi-colored system lines survive truncation), then append the ellipsis.
+    private static Component truncateStyled(Component src, int maxWidth,
+                                            net.minecraft.client.gui.Font font, String suffix) {
+        int budget = maxWidth - font.width(suffix);
+        net.minecraft.network.chat.MutableComponent out = Component.empty();
+        int[] used = {0};
+        src.visit((style, text) -> {
+            if (used[0] >= budget) return java.util.Optional.<Object>empty();
+            int w = font.width(text);
+            if (used[0] + w <= budget) {
+                out.append(Component.literal(text).withStyle(style));
+                used[0] += w;
+            } else {
+                String sub = font.plainSubstrByWidth(text, budget - used[0]);
+                out.append(Component.literal(sub).withStyle(style));
+                used[0] = budget;
+            }
+            return java.util.Optional.<Object>empty();
+        }, net.minecraft.network.chat.Style.EMPTY);
+        return out.append(Component.literal(suffix));
     }
 
     private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }
