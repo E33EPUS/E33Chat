@@ -12,6 +12,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ChatInputSuggestor;
+import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.network.PlayerListEntry;
@@ -34,7 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-public class ChatBubbleScreen extends Screen {
+public class ChatBubbleScreen extends ChatScreen {
 
     // Layout
     private int panelX, panelW;
@@ -76,7 +77,6 @@ public class ChatBubbleScreen extends Screen {
         return ChatMessageStore.timeKey(t, ChatBubbleClientSetup.config().timeSeparatorMinutes());
     }
 
-    private TextFieldWidget input;
     private ChatInputSuggestor commandSuggestions;
     private static int inputX, inputY;
 
@@ -165,7 +165,7 @@ public class ChatBubbleScreen extends Screen {
     private int notifBarTextY;
 
     public ChatBubbleScreen(String initialText) {
-        super(Text.translatable("e33chat.screen.title"));
+        super("");
         this.initialText = initialText;
     }
 
@@ -202,19 +202,19 @@ public class ChatBubbleScreen extends Screen {
         int sendX = panelX + panelW - PAD - ICON_S + 2;
         int inputW = sendX - ICON_S - 8 - inputX;
 
-        input = new TextFieldWidget(textRenderer, inputX, ibY + 3, inputW, INPUT_H, Text.literal(""));
-        input.setMaxLength(256);
-        input.setDrawsBackground(false);
+        chatField = new TextFieldWidget(textRenderer, inputX, ibY + 3, inputW, INPUT_H, Text.literal(""));
+        chatField.setMaxLength(256);
+        chatField.setDrawsBackground(false);
         int editColor = theme() == ChatBubbleTheme.LIGHT ? c().textSecondary() : c().textPrimary();
-        input.setEditableColor(editColor);
-        input.setUneditableColor(c().textMuted());
-        input.setText(initialText.isEmpty() && ChatBubbleClientSetup.config().preserveInput() && !savedInput.isEmpty() ? savedInput : initialText);
-        input.setChangedListener(this::onEdited);
-        input.setFocusUnlocked(false);
-        addDrawableChild(input);
+        chatField.setEditableColor(editColor);
+        chatField.setUneditableColor(c().textMuted());
+        chatField.setText(initialText.isEmpty() && ChatBubbleClientSetup.config().preserveInput() && !savedInput.isEmpty() ? savedInput : initialText);
+        chatField.setChangedListener(this::onEdited);
+        chatField.setFocusUnlocked(false);
+        addDrawableChild(chatField);
 
         int cmdBgAlpha = theme() == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
-        commandSuggestions = new ChatInputSuggestor(client, this, input, textRenderer,
+        commandSuggestions = new ChatInputSuggestor(client, this, chatField, textRenderer,
             false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdBgAlpha));
         commandSuggestions.setWindowActive(true);
         commandSuggestions.refresh();
@@ -250,7 +250,7 @@ public class ChatBubbleScreen extends Screen {
         searchInput.setFocusUnlocked(true);
         addDrawableChild(searchInput);
 
-        setFocused(input);
+        setFocused(chatField);
     }
 
     private void rebuildLayout() {
@@ -269,10 +269,10 @@ public class ChatBubbleScreen extends Screen {
         int sendX = panelX + panelW - PAD - ICON_S + 2;
         int inputW = sendX - ICON_S - 8 - inputX;
 
-        if (input != null) {
-            input.setX(inputX);
-            input.setWidth(inputW);
-            input.setY(ibY + 3);
+        if (chatField != null) {
+            chatField.setX(inputX);
+            chatField.setWidth(inputW);
+            chatField.setY(ibY + 3);
         }
     }
 
@@ -305,7 +305,7 @@ public class ChatBubbleScreen extends Screen {
             panelX = sidebarOpen ? SIDEBAR_W : 0;
             sidebarSearchBox.setX(2);
             sidebarSearchBox.setVisible(sidebarOpen);
-            if (!sidebarOpen && sidebarSearchBox.isFocused()) setFocused(input);
+            if (!sidebarOpen && sidebarSearchBox.isFocused()) setFocused(chatField);
             rebuildLayout();
             return;
         }
@@ -433,10 +433,10 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void insertMention(String name) {
-        String text = input.getText();
+        String text = chatField.getText();
         int atIdx = text.lastIndexOf('@');
-        input.setText(text.substring(0, atIdx) + "@" + name + " ");
-        input.setCursorToEnd(false);
+        chatField.setText(text.substring(0, atIdx) + "@" + name + " ");
+        chatField.setCursorToEnd(false);
         showMentions = false;
     }
 
@@ -506,7 +506,7 @@ public class ChatBubbleScreen extends Screen {
         if (settingsMenu.visible && keyCode == 256) { settingsMenu.visible = false; return true; }
         if (emojiPanel.visible && keyCode == 256) { emojiPanel.visible = false; return true; }
         if (quickChatPanel.visible && keyCode == 256) {
-            quickChatPanel.visible = false; quickChatInput.setVisible(false); setFocused(input); return true;
+            quickChatPanel.visible = false; quickChatInput.setVisible(false); setFocused(chatField); return true;
         }
         if (searchPanel.visible && keyCode == 256) { closeSearchPanel(); return true; }
 
@@ -526,7 +526,7 @@ public class ChatBubbleScreen extends Screen {
 
         if (sidebarSearchBox.isFocused()) {
             if (keyCode == 256 || keyCode == 257 || keyCode == 335) {
-                sidebarSearchBox.setFocused(false); setFocused(input); return true;
+                sidebarSearchBox.setFocused(false); setFocused(chatField); return true;
             }
         }
 
@@ -554,9 +554,9 @@ public class ChatBubbleScreen extends Screen {
         if (keyCode == 257 || keyCode == 335) {
             sendMessage(); return true;
         }
-        if (keyCode == 265) { moveInHistory(-1); return true; }
-        if (keyCode == 264) { moveInHistory(1); return true; }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        if (keyCode == 265) { super.setChatFromHistory(-1); return true; }
+        if (keyCode == 264) { super.setChatFromHistory(1); return true; }
+        return false;
     }
 
     @Override
@@ -599,10 +599,10 @@ public class ChatBubbleScreen extends Screen {
 
         // @mention popup click
         if (showMentions && button == 0) {
-            int popupX = input.getX();
+            int popupX = chatField.getX();
             int popupH = Math.min(mentionCandidates.size(), 8) * textRenderer.fontHeight + 4;
-            int popupY = input.getY() - popupH - 2;
-            if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
+            int popupY = chatField.getY() - popupH - 2;
+            if (popupY < msgTop) popupY = chatField.getY() + chatField.getHeight() + 2;
             int maxW = 60;
             for (String name : mentionCandidates) maxW = Math.max(maxW, textRenderer.getWidth(name));
             int popupW = maxW + 12;
@@ -623,13 +623,13 @@ public class ChatBubbleScreen extends Screen {
             int searchY = 2;
             int searchH = SIDEBAR_SEARCH_H;
             if (mouseY >= searchY && mouseY <= searchY + searchH) {
-                setFocused(sidebarSearchBox); input.setFocused(false); return true;
+                setFocused(sidebarSearchBox); chatField.setFocused(false); return true;
             }
-            if (sidebarSearchBox.isFocused()) setFocused(input);
+            if (sidebarSearchBox.isFocused()) setFocused(chatField);
 
             int y2 = searchY + searchH + 3;
             if (mouseY >= y2 && mouseY <= y2 + SIDEBAR_ITEM_H) {
-                whisperPartner = null; sidebarSearchBox.setText(""); setFocused(input); scrollToBottom = true; return true;
+                whisperPartner = null; sidebarSearchBox.setText(""); setFocused(chatField); scrollToBottom = true; return true;
             }
             y2 += SIDEBAR_ITEM_H + 2;
             if (client.player != null && client.player.networkHandler != null) {
@@ -644,7 +644,7 @@ public class ChatBubbleScreen extends Screen {
                     if (mouseY >= scrollY && mouseY <= scrollY + SIDEBAR_ITEM_H) {
                         whisperPartner = name;
                         ChatMessageStore.clearUnreadWhisper(name);
-                        sidebarSearchBox.setText(""); setFocused(input); scrollToBottom = true; return true;
+                        sidebarSearchBox.setText(""); setFocused(chatField); scrollToBottom = true; return true;
                     }
                     scrollY += SIDEBAR_ITEM_H + 2;
                 }
@@ -701,7 +701,7 @@ public class ChatBubbleScreen extends Screen {
                     sidebarOpen = !sidebarOpen; sidebarAnimating = false;
                     panelX = sidebarOpen ? SIDEBAR_W : 0;
                     sidebarSearchBox.setX(2); sidebarSearchBox.setVisible(sidebarOpen);
-                    if (!sidebarOpen && sidebarSearchBox.isFocused()) setFocused(input);
+                    if (!sidebarOpen && sidebarSearchBox.isFocused()) setFocused(chatField);
                     rebuildLayout();
                 } else if (sidebarAnimating) {
                     sidebarTargetOpen = !sidebarTargetOpen;
@@ -724,15 +724,15 @@ public class ChatBubbleScreen extends Screen {
             if (emojiPanel.visible) {
                 String emojiText = emojiPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD);
                 if (emojiText != null && !emojiText.isEmpty()) {
-                    input.write(emojiText);
+                    chatField.write(emojiText);
                 }
                 return true;
             }
             if (quickChatPanel.visible) {
                 int result = quickChatPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
                 if (result >= 0) {
-                    input.setText(ChatBubbleClientSetup.config().quickChatPhrases().get(result));
-                    setFocused(input);
+                    chatField.setText(ChatBubbleClientSetup.config().quickChatPhrases().get(result));
+                    setFocused(chatField);
                 } else if (result == -2) {
                     setFocused(quickChatInput);
                 }
@@ -760,8 +760,8 @@ public class ChatBubbleScreen extends Screen {
                     && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
                     String mentionName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
                         ? msg.rawPlayerName() : msg.senderName().getString();
-                    input.setText(input.getText() + "@" + mentionName + " ");
-                    input.setCursorToEnd(false);
+                    chatField.setText(chatField.getText() + "@" + mentionName + " ");
+                    chatField.setCursorToEnd(false);
                     return true;
                 }
             }
@@ -800,7 +800,7 @@ public class ChatBubbleScreen extends Screen {
             if (style != null && style.getClickEvent() != null) {
                 ClickEvent click = style.getClickEvent();
                 if (click.getAction() == ClickEvent.Action.SUGGEST_COMMAND) {
-                    input.setText(click.getValue()); return true;
+                    chatField.setText(click.getValue()); return true;
                 }
                 if (click.getAction() == ClickEvent.Action.OPEN_FILE) {
                     java.io.File file = new java.io.File(click.getValue());
@@ -812,7 +812,7 @@ public class ChatBubbleScreen extends Screen {
                 handleTextClick(style); return true;
             }
         }
-        return super.mouseClicked(origX, mouseY, button);
+        return this.chatField.mouseClicked(origX, mouseY, button);
     }
 
     @Override
@@ -898,7 +898,7 @@ public class ChatBubbleScreen extends Screen {
                 whisperPartner = name;
                 ChatMessageStore.clearUnreadWhisper(name);
                 if (sidebarSearchBox != null) sidebarSearchBox.setText("");
-                setFocused(input); scrollToBottom = true;
+                setFocused(chatField); scrollToBottom = true;
             }
         }
         contextAvatarIndex = -1;
@@ -965,8 +965,12 @@ public class ChatBubbleScreen extends Screen {
 
         g.getMatrices().push();
         g.getMatrices().translate(0, 0, 50);
-        input.setX(inputX + panelOffset);
-        super.render(g, mouseX, mouseY, delta);
+        chatField.setX(inputX + panelOffset);
+        // 不调 super.render（ChatScreen.render 访问 package-private chatInputSuggestor，
+        // 跨包无法初始化）；复制 Screen.render 的 widgets 遍历渲染
+        for (net.minecraft.client.gui.Element w : this.children()) {
+            if (w instanceof net.minecraft.client.gui.Drawable d) d.render(g, mouseX, mouseY, delta);
+        }
         g.getMatrices().pop();
 
         // Notification banner is rendered by ChatBubbleHudOverlay at z=300
@@ -1561,9 +1565,9 @@ public class ChatBubbleScreen extends Screen {
         int popupW = maxW + 12;
         int visible = Math.min(mentionCandidates.size(), 8);
         int popupH = visible * textRenderer.fontHeight + 4;
-        int popupX = input.getX();
-        int popupY = input.getY() - popupH - 2;
-        if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
+        int popupX = chatField.getX();
+        int popupY = chatField.getY() - popupH - 2;
+        if (popupY < msgTop) popupY = chatField.getY() + chatField.getHeight() + 2;
 
         g.drawTexture(UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, popupW, popupH, 0f, 0f, 16, 16, 16, 16);
         g.drawBorder(popupX, popupY, popupW, popupH, c().divider());
@@ -1611,14 +1615,14 @@ public class ChatBubbleScreen extends Screen {
                 quickChatPanel.visible = true;
                 quickChatPanel.scrollOffset = 0;
                 quickChatInput.setText("");
-                setFocused(input);
+                setFocused(chatField);
                 break;
             case 2: { // theme
                 ChatBubbleTheme next = theme() == ChatBubbleTheme.DARK ? ChatBubbleTheme.LIGHT : ChatBubbleTheme.DARK;
                 ChatBubbleClientSetup.saveConfig(ChatBubbleClientSetup.config().withTheme(next.name().toLowerCase()));
                         int editColor = next == ChatBubbleTheme.LIGHT ? c().textSecondary() : c().textPrimary();
-                input.setEditableColor(editColor);
-                input.setUneditableColor(c().textMuted());
+                chatField.setEditableColor(editColor);
+                chatField.setUneditableColor(c().textMuted());
                 sidebarSearchBox.setEditableColor(editColor);
                 sidebarSearchBox.setUneditableColor(editColor);
                 quickChatInput.setEditableColor(editColor);
@@ -1626,7 +1630,7 @@ public class ChatBubbleScreen extends Screen {
                 searchInput.setEditableColor(editColor);
                 searchInput.setUneditableColor(c().textMuted());
                 int cmdAlpha = next == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
-                commandSuggestions = new ChatInputSuggestor(client, this, input, textRenderer,
+                commandSuggestions = new ChatInputSuggestor(client, this, chatField, textRenderer,
                     false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdAlpha));
                 commandSuggestions.setWindowActive(true);
                 break;
@@ -1641,7 +1645,7 @@ public class ChatBubbleScreen extends Screen {
         searchPanel.visible = false;
         searchInput.setVisible(false);
         searchMatches.clear(); searchMatchIdx = -1; searchHighlightIndex = -1;
-        setFocused(input);
+        setFocused(chatField);
     }
 
     private void renderBottomBar(DrawContext g, int mouseX, int mouseY) {
@@ -1652,13 +1656,13 @@ public class ChatBubbleScreen extends Screen {
 
         int ibX = inputX;
         int ibY = inputY;
-        int ibW = input.getWidth();
+        int ibW = chatField.getWidth();
         int ibH = INPUT_H;
         g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, ibW + 1, 1, 0f, 0f, 16, 16, 16, 16);
         g.drawTexture(UiTextureManager.rl(UiElement.INPUT_BG), ibX - 1, ibY, ibW + 1, ibH, 0f, 0f, 16, 16, 16, 16);
 
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + ibW && mouseY >= ibY && mouseY <= ibY + ibH;
-        if (hoverInput || input.isFocused())
+        if (hoverInput || chatField.isFocused())
             g.drawBorder(ibX - 1, ibY, ibW + 1, ibH, c().textMuted());
 
         int gearX = panelX + 4;
@@ -1816,7 +1820,7 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void sendMessage() {
-        String raw = input.getText().trim();
+        String raw = chatField.getText().trim();
         if (raw.isEmpty()) return;
         var cfg = ChatBubbleClientSetup.config();
         // Send the text UNCHANGED (raw '&', never '§'): vanilla servers reject '§' in
@@ -1888,35 +1892,21 @@ public class ChatBubbleScreen extends Screen {
         }
         if (whisperTarget != null) ChatMessageStore.markPendingWhisperEcho(whisperTarget);
 
-        input.setText("");
+        chatField.setText("");
         savedInput = "";
         scrollToBottom = true;
     }
 
-    private void moveInHistory(int delta) {
-        int size = client.inGameHud.getChatHud().getMessageHistory().size();
-        int newPos = MathHelper.clamp(historyPos + delta, 0, size);
-        if (newPos != historyPos) {
-            if (newPos == size) {
-                historyPos = size;
-                input.setText(historyBuffer);
-            } else {
-                if (historyPos == size) historyBuffer = input.getText();
-                input.setText(client.inGameHud.getChatHud().getMessageHistory().get(newPos));
-                historyPos = newPos;
-            }
-        }
-    }
 
     @Override
     public void removed() {
-        if (ChatBubbleClientSetup.config().preserveInput()) savedInput = input.getText();
+        if (ChatBubbleClientSetup.config().preserveInput()) savedInput = chatField.getText();
         ChatMessageStore.setScreenOpen(false);
         client.inGameHud.getChatHud().reset();
     }
 
     public void onClose() {
-        if (ChatBubbleClientSetup.config().preserveInput()) savedInput = input.getText();
+        if (ChatBubbleClientSetup.config().preserveInput()) savedInput = chatField.getText();
         if (!ChatBubbleClientSetup.config().animationEnabled()) {
             client.setScreen(null); return;
         }
