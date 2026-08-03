@@ -11,6 +11,27 @@ public class ChatEmojiPanel {
     private static final int COLS = 9;
     private static final int SLOT = 18;
     private static final int KAO_ITEM_H = 13;
+    private static final int KAO_COLS = 2;
+    private static final int KAO_COL_W = 90;
+
+    // 面板宽度自适应：聊天面板按固定物理宽设计（6x 时 panelW 收缩到 ~166），
+    // 表情面板若固定 170 逻辑宽会反超面板 → clamp 边界反转 → 溢出屏幕左边。
+    // 收缩到 panelW-4（保证 clamp 右界 ≥ 左界），最小 100。
+    private static int fitWidth(int natural, int panelW) {
+        return Math.max(100, Math.min(natural, panelW - 4));
+    }
+
+    // 表情列数随实际宽度收缩（SLOT 不变）
+    private static int gridCols(int pw) {
+        return Math.max(1, (pw - 8) / SLOT);
+    }
+
+    // 弹层 x 夹在聊天面板内且不超屏幕左右（表情/快捷/搜索共用模式）
+    private static int clampX(int px, int pw, int panelX, int panelW) {
+        int screenW = net.minecraft.client.MinecraftClient.getInstance().getWindow().getScaledWidth();
+        int max = Math.min(panelX + panelW - pw - 2, screenW - pw - 2);
+        return MathHelper.clamp(px, Math.min(panelX + 2, max), max);
+    }
 
     private static final String[] EMOTES = {
         "😀","😃","😄","😁","😆","😅","🤣","😂",
@@ -52,12 +73,9 @@ public class ChatEmojiPanel {
         int sendX = panelX + panelW - pad - iconS + 2;
 
         boolean isKaomoji = tab == 1;
-        int kCols = 2;
-        int kColW = 90;
-        int pw = isKaomoji ? kCols * kColW + 8 : COLS * SLOT + 8;
-        int px = sendX + iconS / 2 - pw / 2;
-        px = MathHelper.clamp(px, panelX + 2, panelX + panelW - pw - 2);
-        int py = barTop - PANEL_H - 4;
+        int pw = fitWidth(isKaomoji ? KAO_COLS * KAO_COL_W + 8 : COLS * SLOT + 8, panelW);
+        int px = clampX(sendX + iconS / 2 - pw / 2, pw, panelX, panelW);
+        int py = Math.max(2, barTop - PANEL_H - 4);
 
         String[] tabLabels = {
             Text.translatable("e33chat.emoji.tab_emoji").getString(),
@@ -87,14 +105,14 @@ public class ChatEmojiPanel {
         if (isKaomoji) {
             renderKaomojiList(g, mouseX, mouseY, font, c, px, cy, pw, ch);
         } else {
-            renderEmojiGrid(g, mouseX, mouseY, font, c, px, cy, pw, ch);
+            renderEmojiGrid(g, mouseX, mouseY, font, c, px, cy, pw, ch, gridCols(pw));
         }
     }
 
     private void renderEmojiGrid(DrawContext g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
-            int px, int cy, int pw, int ch) {
-        int rows = (EMOTES.length + COLS - 1) / COLS;
+            int px, int cy, int pw, int ch, int cols) {
+        int rows = (EMOTES.length + cols - 1) / cols;
         int totalH = rows * SLOT + 4;
         int maxScroll = Math.max(0, totalH - ch + 4);
         scroll = MathHelper.clamp(scroll, 0, maxScroll);
@@ -102,8 +120,8 @@ public class ChatEmojiPanel {
         g.enableScissor(px + 1, cy + 1, px + pw - 1, cy + ch - 1);
         int sy = cy + 2 - scroll;
         for (int i = 0; i < EMOTES.length; i++) {
-            int col = i % COLS;
-            int row = i / COLS;
+            int col = i % cols;
+            int row = i / cols;
             int ex = px + 4 + col * SLOT;
             int ey = sy + row * SLOT;
             if (ey + SLOT <= cy || ey >= cy + ch) continue;
@@ -122,7 +140,7 @@ public class ChatEmojiPanel {
     private void renderKaomojiList(DrawContext g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int px, int cy, int pw, int ch) {
-        int kCols = 2;
+        int kCols = KAO_COLS;
         int kColW = (pw - 8) / kCols;
         int totalH = ((KAO.length + kCols - 1) / kCols) * KAO_ITEM_H + 4;
         int maxScroll = Math.max(0, totalH - ch + 4);
@@ -160,12 +178,9 @@ public class ChatEmojiPanel {
         }
 
         boolean isKaomoji = tab == 1;
-        int kCols = 2;
-        int kColW = 90;
-        int pw = isKaomoji ? kCols * kColW + 8 : COLS * SLOT + 8;
-        int px = sendX + iconS / 2 - pw / 2;
-        px = MathHelper.clamp(px, panelX + 2, panelX + panelW - pw - 2);
-        int py = barTop - PANEL_H - 4;
+        int pw = fitWidth(isKaomoji ? KAO_COLS * KAO_COL_W + 8 : COLS * SLOT + 8, panelW);
+        int px = clampX(sendX + iconS / 2 - pw / 2, pw, panelX, panelW);
+        int py = Math.max(2, barTop - PANEL_H - 4);
 
         if (mx < px || mx > px + pw || my < py || my > py + PANEL_H) {
             visible = false;
@@ -181,15 +196,16 @@ public class ChatEmojiPanel {
 
         int cy = py + TAB_H + 1;
         if (isKaomoji) {
-            int cw = (pw - 8) / kCols;
+            int cw = (pw - 8) / KAO_COLS;
             int col = (mx - px - 4) / cw;
             int row = (my - cy - 2 + scroll) / KAO_ITEM_H;
-            int idx = row * kCols + col;
+            int idx = row * KAO_COLS + col;
             if (idx >= 0 && idx < KAO.length) return KAO[idx];
         } else {
+            int cols = gridCols(pw);
             int col = (mx - px - 4) / SLOT;
             int row = (my - cy - 2 + scroll) / SLOT;
-            int idx = row * COLS + col;
+            int idx = row * cols + col;
             if (idx >= 0 && idx < EMOTES.length) return EMOTES[idx];
         }
         return null;
@@ -197,10 +213,9 @@ public class ChatEmojiPanel {
 
     public void handleScroll(double scrollY) {
         boolean isKaomoji = tab == 1;
-        int kCols = 2;
         int totalH;
         if (isKaomoji) {
-            totalH = ((KAO.length + kCols - 1) / kCols) * KAO_ITEM_H + 4;
+            totalH = ((KAO.length + KAO_COLS - 1) / KAO_COLS) * KAO_ITEM_H + 4;
         } else {
             int rows = (EMOTES.length + COLS - 1) / COLS;
             totalH = rows * SLOT + 4;
