@@ -84,6 +84,8 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final Map<UUID, ResourceLocation> skinCache = new HashMap<>();
     private CommandSuggestions suggestions;
     private final String initialText;
+    private String historyBuffer = "";
+    private int historyPos = -1;
     private int scrollOffset;
     private int maxScroll;
     private boolean scrollToBottom = true;
@@ -176,6 +178,7 @@ public class ChatBubbleScreen extends ChatScreen {
     @Override
     protected void init() {
         ChatMessageStore.setScreenOpen(true);
+        historyPos = minecraft.gui.getChat().getRecentChat().size();
         animStart = net.minecraft.Util.getMillis();
         closing = false;
         firstRender = true;
@@ -213,7 +216,7 @@ public class ChatBubbleScreen extends ChatScreen {
         input.setTextColorUneditable(c().textMuted());
         input.setValue(initialText.isEmpty() && ChatBubbleConfig.PRESERVE_INPUT.get() && !savedInput.isEmpty() ? savedInput : initialText);
         input.setCanLoseFocus(false);
-        input.setResponder(this::onEdited);
+        input.setResponder(this::onInputEdited);
         addRenderableWidget(input);
 
         int cmdBgAlpha = ChatBubbleConfig.THEME.get() == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
@@ -302,7 +305,7 @@ public class ChatBubbleScreen extends ChatScreen {
         showMentions = false;
     }
 
-    private void onEdited(String text) {
+    private void onInputEdited(String text) {
         showMentions = false;
         int atIdx = text.lastIndexOf('@');
         if (atIdx >= 0 && minecraft.player != null && minecraft.player.connection != null) {
@@ -1636,6 +1639,33 @@ public class ChatBubbleScreen extends ChatScreen {
         input.setValue("");
         savedInput = "";
         scrollToBottom = true;
+    }
+
+    // 父类 moveInHistory 访问 package-private commandSuggestions（跨包 null），
+    // override 用自己的实现（history 字段也私有化到本类）
+    @Override
+    public void moveInHistory(int delta) {
+        int size = minecraft.gui.getChat().getRecentChat().size();
+        int newPos = Mth.clamp(historyPos + delta, 0, size);
+        if (newPos != historyPos) {
+            if (newPos == size) {
+                historyPos = size;
+                input.setValue(historyBuffer);
+            } else {
+                if (historyPos == size) historyBuffer = input.getValue();
+                input.setValue(minecraft.gui.getChat().getRecentChat().get(newPos));
+                historyPos = newPos;
+            }
+        }
+    }
+
+    // 父类 resize 访问 package-private commandSuggestions（跨包 null）→ 自实现
+    @Override
+    public void resize(Minecraft mc, int w, int h) {
+        String cur = input.getValue();
+        this.init(mc, w, h);
+        input.setValue(cur);
+        suggestions.updateCommandInfo();
     }
 
     @Override
