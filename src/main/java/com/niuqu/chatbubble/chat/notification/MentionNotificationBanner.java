@@ -89,9 +89,13 @@ public class MentionNotificationBanner {
             textW = Math.max(textW, mc.font.width(nameSeq) + mc.font.width(msgLines.get(0)));
         }
         int bannerW = textOriginX + textW + 12;
+        // 高度：头像横幅固定 36（装名字+内容+头像）；纯文本系统横幅按行数紧凑
+        // （上下各 5px 边距），1 行 ~20 / 2 行 ~30，不再留大片空白
+        int bannerH = hasAvatar ? BANNER_H
+            : mc.font.lineHeight * msgLines.size() + 10;
 
         queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex,
-            type, hasAvatar, nameSeq, msgLines, textW, bannerW));
+            type, hasAvatar, nameSeq, msgLines, textW, bannerW, bannerH));
     }
 
     public int pendingCount() { return queue.size() + (current != null ? 1 : 0); }
@@ -154,6 +158,7 @@ public class MentionNotificationBanner {
                 ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_MS)
                 : 1f;
 
+        // Slide: easeOutBack (overshoot then settle) for down, ease-in for up
         float slide;
         if (state == BannerState.SLIDING_DOWN) {
             float c = 1.70158f;
@@ -164,10 +169,9 @@ public class MentionNotificationBanner {
             slide = 1f;
         }
 
+        // Fade: faster than slide (complete at 60% of slide duration)
         float fadeRaw = Math.min(1f, raw / 0.6f);
         float alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
-
-        int y = (int)((-BANNER_H) + slide * BANNER_H);
 
         var theme = ChatBubbleConfig.THEME.get().colors();
         int bg = theme.bannerBg();
@@ -178,22 +182,25 @@ public class MentionNotificationBanner {
         List<FormattedCharSequence> msgLines = current.msgLines;
         int textW = current.textW;
         int bannerW = current.bannerW;
+        int bannerH = current.bannerH;
         int x = (screenW - bannerW) / 2;
+        int y = (int)((-bannerH) + slide * bannerH);
 
+        // Shadow
         int shadowAlpha = (int)(0x30 * alpha);
         int shadowColor = (shadowAlpha << 24);
         RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
-            x + bannerW + SHADOW_OFF, y + BANNER_H + SHADOW_OFF, cornerRadius, shadowColor);
+            x + bannerW + SHADOW_OFF, y + bannerH + SHADOW_OFF, cornerRadius, shadowColor);
 
         // Background：SDF 圆角（与阴影同 shader，半径配置实时生效；不可被资源包覆盖）
         int bgAlpha = (int)((bg >>> 24) * alpha);
-        RoundRectRenderer.fill(g, x, y, x + bannerW, y + BANNER_H, cornerRadius,
+        RoundRectRenderer.fill(g, x, y, x + bannerW, y + bannerH, cornerRadius,
             (bgAlpha << 24) | (bg & 0x00FFFFFF));
 
         int textX = x + (current.hasAvatar ? TEXT_X : TEXT_X_PLAIN);
         int nameColor, msgColor;
         if (current.hasAvatar) {
-            int avatarY = y + (BANNER_H - AVATAR_HAT) / 2;
+            int avatarY = y + (bannerH - AVATAR_HAT) / 2;
             ResourceLocation skin = getSkin(current.senderUUID, current.senderName.getString());
             RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
             drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
@@ -213,14 +220,15 @@ public class MentionNotificationBanner {
                 g.drawString(mc.font, msgLines.get(i), textX,
                     msgY + i * mc.font.lineHeight, msgColor, false);
         } else {
-            // Plain-text banner: [系统] label + content vertically centered, single row
+            // Plain-text banner: [系统] label sits on the same line as the first
+            // content line, extra lines wrap below; block vertically centered
             int nameAlpha = (int)((theme.textPrimary() >>> 24) * alpha);
             nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
             int msgAlpha = (int)((theme.textSecondary() >>> 24) * alpha);
             msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
             int lineH = mc.font.lineHeight;
             int totalH = lineH * msgLines.size();
-            int textY = y + (BANNER_H - totalH) / 2;
+            int textY = y + (bannerH - totalH) / 2;
             g.drawString(mc.font, nameSeq, textX, textY, nameColor, false);
             int contentX = textX + mc.font.width(nameSeq);
             g.drawString(mc.font, msgLines.get(0), contentX, textY, msgColor, false);
@@ -292,5 +300,5 @@ public class MentionNotificationBanner {
                                   int messageIndex, NotificationType type, boolean hasAvatar,
                                   FormattedCharSequence nameSeq,
                                   List<FormattedCharSequence> msgLines,
-                                  int textW, int bannerW) {}
+                                  int textW, int bannerW, int bannerH) {}
 }
