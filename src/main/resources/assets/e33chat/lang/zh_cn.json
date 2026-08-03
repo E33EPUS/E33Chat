@@ -99,6 +99,8 @@
   "e33chat.config.sidebar_hide_patterns": "侧边栏隐藏规则",
   "e33chat.config.sidebar_hide_patterns.desc": "在侧边栏玩家列表里隐藏匹配这些通配符的名字（逗号分隔，* 为通配符）",
   "e33chat.config.mention_banner_enabled": "@通知横幅",
+  "e33chat.config.system_banner_enabled": "系统消息横幅",
+  "e33chat.config.system_banner_enabled.desc": "系统消息（死亡/进入/广播）以横幅弹出，默认关闭",
   "e33chat.config.mention_banner_duration": "横幅显示时长 (秒, 2-10)",
   "e33chat.config.mention_sound_enabled": "@提及通知音效",
   "e33chat.config.mention_require_at": "需要 @ 符号才触发提及",

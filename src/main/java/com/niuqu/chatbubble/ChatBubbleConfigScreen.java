@@ -155,6 +155,7 @@ public class ChatBubbleConfigScreen extends Screen {
         List<Opt> notify = new ArrayList<>();
         notify.add(Opt.header("e33chat.config.section.mention"));
         notify.add(new Opt("e33chat.config.mention_banner_enabled", y -> mkBoolButton(y, ChatBubbleConfig.MENTION_BANNER_ENABLED), null));
+        notify.add(new Opt("e33chat.config.system_banner_enabled", y -> mkBoolButton(y, ChatBubbleConfig.SYSTEM_BANNER_ENABLED), null));
         notify.add(new Opt("e33chat.config.mention_banner_duration",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.MENTION_BANNER_DURATION.get()), 2, 10, 2, ChatBubbleConfig.MENTION_BANNER_DURATION::set), null));
         notify.add(new Opt("e33chat.config.banner_corner_radius",
@@ -229,6 +230,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(ChatBubbleConfig.SOUND_PUBLIC));
         tracked.add(track(ChatBubbleConfig.SOUND_VOLUME));
         tracked.add(track(ChatBubbleConfig.MENTION_BANNER_ENABLED));
+        tracked.add(track(ChatBubbleConfig.SYSTEM_BANNER_ENABLED));
         tracked.add(track(ChatBubbleConfig.MENTION_BANNER_DURATION));
         tracked.add(track(ChatBubbleConfig.MENTION_SOUND_ENABLED));
         tracked.add(track(ChatBubbleConfig.MENTION_REQUIRE_AT));

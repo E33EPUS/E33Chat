@@ -99,6 +99,8 @@
   "e33chat.config.sidebar_hide_patterns": "Sidebar Hide Patterns",
   "e33chat.config.sidebar_hide_patterns.desc": "Hide players matching these wildcards from the sidebar list (comma-separated, * = wildcard)",
   "e33chat.config.mention_banner_enabled": "Mention notification banner",
+  "e33chat.config.system_banner_enabled": "System message banner",
+  "e33chat.config.system_banner_enabled.desc": "Pop a banner for system messages (deaths/joins/broadcasts). Off by default.",
   "e33chat.config.mention_banner_duration": "Banner display duration (seconds, 2-10)",
   "e33chat.config.mention_sound_enabled": "@mention notification sound",
   "e33chat.config.mention_require_at": "Require @ symbol to trigger mention",

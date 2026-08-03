@@ -92,7 +92,7 @@ public class MentionNotificationController {
     // @/whisper/quote; no sender name — the [系统] label is the name row.
     public void onSystemMessage(Component content, int messageIndex) {
         if (Minecraft.getInstance().player == null) return;
-        if (!ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) return;
+        if (!ChatBubbleConfig.SYSTEM_BANNER_ENABLED.get()) return;
         enqueueDeduped(new UUID(0, 0), Component.empty(), content, messageIndex,
             NotificationType.SYSTEM);
     }
