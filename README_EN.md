@@ -102,9 +102,9 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - Every message renders as a bubble with a head and player name
 - Your bubbles sit on the right, others on the left, each color configurable
 - Bubble corner radius 0–10 (0 = square)
-- Whispers show as `<name>[私聊] content` and quote replies as `<name>[引用] content` (yellow tag); names keep server prefix decorations and team colors
+- Whispers show as `<name>[PM] content` and quote replies as `<name>[Quote] content` (yellow tag); names keep server prefix decorations and team colors
 - The vanilla chat box renders on the HUD as usual (shifted up 8 px clear of the E33Chat icon); ChatHeads / ChatAnimation-style mods work automatically
-- A strong hint pops above the hotbar on @ / quote / system messages
+- A banner pops in at the top on @ / quote / whisper / system messages
 
 ---
 
@@ -235,7 +235,7 @@ E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell playe
 1. **Classifier** — known translation keys (whisper / public chat / broadcast) route deterministically
 2. **Echo suppression** — your own messages are not shown again as grey lines
 3. **Template layer** (2.2.6+) — when the server configured templates, parse exactly per the declaration; see [Server message-format templates](#server-message-format-templates)
-4. **Whisper keywords** — whispers embedded in system lines (悄悄 / whisper / 私聊, etc., before the first colon)
+4. **Whisper keywords** — whispers embedded in system lines (`whisper` / `whispers` / `msg` / `pm` / `tell`, before the first colon)
 5. **Click events** — when the message carries a "click to whisper" structure, attribute by the real name in the command (nickname-server antenna)
 6. **Decorated player line** — name anchor + separator structure (`Steve: hi`, `<Steve> hi`, `Steve >> hi`, suffix titles, legacy `§` codes, bare Chinese short names)
 7. **Grey fallback** — when none confirms, conservatively show as a grey system line, never misattribute
@@ -265,7 +265,7 @@ Supporting mechanics:
 
 1. Only Forge 1.20.1, NeoForge 1.21.1 and Fabric 1.21.1 are supported
 2. When a nickname shares nothing with the real name and the plugin attaches neither a "click to whisper" event nor a tab-list rename, the message shows as a grey system line (templates cannot help either — the name gate shares the same resolution source as the guards)
-3. When the server rewrites player messages into a broadcast format isomorphic to chat (e.g. `系统>>Steve: xxx`), the client cannot reliably detect it
+3. When the server rewrites player messages into a broadcast format isomorphic to chat (e.g. `Server>>Steve: xxx`), the client cannot reliably detect it
 4. Chat formats with only whitespace (no separator) between name and content cannot be parsed
 5. Same-name players colliding with system prefixes on cracked servers cannot be told apart in the extreme case
 6. NCR-encrypted chat (very niche) is shown as ciphertext
