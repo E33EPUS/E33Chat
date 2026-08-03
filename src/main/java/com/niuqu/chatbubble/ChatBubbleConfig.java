@@ -13,7 +13,6 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue RED_DOT_ENABLED;
     public static final ModConfigSpec.BooleanValue HIDE_CHAT_ICON;
     public static final ModConfigSpec.BooleanValue ANIMATION_ENABLED;
-    public static final ModConfigSpec.BooleanValue STRONG_HINT_ENABLED;
     public static final ModConfigSpec.BooleanValue SYSTEM_CHAT_AS_BUBBLE;
     public static final ModConfigSpec.BooleanValue ANTI_SPAM;
     public static final ModConfigSpec.BooleanValue CHAT_HISTORY_ENABLED;
@@ -97,11 +96,6 @@ public class ChatBubbleConfig {
             .comment("Chat panel background opacity percentage (0-100). 0 = fully transparent, 100 = fully opaque")
             .translation("e33chat.config.panel_opacity")
             .defineInRange("panel_opacity", 80, 0, 100);
-
-        STRONG_HINT_ENABLED = builder
-            .comment("Show system messages as a strong hint above the hotbar (otherwise they go to the message preview)")
-            .translation("e33chat.config.strong_hint")
-            .define("strong_hint", true);
 
         SYSTEM_CHAT_AS_BUBBLE = builder
             .comment("Render system messages as chat bubbles")

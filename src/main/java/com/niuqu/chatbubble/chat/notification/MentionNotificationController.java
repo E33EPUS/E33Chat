@@ -88,6 +88,15 @@ public class MentionNotificationController {
         }
     }
 
+    // System messages (server broadcasts/deaths/joins) pop the same banner as
+    // @/whisper/quote; no sender name — the [系统] label is the name row.
+    public void onSystemMessage(Component content, int messageIndex) {
+        if (Minecraft.getInstance().player == null) return;
+        if (!ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) return;
+        enqueueDeduped(new UUID(0, 0), Component.empty(), content, messageIndex,
+            NotificationType.SYSTEM);
+    }
+
     private void enqueueDeduped(UUID uuid, Component name, Component content, int index,
                                 NotificationType type) {
         String fp = uuid + "\0" + content.getString();

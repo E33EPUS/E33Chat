@@ -17,7 +17,7 @@ import java.util.*;
 public class MentionNotificationBanner {
     public static final MentionNotificationBanner INSTANCE = new MentionNotificationBanner();
 
-    public enum NotificationType { MENTION, QUOTE, WHISPER }
+    public enum NotificationType { MENTION, QUOTE, WHISPER, SYSTEM }
 
     private static final long SLIDE_MS = 250;
     private static final long VISIBLE_MS_PERIOD = 1000;
@@ -48,6 +48,7 @@ public class MentionNotificationBanner {
             case MENTION -> Component.translatable("e33chat.banner.mention").getString();
             case QUOTE -> Component.translatable("e33chat.banner.quote").getString();
             case WHISPER -> Component.translatable("e33chat.banner.whisper").getString();
+            case SYSTEM -> Component.translatable("e33chat.banner.system").getString();
         };
         Component labeledName = Component.literal(prefix).append(senderName);
 

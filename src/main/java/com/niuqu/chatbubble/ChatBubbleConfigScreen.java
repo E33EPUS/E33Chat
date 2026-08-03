@@ -149,8 +149,6 @@ public class ChatBubbleConfigScreen extends Screen {
         hud.add(Opt.header("e33chat.config.section.icon"));
         hud.add(new Opt("e33chat.config.red_dot", y -> mkBoolButton(y, ChatBubbleConfig.RED_DOT_ENABLED), null));
         hud.add(new Opt("e33chat.config.hide_chat_icon", y -> mkBoolButton(y, ChatBubbleConfig.HIDE_CHAT_ICON), null));
-        hud.add(Opt.header("e33chat.config.section.stronghint"));
-        hud.add(new Opt("e33chat.config.strong_hint", y -> mkBoolButton(y, ChatBubbleConfig.STRONG_HINT_ENABLED), null));
         cats.add(new Cat("e33chat.config.cat.hud", hud));
 
         // 通知: mention banner / whisper / sound
@@ -210,7 +208,6 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(ChatBubbleConfig.RED_DOT_ENABLED));
         tracked.add(track(ChatBubbleConfig.HIDE_CHAT_ICON));
         tracked.add(track(ChatBubbleConfig.ANIMATION_ENABLED));
-        tracked.add(track(ChatBubbleConfig.STRONG_HINT_ENABLED));
         tracked.add(track(ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE));
         tracked.add(track(ChatBubbleConfig.ANTI_SPAM));
         tracked.add(track(ChatBubbleConfig.CHAT_HISTORY_ENABLED));
