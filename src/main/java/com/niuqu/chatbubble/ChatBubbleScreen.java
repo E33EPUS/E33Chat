@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.CommandSuggestions;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.GameRenderer;
@@ -40,7 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-public class ChatBubbleScreen extends Screen {
+public class ChatBubbleScreen extends ChatScreen {
 
     // Layout
     private int panelX, panelW;
@@ -79,19 +80,16 @@ public class ChatBubbleScreen extends Screen {
         return ChatMessageRenderer.timeKey(t, ChatBubbleConfig.TIME_SEPARATOR_MINUTES.get());
     }
 
-    private EditBox input;
-    private CommandSuggestions commandSuggestions;
     private static int inputX, inputY;
     // Caches resolved head skins per player uuid so the SkinManager isn't hit every frame
     private static final Map<UUID, ResourceLocation> skinCache = new HashMap<>();
+    private CommandSuggestions suggestions;
     private final String initialText;
     private int scrollOffset;
     private int maxScroll;
     private boolean scrollToBottom = true;
     private boolean firstRender = true;
     private static String savedInput = "";
-    private String historyBuffer = "";
-    private int historyPos = -1;
 
     // Emoji panel
     final ChatEmojiPanel emojiPanel = new ChatEmojiPanel();
@@ -172,13 +170,12 @@ public class ChatBubbleScreen extends Screen {
     private int notifBarTextY;
 
     public ChatBubbleScreen(String initialText) {
-        super(Component.translatable("e33chat.screen.title"));
+        super("");
         this.initialText = initialText;
     }
 
     @Override
     protected void init() {
-        historyPos = minecraft.gui.getChat().getRecentChat().size();
         ChatMessageStore.setScreenOpen(true);
         animStart = net.minecraft.Util.getMillis();
         closing = false;
@@ -221,9 +218,9 @@ public class ChatBubbleScreen extends Screen {
         addRenderableWidget(input);
 
         int cmdBgAlpha = ChatBubbleConfig.THEME.get() == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
-        commandSuggestions = new CommandSuggestions(minecraft, this, input, font,
+        suggestions = new CommandSuggestions(minecraft, this, input, font,
             false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdBgAlpha));
-        commandSuggestions.updateCommandInfo();
+        suggestions.updateCommandInfo();
 
 
         sidebarSearchBox = new EditBox(font, 2, 5, SIDEBAR_W - 5, 14, Component.literal(""));
@@ -325,9 +322,9 @@ public class ChatBubbleScreen extends Screen {
                 showMentions = !mentionCandidates.isEmpty();
             }
         }
-        if (commandSuggestions != null) {
-            commandSuggestions.setAllowSuggestions(!text.equals(initialText));
-            commandSuggestions.updateCommandInfo();
+        if (suggestions != null) {
+            suggestions.setAllowSuggestions(!text.equals(initialText));
+            suggestions.updateCommandInfo();
         }
     }
 
@@ -480,7 +477,7 @@ public class ChatBubbleScreen extends Screen {
             }
         }
 
-        if (commandSuggestions != null && commandSuggestions.keyPressed(keyCode, scanCode, modifiers))
+        if (suggestions != null && suggestions.keyPressed(keyCode, scanCode, modifiers))
             return true;
         if (keyCode == 256) { onClose(); return true; }
         if (quickChatInput.isFocused() && (keyCode == 257 || keyCode == 335)) {
@@ -495,13 +492,13 @@ public class ChatBubbleScreen extends Screen {
             return true;
         }
         if (keyCode == 257 || keyCode == 335) {
-            if (commandSuggestions != null) commandSuggestions.hide();
+            if (suggestions != null) suggestions.hide();
             sendMessage();
             return true;
         }
         if (keyCode == 265) { moveInHistory(-1); return true; }
         if (keyCode == 264) { moveInHistory(1); return true; }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return false;
     }
 
     @Override
@@ -530,7 +527,7 @@ public class ChatBubbleScreen extends Screen {
             sidebarScrollOffset = Mth.clamp(sidebarScrollOffset - (int)(scrollY * 20), 0, sidebarMaxScroll);
             return true;
         }
-        if (commandSuggestions != null && commandSuggestions.mouseScrolled(scrollY))
+        if (suggestions != null && suggestions.mouseScrolled(scrollY))
             return true;
         scrollToBottom = false;
         lastScrollTime = net.minecraft.Util.getMillis();
@@ -686,7 +683,7 @@ public class ChatBubbleScreen extends Screen {
             }
         }
 
-        if (commandSuggestions != null && commandSuggestions.mouseClicked((int) mouseX, (int) mouseY, button))
+        if (suggestions != null && suggestions.mouseClicked((int) mouseX, (int) mouseY, button))
             return true;
 
         if (button == 0) {
@@ -820,7 +817,7 @@ public class ChatBubbleScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(origX, mouseY, button);
+        return this.input.mouseClicked(origX, mouseY, button);
     }
 
     @Override
@@ -967,7 +964,7 @@ public class ChatBubbleScreen extends Screen {
         renderMentionPopup(g, mouseX, mouseY);
 
         g.enableScissor(panelX, 0, panelX + panelW, height);
-        if (commandSuggestions != null) commandSuggestions.render(g, mouseX, mouseY);
+        if (suggestions != null) suggestions.render(g, mouseX, mouseY);
         g.disableScissor();
 
         g.pose().popPose();
@@ -989,7 +986,11 @@ public class ChatBubbleScreen extends Screen {
         // EditBox is a widget drawn by super.render() at its real coords — it doesn't
         // follow the panel's pose translate, so slide it with the open/close animation
         input.setX(inputX + panelOffset);
-        super.render(g, mouseX, mouseY, partialTick);
+        // 不调 super.render（ChatScreen.render 访问 package-private suggestions，
+        // 跨包无法初始化）；复制 Screen.render 的 widgets 遍历渲染
+        for (net.minecraft.client.gui.components.Renderable w : this.renderables) {
+            w.render(g, mouseX, mouseY, partialTick);
+        }
 
         // Banner rendered here after super.render() so it's always on top of the panel
         // (the HUD-layer render draws behind the screen batch on Forge/NeoForge).
@@ -1404,7 +1405,7 @@ public class ChatBubbleScreen extends Screen {
                 searchInput.setTextColor(editColor);
                 searchInput.setTextColorUneditable(c().textMuted());
                 int cmdAlpha = ChatBubbleConfig.THEME.get() == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
-                commandSuggestions = new CommandSuggestions(minecraft, this, input, font,
+                suggestions = new CommandSuggestions(minecraft, this, input, font,
                     false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdAlpha));
                 break;
             }
@@ -1641,20 +1642,6 @@ public class ChatBubbleScreen extends Screen {
         scrollToBottom = true;
     }
 
-    private void moveInHistory(int delta) {
-        int size = minecraft.gui.getChat().getRecentChat().size();
-        int newPos = Mth.clamp(historyPos + delta, 0, size);
-        if (newPos != historyPos) {
-            if (newPos == size) {
-                historyPos = size;
-                input.setValue(historyBuffer);
-            } else {
-                if (historyPos == size) historyBuffer = input.getValue();
-                input.setValue(minecraft.gui.getChat().getRecentChat().get(newPos));
-                historyPos = newPos;
-            }
-        }
-    }
 
     @Override
     public void removed() {

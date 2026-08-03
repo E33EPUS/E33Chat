@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.9
+
+**WATUT 兼容（ChatBubbleScreen 改继承 ChatScreen）**
+- `ChatBubbleScreen` 从 `extends Screen` 改为 `extends ChatScreen`（三端）——WATUT（What Are They Up To）靠 `instanceof ChatScreen` + 读取 `input.getValue()` 检测玩家打字/GUI 状态，原 `extends Screen` 导致全部判定失败，玩家打开聊天时别人看不到打字动画
+- 输入框复用父类 `protected EditBox input`（yarn: `chatField`），WATUT 的 AT 已 public 化该字段，可直接读到我们的输入内容
+- 绕开父类方法（`keyPressed`/`mouseClicked`/`render` 访问 package-private `commandSuggestions`/`chatInputSuggestor`，跨包子类无法初始化）：自实现等价逻辑，父类输入框/建议框不会出现（保持 cancel 原版输入框）
+- `moveInHistory` 改走父类实现；配置保存/预设输入等逻辑不变
+- 版本号 2.2.8 → 2.2.9；三端同步，编译+测试全绿
+
+**WATUT compatibility (ChatBubbleScreen now extends ChatScreen)**
+- `ChatBubbleScreen` changed from `extends Screen` to `extends ChatScreen` on all three platforms — WATUT detects typing/GUI state via `instanceof ChatScreen` + reading `input.getValue()`; extending plain Screen made every check fail, so other players never saw the typing animation
+- The edit box now uses the parent's `protected EditBox input` (yarn: `chatField`); WATUT's access transformer already publicizes that field, so it reads our input content directly
+- Parent methods that touch package-private `commandSuggestions`/`chatInputSuggestor` (uninitializable from a cross-package subclass) are bypassed with equivalent local logic — the vanilla input box / suggestor never appear (original cancel preserved)
+- `moveInHistory` now uses the parent implementation; config save / preset input unchanged
+- Version 2.2.8 → 2.2.9; synced across all platforms, build + tests green
+
+***
+
 ## v2.2.8（纹理 API 迁移）
 
 **全 UI 纹理走原版资源 API（删手工加载层）**
