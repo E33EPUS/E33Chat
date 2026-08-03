@@ -38,6 +38,7 @@ public class ChatBubbleConfig {
 
     // mention
     public static final ForgeConfigSpec.BooleanValue MENTION_BANNER_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue SYSTEM_BANNER_ENABLED;
     public static final ForgeConfigSpec.IntValue MENTION_BANNER_DURATION;
     public static final ForgeConfigSpec.BooleanValue MENTION_SOUND_ENABLED;
     public static final ForgeConfigSpec.BooleanValue MENTION_REQUIRE_AT;
@@ -207,6 +208,11 @@ public class ChatBubbleConfig {
             .comment("Show a notification banner when you are @mentioned (phone-style slide-in)")
             .translation("e33chat.config.mention_banner_enabled")
             .define("banner_enabled", true);
+
+        SYSTEM_BANNER_ENABLED = builder
+            .comment("Pop a banner for system messages (deaths/joins/broadcasts). Off by default.")
+            .translation("e33chat.config.system_banner_enabled")
+            .define("system_banner_enabled", false);
 
         MENTION_BANNER_DURATION = builder
             .comment("How long the notification banner stays visible (seconds, 2-10)")
