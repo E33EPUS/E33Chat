@@ -439,8 +439,11 @@ public class ChatBubbleConfigScreen extends Screen {
         // super.render 第一行会调 renderBackground——若那里画半透明黑，它会排在我们手画文字
         // 之后、按钮之前上屏，于是文字被这块黑盖暗、按钮却亮（Forge 1.20.1 的 GuiGraphics
         // 提交时机不同故不裂）。故 renderBackground 置空、背景改在此处只画一次，super 那次空转。
-        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONFIG_BG, ChatBubbleTheme.DARK),
-            0, 0, width, height, 0f, 0f, 1, 1, 1, 1);
+        // CONFIG_BG 烘焙为 75% 不透明（0xC0 alpha），blit 无 alpha 顶点会丢 alpha 画成
+        // 不透明灰块——走带 alpha 顶点的绘制恢复半透明，世界能透出来
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONFIG_BG, ChatBubbleTheme.DARK),
+            0, 0, width, height, 0xC0 / 255f);
         tickAnims();  // 先推进平滑动画+同步控件 y，再画（下方绘制循环依赖更新后的 offset）
         g.drawString(font, title, width / 2 - font.width(title) / 2, 14, c().configTitle(), false);
 

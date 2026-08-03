@@ -64,7 +64,7 @@ public class ChatBubbleHudOverlay {
             String keyDisplay = "[" + keyName + "]";
             int keyW = mc.font.width(keyDisplay);
             int keyX = keyW > ICON_S ? x : x + (ICON_S - keyW) / 2;
-            g.drawString(mc.font, keyDisplay, keyX, textY, c().textPrimary(), false);
+            g.drawString(mc.font, keyDisplay, keyX, textY, 0xFFFFFFFF, false);
         }
 
         g.pose().popPose();
