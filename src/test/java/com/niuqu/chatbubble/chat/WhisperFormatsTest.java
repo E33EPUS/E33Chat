@@ -27,6 +27,37 @@ class WhisperFormatsTest {
         assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Steve says hello"));
     }
 
+    // ---- plugin whisper keywords (2.2.8 audit G1) ----
+
+    @Test void pluginKeywordBeforeColonIsWhisper() {
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("私信 Steve: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("[密谈] Steve: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve 密谈: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve PM you: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve message to you: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve msg you: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve tell you: hi"));
+    }
+
+    @Test void pluginKeywordCaseInsensitive() {
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve pm you: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve Pm: hi"));
+    }
+
+    @Test void shortEnglishWordsNeedWordBoundary() {
+        // "pm"/"msg" 嵌在别的词里不算关键词（hepm/msgbox），防止公屏误判
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Steve hepm: hi"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Steve msgbox: hi"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Steve teller: hi"));
+    }
+
+    @Test void pluginKeywordAfterColonStillPublicChat() {
+        // 关键词在冒号后 = 公屏内容讨论私聊，不算 whisper（G1 回归）
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Steve: 加我私信"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Steve: send me a PM"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Steve: I used /msg"));
+    }
+
     // ---- extractWhisperContent ----
 
     @Test void extractsAfterColon() {

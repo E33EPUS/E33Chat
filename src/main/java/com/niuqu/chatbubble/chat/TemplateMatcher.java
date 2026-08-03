@@ -147,11 +147,12 @@ public class TemplateMatcher {
         if (parsed.isEmpty()) return Optional.empty();
         var pl = parsed.orElseThrow();
         // Locate the BARE name inside the decorated label: the decoration becomes
-        // the literal prefix so {display_name} captures just the player name
-        int nameIdx = text.indexOf(pl.playerName());
+        // the literal prefix so {display_name} captures just the player name.
+        // 偏移来自 parser（嵌色名也正确）
+        int nameIdx = pl.nameStart();
         if (nameIdx < 0) return Optional.empty();
-        int nameEnd = nameIdx + pl.playerName().length();
-        int contentStart = MessagePresentation.skipSeparators(text, nameEnd);
+        int nameEnd = pl.nameEnd();
+        int contentStart = pl.contentStart();
         if (contentStart >= text.length()) return Optional.empty();
         String tpl = text.substring(0, nameIdx)
             + "{display_name}"

@@ -11,6 +11,13 @@
 - 时间分隔线/调色板/@提及弹窗选中行保持 `g.fill`（半透明 blend 语义不变，避免滚动条式 blend 回归）
 - 测试 Forge/NeoForge 204 → 197、Fabric 175 → 168；三端同步
 - **修复提及检测崩溃（社区 PR #10 by Spagles）**：消息以玩家名开头 + requireAt 关闭时 `text.charAt(-1)` 抛 `StringIndexOutOfBoundsException`；移除冗余的 `charAt(idx-1) != '@'` 检查（该分支恒为 true），新增 `MentionDetectorTest` 7 例回归
+- **服务端配置审计 G1-G4（2.2.8 收尾）**：
+  - G1 插件私聊词：`hasWhisperKeywordBeforeColon` 扩词——私信/密谈 + 英文 pm/message/msg/tell（词边界防 hepm/msgbox 误判）；WhisperFormatsTest 补 4 例
+  - G2 广播仿冒：`parseGeneric` 拒绝名字前出现聊天分隔符（`系统>>Steve`/`公告»Steve`/`系统：Steve` 不再误归属成玩家）；MessagePresentationTest 补 3 例
+  - G3 多色 § 嵌名：`parseDecoratedPlayerLine` 双侧剥 § + 偏移映射（`S§6t§beve` 命中 Steve，偏移指向原文供样式切片），守卫1/守卫3/inferFromMessage 全部接新偏移；MessagePresentationTest 补 4 例（含偏移断言）
+  - G4 模板 miss 诊断：`logTemplateMiss` 日志含已配置模板列表（chat/whisper 原始串）；系统消息灰字兜底加 `guard fallback -> gray` 日志
+
+**Server-config audit G1-G4 (2.2.8 wrap-up)**: plugin whisper keywords (私信/密谈 + pm/message/msg/tell with word boundaries); broadcast-spoof guard (names preceded by chat separators no longer attributed); multi-color §-embedded names matched via dual-side strip + offset mapping (offsets point at the original text for style slicing); template-miss diagnostics now include the configured template list, and gray-fallback logging added
 
 **Fixed mention-detection crash (community PR #10 by Spagles)**: messages starting with the player's name with requireAt off threw `StringIndexOutOfBoundsException` at `text.charAt(-1)`; removed the redundant `charAt(idx-1) != '@'` check (always true in that branch), added 7 `MentionDetectorTest` regression cases
 - **修复上线 missing-texture**：`blit(rl)` 懒加载的 RL 必须带 `.png` 后缀（SimpleTexture 原样查资源，不自动补）；Fabric `drawTexture` 组件背景改 11 参分离版防 UV 越界

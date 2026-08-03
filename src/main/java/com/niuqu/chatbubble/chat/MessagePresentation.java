@@ -4,11 +4,21 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Optional;
 
+/**
+ * Parses decorated server chat lines into structured player-name + content pairs.
+ * Handles both colon-based formats (Steve: hi) and generic separator formats
+ * (Steve >> hi, &lt;Steve&gt; hi) produced by NCR and other server plugins.
+ */
 public final class MessagePresentation {
     private MessagePresentation() {}
 
-    public record PlayerLine(String playerName, String displayLabel, String content) {}
+    public record PlayerLine(String playerName, String displayLabel, String content,
+                             int nameStart, int nameEnd, int contentStart) {}
 
+    /**
+     * Tries every online name (longest first to avoid substring mismatches) against
+     * the raw chat line. Returns the first successful parse.
+     */
     public static Optional<PlayerLine> parseDecoratedPlayerLine(
         String text, Collection<String> onlineNames
     ) {
@@ -21,62 +31,93 @@ public final class MessagePresentation {
     }
 
     private static Optional<PlayerLine> parseForName(String text, String name) {
-        var plain = parseGeneric(text, name);
-        if (plain.isPresent() || name == null) return plain;
-        // §6Steve: the server sends color-coded names; try the color-stripped variant
-        String stripped = name.replaceAll("§.", "");
-        if (!stripped.isEmpty() && !stripped.equals(name))
-            return parseGeneric(text, stripped);
-        return Optional.empty();
+        return parseGeneric(text, name);
     }
 
+    /**
+     * Generic separator-skipping approach. Finds a player name with word-boundary
+     * checks, then skips any mix of whitespace and common separator characters
+     * (>, :, ：, », -, |) to locate the message content.
+     *
+     * <p>Handles bracket-wrapped decorations like &lt;[VIP]Steve&gt; and [VIP]Steve
+     * by allowing non-letter neighbours when the name sits inside angle brackets or
+     * is prefixed by a short bracket group.
+     */
     static Optional<PlayerLine> parseGeneric(String text, String name) {
         if (text == null || name == null) return Optional.empty();
-        int idx = text.indexOf(name);
+        // 名字可能嵌 legacy 色码（S§6t§beve），text 侧也可能嵌——双侧剥 §，
+        // 在 clean 文本上做锚点匹配，偏移经映射表转回原文（供样式切片）。
+        String cleanName = name.replaceAll("§.", "");
+        if (cleanName.isEmpty()) return Optional.empty();
+        // stripColor(text) + 偏移映射：map[cleanIdx] = 原文 idx
+        int[] map = new int[text.length()];
+        StringBuilder clean = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == '§' && i + 1 < text.length()) { i++; continue; }
+            map[clean.length()] = i;
+            clean.append(ch);
+        }
+        String ct = clean.toString();
+        int idx = ct.indexOf(cleanName);
         if (idx < 0) return Optional.empty();
 
+        // Broadcast-spoof guard: separators (>>, », |, :) before the name mean a
+        // label like "系统>>Steve" — real chat keeps only decorations ([VIP],
+        // <clan>, §codes, title text) before the name, never chat separators.
+        String beforeName = ct.substring(0, idx);
+        if (beforeName.indexOf('>') >= 0 || beforeName.indexOf('»') >= 0
+            || beforeName.indexOf('|') >= 0 || beforeName.indexOf(':') >= 0
+            || beforeName.indexOf('：') >= 0) return Optional.empty();
+
         int minLen = 3;
-        if (idx > 0 && text.charAt(idx - 1) == '<') {
-            int closeAngle = text.indexOf('>', idx + name.length());
+        // angle-bracket wrapped short name: <a> hi
+        if (idx > 0 && ct.charAt(idx - 1) == '<') {
+            int closeAngle = ct.indexOf('>', idx + cleanName.length());
             if (closeAngle >= 0 && closeAngle - (idx - 1) <= 64) minLen = 1;
         }
+        // bracket-prefix short name followed by colon: [T]a: hi
         if (minLen == 3 && idx > 0) {
-            int bracketClose = text.lastIndexOf(']', idx);
+            int bracketClose = ct.lastIndexOf(']', idx);
             if (bracketClose >= 0 && idx - bracketClose <= 2) {
-                int bracketOpen = text.lastIndexOf('[', bracketClose);
+                int bracketOpen = ct.lastIndexOf('[', bracketClose);
                 if (bracketOpen >= 0) {
-                    int after = idx + name.length();
-                    if (after < text.length()) {
-                        char next = text.charAt(after);
+                    int after = idx + cleanName.length();
+                    if (after < ct.length()) {
+                        char next = ct.charAt(after);
                         if (next == ':' || next == '：') minLen = 1;
                     }
                 }
             }
         }
+        // bare short name followed directly by a colon: 小明: 你好 / a: hi —
+        // cracked servers allow short/Chinese names; the online-list anchor
+        // plus a strong colon makes misattribution very unlikely
         if (minLen == 3) {
-            int after = idx + name.length();
-            if (after < text.length()) {
-                char next = text.charAt(after);
+            int after = idx + cleanName.length();
+            if (after < ct.length()) {
+                char next = ct.charAt(after);
                 if (next == ':' || next == '：') minLen = 1;
             }
         }
-        if (name.length() < minLen) return Optional.empty();
+        if (cleanName.length() < minLen) return Optional.empty();
 
-        int decorativeLen = countDecorativePrefix(text, idx);
+        int decorativeLen = countDecorativePrefix(ct, idx);
         if (idx - decorativeLen >= 30) return Optional.empty();
 
         if (idx > 0) {
-            char prev = text.charAt(idx - 1);
-            boolean prevIsColorCode = prev == '§' || (idx >= 2 && text.charAt(idx - 2) == '§');
+            char prev = ct.charAt(idx - 1);
+            // §6Steve: the preceding digit belongs to a legacy color code, not the name
+            boolean prevIsColorCode = prev == '§' || (idx >= 2 && ct.charAt(idx - 2) == '§');
             if (!prevIsColorCode && (Character.isLetterOrDigit(prev) || prev == '_')) {
-                int openAngle = text.lastIndexOf('<', idx);
-                int closeAngle = text.indexOf('>', idx + name.length());
+                int openAngle = ct.lastIndexOf('<', idx);
+                int closeAngle = ct.indexOf('>', idx + cleanName.length());
                 if (openAngle >= 0 && closeAngle >= 0 && closeAngle - openAngle <= 64) {
                     // inside angle brackets like <[VIP]Steve>
                 } else {
-                    int bracketClose = text.lastIndexOf(']', idx);
+                    int bracketClose = ct.lastIndexOf(']', idx);
                     if (bracketClose >= 0) {
-                        int bracketOpen = text.lastIndexOf('[', bracketClose);
+                        int bracketOpen = ct.lastIndexOf('[', bracketClose);
                         if (bracketOpen < 0 || idx - bracketClose > 2) return Optional.empty();
                     } else {
                         return Optional.empty();
@@ -85,19 +126,30 @@ public final class MessagePresentation {
             }
         }
 
-        int after = idx + name.length();
-        if (after < text.length()) {
-            char next = text.charAt(after);
+        int after = idx + cleanName.length();
+        if (after < ct.length()) {
+            char next = ct.charAt(after);
             if (Character.isLetterOrDigit(next) || next == '_') return Optional.empty();
         }
 
-        int sep = skipSeparators(text, after);
-        if (sep <= after || sep >= text.length()) return Optional.empty();
+        int sep = skipSeparators(ct, after);
+        if (sep <= after || sep >= ct.length()) return Optional.empty();
 
-        String displayLabel = text.substring(0, idx + name.length());
-        return Optional.of(new PlayerLine(name, displayLabel, text.substring(sep).strip()));
+        int origNameStart = map[idx];
+        int origNameEnd = map[idx + cleanName.length()];
+        int origContentStart = map[sep];
+        String displayLabel = text.substring(0, origNameEnd);
+        return Optional.of(new PlayerLine(name, displayLabel, text.substring(origContentStart).strip(),
+            origNameStart, origNameEnd, origContentStart));
     }
 
+    /**
+     * Skips the separator run between name and content: whitespace, common
+     * chat separators, § color pairs, and whole bracket pairs ([LV.10],
+     * (VIP), &lt;clan&gt;, 【title】) so name-suffix decorations parse the
+     * same way prefix decorations do. Shared by the parser and every caller
+     * that locates content start.
+     */
     public static int skipSeparators(String text, int from) {
         int sep = from;
         while (sep < text.length()) {
@@ -109,19 +161,19 @@ public final class MessagePresentation {
                 if (end > sep && end - sep <= 32) { sep = end + 1; continue; }
             }
             if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
-                || ch == '：' || ch == '»' || ch == '-' || ch == '|') { sep++; continue; }
-            break;
+                || ch == '：' || ch == '»' || ch == '-' || ch == '|') sep++;
+            else break;
         }
         return sep;
     }
 
-    public static boolean isWhitespaceOnlyGap(String text, int from, int to) {
-        if (text == null || to <= from) return false;
-        for (int i = from; i < to && i < text.length(); i++) {
-            if (!Character.isWhitespace(text.charAt(i))) return false;
-        }
-        return true;
-    }
+    /**
+     * Whisper-format keywords must come before the first chat colon: a keyword
+     * after the colon sits inside public chat content ("Steve: 不能用私聊") —
+     * on NCR servers public chat reaches the whisper layer with its key stripped.
+     */
+    private static final java.util.regex.Pattern EN_WHISPER_WORDS =
+        java.util.regex.Pattern.compile("\\b(?:pm|message|msg|tell)\\b");
 
     public static boolean hasWhisperKeywordBeforeColon(String text) {
         if (text == null) return false;
@@ -131,10 +183,19 @@ public final class MessagePresentation {
             if (ch == ':' || ch == '：') { colon = i; break; }
         }
         String zone = colon < 0 ? text : text.substring(0, colon);
+        String lower = zone.toLowerCase();
         return zone.contains("悄悄") || zone.contains("whisper") || zone.contains("对你说")
-            || zone.contains("to you") || zone.contains("私聊") || zone.contains("密语") || zone.contains("密聊");
+            || zone.contains("to you") || zone.contains("私聊") || zone.contains("密语")
+            || zone.contains("密聊") || zone.contains("私信") || zone.contains("密谈")
+            || EN_WHISPER_WORDS.matcher(lower).find();
     }
 
+    /**
+     * Extracts the whisper content after the sender name. First separator
+     * after the name wins — lastIndexOf truncated content that itself contains
+     * ": "; colon-family first since "Steve -&gt; you: hi" still extracts at
+     * the colon.
+     */
     public static String extractWhisperContent(String fullText, String senderName) {
         if (senderName == null || senderName.isEmpty()) return fullText;
         int idx = fullText == null ? -1 : fullText.indexOf(senderName);
@@ -145,6 +206,19 @@ public final class MessagePresentation {
             if (i >= 0) return after.substring(i + sep.length());
         }
         return after.trim();
+    }
+
+    /**
+     * True when the gap between name and content holds only whitespace —
+     * the shape of a broadcast sentence (Steve joined the game), not chat:
+     * server chat formats always carry a separator between name and content.
+     */
+    public static boolean isWhitespaceOnlyGap(String text, int from, int to) {
+        if (text == null || to <= from) return false;
+        for (int i = from; i < to && i < text.length(); i++) {
+            if (!Character.isWhitespace(text.charAt(i))) return false;
+        }
+        return true;
     }
 
     private static int countDecorativePrefix(String text, int upTo) {
@@ -159,10 +233,8 @@ public final class MessagePresentation {
                 int close = text.indexOf('>', i + 1);
                 if (close >= 0 && close < upTo) { i = close + 1; continue; }
             }
-            if (c == '§' && i + 1 < text.length()) { i += 2; continue; }
-            if (Character.isWhitespace(c) || c == ':' || c == '：' || c == '»' || c == '-' || c == '|') {
-                i++; continue;
-            }
+            if (c == '§' && i + 1 < upTo) { i += 2; continue; }
+            if (Character.isWhitespace(c) || !Character.isLetterOrDigit(c)) { i++; continue; }
             break;
         }
         return i;

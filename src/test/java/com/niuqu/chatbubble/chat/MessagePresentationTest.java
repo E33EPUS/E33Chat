@@ -258,4 +258,75 @@ class MessagePresentationTest {
         assertTrue(parsed.isPresent());
         assertEquals("➤ hi", parsed.orElseThrow().content());
     }
+
+    // ---- broadcast spoof guard (2.2.8 audit G2) ----
+
+    @Test void rejectsBroadcastLabelWithArrowPrefix() {
+        // 系统>>Steve: xxx —— ">>" 分隔符出现在名字前 = 广播标签，不是玩家聊天
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "系统>>Steve: 你好", List.of("Steve")).isEmpty());
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "公告»Steve: hi", List.of("Steve")).isEmpty());
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "服务器|Steve: hi", List.of("Steve")).isEmpty());
+    }
+
+    @Test void rejectsBroadcastLabelWithColonPrefix() {
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "公告:Steve: hi", List.of("Steve")).isEmpty());
+        assertTrue(MessagePresentation.parseDecoratedPlayerLine(
+            "系统：Steve: hi", List.of("Steve")).isEmpty());
+    }
+
+    @Test void decoratedChatStillParses() {
+        // 名字前是合法装饰（称号文本/括号/色码）不受影响
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "[薄荷一区][主城] PlayerTitle_user/Ciao_Min: 额，在吗？",
+            List.of("Ciao_Min"));
+        assertTrue(parsed.isPresent());
+        assertEquals("Ciao_Min", parsed.orElseThrow().playerName());
+        var ncr = MessagePresentation.parseDecoratedPlayerLine(
+            "Steve >> hi", List.of("Steve"));
+        assertTrue(ncr.isPresent());
+        assertEquals("hi", ncr.orElseThrow().content());
+    }
+
+    // ---- multi-color § embedded names (2.2.8 audit G3) ----
+
+    @Test void parsesColorCodeEmbeddedName() {
+        // S§6t§beve 名字内部嵌色码——双侧剥 § 后 "Steve" 命中
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "S§6t§beve: hi", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("Steve", parsed.orElseThrow().playerName());
+        assertEquals("hi", parsed.orElseThrow().content());
+    }
+
+    @Test void parsesColorCodeEmbeddedNameNcrFormat() {
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "S§6t§beve >> hi", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("hi", parsed.orElseThrow().content());
+    }
+
+    @Test void parsesDecoratedColorCodeEmbeddedName() {
+        // 装饰 + 嵌色名 + 偏移映射到原文
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(
+            "[VIP]S§6t§beve: hi", List.of("Steve"));
+        assertTrue(parsed.isPresent());
+        assertEquals("Steve", parsed.orElseThrow().playerName());
+        assertEquals("hi", parsed.orElseThrow().content());
+        assertEquals(5, parsed.orElseThrow().nameStart());   // [VIP] 后
+        assertEquals(14, parsed.orElseThrow().nameEnd());    // S§6t§beve 原文长 8
+        assertEquals(16, parsed.orElseThrow().contentStart()); // ": " 后
+    }
+
+    @Test void colorCodeNameOffsetsMatchOriginalText() {
+        // 偏移必须指向原文（含色码的字符串），供 sliceStyled 切回原文
+        String text = "S§6t§beve: hi";
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(text, List.of("Steve"));
+        var pl = parsed.orElseThrow();
+        assertEquals("S§6t§beve", text.substring(pl.nameStart(), pl.nameEnd()));
+        assertEquals("hi", text.substring(pl.contentStart()).strip());
+    }
 }

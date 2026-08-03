@@ -310,16 +310,17 @@ public class ChatListenerMixin {
     private static SenderMeta detectWhisperInSystemMessage(String text, String logTag) {
         var player = MinecraftClient.getInstance().player;
         if (player == null || player.networkHandler == null) return null;
+        // G3: 消息嵌 legacy 色码（S§6t§beve）时整条剥 § 再做名字锚点匹配
+        String clean = text.replaceAll("§.", "");
         for (var info : player.networkHandler.getPlayerList()) {
             String profile = info.getProfile().getName();
             for (String cand : nameCandidates(info)) {
-                int idx = text.indexOf(cand);
+                int idx = clean.indexOf(cand);
                 if (idx >= 0 && idx < 30) {
-                    if (text.contains("悄悄") || text.contains("whisper") || text.contains("对你说") || text.contains("to you")
-                        || text.contains("私聊") || text.contains("密语") || text.contains("密聊")) {
-                        String content = extractWhisperContent(text, cand);
+                    if (MessagePresentation.hasWhisperKeywordBeforeColon(clean)) {
+                        String content = extractWhisperContent(clean, cand);
                         UUID senderId = info.getProfile().getId();
-                        ChatMessageStore.debugLog("[e33chat] System(" + logTag + ") | text='" + text + "' | name=" + cand + " | content='" + content + "'");
+                        ChatMessageStore.debugLog("[e33chat] System(" + logTag + ") | text='" + clean + "' | name=" + cand + " | content='" + content + "'");
                         return new SenderMeta(senderId, Text.literal(cand),
                             Text.literal(content), false, profile, true, profile);
                     }
@@ -341,7 +342,11 @@ public class ChatListenerMixin {
         }
         if (++templateMissBurst > 5) return;
         String s = text.length() <= 100 ? text : text.substring(0, 100) + "…";
-        ChatMessageStore.debugLog(() -> "[e33chat] System(template miss) | text='" + s + "'");
+        // G4: 诊断信息含已配置模板列表（原始串），方便核对模板是否写错/漏配
+        StringBuilder tpl = new StringBuilder();
+        for (var t : ChatMessageStore.serverChatTemplates()) tpl.append("\n  chat: ").append(t.raw());
+        for (var t : ChatMessageStore.serverWhisperTemplates()) tpl.append("\n  whisper: ").append(t.raw());
+        ChatMessageStore.debugLog(() -> "[e33chat] System(template miss) | text='" + s + "' | templates=" + tpl);
     }
 
     private static boolean isTemplateNameKnown(String name) {
@@ -543,14 +548,9 @@ public class ChatListenerMixin {
                         return false;
                     }).findFirst().orElse(null);
                 UUID uid = info != null ? info.getProfile().getId() : new UUID(0, 0);
-                int nameIdx = msgStr.indexOf(pl.playerName());
-                int cStart = nameIdx + pl.playerName().length();
-                while (cStart < msgStr.length()) {
-                    char ch = msgStr.charAt(cStart);
-                    if (Character.isWhitespace(ch) || ch == '>' || ch == ':'
-                        || ch == '：' || ch == '»' || ch == '-' || ch == '|') cStart++;
-                    else break;
-                }
+                // 偏移来自 parser（双侧剥 § 后的映射），嵌色名 S§6t§beve 也正确
+                int nameIdx = pl.nameStart();
+                int cStart = pl.contentStart();
                 Text displayName = extractDecoratedName(content, pl.content(), pl.playerName(),
                     Text.literal((msgStr.substring(0, nameIdx) + pl.playerName()).trim()));
                 Text contentComp = ChatMessageStore.sliceStyled(content, cStart, msgStr.length());
@@ -566,6 +566,8 @@ public class ChatListenerMixin {
         SenderMeta tc = detectByTellClick(content, msgStr);
         if (tc != null) { ChatMessageStore.setPendingMeta(tc); return; }
 
+        // 守卫全未命中 → 灰字兜底（系统消息）
+        ChatMessageStore.debugLog("[e33chat] Disguised(guard fallback -> gray) | text='" + msgStr + "'");
         var cfg = ChatBubbleClientSetup.config();
         boolean isSystem = cfg == null || !cfg.systemChatAsBubble();
         ChatMessageStore.setPendingMeta(new SenderMeta(
@@ -641,8 +643,9 @@ public class ChatListenerMixin {
                         return false;
                     }).findFirst().orElse(null);
                 UUID uid = info != null ? info.getProfile().getId() : new UUID(0, 0);
-                int nameIdx = text.indexOf(pl.playerName());
-                int cStart = MessagePresentation.skipSeparators(text, nameIdx + pl.playerName().length());
+                // 偏移来自 parser（双侧剥 § 后的映射），嵌色名 S§6t§beve 也正确
+                int nameIdx = pl.nameStart();
+                int cStart = pl.contentStart();
                 if (MessagePresentation.isWhitespaceOnlyGap(text, nameIdx + pl.playerName().length(), cStart)) {
                     ChatMessageStore.debugLog("[e33chat] System(line skip: broadcast sentence) | text='" + text + "'");
                 } else {
@@ -663,7 +666,8 @@ public class ChatListenerMixin {
         SenderMeta tc = detectByTellClick(message, text);
         if (tc != null) { ChatMessageStore.setPendingMeta(tc); return; }
 
-        // Fallback: real system message
+        // Fallback: real system message（模板 miss + 守卫1/2/3 全未命中 → 灰字兜底）
+        ChatMessageStore.debugLog("[e33chat] System(guard fallback -> gray) | text='" + text + "'");
         var cfg = ChatBubbleClientSetup.config();
         boolean isSystem = cfg == null || !cfg.systemChatAsBubble();
         ChatMessageStore.setPendingMeta(new SenderMeta(
