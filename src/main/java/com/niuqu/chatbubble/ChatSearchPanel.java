@@ -23,8 +23,9 @@ public class ChatSearchPanel {
         return net.minecraft.util.math.MathHelper.clamp(px, Math.min(panelX + 2, max), max);
     }
 
-    private static int searchX(int panelX, int panelW) {
-        return clampX(panelX + panelW / 2 - PANEL_W / 2, PANEL_W, panelX, panelW);
+    // 宽度也随聊天面板收缩（仅 clamp 不收缩时，180 > 166 依然左溢出 16px）
+    private static int fitW(int panelWidth) {
+        return Math.max(100, Math.min(PANEL_W, panelWidth - 4));
     }
 
     public void render(DrawContext g, int mouseX, int mouseY,
@@ -33,16 +34,17 @@ public class ChatSearchPanel {
             TextFieldWidget searchInput,
             List<Integer> searchMatches, int searchMatchIdx) {
         if (!visible) return;
-        int px = searchX(panelX, panelW);
+        int w = fitW(panelW);
+        int px = clampX(panelX + panelW / 2 - w / 2, w, panelX, panelW);
         int py = barTop - PANEL_H - 4;
 
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, py, PANEL_W, PANEL_H, 0f, 0f, 16, 16, 16, 16);
-        g.drawBorder(px, py, PANEL_W, PANEL_H, c.divider());
+            px, py, w, PANEL_H, 0f, 0f, 16, 16, 16, 16);
+        g.drawBorder(px, py, w, PANEL_H, c.divider());
 
         int inputX = px + 4;
         int inputY = py + 4;
-        int inputW = PANEL_W - 8;
+        int inputW = w - 8;
 
         String counter = "";
         int counterW = 0;
@@ -82,8 +84,9 @@ public class ChatSearchPanel {
 
     public boolean isClickOnPanel(int mx, int my, int panelX, int panelW, int barTop) {
         if (!visible) return false;
-        int sx = searchX(panelX, panelW);
+        int w = fitW(panelW);
+        int sx = clampX(panelX + panelW / 2 - w / 2, w, panelX, panelW);
         int sy = barTop - PANEL_H - 4;
-        return mx >= sx && mx <= sx + PANEL_W && my >= sy && my <= sy + PANEL_H;
+        return mx >= sx && mx <= sx + w && my >= sy && my <= sy + PANEL_H;
     }
 }
