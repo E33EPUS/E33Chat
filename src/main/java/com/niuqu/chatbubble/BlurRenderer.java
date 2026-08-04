@@ -82,9 +82,16 @@ public class BlurRenderer {
         int s = (int) mc.getWindow().getScaleFactor();
         x *= s; y *= s; w *= s; h *= s;
 
+        // 面板贴顶时逻辑高度换算会超出 framebuffer 1-2px（1602 > fbH 1600），
+        // 超界源矩形 blit 是实现相关行为——clamp 到 framebuffer 内
+        int y2 = Math.min(y + h, fbH);
+        if (y2 <= y) return;
+        h = y2 - y;
         ensure(w, h);
         int glY0 = fbH - (y + h);
         int glY1 = fbH - y;
+
+
 
         GL30.glDisable(GL30.GL_SCISSOR_TEST);
 
