@@ -19,6 +19,7 @@ import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
 import net.minecraft.util.Identifier;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class ChatBubbleClientSetup implements ClientModInitializer {
@@ -36,8 +37,17 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        configPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat.json");
-        config = ConfigManager.load(configPath);
+        configPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat-client.json");
+        // v2.3.x renamed the file from e33chat.json to e33chat-client.json (aligns with
+        // Forge/Neo); migrate an existing old file so users keep their settings
+        Path legacyPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat.json");
+        if (!Files.exists(configPath) && Files.exists(legacyPath)) {
+            config = ConfigManager.load(legacyPath);
+            ConfigManager.save(configPath, config);
+            com.mojang.logging.LogUtils.getLogger().info("[e33chat] Migrated config from config/e33chat.json to config/e33chat-client.json");
+        } else {
+            config = ConfigManager.load(configPath);
+        }
 
         ClientPlayNetworking.registerGlobalReceiver(ChatMetaPayload.ID, (payload, context) -> {
             context.client().execute(() -> ChatMessageStore.applyChatMeta(
