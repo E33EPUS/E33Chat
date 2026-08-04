@@ -11,7 +11,7 @@
   <img alt="Loader" src="https://img.shields.io/badge/Loader-Forge%20%7C%20NeoForge%20%7C%20Fabric-orange">
   <img alt="Side" src="https://img.shields.io/badge/Side-Client%20required,%20server%20optional-blue">
   <img alt="Java" src="https://img.shields.io/badge/Java-17%2B%20%7C%2021%2B-yellow">
-  <img alt="Version" src="https://img.shields.io/badge/Version-2.2.7-informational">
+  <img alt="Version" src="https://img.shields.io/badge/Version-2.3.0-informational">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-brightgreen">
 </p>
 
@@ -72,7 +72,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 1. Open chat and the E33Chat panel appears
 2. Click the **gear** at the bottom-left → Menu → Settings
 3. In the *Chat Screen* category adjust panel width, bubble color, corner radius, background blur
-4. In the *Notifications* category configure the @ sound, banner, whisper sound and master volume
+4. In the *Notifications* category configure the @ sound, banner, system-message banner, whisper sound and master volume
 
 ---
 
@@ -89,7 +89,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - 📌 **Quick phrases** — Save common phrases and fill them with one click
 - 📋 **Copy & quote reply** — Right-click a message to copy or quote-reply
 - 👤 **Head actions** — Right-click a head to whisper / teleport, left-click to @
-- 🔔 **Notification banner** — Slide-in popup at the top covering @ / quote / whisper / system, with a jump-to-mention button; master volume slider with per-type toggles
+- 🔔 **Notification banner** — Slide-in popup at the top covering @ / quote / whisper / system (system banner on by default), with a jump-to-mention button; master volume slider with per-type toggles
 - 🗨️ **Vanilla chat box** — No custom HUD preview anymore; the vanilla chat renders as usual (shifted up clear of the HUD icon), so ChatHeads / ChatAnimation-style mods work out of the box
 - 🌈 **Colored messages** — Supports `&` color / format codes, rendered locally without changing what is sent
 - 📝 **Input preserved** — Typed text is kept when the chat closes
@@ -124,6 +124,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - Left-click a player head to insert `@name`
 - On @ or quote: a notification banner (slide-in, rounded, shadowed) + sound
 - Separate banner and sound for whispers
+- System-message banner is on by default (toggle in the notification settings)
 - Optional "require @ prefix"
 - Advanced: self-@ / self-quote / self-whisper notification toggles (off by default, for testing)
 - The banner has a "jump to mention" button
@@ -153,9 +154,9 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 
 ## UI texture customization (resource-pack overridable)
 
-UI structural elements render from textures; the defaults are code-generated (theme colors baked in). Drop a PNG at the same path into a resource pack and the element is overridden — colors, patterns and gradients all come from the image.
+UI structural elements, icons and state highlights all render from textures; the defaults are 16×16 solid-color PNGs baked into the JAR (SimpleTexture, lazy-loaded). Drop a PNG at the same path into a resource pack and the element is overridden — colors, patterns and gradients all come from the image. F3+T hot-reloads, no restart needed.
 
-**Path convention**: `assets/e33chat/textures/gui/{dark|light}/<element>.png`. Default textures are 1×1 stretch; hover/selected interaction colors stay code-rendered.
+**Path convention**: `assets/e33chat/textures/gui/{dark|light}/<element>.png`. Default textures are 16×16 solid-color stretch; hover/selected/close state highlights are texture-driven too (overridable since v2.2.8).
 
 | Element | File | Rendering notes |
 |---|---|---|
@@ -166,8 +167,10 @@ UI structural elements render from textures; the defaults are code-generated (th
 | "Copied" toast | `toast_bg.png` | stretch × dynamic alpha (2.2.4 black-block fixed: bake opaque + alpha channel) |
 | Quick-chat scrollbar | `quick_scrollbar_track.png` `quick_scrollbar_thumb.png` | white × tint (theme color / hover state) |
 | Strong-hint bar | `strong_hint_bg.png` | stretch, base color overridable |
+| State highlights (hover/selected/close) | `hover_bg.png` `sidebar_selected.png` `sidebar_hover.png` `context_hover.png` `close_bg.png` `close_hover.png` | stretch, overridable since v2.2.8 |
+| Icons (30) | `settings.png` `copy.png` etc. | 16×16 original size, overridable |
 
-> ⚠️ **Chat bubbles / quote blocks / @-mention banner** are SDF-rounded (shader math) — smooth at any corner-radius config, but **not resource-pack overridable**, since they are not texture-driven. (2.2.8 tried 9-slice texturing; sampling mismatch/upscaling issues, reverted to SDF.)
+> ⚠️ **Chat bubbles / quote blocks / @-mention banner** are SDF-rounded (shader math) — smooth at any corner-radius config, but **not resource-pack overridable**, since they are not texture-driven. (2.2.8+ tried 9-slice texturing; sampling mismatch/upscaling issues, reverted to SDF.)
 
 **Example**: the `E33Chat-Texture-Demo` pack (in the test server's version resourcepacks dir) shows time-separator and toast overrides — enable it in-game via Options → Resource Packs → Available; F3+T hot-reloads, no restart needed.
 
