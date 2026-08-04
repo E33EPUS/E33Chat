@@ -13,9 +13,10 @@ import org.lwjgl.opengl.GL30;
 public class BlurRenderer {
 
     private static int fbo0 = -1, tex0 = -1; // 1:1 copy
-    private static int fbo1 = -1, tex1 = -1; // 1/4
-    private static int fbo2 = -1, tex2 = -1; // 1/8
-    private static int fbo3 = -1, tex3 = -1; // 1/16
+    private static int fbo1 = -1, tex1 = -1; // 1/2
+    private static int fbo2 = -1, tex2 = -1; // 1/4
+    private static int fbo3 = -1, tex3 = -1; // 1/8
+    private static int fbo4 = -1, tex4 = -1; // 1/16
     private static int cw, ch;
 
     private static int[] make(int w, int h) {
@@ -44,6 +45,7 @@ public class BlurRenderer {
         int[] b = make(mw / 2, mh / 2); fbo1 = b[0]; tex1 = b[1];
         int[] c = make(mw / 4, mh / 4); fbo2 = c[0]; tex2 = c[1];
         int[] d = make(mw / 8, mh / 8); fbo3 = d[0]; tex3 = d[1];
+        int[] e = make(mw / 16, mh / 16); fbo4 = e[0]; tex4 = e[1];
     }
 
     private static void destroy() {
@@ -52,6 +54,7 @@ public class BlurRenderer {
             GL30.glDeleteFramebuffers(fbo1); GlStateManager._deleteTexture(tex1);
             GL30.glDeleteFramebuffers(fbo2); GlStateManager._deleteTexture(tex2);
             GL30.glDeleteFramebuffers(fbo3); GlStateManager._deleteTexture(tex3);
+            GL30.glDeleteFramebuffers(fbo4); GlStateManager._deleteTexture(tex4);
             fbo0 = -1; cw = ch = 0;
         }
     }
@@ -90,7 +93,9 @@ public class BlurRenderer {
         blit(fbo0, 0, 0, w, h,    fbo1, 0, 0, w / 2, h / 2);
         blit(fbo1, 0, 0, w / 2, h / 2, fbo2, 0, 0, w / 4, h / 4);
         blit(fbo2, 0, 0, w / 4, h / 4, fbo3, 0, 0, w / 8, h / 8);
+        blit(fbo3, 0, 0, w / 8, h / 8, fbo4, 0, 0, w / 16, h / 16);
 
+        blit(fbo4, 0, 0, w / 16, h / 16, fbo3, 0, 0, w / 8, h / 8);
         blit(fbo3, 0, 0, w / 8, h / 8, fbo2, 0, 0, w / 4, h / 4);
         blit(fbo2, 0, 0, w / 4, h / 4, fbo1, 0, 0, w / 2, h / 2);
         blit(fbo1, 0, 0, w / 2, h / 2, fbo0, 0, 0, w, h);
