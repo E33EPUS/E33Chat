@@ -12,7 +12,7 @@
 - **quick chat 面板高缩放溢出**：固定宽 140 无 clamp，6x 缩放下左溢出屏幕 20px（emoji/search 修过它漏网）
 - **HistoryPacket 反 OOM**：decode count 上限 200（服务端本就封顶 50）
 - **Fabric debugLog 默认值对齐**：false（此前新装默认刷聊天 debug 日志）
-- **性能**：面板模糊（8 次全屏 blit）几何不变时每 3 帧才重算，静止聊天省 ~2/3 开销；动画期几何每帧变自动回退每帧重算
+- ~~**性能**：面板模糊（8 次全屏 blit）每 3 帧重算节流~~ —— 已回退（见下：模糊内容是实时世界，跳过帧显示清晰世界）
 - **GL blend 配对**：HUD 图标/红点等 5 处 enableBlend 后补 disableBlend
 - **HUD 键名提示色随主题**（此前硬编码白字，浅色背景下对比差）
 - **清理**：4 个死 lang 键（cancel/gen_hint/preview_hint/template_placeholder）
@@ -28,13 +28,25 @@
 - Quick-chat panel overflows at high GUI scale (fixed 140px, no clamp) — same fix as emoji/search
 - HistoryPacket OOM guard: decode count capped at 200 (server already caps at 50)
 - Fabric debugLog default aligned to false
-- Performance: panel blur (8 full-screen blits) now recomputes every 3rd frame when geometry is unchanged — animation still recomputes every frame
+- ~~Performance: panel blur recomputed every 3rd frame~~ — reverted (see below: the blur content is the live world, so skipped frames showed the clear world)
 - GL blend pairing: added disableBlend after 5 HUD icon/dot draws
 - HUD key-hint color follows the theme (was hardcoded white)
 - Cleanup: 4 dead lang keys removed
 - Tests: Forge 225 / NeoForge 225 / Fabric 196 all green
 - **服务端命令走 lang 翻译**：`/e33chat template` 系列与模板保存校验的回复此前硬编码中文（英文客户端显示中文）；全部改为 lang 键（含测试输出/校验错误/聊天私聊类别名），系统横幅 lang 描述同步为"默认开启"
+- **服务端命令走 lang 翻译**：`/e33chat template` 系列与模板保存校验的回复此前硬编码中文（英文客户端显示中文）；全部改为 lang 键（含测试输出/校验错误/聊天私聊类别名），系统横幅 lang 描述同步为"默认开启"
+- **通知音效参数统一**：Forge/Neo 的 `forUI(sound, pitch, volume)` 参数顺序用错（0.8×v 传进 pitch、volume 钉死 0.25 → 配置音量完全失效）；Fabric `master` 传 volume=0.64 过响且音高 0.25 低沉。统一 pitch=0.25、volume=0.25×配置系数（配置 80 → 0.2），小声且音量滑条有效
+- **配置界面恢复半透明**：`config_bg` 烘焙 75% 不透明（0xC0），被无 alpha 顶点的 blit/drawTexture 丢弃 → 画成不透明深灰；改走带 alpha 顶点绘制，世界重新透出
+- **HUD 键名提示回退纯白**：2.3.0 审计误把它改成随主题，恢复 `0xFFFFFFFF`（图标下按键提示不随聊天主题）
+- **常用语/搜索输入框被弹层盖住**（2.2.9 `5bb740e` z 提升回归）：输入框 widget 在 z=50 渲染，被 z=100 的不透明面板背景盖住文字/光标 → 看起来"无法聚焦输入"（实际聚焦正常，边框/搜索都生效）；面板打开时在同 z 重画输入框 widget 修复
+- **面板模糊节流回退**：2.3.0 的"每 3 帧重算"假设模糊结果跨帧保留，但模糊内容是实时世界、每帧重绘 → 跳过帧显示清晰世界，模糊看起来失效；回退为每帧重算
 - **Server commands now localize**: `/e33chat template` replies and template-save validation were hardcoded Chinese (English clients saw Chinese); all moved to lang keys (including test output, validation errors, chat/whisper kind names), and the system-banner description now says "on by default"
+- **Server commands now localize**: `/e33chat template` replies and template-save validation were hardcoded Chinese (English clients saw Chinese); all moved to lang keys (including test output, validation errors, chat/whisper kind names), and the system-banner description now says "on by default"
+- **Notification sound unified**: Forge/Neo `forUI(sound, pitch, volume)` had the arguments swapped (0.8×v went into pitch, volume stuck at 0.25, so the volume slider did nothing); Fabric passed volume 0.64 (too loud) with a low 0.25 pitch. Now pitch=0.25, volume=0.25×config (80 → 0.2) on all platforms
+- **Config screen transparency restored**: `config_bg` bakes at 75% alpha (0xC0) but plain blit/drawTexture drops the alpha (no color vertex) → solid dark grey; now drawn with alpha-aware vertices so the world shows through
+- **HUD key hint back to pure white**: 2.3.0 audit wrongly made it follow the theme; reverted to `0xFFFFFFFF`
+- **Quick-chat/search inputs no longer hidden** (2.2.9 `5bb740e` z-lift regression): the input widgets render at z=50 but the opaque panel overlay at z=100 covered their text/caret, looking like focus was broken (it was never broken — the border and search both worked); the widgets are redrawn at the panel's z when open
+- **Blur throttle reverted**: the 2.3.0 "recompute every 3rd frame" assumed the blur result persists across frames, but the blur content is the live world which repaints every frame — skipped frames showed the clear world, so the blur looked off; back to every-frame blur
 
 
 ***
