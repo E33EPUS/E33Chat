@@ -1736,10 +1736,9 @@ public class ChatBubbleScreen extends ChatScreen {
         RenderSystem.setShader(GameRenderer::getPositionTexProgram);
         RenderSystem.enableBlend();
         if (size < 16) {
-            // 图标纹理约定 16x16（内容居中，四周 1px 透明边）。size<16 时采样内容区
-            // (偏移1,1) 1:1 绘制——全幅采样压缩会在 4x 缩放下把边缘半透明像素
-            // 线性放大成"切割"痕迹；1:1 整数放大则干净。
-            g.drawTexture(tex, x, y, 1.0F, 1.0F, size, size, 16, 16);
+            // 图标纹理约定 16x16（内容居中，四周 1px 透明边，内容占 14x14）。采样内容区
+            // (偏移1,1) 完整 14x14 绘制——窗口取 size 会切掉内容右/下 2px（copy 右页被切）。
+            g.drawTexture(tex, x, y, size, size, 1.0F, 1.0F, 14, 14, 16, 16);
         } else {
             g.drawTexture(tex, x, y, 0, 0, size, size, size, size);
         }
