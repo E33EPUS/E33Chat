@@ -103,10 +103,9 @@ public final class ChatBars {
             net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         if (size < 16) {
-            // 图标纹理约定 16x16（内容居中，四周 1px 透明边）。size<16 时采样内容区
-            // (偏移1,1) 1:1 绘制——全幅采样压缩会在 4x 缩放下把边缘半透明像素
-            // 线性放大成"切割"痕迹；1:1 整数放大则干净。
-            g.blit(tex, x, y, 1f, 1f, size, size, 16, 16);
+            // 图标纹理约定 16x16（内容居中，四周 1px 透明边）。采样内容区 14x14（偏移1,1）
+            // 完整绘制——窗口取 size(12) 会切掉内容右/下 2px（copy 双页右页被切）。
+            g.blit(tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16);
         } else {
             g.blit(tex, x, y, 0, 0, size, size, size, size);
         }

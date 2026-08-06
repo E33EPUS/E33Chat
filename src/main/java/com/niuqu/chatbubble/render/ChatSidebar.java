@@ -224,8 +224,8 @@ public final class ChatSidebar {
             net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         if (size < 16) {
-            // 同 ChatBars.drawIcon：16x16 纹理采样内容区(偏移1,1) 1:1 绘制，避免 4x 下边缘切割
-            g.blit(tex, x, y, 1f, 1f, size, size, 16, 16);
+            // 同 ChatBars.drawIcon：采样内容区 14x14（偏移1,1）完整绘制，避免切掉图标右/下缘
+            g.blit(tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16);
         } else {
             g.blit(tex, x, y, 0, 0, size, size, size, size);
         }
