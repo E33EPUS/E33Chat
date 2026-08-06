@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.3.1
+
+**修复**
+- **图标采样窗口修正（2.2.8 回归）**：图标纹理约定 16×16（内容居中占 14×14，四周 1px 透明边），但 2.2.8 的"防边缘切割"补丁把采样窗口写成了 `size`（右键菜单 12px）→ 每个图标右 2 列 + 下 2 行被切掉，复制图标的叠加页右页被吞最明显。三端 9 处（ChatBars / ChatContextMenus / ChatSidebar / ChatBubbleScreen.drawTextureIcon）改为采样完整 14×14 内容区，图标完整显示
+- **Fabric 客户端配置文件对齐**：`config/e33chat.json` → `config/e33chat-client.json`（与 Forge/Neo 的 `e33chat-client.toml` 对齐）；检测到旧文件自动迁移继承设置，老用户不丢配置
+
+**Fixes**
+- Icon sampling window fixed (2.2.8 regression): icon textures are 16×16 (content centered at 14×14 with a 1px transparent border), but the 2.2.8 "anti-clipping" patch sampled only `size` (12px in the context menu) → the right 2 columns and bottom 2 rows of every icon were cut off, most visibly the copy icon's overlay page. All 9 sites across the three platforms (ChatBars / ChatContextMenus / ChatSidebar / ChatBubbleScreen.drawTextureIcon) now sample the full 14×14 content area
+- Fabric client config file renamed `config/e33chat.json` → `config/e33chat-client.json` (aligned with Forge/Neo's `e33chat-client.toml`); a legacy file is auto-migrated so existing settings carry over
+
 ## v2.3.0
 
 **全面审计修复（2.2.0 → 2.3.0，三端同步）**
