@@ -1481,7 +1481,12 @@ public class ChatBubbleScreen extends ChatScreen {
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.enableBlend();
-        g.blit(tex, x, y, 0, 0, size, size, size, size);
+        if (size < 16) {
+            // 图标 16x16 内容居中占 14x14（1px 透明边）——全幅采样压缩会切出边缘切割
+            g.blit(tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16);
+        } else {
+            g.blit(tex, x, y, 0, 0, size, size, size, size);
+        }
     }
 
     private static final UUID NIL_UUID = new UUID(0, 0);
