@@ -1,0 +1,37 @@
+// Root project - 预处理版本链配置 (MasaGadget 风格)
+
+plugins {
+    id "com.replaymod.preprocess" version "4c38783"
+}
+
+preprocess {
+    strictExtraMappings = false
+    mainProjectFile = "versions/mainProject"
+
+    def v1_21_1  = createNode('1.21.1-fabric',  1_21_01, '')
+    def v1_21_2  = createNode('1.21.2-fabric',  1_21_02, '')
+    def v1_21_3  = createNode('1.21.3-fabric',  1_21_03, '')
+    def v1_21_4  = createNode('1.21.4-fabric',  1_21_04, '')
+    def v1_21_5  = createNode('1.21.5-fabric',  1_21_05, '')
+    def v1_21_6  = createNode('1.21.6-fabric',  1_21_06, '')
+    def v1_21_7  = createNode('1.21.7-fabric',  1_21_07, '')
+    def v1_21_8  = createNode('1.21.8-fabric',  1_21_08, '')
+    def v1_21_9  = createNode('1.21.9-fabric',  1_21_09, '')
+    def v1_21_10 = createNode('1.21.10-fabric', 1_21_10, '')
+    def v1_21_11 = createNode('1.21.11-fabric', 1_21_11, '')
+
+    v1_21_1.link(v1_21_2, null)
+    v1_21_2.link(v1_21_3, null)
+    v1_21_3.link(v1_21_4, null)
+    v1_21_4.link(v1_21_5, null)
+    v1_21_5.link(v1_21_6, null)
+    v1_21_6.link(v1_21_7, null)
+    v1_21_7.link(v1_21_8, null)
+    v1_21_8.link(v1_21_9, null)
+    v1_21_9.link(v1_21_10, null)
+    v1_21_10.link(v1_21_11, null)
+
+    for (final def node in getNodes()) {
+        findProject(node.project).ext.mcVersion = node.mcVersion
+    }
+}

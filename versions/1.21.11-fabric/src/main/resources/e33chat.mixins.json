@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.niuqu.chatbubble.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ChatComponentMixin",
+    "ChatInputSuggestorMixin",
+    "ChatListenerMixin",
+    "MinecraftClientMixin"
+  ]
+}

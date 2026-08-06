@@ -1,0 +1,75 @@
+import groovy.json.JsonSlurper
+
+pluginManagement {
+    repositories {
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        maven {
+            name = 'Forge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+        maven {
+            name = 'NeoForge'
+            url = 'https://maven.neoforged.net/releases'
+        }
+        maven {
+            name = 'Jitpack'
+            url = 'https://jitpack.io'
+            content {
+                includeGroupAndSubgroups('com.github')
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    resolutionStrategy {
+        eachPlugin {
+            switch (requested.id.id) {
+                case 'com.replaymod.preprocess': {
+                    useModule("com.github.Fallen-Breath:preprocessor:${requested.version}")
+                    break
+                }
+            }
+        }
+    }
+}
+
+rootProject.name = 'E33Chat'
+
+// MasaGadget 风格：从 settings.json 读取版本列表，精确匹配目录名
+def settingsFile = new File(rootDir, 'settings.json')
+if (!settingsFile.exists()) {
+    throw new GradleException("Missing settings.json: ${settingsFile.absolutePath}")
+}
+
+def settings = new JsonSlurper().parse(settingsFile) as Map<String, List<String>>
+List<String> versions = settings.get('versions') as List<String>
+
+// 主项目文件
+File mainProjectFile = new File(rootDir, 'versions/mainProject')
+if (!mainProjectFile.exists()) {
+    throw new GradleException("Missing versions/mainProject file: ${mainProjectFile.absolutePath}")
+}
+
+for (String version : versions) {
+    File projectDir = new File(rootDir, "versions/${version}")
+    if (!projectDir.exists()) {
+        logger.warn("Warning: Directory not found for version ${version}: ${projectDir.absolutePath}")
+        continue
+    }
+
+    include(":${version}")
+    ProjectDescriptor proj = project(":${version}")
+    proj.setProjectDir(projectDir)
+
+    // 优先使用版本专属 build.gradle，否则使用共享脚本
+    File versionBuildFile = new File(projectDir, "build.gradle")
+    if (versionBuildFile.exists()) {
+        println "Registered version: ${version} -> versions/${version} (local build script)"
+    } else {
+        proj.setBuildFileName("../shared/build.gradle")
+        println "Registered version: ${version} -> versions/${version} (shared build script)"
+    }
+}

@@ -1,0 +1,125 @@
+// 共享构建脚本 - 所有版本子项目共用 (MasaGadget 风格)
+// 版本特定配置在各自 gradle.properties 中定义
+
+// 使用 buildscript + apply plugin 方式支持动态 Loom 版本
+buildscript {
+    repositories {
+        maven { url = "https://maven.fabricmc.net/" }
+        maven { url = "https://jitpack.io" }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("net.fabricmc:fabric-loom:${project.loom_version}")
+        classpath("com.github.Fallen-Breath:preprocessor:4c38783")
+    }
+}
+
+
+
+println "Buildscript classpath:"
+buildscript.configurations.classpath.each { f ->
+    if (f.name.contains("mapping-io") || f.name.contains("fabric-loom")) {
+        println "  ${f.name}"
+    }
+}
+
+apply plugin: "java"
+apply plugin: "fabric-loom"
+apply plugin: "com.replaymod.preprocess"
+apply plugin: "maven-publish"
+
+// 从 root gradle.properties 设置 group 和 version
+group = rootProject.maven_group
+version = rootProject.mod_version
+
+// 使用 project properties 直接配置 (MasaGadget 风格)
+println "Building: ${project.name} (MC ${project.minecraft_version}) - loom ${project.loom_version}"
+
+// 设置预处理器 MC 版本变量
+final int mcVersion = project.mcVersion
+preprocess {
+    vars.put("MC", mcVersion)
+}
+
+// 输出文件名
+base.archivesName = project.archives_base_name
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.terraformersmc.com/releases/" }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.minecraft_version}+build.${project.yarn_build}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    modCompileOnly "com.terraformersmc:modmenu:11.0.3"
+}
+
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand version: project.version
+    }
+}
+
+java {
+    // 预处理器模式下 sourcesJar 重映射会失败，由主项目单独构建 sourcesJar
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+// 预处理器子项目禁用 sourcesJar 重映射（预处理指令导致 remapper 崩溃）
+tasks.named('remapSourcesJar').configure {
+    enabled = false
+}
+
+tasks.withType(Jar).configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+}
+
+// 读取主项目名称
+def mainProjectName = file("${rootProject.projectDir}/versions/mainProject").text.trim()
+
+// 共享源码目录（含预处理指令）
+def sharedSrcDir = file("${rootProject.projectDir}/src/main/java")
+def sharedResDir = file("${rootProject.projectDir}/src/main/resources")
+
+sourceSets {
+    main {
+        java {
+            setSrcDirs([])
+            if (project.name == mainProjectName) {
+                // 主项目从共享源码目录读取（含预处理指令），预处理器将其处理到 build/preprocessed
+                srcDir(sharedSrcDir)
+            } else {
+                // 非主项目使用预处理器生成的代码
+                srcDir(file("${buildDir}/preprocessed/main/java"))
+            }
+        }
+        resources {
+            setSrcDirs([])
+            srcDir sharedResDir
+        }
+    }
+}
+
+
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}

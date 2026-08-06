@@ -1,0 +1,98 @@
+// v1_21_11 专用构建脚本 - 使用 Loom 1.13.3 + 预处理器
+
+buildscript {
+    repositories {
+        maven { url = "https://maven.fabricmc.net/" }
+        maven { url = "https://jitpack.io" }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("net.fabricmc:fabric-loom:${project.loom_version}")
+        classpath("com.github.Fallen-Breath:preprocessor:4c38783")
+    }
+}
+
+println "Building: ${project.name} (MC ${project.minecraft_version}) - loom ${project.loom_version} (with preprocessor)"
+
+apply plugin: "java"
+apply plugin: "fabric-loom"
+apply plugin: "com.replaymod.preprocess"
+apply plugin: "maven-publish"
+
+group = rootProject.maven_group
+version = rootProject.mod_version
+
+base.archivesName = project.archives_base_name
+
+final int mcVersion = project.mcVersion
+preprocess {
+    vars.put("MC", mcVersion)
+}
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.terraformersmc.com/releases/" }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.minecraft_version}+build.${project.yarn_build}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    modCompileOnly "com.terraformersmc:modmenu:11.0.3"
+}
+
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand version: project.version
+    }
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+tasks.named('remapSourcesJar').configure {
+    enabled = false
+}
+
+tasks.withType(Jar).configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+}
+
+def sharedResDir = file("${rootProject.projectDir}/src/main/resources")
+
+// 主项目从共享源码目录直接读取（预处理指令在 Java 中都是注释，编译无影响）
+def sharedSrcDir = file("${rootProject.projectDir}/src/main/java")
+
+sourceSets {
+    main {
+        java {
+            setSrcDirs([])
+            srcDir(sharedSrcDir)
+        }
+        resources {
+            setSrcDirs([])
+            srcDir sharedResDir
+        }
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}

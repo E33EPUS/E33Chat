@@ -1,0 +1,11 @@
+build/
+.gradle/
+run/
+logs/
+*.iml
+.idea/
+out/
+classes/
+temp_refmap/
+*.log
+crash_tmp/
