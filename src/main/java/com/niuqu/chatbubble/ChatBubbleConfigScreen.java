@@ -75,7 +75,7 @@ public class ChatBubbleConfigScreen extends Screen {
 
     private List<Cat> cats;
 
-    // 编辑模型：打开时快照所有配置项；退出回滚到快照，保存保留（Forge 自动落盘）
+    // 编辑模型：打开时快照所有配置项；退出回滚到快照，保存保留（doClose 显式落盘）
     private interface Tracked {
         boolean changed();
         void revert();
@@ -830,8 +830,9 @@ public class ChatBubbleConfigScreen extends Screen {
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-    // 保存：保留改动直接关闭（Forge 自动落盘）
+    // 保存：保留改动直接关闭（显式写盘——ForgeConfigSpec.set() 只改内存，不落盘）
     private void doClose() {
+        ChatBubbleMod.saveClientConfig();
         // 纹理走 blit(RL) 懒加载，配置改动无需重新烘焙
         minecraft.setScreen(lastScreen);
     }

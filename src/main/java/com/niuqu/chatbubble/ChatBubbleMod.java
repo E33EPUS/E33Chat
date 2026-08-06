@@ -44,11 +44,22 @@ public class ChatBubbleMod {
         if (config != null) config.save();
     }
 
+    // ForgeConfigSpec.set() only writes the in-memory nightconfig — the config
+    // screen must explicitly save() or changes vanish on restart
+    private static ModConfig clientConfig;
+
+    public static void saveClientConfig() {
+        ModConfig config = clientConfig;
+        if (config != null) config.save();
+    }
+
     private static void resyncIfServerConfig(ModConfigEvent event) {
         ModConfig config = event.getConfig();
         if (config.getType() == ModConfig.Type.SERVER) {
             serverConfig = config;
             ChatServerListener.broadcastServerConfig();
+        } else if (config.getType() == ModConfig.Type.CLIENT) {
+            clientConfig = config;
         }
     }
 }
