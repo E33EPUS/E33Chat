@@ -5,11 +5,5 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "CommandManagerMixin"
-  ],
-  "client": [
-    "ChatComponentMixin",
-    "ChatInputSuggestorMixin",
-    "ChatListenerMixin",
-    "MinecraftClientMixin"
   ]
 }
