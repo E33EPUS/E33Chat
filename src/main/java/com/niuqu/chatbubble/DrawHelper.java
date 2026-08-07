@@ -1,8 +1,11 @@
 package com.niuqu.chatbubble;
 
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#endif
 import net.minecraft.util.Identifier;
 
+//#if MC >= 12000
 public class DrawHelper {
     // 基础 drawTexture (无颜色)
     public static void drawTexture(DrawContext context, Identifier texture, int x, int y, float u, float v, int width, int height, int textureWidth, int textureHeight) {
@@ -59,3 +62,7 @@ public class DrawHelper {
         //#endif
     }
 }
+//#else
+//$$ public class DrawHelper {
+//$$ }
+//#endif

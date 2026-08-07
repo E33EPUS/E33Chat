@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.mixin;
+//#if MC >= 11900
 import com.mojang.authlib.GameProfile;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.chat.MessagePresentation;
@@ -44,7 +45,7 @@ public class ChatListenerMixin {
             String bracketed = "<" + rawName + ">";
             int p = ns.indexOf(bracketed);
             if (p >= 0) {
-                var out = Text.empty();
+                var out = com.niuqu.chatbubble.Txt.empty();
                 if (p > 0) out.append(ChatMessageStore.sliceStyled(nameArea, 0, p));
                 out.append(ChatMessageStore.sliceStyled(nameArea, p + 1, p + 1 + rawName.length()));
                 int tail = p + bracketed.length();
@@ -94,7 +95,7 @@ public class ChatListenerMixin {
             || s.startsWith("xaero_waypoint_add:");
     }
     private static Text argAsComponent(Object arg) {
-        return arg instanceof Text c ? c : Text.literal(String.valueOf(arg));
+        return arg instanceof Text c ? c : com.niuqu.chatbubble.Txt.literal(String.valueOf(arg));
     }
     private static PlayerListEntry findOnlinePlayer(String displayName) {
         var player = MinecraftClient.getInstance().player;
@@ -159,7 +160,7 @@ public class ChatListenerMixin {
                 String own = player.getName().getString();
                 ChatMessageStore.debugLog("[e33chat] Key(whisper out) | partner=" + partner + " | content='" + content.getString() + "'");
                 ChatMessageStore.setPendingMeta(new SenderMeta(player.getUuid(),
-                    Text.literal(own), content, false, own, true, partner));
+                    com.niuqu.chatbubble.Txt.literal(own), content, false, own, true, partner));
                 return true;
             }
             return false;
@@ -171,7 +172,7 @@ public class ChatListenerMixin {
             if (isXaeroWaypoint(contentStr)) {
                 ChatMessageStore.debugLog("[e33chat] Key(waypoint data) -> system");
                 ChatMessageStore.setPendingMeta(new SenderMeta(new UUID(0, 0),
-                    Text.translatable("e33chat.sender.system"), message, true, null, false, null));
+                    com.niuqu.chatbubble.Txt.translatable("e33chat.sender.system"), message, true, null, false, null));
                 return true;
             }
             String displayName = name.getString().replaceAll("§.", "").trim();
@@ -201,7 +202,7 @@ public class ChatListenerMixin {
             boolean isSystem = cfg == null || !cfg.systemChatAsBubble();
             ChatMessageStore.debugLog("[e33chat] Key(broadcast) | key=" + key);
             ChatMessageStore.setPendingMeta(new SenderMeta(new UUID(0, 0),
-                Text.translatable("e33chat.sender.system"), message, isSystem, null, false, null));
+                com.niuqu.chatbubble.Txt.translatable("e33chat.sender.system"), message, isSystem, null, false, null));
             return true;
         }
         return false;
@@ -298,7 +299,7 @@ public class ChatListenerMixin {
             else break;
         }
         if (contentStart >= text.length()) return null;
-        Text displayName = cleanNameArea(message, 0, b, tellName[0], Text.literal(profileName));
+        Text displayName = cleanNameArea(message, 0, b, tellName[0], com.niuqu.chatbubble.Txt.literal(profileName));
         Text content = ChatMessageStore.sliceStyled(message, contentStart, text.length());
         ChatMessageStore.debugLog("[e33chat] System(tell click) | text='" + text + "' | name=" + profileName + " | display='" + displayName.getString() + "' | content='" + content.getString() + "'");
         return new SenderMeta(senderUuid, displayName, content, false, profileName, false, null);
@@ -336,8 +337,8 @@ public class ChatListenerMixin {
 	                        //$$ UUID senderId = info.getProfile().getId();
 	                        //#endif
                         ChatMessageStore.debugLog("[e33chat] System(" + logTag + ") | text='" + clean + "' | name=" + cand + " | content='" + content + "'");
-                        return new SenderMeta(senderId, Text.literal(cand),
-                            Text.literal(content), false, profile, true, profile);
+                        return new SenderMeta(senderId, com.niuqu.chatbubble.Txt.literal(cand),
+                            com.niuqu.chatbubble.Txt.literal(content), false, profile, true, profile);
                     }
                 }
             }
@@ -362,12 +363,18 @@ public class ChatListenerMixin {
         //#endif
         boolean isWhisper = false;
         String whisperPartner = null;
+        //#if MC >= 12005
         if (params.type().matchesKey(MessageType.MSG_COMMAND_INCOMING)) {
             isWhisper = true;
             whisperPartner = name;
         }
-        Text nameText = Text.literal(name);
+        //#endif
+        Text nameText = com.niuqu.chatbubble.Txt.literal(name);
         ChatMessageStore.debugLog("[e33chat] onChatMessage | name=" + name + " | content='" + rawStr + "' | isWhisper=" + isWhisper);
         ChatMessageStore.setPendingMeta(new SenderMeta(senderId, nameText, raw, false, name, isWhisper, whisperPartner));
     }
 }
+//#else
+//$$ public class ChatListenerMixin {
+//$$ }
+//#endif

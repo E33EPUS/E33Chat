@@ -124,6 +124,8 @@
   "e33chat.config.section.stronghint": "Strong Hint",
   "e33chat.config.section.mention": "@Mention Banner",
   "e33chat.config.section.whisper": "Whisper",
+  "e33chat.config.section.system": "System",
+  "e33chat.config.section.banner": "Banner (Shared)",
   "e33chat.config.section.sound": "Sounds",
   "e33chat.config.section.playerlist": "Player List",
   "e33chat.config.section.history": "History & Input",

@@ -1,6 +1,10 @@
 package com.niuqu.chatbubble;
 
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 
 /**
  * Rounded rectangle renderer.
@@ -13,10 +17,10 @@ public class RoundRectRenderer {
         // No-op in 1.21.11 - custom shaders use RenderPipeline API
     }
 
-    public static void fill(DrawContext g, int x1, int y1, int x2, int y2, float radius, int argb) {
+    public static void fill(Object g, int x1, int y1, int x2, int y2, float radius, int argb) {
         radius = Math.min(radius, Math.min(x2 - x1, y2 - y1) / 2f);
         if (radius <= 0) {
-            g.fill(x1, y1, x2, y2, argb);
+            RenderHelper.fill(g, x1, y1, x2, y2, argb);
             return;
         }
         // Rounded rectangles require a custom shader or RenderPipeline.
@@ -24,6 +28,6 @@ public class RoundRectRenderer {
         // has been removed in favor of the RenderPipeline API.
         // For now, fall back to basic fill. The rounded corners are still functional
         // for most use cases as the radius is typically small.
-        g.fill(x1, y1, x2, y2, argb);
+        RenderHelper.fill(g, x1, y1, x2, y2, argb);
     }
 }

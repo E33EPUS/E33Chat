@@ -1,15 +1,26 @@
 package com.niuqu.chatbubble.network;
+import com.niuqu.chatbubble.GuiCompat;
 import net.minecraft.network.PacketByteBuf;
+//#if MC >= 12005
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
+//#endif
 import net.minecraft.util.Identifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
+        //#if MC >= 12005
         implements CustomPayload {
+        //#else
+        //$$ {
+        //#endif
+    //#if MC >= 12005
     public static final CustomPayload.Id<HistoryPayload> ID =
-        new CustomPayload.Id<>(Identifier.of("e33chat", "chat_history"));
+        new CustomPayload.Id<>(GuiCompat.id("e33chat", "chat_history"));
+    //#else
+    //$$ public static final Identifier ID = new Identifier("e33chat", "chat_history");
+    //#endif
     public record HistoryEntry(
         UUID senderUUID,
         String senderName,
@@ -19,6 +30,7 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
         String replyContent,
         String replySender
     ) {}
+    //#if MC >= 12005
     public static final PacketCodec<PacketByteBuf, HistoryPayload> CODEC = PacketCodec.of(
         (value, buf) -> buf.writeCollection(value.entries, (b, e) -> {
             b.writeString(e.senderUUID().toString());
@@ -39,7 +51,10 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
             nullOrEmpty(b.readString())
         )))
     );
+    //#endif
     private static String nullOrEmpty(String s) { return s == null || s.isEmpty() ? null : s; }
+    //#if MC >= 12005
     @Override
     public Id<HistoryPayload> getId() { return ID; }
+    //#endif
 }

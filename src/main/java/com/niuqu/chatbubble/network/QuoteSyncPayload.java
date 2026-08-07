@@ -1,12 +1,20 @@
 package com.niuqu.chatbubble.network;
+import com.niuqu.chatbubble.GuiCompat;
 import net.minecraft.network.PacketByteBuf;
+//#if MC >= 12005
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
+//#endif
 import net.minecraft.util.Identifier;
+//#if MC >= 12005
 public record QuoteSyncPayload(String quotedSenderName, String quotedContent, String messageHash)
         implements CustomPayload {
+//#else
+//$$ public record QuoteSyncPayload(String quotedSenderName, String quotedContent, String messageHash) {
+//#endif
+    //#if MC >= 12005
     public static final CustomPayload.Id<QuoteSyncPayload> ID =
-        new CustomPayload.Id<>(Identifier.of("e33chat", "quote_sync"));
+        new CustomPayload.Id<>(GuiCompat.id("e33chat", "quote_sync"));
     public static final PacketCodec<PacketByteBuf, QuoteSyncPayload> CODEC = PacketCodec.of(
         (value, buf) -> {
             buf.writeString(value.quotedSenderName);
@@ -17,4 +25,7 @@ public record QuoteSyncPayload(String quotedSenderName, String quotedContent, St
     );
     @Override
     public Id<QuoteSyncPayload> getId() { return ID; }
+    //#else
+    //$$ public static final Identifier ID = new Identifier("e33chat", "quote_sync");
+    //#endif
 }

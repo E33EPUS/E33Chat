@@ -1,7 +1,11 @@
 package com.niuqu.chatbubble;
 
 import net.minecraft.client.font.TextRenderer;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import com.niuqu.chatbubble.DrawHelper;
@@ -71,7 +75,7 @@ public class ChatEmojiPanel {
     int scroll;
     int tab;
 
-    public void render(DrawContext g, int mouseX, int mouseY,
+    public void render(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop, int iconS, int pad) {
         if (!visible) return;
@@ -83,30 +87,30 @@ public class ChatEmojiPanel {
         int py = Math.max(2, barTop - PANEL_H - 4);
 
         String[] tabLabels = {
-            Text.translatable("e33chat.emoji.tab_emoji").getString(),
-            Text.translatable("e33chat.emoji.tab_kaomoji").getString()
+            com.niuqu.chatbubble.Txt.translatable("e33chat.emoji.tab_emoji").getString(),
+            com.niuqu.chatbubble.Txt.translatable("e33chat.emoji.tab_kaomoji").getString()
         };
         int tabW = pw / tabLabels.length;
-        DrawHelper.drawTexture(g, com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.TITLE_BAR),
+        RenderHelper.drawTexture(g, com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.TITLE_BAR),
             px, py, 0f, 0f, pw, TAB_H + 1, 1, 1);
         for (int t = 0; t < tabLabels.length; t++) {
             int tx = px + t * tabW;
-            if (t == tab) g.fill(tx, py, tx + tabW, py + TAB_H, c.inputBg());
+            if (t == tab) RenderHelper.fill(g, tx, py, tx + tabW, py + TAB_H, c.inputBg());
             String label = tabLabels[t];
-            g.drawText(font, label,
+            RenderHelper.drawText(g, font, label,
                 tx + tabW / 2 - font.getWidth(label) / 2, py + (TAB_H - font.fontHeight) / 2, c.textPrimary(), false);
         }
-        DrawHelper.drawTexture(g, com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
+        RenderHelper.drawTexture(g, com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
             px, py + TAB_H, 0f, 0f, pw, 1, 1, 1);
 
         int cy = py + TAB_H + 1;
         int ch = PANEL_H - TAB_H - 1;
-        DrawHelper.drawTexture(g, com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+        RenderHelper.drawTexture(g, com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, cy, 0f, 0f, pw, py + PANEL_H - cy, 1, 1);
-        g.fill(px, py, px + pw, py + 1, c.divider());
-        g.fill(px, py + PANEL_H - 1, px + pw, py + PANEL_H, c.divider());
-        g.fill(px, py + 1, px + 1, py + PANEL_H - 1, c.divider());
-        g.fill(px + pw - 1, py + 1, px + pw, py + PANEL_H - 1, c.divider());
+        RenderHelper.fill(g, px, py, px + pw, py + 1, c.divider());
+        RenderHelper.fill(g, px, py + PANEL_H - 1, px + pw, py + PANEL_H, c.divider());
+        RenderHelper.fill(g, px, py + 1, px + 1, py + PANEL_H - 1, c.divider());
+        RenderHelper.fill(g, px + pw - 1, py + 1, px + pw, py + PANEL_H - 1, c.divider());
 
         if (isKaomoji) {
             renderKaomojiList(g, mouseX, mouseY, font, c, px, cy, pw, ch);
@@ -115,7 +119,7 @@ public class ChatEmojiPanel {
         }
     }
 
-    private void renderEmojiGrid(DrawContext g, int mouseX, int mouseY,
+    private void renderEmojiGrid(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int px, int cy, int pw, int ch, int cols) {
         int rows = (EMOTES.length + cols - 1) / cols;
@@ -123,7 +127,7 @@ public class ChatEmojiPanel {
         int maxScroll = Math.max(0, totalH - ch + 4);
         scroll = MathHelper.clamp(scroll, 0, maxScroll);
 
-        g.enableScissor(px + 1, cy + 1, px + pw - 1, cy + ch - 1);
+        RenderHelper.enableScissor(g, px + 1, cy + 1, px + pw - 1, cy + ch - 1);
         int sy = cy + 2 - scroll;
         for (int i = 0; i < EMOTES.length; i++) {
             int col = i % cols;
@@ -133,16 +137,16 @@ public class ChatEmojiPanel {
             if (ey + SLOT <= cy || ey >= cy + ch) continue;
             if (mouseX >= ex && mouseX <= ex + SLOT - 1
                 && mouseY >= ey && mouseY <= ey + SLOT - 1)
-                g.fill(ex, ey, ex + SLOT - 1, ey + SLOT - 1, c.iconHover());
+                RenderHelper.fill(g, ex, ey, ex + SLOT - 1, ey + SLOT - 1, c.iconHover());
             String emoji = EMOTES[i];
-            g.drawText(font, emoji,
+            RenderHelper.drawText(g, font, emoji,
                 ex + SLOT / 2 - font.getWidth(emoji) / 2,
                 ey + (SLOT - font.fontHeight) / 2, c.textPrimary(), false);
         }
-        g.disableScissor();
+        RenderHelper.disableScissor(g);
     }
 
-    private void renderKaomojiList(DrawContext g, int mouseX, int mouseY,
+    private void renderKaomojiList(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int px, int cy, int pw, int ch) {
         int kCols = 2;
@@ -151,7 +155,7 @@ public class ChatEmojiPanel {
         int maxScroll = Math.max(0, totalH - ch + 4);
         scroll = MathHelper.clamp(scroll, 0, maxScroll);
 
-        g.enableScissor(px + 1, cy + 1, px + pw - 1, cy + ch - 1);
+        RenderHelper.enableScissor(g, px + 1, cy + 1, px + pw - 1, cy + ch - 1);
         int sy = cy + 2 - scroll;
         for (int i = 0; i < KAO.length; i++) {
             int col = i % kCols;
@@ -161,11 +165,11 @@ public class ChatEmojiPanel {
             if (ey + KAO_ITEM_H <= cy || ey >= cy + ch) continue;
             if (mouseX >= ex && mouseX <= ex + kColW - 1
                 && mouseY >= ey && mouseY <= ey + KAO_ITEM_H - 1)
-                g.fill(ex, ey, ex + kColW - 1, ey + KAO_ITEM_H - 1, c.iconHover());
-            g.drawText(font, KAO[i],
+                RenderHelper.fill(g, ex, ey, ex + kColW - 1, ey + KAO_ITEM_H - 1, c.iconHover());
+            RenderHelper.drawText(g, font, KAO[i],
                 ex + 2, ey + (KAO_ITEM_H - font.fontHeight) / 2, c.textPrimary(), false);
         }
-        g.disableScissor();
+        RenderHelper.disableScissor(g);
     }
 
     public String handleClick(int mx, int my,

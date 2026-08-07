@@ -4,11 +4,18 @@ import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
+import com.niuqu.chatbubble.RenderHelper;
 import net.minecraft.client.MinecraftClient;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.client.gui.hud.ChatHud;
+//#if MC >= 11900
 import net.minecraft.client.gui.hud.MessageIndicator;
 import net.minecraft.network.message.MessageSignatureData;
+//#endif
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import org.spongepowered.asm.mixin.Mixin;
@@ -27,6 +34,7 @@ public class ChatComponentMixin {
     private String lastRepostText;
     private long lastRepostTime;
 
+    //#if MC >= 11900
     //#if MC >= 12106
     @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/font/TextRenderer;IIIZZ)V",
         at = @At("HEAD"), cancellable = true, remap = false)
@@ -34,7 +42,8 @@ public class ChatComponentMixin {
     //$$ @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;IIIZ)V",
     //$$     at = @At("HEAD"), cancellable = true, remap = false)
     //#endif
-    private void onRender(DrawContext context,
+    //#endif
+    private void onRender(Object context,
         //#if MC >= 12106
         net.minecraft.client.font.TextRenderer textRenderer,
         //#endif
@@ -51,16 +60,17 @@ public class ChatComponentMixin {
                 return;
             }
             //#if MC >= 12106
-            context.getMatrices().pushMatrix();
-            context.getMatrices().translate(0, -8);
+            RenderHelper.pushMatrix(context);
+            RenderHelper.translate(context, 0, -8);
             //#else
-            //$$ context.getMatrices().push();
-            //$$ context.getMatrices().translate(0, -8, 0);
+            //$$ RenderHelper.pushMatrix(context);
+            //$$ RenderHelper.translate(context, 0, -8, 0);
             //#endif
             e33chat$shifted = true;
         }
     }
 
+    //#if MC >= 11900
     //#if MC >= 12106
     @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/font/TextRenderer;IIIZZ)V",
         at = @At("RETURN"), remap = false)
@@ -68,7 +78,8 @@ public class ChatComponentMixin {
     //$$ @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;IIIZ)V",
     //$$     at = @At("RETURN"), remap = false)
     //#endif
-    private void onRenderReturn(DrawContext context,
+    //#endif
+    private void onRenderReturn(Object context,
         //#if MC >= 12106
         net.minecraft.client.font.TextRenderer textRenderer,
         //#endif
@@ -81,9 +92,9 @@ public class ChatComponentMixin {
         CallbackInfo ci) {
         if (e33chat$shifted) {
             //#if MC >= 12106
-            context.getMatrices().popMatrix();
+            RenderHelper.popMatrix(context);
             //#else
-            //$$ context.getMatrices().pop();
+            //$$ RenderHelper.popMatrix(context);
             //#endif
         }
     }
@@ -94,12 +105,14 @@ public class ChatComponentMixin {
         captureMessage(message, ci);
     }
 
+    //#if MC >= 11900
     @Inject(method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
             at = @At("HEAD"), cancellable = true)
     private void onAddMessageFull(Text message, MessageSignatureData signature,
                                   MessageIndicator indicator, CallbackInfo ci) {
         captureMessage(message, ci);
     }
+    //#endif
 
     // Vanilla chat gets a unified player-style format for whispers/quotes:
     //   <sender>[私聊] content   (whisper in/out, incl. self-whisper)
@@ -107,11 +120,11 @@ public class ChatComponentMixin {
     // The sender component keeps its style so colored nicknames/prefixes survive.
     private void repostToVanilla(Text name, String content, boolean quoting) {
         Text tag = (quoting
-            ? Text.literal("[引用]").formatted(Formatting.YELLOW)
-            : Text.literal("[私聊]").formatted(Formatting.LIGHT_PURPLE));
-        Text reformatted = Text.empty()
-            .append(Text.literal("<")).append(name).append(Text.literal(">")).append(tag)
-            .append(Text.literal(" " + content));
+            ? com.niuqu.chatbubble.Txt.literal("[引用]").formatted(Formatting.YELLOW)
+            : com.niuqu.chatbubble.Txt.literal("[私聊]").formatted(Formatting.LIGHT_PURPLE));
+        Text reformatted = com.niuqu.chatbubble.Txt.empty()
+            .append(com.niuqu.chatbubble.Txt.literal("<")).append(name).append(com.niuqu.chatbubble.Txt.literal(">")).append(tag)
+            .append(com.niuqu.chatbubble.Txt.literal(" " + content));
         String repostStr = reformatted.getString();
         long nowMs = System.currentTimeMillis();
         // Server echoes a whisper twice (signed outgoing + incoming) within ~15ms;
@@ -138,7 +151,7 @@ public class ChatComponentMixin {
                 return info.getDisplayName();
             }
         }
-        return mc.player != null ? mc.player.getName() : Text.literal("?");
+        return mc.player != null ? mc.player.getName() : com.niuqu.chatbubble.Txt.literal("?");
     }
 
     private void captureMessage(Text finalComponent, CallbackInfo ci) {
@@ -173,7 +186,7 @@ public class ChatComponentMixin {
             if (ChatMessageStore.isRecentDuplicate(text)) return;
             meta = new SenderMeta(
                 new UUID(0, 0),
-                Text.translatable("e33chat.sender.system"),
+                com.niuqu.chatbubble.Txt.translatable("e33chat.sender.system"),
                 finalComponent,
                 true,
                 null,

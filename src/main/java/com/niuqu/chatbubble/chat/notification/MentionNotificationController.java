@@ -3,6 +3,7 @@ import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
+import com.niuqu.chatbubble.GuiCompat;
 import com.niuqu.chatbubble.chat.MentionDetector;
 import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.NotificationType;
 import net.minecraft.client.MinecraftClient;
@@ -31,19 +32,15 @@ public class MentionNotificationController {
         if (lastSeen != null && (now - lastSeen) < 3000) return;
         recentFingerprints.put(fingerprint, now);
         if (isMention && cfg.ownMentionNotify()) {
-            Text senderName = meta.senderName() != null ? meta.senderName() : Text.literal("");
+            Text senderName = meta.senderName() != null ? meta.senderName() : com.niuqu.chatbubble.Txt.literal("");
             enqueueDeduped(meta.senderUUID(), senderName, content, messageIndex, NotificationType.MENTION);
             if (cfg.mentionSoundEnabled()) {
-                //#if MC >= 12111
-                mc.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.ui(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1f, 1f));
-                //#else
-                //$$ mc.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.master(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1f, 1f));
-                //#endif
+                mc.getSoundManager().play(GuiCompat.uiSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING, 1f, 1f));
             }
         }
         if (cfg.ownQuoteNotify() && replySender != null && replySender.equals(localName)) {
-            Text senderName = meta.senderName() != null ? meta.senderName() : Text.literal("");
-            enqueueDeduped(meta.senderUUID(), senderName, Text.literal(contentStr), messageIndex, NotificationType.QUOTE);
+            Text senderName = meta.senderName() != null ? meta.senderName() : com.niuqu.chatbubble.Txt.literal("");
+            enqueueDeduped(meta.senderUUID(), senderName, com.niuqu.chatbubble.Txt.literal(contentStr), messageIndex, NotificationType.QUOTE);
         }
     }
     public void onWhisperReceived(UUID senderUUID, Text senderName, Text content, int messageIndex) {

@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.command;
+//#if MC >= 11900
 import com.niuqu.chatbubble.ChatBubbleMod;
 import com.niuqu.chatbubble.chat.TemplateMatcher;
 import com.niuqu.chatbubble.config.ServerConfig;
@@ -47,9 +48,9 @@ public class E33ChatCommands {
                             IntegerArgumentType.getInteger(ctx, "index"))))));
             tpl.then(net.minecraft.server.command.CommandManager.literal("clear")
                 .then(net.minecraft.server.command.CommandManager.literal("chat")
-                    .executes(ctx -> clear(ctx.getSource(), true, "\u804A\u5929")))
+                    .executes(ctx -> clear(ctx.getSource(), true)))
                 .then(net.minecraft.server.command.CommandManager.literal("whisper")
-                    .executes(ctx -> clear(ctx.getSource(), false, "\u79C1\u804A"))));
+                    .executes(ctx -> clear(ctx.getSource(), false))));
             tpl.then(net.minecraft.server.command.CommandManager.literal("test")
                 .then(net.minecraft.server.command.CommandManager.literal("chat")
                     .then(net.minecraft.server.command.CommandManager.argument("index", IntegerArgumentType.integer(1))
@@ -77,81 +78,93 @@ public class E33ChatCommands {
     private static int openServerGui(ServerCommandSource src) {
         var player = src.getPlayer();
         if (player == null) {
-            src.sendError(Text.translatable("e33chat.server.console_only"));
+            src.sendError(com.niuqu.chatbubble.Txt.translatable("e33chat.server.console_only"));
             return 0;
         }
+        //#if MC >= 12005
         ServerPlayNetworking.send(player,
             new ServerConfigScreenPayload(ChatBubbleMod.useTpa(), ChatBubbleMod.historyEnabled(),
                 ChatBubbleMod.templateDebug(), new ArrayList<>(ChatBubbleMod.chatTemplates()),
                 new ArrayList<>(ChatBubbleMod.whisperTemplates())));
         return 1;
+        //#else
+        //$$ src.sendError(com.niuqu.chatbubble.Txt.literal("Server config GUI is only available on Minecraft 1.20.5+."));
+        //$$ return 0;
+        //#endif
     }
     private static List<String> templates(boolean chat) {
         return chat ? ChatBubbleMod.chatTemplates() : ChatBubbleMod.whisperTemplates();
     }
+    private static void feedback(ServerCommandSource src, Text text, boolean broadcast) {
+        //#if MC >= 12000
+        src.sendFeedback(() -> text, broadcast);
+        //#else
+        //$$ src.sendFeedback(text, broadcast);
+        //#endif
+    }
     private static int list(ServerCommandSource src) {
-        src.sendFeedback(() -> Text.literal("\u804A\u5929\u6A21\u677F (" + templates(true).size() + " \u6761):"), false);
+        feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_list_chat_header", templates(true).size()), false);
         printTemplates(src, templates(true));
-        src.sendFeedback(() -> Text.literal("\u79C1\u804A\u6A21\u677F (" + templates(false).size() + " \u6761):"), false);
+        feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_list_whisper_header", templates(false).size()), false);
         printTemplates(src, templates(false));
         return 1;
     }
     private static void printTemplates(ServerCommandSource src, List<String> templates) {
         if (templates.isEmpty()) {
-            src.sendFeedback(() -> Text.literal("  (\u7A7A \u2014 \u4F7F\u7528\u542F\u53D1\u5F0F\u5B88\u536B\u8BC6\u522B)"), false);
+            feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_list_empty"), false);
             return;
         }
         int i = 1;
         for (String t : templates) {
             int idx = i++;
-            src.sendFeedback(() -> Text.literal("  " + idx + ". " + t), false);
+            feedback(src, com.niuqu.chatbubble.Txt.literal("  " + idx + ". " + t), false);
         }
     }
     private static int set(ServerCommandSource src, boolean chat, String raw) {
         TemplateMatcher.CompileResult result = TemplateMatcher.compile(raw);
         if (result.template() == null) {
-            src.sendError(Text.literal("\u6A21\u677F\u65E0\u6548: " + result.error()));
+            src.sendError(com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_set_invalid", result.error()));
             return 0;
         }
         if (!result.template().unknownFields().isEmpty()) {
-            src.sendFeedback(() -> Text.literal("\u8B66\u544A: \u672A\u8BC6\u522B\u5360\u4F4D\u7B26 " + result.template().unknownFields()
-                + " \u5C06\u6309\u5B57\u9762\u91CF\u5904\u7406"), false);
+            feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_set_unknown_fields", result.template().unknownFields()), false);
         }
         List<String> next = new ArrayList<>(templates(chat));
         if (next.contains(raw)) {
-            src.sendError(Text.literal("\u6A21\u677F\u5DF2\u5B58\u5728\uFF0C\u65E0\u9700\u91CD\u590D\u6DFB\u52A0"));
+            src.sendError(com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_set_duplicate"));
             return 0;
         }
         next.add(raw);
         updateTemplates(src, chat, next);
-        src.sendFeedback(() -> Text.literal("\u5DF2\u6DFB\u52A0\u6A21\u677F\uFF08\u5F53\u524D " + next.size() + " \u6761\uFF09: " + raw), false);
+        feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_set_added", next.size(), raw), false);
         return 1;
     }
     private static int remove(ServerCommandSource src, boolean chat, int index) {
         List<String> next = new ArrayList<>(templates(chat));
         if (index < 1 || index > next.size()) {
-            src.sendError(Text.literal("\u7D22\u5F15\u65E0\u6548\uFF081-" + next.size() + "\uFF09\uFF0C\u7528 /e33chat template list \u67E5\u770B"));
+            src.sendError(com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_remove_bad_index", next.size()));
             return 0;
         }
         String removed = next.remove(index - 1);
         updateTemplates(src, chat, next);
-        src.sendFeedback(() -> Text.literal("\u5DF2\u79FB\u9664: " + removed), false);
+        feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_remove_done", removed), false);
         return 1;
     }
-    private static int clear(ServerCommandSource src, boolean chat, String kind) {
+    private static int clear(ServerCommandSource src, boolean chat) {
         updateTemplates(src, chat, List.of());
-        src.sendFeedback(() -> Text.literal(kind + "\u6A21\u677F\u5DF2\u6E05\u7A7A\uFF08\u6062\u590D\u5B88\u536B\u8BC6\u522B\uFF09"), false);
+        feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_clear_done",
+            com.niuqu.chatbubble.Txt.translatable(chat ? "e33chat.server.kind_chat" : "e33chat.server.kind_whisper")), false);
         return 1;
     }
     private static int test(ServerCommandSource src, boolean chat, int index, String text) {
         List<String> raws = templates(chat);
         if (index < 1 || index > raws.size()) {
-            src.sendError(Text.literal("\u7D22\u5F15\u65E0\u6548\uFF081-" + raws.size() + "\uFF09"));
+            src.sendError(com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_bad_index", raws.size()));
             return 0;
         }
         TemplateMatcher.CompileResult result = TemplateMatcher.compile(raws.get(index - 1));
         if (result.template() == null) {
-            src.sendError(Text.literal("\u8BE5\u6A21\u677F\u5F53\u524D\u65E0\u6CD5\u89E3\u6790: " + result.error()));
+            src.sendError(com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_unparseable", result.error()));
             return 0;
         }
         boolean whisper = result.template().whisper();
@@ -160,22 +173,24 @@ public class E33ChatCommands {
             whisper ? List.of(result.template()) : List.of(),
             name -> isKnownOnServer(src, name));
         if (match.isEmpty()) {
-            src.sendFeedback(() -> Text.literal("\u672A\u5339\u914D \u2014 \u8BE5\u6D88\u606F\u4F1A\u56DE\u843D\u5230\u542F\u53D1\u5F0F\u5B88\u536B"), false);
+            feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_no_match"), false);
             return 1;
         }
         var r = match.orElseThrow();
-        src.sendFeedback(() -> Text.literal("\u5339\u914D\u6210\u529F (" + (whisper ? "\u79C1\u804A" : "\u804A\u5929") + " \u6A21\u677F):"), false);
-        if (r.prefix() != null) src.sendFeedback(() -> Text.literal("  prefix = " + r.prefix()), false);
+        feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_matched",
+                com.niuqu.chatbubble.Txt.translatable(whisper ? "e33chat.server.kind_whisper" : "e33chat.server.kind_chat")), false);
+        if (r.prefix() != null) feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_field_prefix", r.prefix()), false);
         if (r.displayName() != null) {
-            src.sendFeedback(() -> Text.literal("  " + (whisper ? "sender/target" : "display_name")
-                + " = " + r.displayName() + (r.verifiedName() != null ? "\uFF08\u5DF2\u786E\u8BA4\u662F\u73A9\u5BB6\uFF09" : "")), false);
+            feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_field_name",
+                    whisper ? "sender/target" : "display_name", r.displayName())
+                .copy().append(com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_verified")), false);
         }
         if (r.sender() != null && r.target() != null) {
-            src.sendFeedback(() -> Text.literal("  sender = " + r.sender() + " | target = " + r.target()), false);
+            feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_field_sender", r.sender(), r.target()), false);
         }
-        src.sendFeedback(() -> Text.literal("  content = " + r.content()), false);
-        src.sendFeedback(() -> Text.literal("  \u504F\u79FB: name[" + r.nameStart() + "," + r.nameEnd()
-            + ") content[" + r.contentStart() + "," + r.contentEnd() + ")"), false);
+        feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_field_content", r.content()), false);
+        feedback(src, com.niuqu.chatbubble.Txt.translatable("e33chat.server.tpl_test_field_offset",
+                r.nameStart(), r.nameEnd(), r.contentStart(), r.contentEnd()), false);
         return 1;
     }
     private static void updateTemplates(ServerCommandSource src, boolean chat, List<String> next) {
@@ -208,3 +223,8 @@ public class E33ChatCommands {
         return false;
     }
 }
+//#else
+//$$ public class E33ChatCommands {
+//$$     public static void register() {}
+//$$ }
+//#endif

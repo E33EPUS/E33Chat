@@ -1,7 +1,7 @@
 package com.niuqu.chatbubble.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.slf4j.LoggerFactory;
+import com.niuqu.chatbubble.E33Log;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -15,16 +15,16 @@ public final class ConfigManager {
                 ChatBubbleConfig loaded = GSON.fromJson(r, ChatBubbleConfig.class);
                 if (loaded != null) {
                     var merged = mergeWithDefaults(loaded);
-                    LoggerFactory.getLogger("e33chat").info("[e33chat] Loaded config | soundPublic=" + merged.soundPublic() + " | soundSystem=" + merged.soundSystem());
+                    E33Log.info("[e33chat] Loaded config | soundPublic=" + merged.soundPublic() + " | soundSystem=" + merged.soundSystem());
                     return merged;
                 }
             } catch (Exception e) {
-                LoggerFactory.getLogger("e33chat").warn("[e33chat] Failed to load config, using defaults", e);
+                E33Log.warn("[e33chat] Failed to load config, using defaults", e);
             }
         }
         ChatBubbleConfig def = ChatBubbleConfig.defaults();
         save(path, def);
-        LoggerFactory.getLogger("e33chat").info("[e33chat] Created default config | soundPublic=" + def.soundPublic() + " | soundSystem=" + def.soundSystem());
+        E33Log.info("[e33chat] Created default config | soundPublic=" + def.soundPublic() + " | soundSystem=" + def.soundSystem());
         return def;
     }
     private static ChatBubbleConfig mergeWithDefaults(ChatBubbleConfig c) {
@@ -65,7 +65,7 @@ public final class ConfigManager {
                 GSON.toJson(config, w);
             }
         } catch (Exception e) {
-            LoggerFactory.getLogger("e33chat").warn("[e33chat] Failed to save config", e);
+            E33Log.warn("[e33chat] Failed to save config", e);
         }
     }
 }

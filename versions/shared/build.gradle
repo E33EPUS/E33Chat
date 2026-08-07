@@ -35,6 +35,8 @@ version = rootProject.mod_version
 
 // 使用 project properties 直接配置 (MasaGadget 风格)
 println "Building: ${project.name} (MC ${project.minecraft_version}) - loom ${project.loom_version}"
+def targetJavaVersion = (project.findProperty('java_version') ?: '21') as Integer
+def modmenuVersion = project.findProperty('modmenu_version') ?: '11.0.3'
 
 // 设置预处理器 MC 版本变量
 final int mcVersion = project.mcVersion
@@ -48,6 +50,7 @@ base.archivesName = project.archives_base_name
 repositories {
     mavenCentral()
     maven { url = "https://maven.terraformersmc.com/releases/" }
+    maven { url = "https://maven.nucleoid.xyz/" }
 }
 
 dependencies {
@@ -55,7 +58,7 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.minecraft_version}+build.${project.yarn_build}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-    modCompileOnly "com.terraformersmc:modmenu:11.0.3"
+    modCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
 }
 
 processResources {
@@ -68,7 +71,7 @@ processResources {
 
 java {
     // 预处理器模式下 sourcesJar 重映射会失败，由主项目单独构建 sourcesJar
-    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
 }
 
 // 预处理器子项目禁用 sourcesJar 重映射（预处理指令导致 remapper 崩溃）
@@ -81,7 +84,7 @@ tasks.withType(Jar).configureEach {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.release = 21
+    options.release = targetJavaVersion
     options.encoding = 'UTF-8'
 }
 
@@ -91,8 +94,10 @@ def mainProjectName = file("${rootProject.projectDir}/versions/mainProject").tex
 // 共享源码目录（含预处理指令）
 def sharedSrcDir = file("${rootProject.projectDir}/src/main/java")
 def sharedResDir = file("${rootProject.projectDir}/src/main/resources")
+def versionJavaDir = file("${project.projectDir}/src/main/java")
 def versionResDir = file("${project.projectDir}/src/main/resources")
 def preprocessedDir = file("${buildDir}/preprocessed/main/java")
+def stubOnlySources = (project.findProperty('stub_only_sources') ?: 'false').toString().toBoolean()
 
 // 生成预处理代码的任务：按当前子项目 mcVersion 处理 //#if / //#else / //#endif，
 // 并在选中旧版本分支时把 //$$ 代码行恢复为真实 Java 代码。
@@ -179,7 +184,10 @@ sourceSets {
     main {
         java {
             setSrcDirs([])
-            srcDir(preprocessedDir)
+            if (!stubOnlySources) {
+                srcDir(preprocessedDir)
+            }
+            srcDir(versionJavaDir)
         }
         resources {
             setSrcDirs([])
@@ -192,7 +200,9 @@ sourceSets {
 }
 
 tasks.named('compileJava').configure {
-    dependsOn(preprocessTask)
+    if (!stubOnlySources) {
+        dependsOn(preprocessTask)
+    }
 }
 
 // 本项目已经使用自定义 preprocessJava 处理 Java 源码，并通过 sourceSets 合并资源；

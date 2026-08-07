@@ -10,9 +10,12 @@ import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.network.ServerConfigSavePayload;
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+//#if MC >= 11900
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
+//#endif
+//#if MC >= 12005
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+//#endif
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -44,6 +47,7 @@ public class ChatBubbleMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        //#if MC >= 12005
         PayloadTypeRegistry.playC2S().register(QuoteSyncPayload.ID, QuoteSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ChatMetaPayload.ID, ChatMetaPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(HistoryPayload.ID, HistoryPayload.CODEC);
@@ -71,7 +75,7 @@ public class ChatBubbleMod implements ModInitializer {
                 //#else
                 //$$ if (!player.hasPermissionLevel(2)) {
                 //#endif
-                    player.sendMessage(Text.translatable("e33chat.server.op_required")
+                    player.sendMessage(com.niuqu.chatbubble.Txt.translatable("e33chat.server.op_required")
                         .formatted(Formatting.RED), false);
                     return;
                 }
@@ -84,7 +88,9 @@ public class ChatBubbleMod implements ModInitializer {
                 });
             });
         });
+        //#endif
 
+        //#if MC >= 11900
         ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
             String rawText = message.getContent().getString();
             //#if MC >= 12106
@@ -108,9 +114,11 @@ public class ChatBubbleMod implements ModInitializer {
             if (quote != null || !mentions.isEmpty()) {
                 ChatMetaPayload meta = new ChatMetaPayload(
                     sender.getUuid(), messageHash, quoteSender, quoteContent, mentions);
+                //#if MC >= 12005
                 for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
                     ServerPlayNetworking.send(p, meta);
                 }
+                //#endif
             }
 
             addToHistory(new HistoryPayload.HistoryEntry(
@@ -119,6 +127,7 @@ public class ChatBubbleMod implements ModInitializer {
                 quote != null ? quote.quotedContent() : null,
                 quote != null ? quote.quotedSenderName() : null));
         });
+        //#endif
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             // Load server config from <world>/serverconfig/ on first join (matching
@@ -132,6 +141,7 @@ public class ChatBubbleMod implements ModInitializer {
             }
 
             // Always sync server-side settings so the client head menu matches the server
+            //#if MC >= 12005
             ServerPlayNetworking.send(handler.player,
                 new ConfigSyncPayload(useTpa));
             ServerPlayNetworking.send(handler.player, buildConfigV2());
@@ -140,10 +150,13 @@ public class ChatBubbleMod implements ModInitializer {
             if (historyBuffer.isEmpty()) return;
             ServerPlayNetworking.send(handler.player,
                 new HistoryPayload(new ArrayList<>(historyBuffer)));
+            //#endif
         });
 
         // /e33chat template commands + /e33chat gui
+        //#if MC >= 11900
         com.niuqu.chatbubble.command.E33ChatCommands.register();
+        //#endif
     }
 
     private static void loadConfig(ServerConfig config) {
@@ -156,9 +169,11 @@ public class ChatBubbleMod implements ModInitializer {
 
     public static void broadcastServerConfig(net.minecraft.server.MinecraftServer server) {
         var v2 = buildConfigV2();
+        //#if MC >= 12005
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
             ServerPlayNetworking.send(p, v2);
         }
+        //#endif
     }
 
     private static ConfigSyncV2Payload buildConfigV2() {

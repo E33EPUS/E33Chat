@@ -13,19 +13,29 @@ import net.minecraft.client.MinecraftClient;
 //#if MC >= 12109
 import net.minecraft.client.gui.Click;
 //#endif
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
+//#if MC >= 11900
 import net.minecraft.client.gui.screen.ChatInputSuggestor;
+//#endif
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+//#if MC >= 12004
 import net.minecraft.client.gui.PlayerSkinDrawer;
+//#endif
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
+//#if MC >= 12004
 import net.minecraft.client.util.DefaultSkinHelper;
 //#if MC >= 12109
 import net.minecraft.entity.player.SkinTextures;
 //#else
 //$$ import net.minecraft.client.util.SkinTextures;
+//#endif
 //#endif
 import net.minecraft.text.*;
 import net.minecraft.util.Formatting;
@@ -77,7 +87,7 @@ public class ChatBubbleScreen extends Screen {
 
     static Identifier iconTex(String name) {
         String theme = ChatBubbleClientSetup.config().theme().toLowerCase();
-        return Identifier.of("e33chat", "textures/gui/" + theme + "/" + name);
+        return GuiCompat.id("e33chat", "textures/gui/" + theme + "/" + name);
     }
 
     private void ensureIconsLoaded() {
@@ -94,7 +104,9 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private TextFieldWidget input;
+    //#if MC >= 11900
     private ChatInputSuggestor commandSuggestions;
+    //#endif
     private static int inputX, inputY;
 
     public static int getInputX() { return inputX; }
@@ -105,7 +117,9 @@ public class ChatBubbleScreen extends Screen {
     private boolean scrollToBottom = true;
     private boolean firstRender = true;
     private static String savedInput = "";
+    //#if MC >= 12004
     private static final java.util.Map<UUID, SkinTextures> skinCache = new java.util.HashMap<>();
+    //#endif
     private String historyBuffer = "";
     private int historyPos = -1;
 
@@ -182,7 +196,7 @@ public class ChatBubbleScreen extends Screen {
     private int notifBarTextY;
 
     public ChatBubbleScreen(String initialText) {
-        super(Text.translatable("e33chat.screen.title"));
+        super(com.niuqu.chatbubble.Txt.translatable("e33chat.screen.title"));
         this.initialText = initialText;
     }
 
@@ -219,7 +233,7 @@ public class ChatBubbleScreen extends Screen {
         int sendX = panelX + panelW - PAD - ICON_S + 2;
         int inputW = sendX - ICON_S - 8 - inputX;
 
-        input = new TextFieldWidget(textRenderer, inputX, ibY + 3, inputW, INPUT_H, Text.literal(""));
+        input = new TextFieldWidget(textRenderer, inputX, ibY + 3, inputW, INPUT_H, com.niuqu.chatbubble.Txt.literal(""));
         input.setMaxLength(256);
         input.setDrawsBackground(false);
         int editColor = theme() == ChatBubbleTheme.LIGHT ? c().textSecondary() : c().textPrimary();
@@ -228,17 +242,21 @@ public class ChatBubbleScreen extends Screen {
         input.setText(initialText.isEmpty() && ChatBubbleClientSetup.config().preserveInput() && !savedInput.isEmpty() ? savedInput : initialText);
         input.setChangedListener(this::onEdited);
         input.setFocusUnlocked(false);
-        addDrawableChild(input);
+        GuiCompat.addDrawableChild(this, input);
 
+        //#if MC >= 11900
         int cmdBgAlpha = theme() == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
-        commandSuggestions = new ChatInputSuggestor(client, this, input, textRenderer,
-            false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdBgAlpha));
-        commandSuggestions.setWindowActive(true);
+                //#if MC >= 11900
+                commandSuggestions = new ChatInputSuggestor(client, this, input, textRenderer,
+                    false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdBgAlpha));
+                commandSuggestions.setWindowActive(true);
+                //#endif
         commandSuggestions.refresh();
+        //#endif
 
         ensureIconsLoaded();
 
-        sidebarSearchBox = new TextFieldWidget(textRenderer, 2, 5, SIDEBAR_W - 5, SIDEBAR_SEARCH_H, Text.literal(""));
+        sidebarSearchBox = new TextFieldWidget(textRenderer, 2, 5, SIDEBAR_W - 5, SIDEBAR_SEARCH_H, com.niuqu.chatbubble.Txt.literal(""));
         sidebarSearchBox.setMaxLength(20);
         sidebarSearchBox.setDrawsBackground(false);
         sidebarSearchBox.setEditableColor(editColor);
@@ -247,18 +265,18 @@ public class ChatBubbleScreen extends Screen {
         sidebarSearchBox.setChangedListener(s -> sidebarScrollOffset = 0);
         sidebarSearchBox.setFocusUnlocked(true);
         if (sidebarOpen) sidebarSearchBox.setX(2 - SIDEBAR_W);
-        addDrawableChild(sidebarSearchBox);
+        GuiCompat.addDrawableChild(this, sidebarSearchBox);
 
-        quickChatInput = new TextFieldWidget(textRenderer, 0, 0, QUICK_CHAT_W - 8, 12, Text.translatable("e33chat.menu.quick_chat"));
+        quickChatInput = new TextFieldWidget(textRenderer, 0, 0, QUICK_CHAT_W - 8, 12, com.niuqu.chatbubble.Txt.translatable("e33chat.menu.quick_chat"));
         quickChatInput.setMaxLength(256);
         quickChatInput.setDrawsBackground(false);
         quickChatInput.setEditableColor(editColor);
         quickChatInput.setUneditableColor(c().textMuted());
         quickChatInput.setVisible(false);
         quickChatInput.setFocusUnlocked(true);
-        addDrawableChild(quickChatInput);
+        GuiCompat.addDrawableChild(this, quickChatInput);
 
-        searchInput = new TextFieldWidget(textRenderer, 0, 0, 160, 12, Text.translatable("e33chat.menu.search"));
+        searchInput = new TextFieldWidget(textRenderer, 0, 0, 160, 12, com.niuqu.chatbubble.Txt.translatable("e33chat.menu.search"));
         searchInput.setMaxLength(128);
         searchInput.setDrawsBackground(false);
         searchInput.setEditableColor(editColor);
@@ -266,7 +284,7 @@ public class ChatBubbleScreen extends Screen {
         searchInput.setVisible(false);
         searchInput.setChangedListener(this::onSearchEdited);
         searchInput.setFocusUnlocked(true);
-        addDrawableChild(searchInput);
+        GuiCompat.addDrawableChild(this, searchInput);
 
         setFocused(input);
     }
@@ -290,13 +308,13 @@ public class ChatBubbleScreen extends Screen {
         if (input != null) {
             input.setX(inputX);
             input.setWidth(inputW);
-            input.setY(ibY + 3);
+            GuiCompat.setWidgetY(input, ibY + 3);
         }
     }
 
     private String getDisplayTitle() {
         if (whisperPartner != null) return whisperPartner;
-        return Text.translatable("e33chat.sidebar.public").getString();
+        return com.niuqu.chatbubble.Txt.translatable("e33chat.sidebar.public").getString();
     }
 
     private float getSidebarAnimProgress() {
@@ -336,9 +354,9 @@ public class ChatBubbleScreen extends Screen {
 
     private static final int SIDEBAR_SEARCH_H = 14;
 
-    private void renderSidebar(DrawContext g, int mouseX, int mouseY) {
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, 0f, 0f, SIDEBAR_W, height, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), SIDEBAR_W - 1, 0, 0f, 0f, 1, height, 1, 1);
+    private void renderSidebar(Object g, int mouseX, int mouseY) {
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, 0f, 0f, SIDEBAR_W, height, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), SIDEBAR_W - 1, 0, 0f, 0f, 1, height, 1, 1);
 
         int y = 2;
         int itemH = SIDEBAR_ITEM_H;
@@ -347,30 +365,30 @@ public class ChatBubbleScreen extends Screen {
         int sby = 2;
         int sbw = SIDEBAR_W - 5;
         int sbh = SIDEBAR_SEARCH_H;
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, 0f, 0f, sbw + 1, sbh, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, 0f, 0f, sbw + 1, sbh, 1, 1);
         boolean hoverSearch = mouseX >= sbx - 1 && mouseX <= sbx + sbw && mouseY >= sby && mouseY <= sby + sbh;
         if (hoverSearch || sidebarSearchBox.isFocused())
             drawBorder(g, sbx - 1, sby, sbw + 1, sbh, c().textMuted());
         if (sidebarSearchBox.getText().isEmpty() && !sidebarSearchBox.isFocused()) {
-            g.drawText(textRenderer, Text.translatable("e33chat.sidebar.search").getString(), sbx, sby + 3, c().textMuted(), false);
+            RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.translatable("e33chat.sidebar.search").getString(), sbx, sby + 3, c().textMuted(), false);
         }
         y = sby + sbh + 3;
 
         boolean isPublic = whisperPartner == null;
         int pubBg = isPublic ? c().sidebarItemSelected()
             : (mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= y && mouseY <= y + itemH ? c().sidebarItemHover() : 0);
-        if (pubBg != 0) g.fill(0, y, SIDEBAR_W, y + itemH, pubBg);
+        if (pubBg != 0) RenderHelper.fill(g, 0, y, SIDEBAR_W, y + itemH, pubBg);
         drawTextureIcon(g, iconTex("public_icon"), 2, y + 1, SIDEBAR_ICON_S);
         int nameX = 2 + SIDEBAR_ICON_S + 3;
-        String publicLabel = Text.translatable("e33chat.sidebar.public").getString();
-        g.drawText(textRenderer, publicLabel, nameX, y + 1, c().textPrimary(), false);
+        String publicLabel = com.niuqu.chatbubble.Txt.translatable("e33chat.sidebar.public").getString();
+        RenderHelper.drawText(g, textRenderer, publicLabel, nameX, y + 1, c().textPrimary(), false);
         ChatMessageStore.ChatMessage latestPub = ChatMessageStore.getLatestPublicMessage();
         if (latestPub != null) {
             int previewMaxW = SIDEBAR_W - nameX - 4;
             String preview = ChatMessageStore.singleLine(latestPub.content().getString());
             String previewDisplay = textRenderer.trimToWidth(preview, previewMaxW - textRenderer.getWidth("..."));
             if (!previewDisplay.equals(preview)) previewDisplay += "...";
-            g.drawText(textRenderer, previewDisplay, nameX, y + 1 + textRenderer.fontHeight, c().textMuted(), false);
+            RenderHelper.drawText(g, textRenderer, previewDisplay, nameX, y + 1 + textRenderer.fontHeight, c().textMuted(), false);
         }
         y += itemH + 2;
 
@@ -397,16 +415,16 @@ public class ChatBubbleScreen extends Screen {
             if (totalH == 0) {
                 int iconS = 32;
                 drawTextureIcon(g, iconTex("no_online"), (SIDEBAR_W - iconS) / 2, startY + 8, iconS);
-                String noPlayers = Text.translatable("e33chat.sidebar.no_players").getString();
+                String noPlayers = com.niuqu.chatbubble.Txt.translatable("e33chat.sidebar.no_players").getString();
                 int textW = textRenderer.getWidth(noPlayers);
-                g.drawText(textRenderer, noPlayers,
+                RenderHelper.drawText(g, textRenderer, noPlayers,
                     (SIDEBAR_W - textW) / 2, startY + 8 + iconS + 4, c().textMuted(), false);
             } else {
                 int maxSideScroll = Math.max(0, totalH - (visibleBottom - startY));
                 sidebarMaxScroll = maxSideScroll;
                 if (sidebarScrollOffset > maxSideScroll) sidebarScrollOffset = maxSideScroll;
 
-                g.enableScissor(0, startY, SIDEBAR_W, visibleBottom);
+                RenderHelper.enableScissor(g, 0, startY, SIDEBAR_W, visibleBottom);
                 int scrollY = startY - sidebarScrollOffset;
                 for (var info : players) {
                     //#if MC >= 12109
@@ -422,27 +440,29 @@ public class ChatBubbleScreen extends Screen {
                         boolean sel = name.equals(whisperPartner);
                         int itemBg = sel ? c().sidebarItemSelected()
                             : (mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= scrollY && mouseY <= scrollY + itemH ? c().sidebarItemHover() : 0);
-                        if (itemBg != 0) g.fill(0, scrollY, SIDEBAR_W, scrollY + itemH, itemBg);
+                        if (itemBg != 0) RenderHelper.fill(g, 0, scrollY, SIDEBAR_W, scrollY + itemH, itemBg);
 
-        //#if MC >= 12109
+                    //#if MC >= 12004
+                    //#if MC >= 12109
         SkinTextures skin = getSkin(info.getProfile().id(), info.getProfile().name());
         //#else
         //$$ SkinTextures skin = getSkin(info.getProfile().getId(), info.getProfile().getName());
         //#endif
                         drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18);
+                    //#endif
 
                         int tipW = ChatMessageStore.hasUnreadWhisper(name) ? 16 : 0;
                         int maxNameW = SIDEBAR_W - nameX - 4 - tipW - 2;
                         String displayName = textRenderer.trimToWidth(name, maxNameW - textRenderer.getWidth("..."));
                         if (!displayName.equals(name)) displayName += "...";
-                        g.drawText(textRenderer, displayName, nameX, scrollY + 1, c().textPrimary(), false);
+                        RenderHelper.drawText(g, textRenderer, displayName, nameX, scrollY + 1, c().textPrimary(), false);
 
                         ChatMessageStore.ChatMessage latest = ChatMessageStore.getLatestWhisperWith(name);
                         if (latest != null) {
                             String preview = ChatMessageStore.singleLine(latest.content().getString());
                             String previewDisplay = textRenderer.trimToWidth(preview, maxNameW - textRenderer.getWidth("..."));
                             if (!previewDisplay.equals(preview)) previewDisplay += "...";
-                            g.drawText(textRenderer, previewDisplay, nameX, scrollY + 1 + textRenderer.fontHeight, c().textMuted(), false);
+                            RenderHelper.drawText(g, textRenderer, previewDisplay, nameX, scrollY + 1 + textRenderer.fontHeight, c().textMuted(), false);
                         }
 
                         if (ChatMessageStore.hasUnreadWhisper(name)) {
@@ -453,7 +473,7 @@ public class ChatBubbleScreen extends Screen {
                     }
                     scrollY += itemH + 2;
                 }
-                g.disableScissor();
+                RenderHelper.disableScissor(g);
             }
         }
     }
@@ -462,7 +482,11 @@ public class ChatBubbleScreen extends Screen {
         String text = input.getText();
         int atIdx = text.lastIndexOf('@');
         input.setText(text.substring(0, atIdx) + "@" + name + " ");
+        //#if MC >= 12004
         input.setCursorToEnd(false);
+        //#else
+        //$$ input.setCursorToEnd();
+        //#endif
         showMentions = false;
     }
 
@@ -488,9 +512,11 @@ public class ChatBubbleScreen extends Screen {
                 showMentions = !mentionCandidates.isEmpty();
             }
         }
+        //#if MC >= 11900
         if (commandSuggestions != null) {
             commandSuggestions.refresh();
         }
+        //#endif
     }
 
     private void onSearchEdited(String text) {
@@ -518,13 +544,27 @@ public class ChatBubbleScreen extends Screen {
     public void tick() {
         if (copyToastTicks > 0) copyToastTicks--;
         if (closing && Util.getMeasuringTimeMs() - animStart >= ANIM_MS)
-            client.setScreen(null);
+            GuiCompat.setScreen(client, null);
     }
 
+    //#if MC >= 12004
     @Override
     public void renderBackground(DrawContext g, int mouseX, int mouseY, float delta) {
         // no-op: disable vanilla blur
     }
+    //#else
+    //#if MC >= 12000
+    //$$ @Override
+    //$$ public void renderBackground(DrawContext g) {
+    //$$     // no-op: disable vanilla blur
+    //$$ }
+    //#else
+    //$$ @Override
+    //$$ public void renderBackground(MatrixStack g) {
+    //$$     // no-op: disable vanilla blur
+    //$$ }
+    //#endif
+    //#endif
 
     private float getAnimProgress() {
         if (!ChatBubbleClientSetup.config().animationEnabled()) return 1.0f;
@@ -563,7 +603,7 @@ public class ChatBubbleScreen extends Screen {
 
         if (sidebarSearchBox.isFocused()) {
             if (keyCode == 256 || keyCode == 257 || keyCode == 335) {
-                sidebarSearchBox.setFocused(false); setFocused(input); return true;
+                GuiCompat.setWidgetFocused(sidebarSearchBox, false); setFocused(input); return true;
             }
         }
 
@@ -575,12 +615,14 @@ public class ChatBubbleScreen extends Screen {
             if (keyCode == 257 || keyCode == 335) { insertMention(mentionCandidates.get(mentionIdx)); return true; }
         }
 
+        //#if MC >= 11900
         //#if MC >= 12109
         if (commandSuggestions != null && commandSuggestions.keyPressed(key))
         //#else
         //$$ if (commandSuggestions != null && commandSuggestions.keyPressed(keyCode, scanCode, modifiers))
         //#endif
             return true;
+        //#endif
         if (keyCode == 256) { onClose(); return true; }
         if (quickChatInput.isFocused() && (keyCode == 257 || keyCode == 335)) {
             String text = quickChatInput.getText().trim();
@@ -605,7 +647,11 @@ public class ChatBubbleScreen extends Screen {
     }
 
     @Override
+    //#if MC >= 12004
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    //#else
+    //$$ public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+    //#endif
         if (emojiPanel.visible) { emojiPanel.handleScroll(scrollY); return true; }
         if (quickChatPanel.visible) { quickChatPanel.handleScroll(scrollY); return true; }
         if (searchPanel.visible && !searchMatches.isEmpty()) {
@@ -622,7 +668,9 @@ public class ChatBubbleScreen extends Screen {
             sidebarScrollOffset = MathHelper.clamp(sidebarScrollOffset - (int) (scrollY * 20), 0, sidebarMaxScroll);
             return true;
         }
+        //#if MC >= 11900
         if (commandSuggestions != null && commandSuggestions.mouseScrolled(scrollY)) return true;
+        //#endif
         scrollToBottom = false;
         lastScrollTime = Util.getMeasuringTimeMs();
         float newTarget = MathHelper.clamp(scrollOffset - (int) (scrollY * 40), 0, maxScroll);
@@ -651,10 +699,10 @@ public class ChatBubbleScreen extends Screen {
 
         // @mention popup click
         if (showMentions && button == 0) {
-            int popupX = input.getX();
+            int popupX = GuiCompat.getWidgetX(input);
             int popupH = Math.min(mentionCandidates.size(), 8) * textRenderer.fontHeight + 4;
-            int popupY = input.getY() - popupH - 2;
-            if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
+            int popupY = GuiCompat.getWidgetY(input) - popupH - 2;
+            if (popupY < msgTop) popupY = GuiCompat.getWidgetY(input) + input.getHeight() + 2;
             int maxW = 60;
             for (String name : mentionCandidates) maxW = Math.max(maxW, textRenderer.getWidth(name));
             int popupW = maxW + 12;
@@ -675,7 +723,7 @@ public class ChatBubbleScreen extends Screen {
             int searchY = 2;
             int searchH = SIDEBAR_SEARCH_H;
             if (mouseY >= searchY && mouseY <= searchY + searchH) {
-                setFocused(sidebarSearchBox); input.setFocused(false); return true;
+                setFocused(sidebarSearchBox); GuiCompat.setWidgetFocused(input, false); return true;
             }
             if (sidebarSearchBox.isFocused()) setFocused(input);
 
@@ -748,12 +796,14 @@ public class ChatBubbleScreen extends Screen {
             }
         }
 
+        //#if MC >= 11900
         //#if MC >= 12109
         if (commandSuggestions != null && commandSuggestions.mouseClicked(click))
         //#else
         //$$ if (commandSuggestions != null && commandSuggestions.mouseClicked((int) origX, (int) mouseY, button))
         //#endif
             return true;
+        //#endif
 
         if (button == 0) {
             if (isMouseOverHamburger(mouseX, mouseY)) {
@@ -789,6 +839,13 @@ public class ChatBubbleScreen extends Screen {
                 return true;
             }
             if (quickChatPanel.visible) {
+                if (ChatQuickChatPanel.isInsideInput((int) mouseX, (int) mouseY, panelX, panelW, barTop,
+                        ChatBubbleClientSetup.config().quickChatPhrases().size())) {
+                    quickChatInput.setVisible(true);
+                    setFocused(quickChatInput);
+                    input.setFocused(false);
+                    return true;
+                }
                 int result = quickChatPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
                 if (result >= 0) {
                     input.setText(ChatBubbleClientSetup.config().quickChatPhrases().get(result));
@@ -821,7 +878,11 @@ public class ChatBubbleScreen extends Screen {
                     String mentionName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
                         ? msg.rawPlayerName() : msg.senderName().getString();
                     input.setText(input.getText() + "@" + mentionName + " ");
+                    //#if MC >= 12004
                     input.setCursorToEnd(false);
+                    //#else
+                    //$$ input.setCursorToEnd();
+                    //#endif
                     return true;
                 }
             }
@@ -873,7 +934,7 @@ public class ChatBubbleScreen extends Screen {
 	                    if (clickEvent instanceof ClickEvent.RunCommand cmd) {
 	                        String command = cmd.command();
 	                        if (command.startsWith("/")) command = command.substring(1);
-	                        client.player.networkHandler.sendChatCommand(command); return true;
+                        GuiCompat.sendCommand(client.player.networkHandler, command); return true;
 	                    }
 	                    if (clickEvent instanceof ClickEvent.CopyToClipboard ctc) {
 	                        client.keyboard.setClipboard(ctc.value()); return true;
@@ -891,7 +952,7 @@ public class ChatBubbleScreen extends Screen {
 	                    //$$ if (clickEvent.getAction() == ClickEvent.Action.RUN_COMMAND) {
 	                    //$$     String command = clickEvent.getValue();
 	                    //$$     if (command.startsWith("/")) command = command.substring(1);
-	                    //$$     client.player.networkHandler.sendChatCommand(command); return true;
+	                    //$$     GuiCompat.sendCommand(client.player.networkHandler, command); return true;
 	                    //$$ }
 	                    //$$ if (clickEvent.getAction() == ClickEvent.Action.COPY_TO_CLIPBOARD) {
 	                    //$$     client.keyboard.setClipboard(clickEvent.getValue()); return true;
@@ -1010,7 +1071,7 @@ public class ChatBubbleScreen extends Screen {
             String name = msg != null ? msg.rawPlayerName() : null;
             if (name == null || name.isEmpty()) { contextAvatarIndex = -1; return; }
             if (my >= menuY && my <= menuY + CTX_ITEM_H) {
-                client.player.networkHandler.sendChatCommand((ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
+                GuiCompat.sendCommand(client.player.networkHandler, (ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
             } else if (my >= menuY + CTX_ITEM_H + 2 && my <= menuY + CTX_ITEM_H * 2 + 2) {
                 whisperPartner = name;
                 ChatMessageStore.clearUnreadWhisper(name);
@@ -1022,21 +1083,25 @@ public class ChatBubbleScreen extends Screen {
     }
 
     @Override
+    //#if MC >= 12000
     public void render(DrawContext g, int mouseX, int mouseY, float delta) {
+    //#else
+    //$$ public void render(MatrixStack g, int mouseX, int mouseY, float delta) {
+    //#endif
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
         int panelOffset = currentPanelOffset();
 
         //#if MC >= 12106
-        g.getMatrices().pushMatrix();
+        RenderHelper.pushMatrix(g);
         //#else
-        //$$ g.getMatrices().push();
+        //$$ RenderHelper.pushMatrix(g);
         //#endif
         //#if MC >= 12106
-        g.getMatrices().translate(panelOffset, 0);
+        RenderHelper.translate(g, panelOffset, 0);
         //#else
-        //$$ g.getMatrices().translate(panelOffset, 0, 0);
+        //$$ RenderHelper.translate(g, panelOffset, 0, 0);
         //#endif
 
         float panelOpacity = ChatBubbleClientSetup.config().panelOpacity() / 100f * anim;
@@ -1054,13 +1119,15 @@ public class ChatBubbleScreen extends Screen {
         renderMessages(g, mouseX, mouseY);
         Style hovered = getHoveredStyle(mouseX, mouseY);
         if (hovered != null && hovered.getHoverEvent() != null) {
+            //#if MC >= 12000
             g.drawHoverEvent(textRenderer, hovered, mouseX, mouseY);
+            //#endif
         }
 
         //#if MC >= 12106
-        g.getMatrices().translate(0, 0);
+        RenderHelper.translate(g, 0, 0);
         //#else
-        //$$ g.getMatrices().translate(0.0F, 0.0F, 50.0F);
+        //$$ RenderHelper.translate(g, 0.0F, 0.0F, 50.0F);
         //#endif
         renderNotificationBar(g, mouseX, mouseY);
         renderReplyBar(g, mouseX, mouseY);
@@ -1071,91 +1138,95 @@ public class ChatBubbleScreen extends Screen {
         emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD);
         quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
         searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx);
+        if (quickChatPanel.visible && quickChatInput != null) quickChatInput.render(g, mouseX, mouseY, delta);
+        if (searchPanel.visible && searchInput != null) searchInput.render(g, mouseX, mouseY, delta);
         renderBottomBar(g, mouseX, mouseY);
         renderMentionPopup(g, mouseX, mouseY);
 
-        g.enableScissor(panelX, 0, panelX + panelW, height);
+        RenderHelper.enableScissor(g, panelX, 0, panelX + panelW, height);
+        //#if MC >= 11900
         if (commandSuggestions != null) commandSuggestions.render(g, mouseX, mouseY);
-        g.disableScissor();
+        //#endif
+        RenderHelper.disableScissor(g);
 
         //#if MC >= 12106
-        g.getMatrices().popMatrix();
+        RenderHelper.popMatrix(g);
         //#else
-        //$$ g.getMatrices().pop();
+        //$$ RenderHelper.popMatrix(g);
         //#endif
 
         if (sidebarOpen || sidebarAnimating) {
             //#if MC >= 12106
-            g.getMatrices().pushMatrix();
+            RenderHelper.pushMatrix(g);
             //#else
-            //$$ g.getMatrices().push();
+            //$$ RenderHelper.pushMatrix(g);
             //#endif
             int sidebarOffset = closing
 	                ? (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W)
 	                : getSidebarScreenX();
 	            //#if MC >= 12106
-	            g.getMatrices().translate(sidebarOffset, 0);
+	            RenderHelper.translate(g, sidebarOffset, 0);
 	            //#else
-	            //$$ g.getMatrices().translate(sidebarOffset, 0, 0);
+	            //$$ RenderHelper.translate(g, sidebarOffset, 0, 0);
 	            //#endif
             renderSidebar(g, mouseX - sidebarOffset, mouseY);
             //#if MC >= 12106
-            g.getMatrices().popMatrix();
+            RenderHelper.popMatrix(g);
             //#else
-            //$$ g.getMatrices().pop();
+            //$$ RenderHelper.popMatrix(g);
             //#endif
             if (closing) sidebarSearchBox.setX(2 + sidebarOffset);
         }
 
         //#if MC >= 12106
-        g.getMatrices().pushMatrix();
+        RenderHelper.pushMatrix(g);
         //#else
-        //$$ g.getMatrices().push();
+        //$$ RenderHelper.pushMatrix(g);
         //#endif
         //#if MC >= 12106
-        g.getMatrices().translate(0, 0);
+        RenderHelper.translate(g, 0, 0);
         //#else
-        //$$ g.getMatrices().translate(0.0F, 0.0F, 50.0F);
+        //$$ RenderHelper.translate(g, 0.0F, 0.0F, 50.0F);
         //#endif
         input.setX(inputX + panelOffset);
         super.render(g, mouseX, mouseY, delta);
         //#if MC >= 12106
-        g.getMatrices().popMatrix();
+        RenderHelper.popMatrix(g);
         //#else
-        //$$ g.getMatrices().pop();
+        //$$ RenderHelper.popMatrix(g);
         //#endif
 
         // Notification banner is rendered by ChatBubbleHudOverlay at z=300
     }
 
-    private void renderTitleBar(DrawContext g, int mouseX, int mouseY) {
+    private void renderTitleBar(Object g, int mouseX, int mouseY) {
         int ty = titleY;
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, 0f, 0f, panelW, TITLE_H, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + TITLE_H, 0f, 0f, panelW, 1, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, 0f, 0f, panelW, TITLE_H, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + TITLE_H, 0f, 0f, panelW, 1, 1, 1);
 
         int menuX = panelX + 3;
         int menuY = ty + (TITLE_H - ICON_S) / 2;
         boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S && mouseY >= menuY && mouseY <= menuY + ICON_S;
-        if (hoverMenu) g.fill(menuX - 1, menuY - 1, menuX + ICON_S + 1, menuY + ICON_S + 1, c().iconHover());
+        if (hoverMenu) RenderHelper.fill(g, menuX - 1, menuY - 1, menuX + ICON_S + 1, menuY + ICON_S + 1, c().iconHover());
         drawTextureIcon(g, iconTex("menu"), menuX, menuY, ICON_S);
 
         String title = getDisplayTitle();
         int titleW = textRenderer.getWidth(title);
         int titleX = UiLayout.centerX(panelX, panelW, titleW);
         int titleTextY = ty + (TITLE_H - textRenderer.fontHeight) / 2;
-        g.drawText(textRenderer, title, titleX, titleTextY, c().textPrimary(), false);
+        RenderHelper.drawText(g, textRenderer, title, titleX, titleTextY, c().textPrimary(), false);
 
         String time = LocalTime.now().format(TIME_FMT);
         int timeW = textRenderer.getWidth(time);
-        g.drawText(textRenderer, time,
+        RenderHelper.drawText(g, textRenderer, time,
             panelX + panelW - PAD - 20 - timeW, ty + (TITLE_H - textRenderer.fontHeight) / 2, c().timeColor(), false);
 
         int closeX = panelX + panelW - 18;
         int closeY = ty + 6;
         boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12 && mouseY >= closeY && mouseY <= closeY + 12;
         int closeBg = hoverClose ? c().closeHoverBg() : c().closeBg();
-        g.fill(closeX, closeY, closeX + 12, closeY + 12, closeBg);
-        g.drawText(textRenderer, "✕", closeX + 6 - textRenderer.getWidth("✕") / 2, closeY + 2, c().closeText(), false);
+        RenderHelper.fill(g, closeX, closeY, closeX + 12, closeY + 12, closeBg);
+        RenderHelper.drawText(g, textRenderer, "✕", closeX + 6 - textRenderer.getWidth("✕") / 2, closeY + 2, c().closeText(), false);
     }
 
     private boolean isMouseOverHamburger(double mx, double my) {
@@ -1164,7 +1235,7 @@ public class ChatBubbleScreen extends Screen {
         return mx >= menuX && mx <= menuX + ICON_S && my >= menuY && my <= menuY + ICON_S;
     }
 
-    private void renderMessages(DrawContext g, int mouseX, int mouseY) {
+    private void renderMessages(Object g, int mouseX, int mouseY) {
         msgHeightCache.clear();
         bubbleRects.clear();
         clickableSpans.clear();
@@ -1180,10 +1251,10 @@ public class ChatBubbleScreen extends Screen {
         if (whisperPartner != null) {
             indicatorH = 14;
             int indY = msgTop;
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.WHISPER_BAR), panelX, indY, 0f, 0f, panelW, indicatorH, 1, 1);
-            String modeText = Text.translatable("e33chat.whisper.mode").getString() + ": " + whisperPartner;
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.WHISPER_BAR), panelX, indY, 0f, 0f, panelW, indicatorH, 1, 1);
+            String modeText = com.niuqu.chatbubble.Txt.translatable("e33chat.whisper.mode").getString() + ": " + whisperPartner;
             int modeTW = textRenderer.getWidth(modeText);
-            g.drawText(textRenderer, modeText, panelX + (panelW - modeTW) / 2, indY + 2, c().textPrimary(), false);
+            RenderHelper.drawText(g, textRenderer, modeText, panelX + (panelW - modeTW) / 2, indY + 2, c().textPrimary(), false);
         }
 
         int effectiveMsgTop = msgTop + indicatorH;
@@ -1246,7 +1317,7 @@ public class ChatBubbleScreen extends Screen {
         }
         scrollOffset = MathHelper.clamp(scrollOffset, 0, maxScroll);
 
-        g.enableScissor(panelX, effectiveMsgTop, panelX + panelW, effectiveMsgBottom);
+        RenderHelper.enableScissor(g, panelX, effectiveMsgTop, panelX + panelW, effectiveMsgBottom);
 
         List<ChatMessageStore.ChatMessage> fullList = ChatMessageStore.getMessages();
         int fullIdx = 0;
@@ -1278,10 +1349,10 @@ public class ChatBubbleScreen extends Screen {
             fullIdx++;
         }
         renderScrollbar(g, mouseX, mouseY, effectiveMsgBottom);
-        g.disableScissor();
+        RenderHelper.disableScissor(g);
     }
 
-    private void renderScrollbar(DrawContext g, int mouseX, int mouseY, int effectiveMsgBottom) {
+    private void renderScrollbar(Object g, int mouseX, int mouseY, int effectiveMsgBottom) {
         if (maxScroll <= 0) return;
         boolean inZone = mouseX >= panelX + panelW - SCROLLBAR_HOVER_ZONE
             && mouseX <= panelX + panelW && mouseY >= msgTop && mouseY < effectiveMsgBottom;
@@ -1313,28 +1384,28 @@ public class ChatBubbleScreen extends Screen {
             trackX, thumbY, SCROLLBAR_WIDTH, thumbH, thumbBase / 255f * scrollbarAlpha);
     }
 
-    private void renderTimeSeparator(DrawContext g, long timeMillis, int y) {
+    private void renderTimeSeparator(Object g, long timeMillis, int y) {
         String text = ChatMessageStore.formatTime(timeMillis);
         int tw = textRenderer.getWidth(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
-        g.fill(tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2, ChatBubbleTheme.alphaBlend(c().toastBg(), 0x44));
-        g.drawText(textRenderer, text, tx, y + 3, c().timeColor(), false);
+        RenderHelper.fill(g, tx - 6, y + 2, tx + tw + 6, y + TIME_SEP_H - 2, ChatBubbleTheme.alphaBlend(c().toastBg(), 0x44));
+        RenderHelper.drawText(g, textRenderer, text, tx, y + 3, c().timeColor(), false);
     }
 
     private List<OrderedText> wrapContent(Text c, int width) {
         List<Text> paras = new ArrayList<>();
-        MutableText[] cur = { Text.empty() };
+        MutableText[] cur = { com.niuqu.chatbubble.Txt.empty() };
         c.visit((style, text) -> {
             int start = 0;
             for (int i = 0; i < text.length(); i++) {
                 if (text.charAt(i) == '\n') {
-                    if (i > start) cur[0].append(Text.literal(text.substring(start, i)).fillStyle(style));
+                    if (i > start) cur[0].append(com.niuqu.chatbubble.Txt.literal(text.substring(start, i)).fillStyle(style));
                     paras.add(cur[0]);
-                    cur[0] = Text.empty();
+                    cur[0] = com.niuqu.chatbubble.Txt.empty();
                     start = i + 1;
                 }
             }
-            if (start < text.length()) cur[0].append(Text.literal(text.substring(start)).fillStyle(style));
+            if (start < text.length()) cur[0].append(com.niuqu.chatbubble.Txt.literal(text.substring(start)).fillStyle(style));
             return Optional.empty();
         }, Style.EMPTY);
         paras.add(cur[0]);
@@ -1378,7 +1449,7 @@ public class ChatBubbleScreen extends Screen {
         return h;
     }
 
-    private void renderBubble(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY) {
+    private void renderBubble(Object g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY) {
         if (msg.isSystem()) {
             List<OrderedText> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
             int yy = baseY + 2;
@@ -1424,7 +1495,7 @@ public class ChatBubbleScreen extends Screen {
             }
             int nameW = textRenderer.getWidth(nameSeq);
             int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
-            g.drawText(textRenderer, nameSeq, startX, nameY, c().nameColor(), false);
+            RenderHelper.drawText(g, textRenderer, nameSeq, startX, nameY, c().nameColor(), false);
         }
 
         int bubbleY = baseY + NAME_H;
@@ -1447,15 +1518,17 @@ public class ChatBubbleScreen extends Screen {
 
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
+        //#if MC >= 12004
         SkinTextures skin = getSkin(msg.senderUUID(), skinName);
         drawPlayerHead(g, skin, avatarX, avatarY, 20, 22);
+        //#endif
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
             int labelW = textRenderer.getWidth(label);
             int labelX, labelY = bubbleY + (bubbleH - textRenderer.fontHeight) / 2;
             if (own) { labelX = bubbleX - labelW - 3; } else { labelX = bubbleX + bubbleW + 3; }
-            g.drawText(textRenderer, label, labelX, labelY, c().duplicateLabel(), false);
+            RenderHelper.drawText(g, textRenderer, label, labelX, labelY, c().duplicateLabel(), false);
         }
 
         if (msg.replyContent() != null) {
@@ -1472,7 +1545,7 @@ public class ChatBubbleScreen extends Screen {
             if (quoteX < panelX + PAD) quoteX = panelX + PAD;
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
             RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, c().contextHover());
-            g.drawText(textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, c().textSecondary(), false);
+            RenderHelper.drawText(g, textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, c().textSecondary(), false);
         }
 
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
@@ -1481,11 +1554,11 @@ public class ChatBubbleScreen extends Screen {
             drawBorder(g, bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2, ChatSearchPanel.HIGHLIGHT);
     }
 
-    private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color) {
+    private void renderLineWithClicks(Object g, OrderedText line, int x, int y, int color) {
         renderLineWithClicks(g, line, x, y, color, null);
     }
 
-    private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color, Style fallback) {
+    private void renderLineWithClicks(Object g, OrderedText line, int x, int y, int color, Style fallback) {
         final List<Style> styles = new ArrayList<>();
         line.accept((i, st, cp) -> { styles.add(st); return true; });
 
@@ -1538,7 +1611,7 @@ public class ChatBubbleScreen extends Screen {
         OrderedText decorated = sink -> line.accept((i, st, cp) ->
             sink.accept(i, (i < styleLen ? hasClickEvent[i] : st.getClickEvent() != null)
                 && !st.isUnderlined() ? st.withUnderline(true) : st, cp));
-        g.drawText(textRenderer, decorated, x, y, color, false);
+        RenderHelper.drawText(g, textRenderer, decorated, x, y, color, false);
     }
 
     private int prefixWidth(OrderedText line, int count) {
@@ -1569,94 +1642,94 @@ public class ChatBubbleScreen extends Screen {
         return null;
     }
 
-    private void renderNotificationBar(DrawContext g, int mouseX, int mouseY) {
+    private void renderNotificationBar(Object g, int mouseX, int mouseY) {
         if (newMessageCount <= 0) return;
         int notifY = barTop - NOTIF_H;
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), panelX, notifY - 1, 0f, 0f, panelW, 1, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), panelX, notifY - 1, 0f, 0f, panelW, 1, 1, 1);
         int yellow = c().notificationText();
         int textY = notifY + (NOTIF_H - textRenderer.fontHeight) / 2;
-        String ct = Text.translatable("e33chat.notif.new_messages", newMessageCount).getString() + " ▽";
+        String ct = com.niuqu.chatbubble.Txt.translatable("e33chat.notif.new_messages", newMessageCount).getString() + " ▽";
         notifCountLeft = panelX + PAD;
         notifCountRight = notifCountLeft + textRenderer.getWidth(ct);
         notifBarTextY = textY;
         boolean h = mouseX >= notifCountLeft && mouseX <= notifCountRight
             && mouseY >= textY && mouseY <= textY + textRenderer.fontHeight;
-        g.drawText(textRenderer, ct, notifCountLeft, textY, h ? c().notificationText() : yellow, false);
+        RenderHelper.drawText(g, textRenderer, ct, notifCountLeft, textY, h ? c().notificationText() : yellow, false);
         if (hasNewMentionOrQuote) {
-            String mt = Text.translatable("e33chat.notif.mention").getString() + " ▽";
+            String mt = com.niuqu.chatbubble.Txt.translatable("e33chat.notif.mention").getString() + " ▽";
             notifMentionLeft = panelX + panelW - PAD - textRenderer.getWidth(mt);
             notifMentionRight = notifMentionLeft + textRenderer.getWidth(mt);
             h = mouseX >= notifMentionLeft && mouseX <= notifMentionRight
                 && mouseY >= textY && mouseY <= textY + textRenderer.fontHeight;
-            g.drawText(textRenderer, mt, notifMentionLeft, textY, h ? c().notificationText() : yellow, false);
+            RenderHelper.drawText(g, textRenderer, mt, notifMentionLeft, textY, h ? c().notificationText() : yellow, false);
         } else {
             notifMentionLeft = -1; notifMentionRight = -1;
         }
     }
 
-    private void renderContextMenu(DrawContext g, int mouseX, int mouseY) {
+    private void renderContextMenu(Object g, int mouseX, int mouseY) {
         if (contextMsgIndex < 0) return;
         int menuH = CTX_ITEM_H * 2 + 2;
         int menuX = Math.min(contextX, panelX + panelW - CTX_W - 2);
         int menuY = contextY - menuH;
         if (menuY < msgTop) menuY = contextY + 4;
 
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, 0f, 0f, CTX_W, menuH, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, CTX_W, 1, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, 0f, 0f, CTX_W, 1, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, 1, menuH, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 0f, 0f, 1, menuH, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, 0f, 0f, CTX_W, menuH, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, CTX_W, 1, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, 0f, 0f, CTX_W, 1, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, 1, menuH, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 0f, 0f, 1, menuH, 1, 1);
 
         boolean hoverCopy = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
         int copyBg = hoverCopy ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, copyBg);
+        RenderHelper.fill(g, menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, copyBg);
         drawTextureIcon(g, iconTex("copy"), menuX + 5, menuY + 3, 12);
-        g.drawText(textRenderer, Text.translatable("e33chat.context.copy").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
+        RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.translatable("e33chat.context.copy").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
 
-        g.fill(menuX + 4, menuY + CTX_ITEM_H, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 1, c().closeHoverBg());
+        RenderHelper.fill(g, menuX + 4, menuY + CTX_ITEM_H, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 1, c().closeHoverBg());
 
         boolean hoverQuote = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY + CTX_ITEM_H + 1 && mouseY <= menuY + menuH;
         int quoteBg = hoverQuote ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 1, menuY + menuH - 1, quoteBg);
+        RenderHelper.fill(g, menuX + 1, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 1, menuY + menuH - 1, quoteBg);
         drawTextureIcon(g, iconTex("quote"), menuX + 5, menuY + CTX_ITEM_H + 3, 12);
-        g.drawText(textRenderer, Text.translatable("e33chat.context.quote").getString(), menuX + 22, menuY + CTX_ITEM_H + 5, c().textPrimary(), false);
+        RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.translatable("e33chat.context.quote").getString(), menuX + 22, menuY + CTX_ITEM_H + 5, c().textPrimary(), false);
     }
 
-    private void renderAvatarContextMenu(DrawContext g, int mouseX, int mouseY) {
+    private void renderAvatarContextMenu(Object g, int mouseX, int mouseY) {
         if (contextAvatarIndex < 0) return;
         int menuH = CTX_ITEM_H * 2 + 3;
         int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
         int menuY = contextAvatarY - menuH;
         if (menuY < msgTop) menuY = contextAvatarY + 4;
 
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, 0f, 0f, CTX_W, menuH, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, CTX_W, 1, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, 0f, 0f, CTX_W, 1, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, 1, menuH, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 0f, 0f, 1, menuH, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, 0f, 0f, CTX_W, menuH, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, CTX_W, 1, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, 0f, 0f, CTX_W, 1, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 0f, 0f, 1, menuH, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 0f, 0f, 1, menuH, 1, 1);
 
         boolean hoverTp = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
         int tpBg = hoverTp ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, tpBg);
+        RenderHelper.fill(g, menuX + 1, menuY + 1, menuX + CTX_W - 1, menuY + CTX_ITEM_H, tpBg);
         drawTextureIcon(g, iconTex("tp"), menuX + 5, menuY + 3, 12);
-        g.drawText(textRenderer, Text.translatable(ChatMessageStore.useTpa() ? "e33chat.context.tpa" : "e33chat.context.tp").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
+        RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.translatable(ChatMessageStore.useTpa() ? "e33chat.context.tpa" : "e33chat.context.tp").getString(), menuX + 22, menuY + 4, c().textPrimary(), false);
 
-        g.fill(menuX + 4, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 2, c().closeHoverBg());
+        RenderHelper.fill(g, menuX + 4, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 2, c().closeHoverBg());
 
         boolean hoverWhisper = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY + CTX_ITEM_H + 2 && mouseY <= menuY + menuH;
         int whBg = hoverWhisper ? c().contextHover() : c().sidebarItemSelected();
-        g.fill(menuX + 1, menuY + CTX_ITEM_H + 2, menuX + CTX_W - 1, menuY + menuH - 1, whBg);
+        RenderHelper.fill(g, menuX + 1, menuY + CTX_ITEM_H + 2, menuX + CTX_W - 1, menuY + menuH - 1, whBg);
         drawTextureIcon(g, iconTex("whisper"), menuX + 5, menuY + CTX_ITEM_H + 4, 12);
-        g.drawText(textRenderer, Text.translatable("e33chat.context.whisper").getString(), menuX + 22, menuY + CTX_ITEM_H + 6, c().textPrimary(), false);
+        RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.translatable("e33chat.context.whisper").getString(), menuX + 22, menuY + CTX_ITEM_H + 6, c().textPrimary(), false);
     }
 
     private static final int REPLY_BAR_H = 18;
 
-    private void renderReplyBar(DrawContext g, int mouseX, int mouseY) {
+    private void renderReplyBar(Object g, int mouseX, int mouseY) {
         if (replyTargetIndex < 0) return;
         ChatMessageStore.ChatMessage target = ChatMessageStore.getMessageAt(replyTargetIndex);
         if (target == null) { replyTargetIndex = -1; return; }
@@ -1671,22 +1744,22 @@ public class ChatBubbleScreen extends Screen {
         float panelBgAlpha = (c().panelBg() >>> 24) / 255f;
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             barX, barY, barW, barTop - notifOffset - barY, panelBgAlpha);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), barX, barTop - notifOffset - 1, 0f, 0f, barW, 1, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), barX, barTop - notifOffset - 1, 0f, 0f, barW, 1, 1, 1);
 
         String sender = target.senderName().getString();
-        if (sender.isEmpty()) sender = Text.translatable("e33chat.sender.system").getString();
+        if (sender.isEmpty()) sender = com.niuqu.chatbubble.Txt.translatable("e33chat.sender.system").getString();
         String preview = sender + ": " + target.content().getString();
         int maxW = barW - 24;
         String display = textRenderer.trimToWidth(preview, maxW - textRenderer.getWidth("..."));
         if (!display.equals(preview)) display += "...";
-        g.drawText(textRenderer, display, barX + 6, barY + 4, c().textSecondary(), false);
+        RenderHelper.drawText(g, textRenderer, display, barX + 6, barY + 4, c().textSecondary(), false);
 
         int cx = barX + barW - 16;
         int cy = barY + 3;
         boolean hoverX = mouseX >= cx && mouseX <= cx + 12 && mouseY >= cy && mouseY <= cy + 12;
         int xBg = hoverX ? c().closeHoverBg() : c().sidebarItemSelected();
-        g.fill(cx, cy, cx + 12, cy + 12, xBg);
-        g.drawText(textRenderer, "✕", cx + 6 - textRenderer.getWidth("✕") / 2, cy + 2, c().closeText(), false);
+        RenderHelper.fill(g, cx, cy, cx + 12, cy + 12, xBg);
+        RenderHelper.drawText(g, textRenderer, "✕", cx + 6 - textRenderer.getWidth("✕") / 2, cy + 2, c().closeText(), false);
     }
 
     private boolean isMouseOverReplyCancel(double mx, double my) {
@@ -1702,18 +1775,18 @@ public class ChatBubbleScreen extends Screen {
         return mx >= cx && mx <= cx + 12 && my >= cy && my <= cy + 12;
     }
 
-    private void renderMentionPopup(DrawContext g, int mouseX, int mouseY) {
+    private void renderMentionPopup(Object g, int mouseX, int mouseY) {
         if (!showMentions || mentionCandidates.isEmpty()) return;
         int maxW = 60;
         for (String name : mentionCandidates) maxW = Math.max(maxW, textRenderer.getWidth(name));
         int popupW = maxW + 12;
         int visible = Math.min(mentionCandidates.size(), 8);
         int popupH = visible * textRenderer.fontHeight + 4;
-        int popupX = input.getX();
-        int popupY = input.getY() - popupH - 2;
-        if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
+        int popupX = GuiCompat.getWidgetX(input);
+        int popupY = GuiCompat.getWidgetY(input) - popupH - 2;
+        if (popupY < msgTop) popupY = GuiCompat.getWidgetY(input) + input.getHeight() + 2;
 
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, 0f, 0f, popupW, popupH, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, 0f, 0f, popupW, popupH, 1, 1);
         drawBorder(g, popupX, popupY, popupW, popupH, c().divider());
 
         int startIdx = Math.max(0, mentionIdx - visible + 1);
@@ -1722,22 +1795,22 @@ public class ChatBubbleScreen extends Screen {
         for (int i = startIdx; i < endIdx; i++) {
             int ly = popupY + 2 + (i - startIdx) * textRenderer.fontHeight;
             if (i == mentionIdx)
-                g.fill(popupX + 1, ly, popupX + popupW - 1, ly + textRenderer.fontHeight, c().popupHover());
-            g.drawText(textRenderer, mentionCandidates.get(i), popupX + 4, ly, c().textPrimary(), false);
+                RenderHelper.fill(g, popupX + 1, ly, popupX + popupW - 1, ly + textRenderer.fontHeight, c().popupHover());
+            RenderHelper.drawText(g, textRenderer, mentionCandidates.get(i), popupX + 4, ly, c().textPrimary(), false);
         }
     }
 
-    private void renderToast(DrawContext g) {
+    private void renderToast(Object g) {
         if (copyToastTicks <= 0) return;
         int alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
         int color = (alpha << 24) | (c().toastText() & 0x00FFFFFF);
-        String text = Text.translatable("e33chat.toast.copied").getString();
+        String text = com.niuqu.chatbubble.Txt.translatable("e33chat.toast.copied").getString();
         int tw = textRenderer.getWidth(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
         // Background fades with the text, at half opacity like the strong-hint bar
-        g.fill(tx - 6, ty - 2, tx + tw + 6, ty + textRenderer.fontHeight + 2, (alpha / 2) << 24);
-        g.drawText(textRenderer, text, tx, ty, color, false);
+        RenderHelper.fill(g, tx - 6, ty - 2, tx + tw + 6, ty + textRenderer.fontHeight + 2, (alpha / 2) << 24);
+        RenderHelper.drawText(g, textRenderer, text, tx, ty, color, false);
     }
 
     private void executeMenuAction(int action) {
@@ -1771,14 +1844,16 @@ public class ChatBubbleScreen extends Screen {
                 quickChatInput.setUneditableColor(c().textMuted());
                 searchInput.setEditableColor(editColor);
                 searchInput.setUneditableColor(c().textMuted());
+                //#if MC >= 11900
                 int cmdAlpha = next == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
                 commandSuggestions = new ChatInputSuggestor(client, this, input, textRenderer,
                     false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdAlpha));
                 commandSuggestions.setWindowActive(true);
+                //#endif
                 break;
             }
             case 3: // settings
-                client.setScreen(new ChatBubbleConfigScreen(this));
+                GuiCompat.setScreen(client, new ChatBubbleConfigScreen(this));
                 break;
         }
     }
@@ -1790,9 +1865,9 @@ public class ChatBubbleScreen extends Screen {
         setFocused(input);
     }
 
-    private void renderBottomBar(DrawContext g, int mouseX, int mouseY) {
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, 0f, 0f, panelW, height - barTop, 1, 1);
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, 0f, 0f, panelW, 1, 1, 1);
+    private void renderBottomBar(Object g, int mouseX, int mouseY) {
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, 0f, 0f, panelW, height - barTop, 1, 1);
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, 0f, 0f, panelW, 1, 1, 1);
 
         int iconY = barTop + (BAR_H - ICON_S) / 2;
 
@@ -1800,8 +1875,8 @@ public class ChatBubbleScreen extends Screen {
         int ibY = inputY;
         int ibW = input.getWidth();
         int ibH = INPUT_H;
-        DrawHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, 0f, 0f, ibW + 1, 1, 1, 1);
-        g.fill(ibX - 1, ibY, ibX + ibW, ibY + ibH, c().inputBg());
+        RenderHelper.drawTexture(g,UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, 0f, 0f, ibW + 1, 1, 1, 1);
+        RenderHelper.fill(g, ibX - 1, ibY, ibX + ibW, ibY + ibH, c().inputBg());
 
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + ibW && mouseY >= ibY && mouseY <= ibY + ibH;
         if (hoverInput || input.isFocused())
@@ -1813,17 +1888,17 @@ public class ChatBubbleScreen extends Screen {
 
         boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverGear) g.fill(gearX - 1, iconY - 1, gearX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
+        if (hoverGear) RenderHelper.fill(g, gearX - 1, iconY - 1, gearX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
         drawTextureIcon(g, iconTex("settings"), gearX, iconY, ICON_S);
 
         boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverEmoji || emojiPanel.visible) g.fill(emojiX - 1, iconY - 1, emojiX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
+        if (hoverEmoji || emojiPanel.visible) RenderHelper.fill(g, emojiX - 1, iconY - 1, emojiX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
         drawTextureIcon(g, iconTex("emoji"), emojiX, iconY, ICON_S);
 
         boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverSend) g.fill(sendX - 1, iconY - 1, sendX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
+        if (hoverSend) RenderHelper.fill(g, sendX - 1, iconY - 1, sendX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
         drawTextureIcon(g, iconTex("send"), sendX, iconY, ICON_S);
     }
 
@@ -1957,7 +2032,11 @@ public class ChatBubbleScreen extends Screen {
         //#if MC >= 12102
         img.setColorArgb(x, y, argb);
         //#else
+        //#if MC >= 11800
         //$$ img.setColor(x, y, com.niuqu.chatbubble.texture.TextureGenerators.argbToAbgr(argb));
+        //#else
+        //$$ img.setPixelColor(x, y, com.niuqu.chatbubble.texture.TextureGenerators.argbToAbgr(argb));
+        //#endif
         //#endif
     }
 
@@ -1993,7 +2072,7 @@ public class ChatBubbleScreen extends Screen {
         }
     }
 
-    static void drawTextureIcon(DrawContext g, Identifier tex, int x, int y, int size) {
+    static void drawTextureIcon(Object g, Identifier tex, int x, int y, int size) {
         var tm = MinecraftClient.getInstance().getTextureManager();
         try {
             tm.getTexture(tex);
@@ -2003,17 +2082,18 @@ public class ChatBubbleScreen extends Screen {
         if (size < 16) {
             // 图标纹理约定 16x16（内容居中，四周 1px 透明边，内容占 14x14）。采样内容区
             // (偏移1,1) 完整 14x14 绘制——窗口取 size 会切掉内容右/下 2px（copy 右页被切）。
-            DrawHelper.drawTexture(g, tex, x, y, size, size, 1.0F, 1.0F, 14, 14, 16, 16);
+            RenderHelper.drawTexture(g, tex, x, y, size, size, 1.0F, 1.0F, 14, 14, 16, 16);
         } else {
-            DrawHelper.drawTexture(g, tex, x, y, 0, 0, size, size, size, size);
+            RenderHelper.drawTexture(g, tex, x, y, 0, 0, size, size, size, size);
         }
     }
 
     private static final UUID NIL_UUID = new UUID(0, 0);
 
-    private void drawPlayerHead(DrawContext g, SkinTextures skin, int x, int y, int baseSize, int hatSize) {
+    //#if MC >= 12004
+    private void drawPlayerHead(Object g, SkinTextures skin, int x, int y, int baseSize, int hatSize) {
         if (skin == null) return;
-        PlayerSkinDrawer.draw(g, skin, x, y, baseSize);
+        PlayerSkinDrawer.draw((DrawContext) g, skin, x, y, baseSize);
     }
 
     private SkinTextures getSkin(UUID uuid, String name) {
@@ -2056,6 +2136,7 @@ public class ChatBubbleScreen extends Screen {
         return DefaultSkinHelper.getSkinTextures(
             new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : ""));
     }
+    //#endif
 
     private void jumpToMessage(int msgIndex) {
         var msgs = ChatMessageStore.getMessages();
@@ -2076,15 +2157,15 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private static Text parseColorCodes(String s) {
-        if (s.indexOf('&') < 0) return Text.literal(s);
-        MutableText out = Text.empty();
+        if (s.indexOf('&') < 0) return com.niuqu.chatbubble.Txt.literal(s);
+        MutableText out = com.niuqu.chatbubble.Txt.empty();
         Style style = Style.EMPTY;
         StringBuilder run = new StringBuilder();
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             if (c == '&' && i + 1 < s.length() && isFormatCode(s.charAt(i + 1))) {
                 if (run.length() > 0) {
-                    out.append(Text.literal(run.toString()).fillStyle(style));
+                    out.append(com.niuqu.chatbubble.Txt.literal(run.toString()).fillStyle(style));
                     run.setLength(0);
                 }
                 style = applyCode(style, s.charAt(i + 1));
@@ -2093,36 +2174,12 @@ public class ChatBubbleScreen extends Screen {
                 run.append(c);
             }
         }
-        if (run.length() > 0) out.append(Text.literal(run.toString()).fillStyle(style));
+        if (run.length() > 0) out.append(com.niuqu.chatbubble.Txt.literal(run.toString()).fillStyle(style));
         return out;
     }
 
     private static Style applyCode(Style st, char c) {
-        switch (Character.toLowerCase(c)) {
-            case '0': return st.withColor(Formatting.BLACK.getColorValue() != null ? Formatting.BLACK.getColorValue() : null);
-            case '1': return st.withColor(Formatting.DARK_BLUE.getColorValue() != null ? Formatting.DARK_BLUE.getColorValue() : null);
-            case '2': return st.withColor(Formatting.DARK_GREEN.getColorValue() != null ? Formatting.DARK_GREEN.getColorValue() : null);
-            case '3': return st.withColor(Formatting.DARK_AQUA.getColorValue() != null ? Formatting.DARK_AQUA.getColorValue() : null);
-            case '4': return st.withColor(Formatting.DARK_RED.getColorValue() != null ? Formatting.DARK_RED.getColorValue() : null);
-            case '5': return st.withColor(Formatting.DARK_PURPLE.getColorValue() != null ? Formatting.DARK_PURPLE.getColorValue() : null);
-            case '6': return st.withColor(Formatting.GOLD.getColorValue() != null ? Formatting.GOLD.getColorValue() : null);
-            case '7': return st.withColor(Formatting.GRAY.getColorValue() != null ? Formatting.GRAY.getColorValue() : null);
-            case '8': return st.withColor(Formatting.DARK_GRAY.getColorValue() != null ? Formatting.DARK_GRAY.getColorValue() : null);
-            case '9': return st.withColor(Formatting.BLUE.getColorValue() != null ? Formatting.BLUE.getColorValue() : null);
-            case 'a': return st.withColor(Formatting.GREEN.getColorValue() != null ? Formatting.GREEN.getColorValue() : null);
-            case 'b': return st.withColor(Formatting.AQUA.getColorValue() != null ? Formatting.AQUA.getColorValue() : null);
-            case 'c': return st.withColor(Formatting.RED.getColorValue() != null ? Formatting.RED.getColorValue() : null);
-            case 'd': return st.withColor(Formatting.LIGHT_PURPLE.getColorValue() != null ? Formatting.LIGHT_PURPLE.getColorValue() : null);
-            case 'e': return st.withColor(Formatting.GOLD.getColorValue() != null ? Formatting.GOLD.getColorValue() : null);
-            case 'f': return st.withColor(Formatting.WHITE.getColorValue() != null ? Formatting.WHITE.getColorValue() : null);
-            case 'k': return st.withObfuscated(true);
-            case 'l': return st.withBold(true);
-            case 'm': return st.withStrikethrough(true);
-            case 'n': return st.withUnderline(true);
-            case 'o': return st.withItalic(true);
-            case 'r': return Style.EMPTY;
-            default: return st;
-        }
+        return com.niuqu.chatbubble.Txt.applyFormattingCode(st, c);
     }
 
     private static boolean isFormatCode(char c) {
@@ -2162,21 +2219,23 @@ public class ChatBubbleScreen extends Screen {
                         ? target.rawPlayerName() : target.senderName().getString();
                     String quoted = ChatMessageStore.singleLine(target.content().getString());
                     ChatMessageStore.setPendingReply(quoted, quoteSender);
+                    //#if MC >= 12005
                     ClientPlayNetworking.send(new QuoteSyncPayload(quoteSender, quoted, displayText));
+                    //#endif
                 }
             }
             replyTargetIndex = -1;
         }
 
         if (text.startsWith("/"))
-            client.player.networkHandler.sendChatCommand(text.substring(1));
+            GuiCompat.sendCommand(client.player.networkHandler, text.substring(1));
         else
-            client.player.networkHandler.sendChatMessage(text);
+            GuiCompat.sendChat(client.player.networkHandler, text);
         client.inGameHud.getChatHud().addToMessageHistory(text);
 
         ChatMessageStore.debugLog("[e33chat] Send | cmd='" + text + "' | display='" + displayText + "' | whisperTarget=" + whisperTarget + " | localBubble=" + localBubble);
         if (localBubble) {
-            Text contentForSend = cfg != null && cfg.colorCodes() ? parseColorCodes(displayText) : Text.literal(displayText);
+            Text contentForSend = cfg != null && cfg.colorCodes() ? parseColorCodes(displayText) : com.niuqu.chatbubble.Txt.literal(displayText);
             String playerName = client.player.getName().getString();
             String replySender = ChatMessageStore.getPendingReplySender();
 
@@ -2197,7 +2256,7 @@ public class ChatBubbleScreen extends Screen {
                 com.niuqu.chatbubble.chat.notification.MentionNotificationController.INSTANCE.onMessageCaptured(
                     contentForSend,
                     new ChatMessageStore.SenderMeta(client.player.getUuid(),
-                        Text.literal(playerName), contentForSend, false,
+                        com.niuqu.chatbubble.Txt.literal(playerName), contentForSend, false,
                         playerName, whisperTarget != null, whisperTarget),
                     ChatMessageStore.size(), replySender);
             }
@@ -2234,20 +2293,24 @@ public class ChatBubbleScreen extends Screen {
     public void onClose() {
         if (ChatBubbleClientSetup.config().preserveInput()) savedInput = input.getText();
         if (!ChatBubbleClientSetup.config().animationEnabled()) {
-            client.setScreen(null); return;
+            GuiCompat.setScreen(client, null); return;
         }
         if (closing) return;
         closing = true;
         animStart = Util.getMeasuringTimeMs();
     }
 
+    //#if MC >= 11700
     public boolean shouldPause() { return false; }
+    //#else
+    //$$ public boolean isPauseScreen() { return false; }
+    //#endif
 
-    private static void drawBorder(DrawContext g, int x, int y, int w, int h, int color) {
-        g.fill(x, y, x + w, y + 1, color);
-        g.fill(x, y + h - 1, x + w, y + h, color);
-        g.fill(x, y + 1, x + 1, y + h - 1, color);
-        g.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+    private static void drawBorder(Object g, int x, int y, int w, int h, int color) {
+        RenderHelper.fill(g, x, y, x + w, y + 1, color);
+        RenderHelper.fill(g, x, y + h - 1, x + w, y + h, color);
+        RenderHelper.fill(g, x, y + 1, x + 1, y + h - 1, color);
+        RenderHelper.fill(g, x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 
     private static class ClickableSpan {

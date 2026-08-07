@@ -124,6 +124,8 @@
   "e33chat.config.section.stronghint": "强提示",
   "e33chat.config.section.mention": "@提及横幅",
   "e33chat.config.section.whisper": "私聊",
+  "e33chat.config.section.system": "系统",
+  "e33chat.config.section.banner": "横幅通用",
   "e33chat.config.section.sound": "音效",
   "e33chat.config.section.playerlist": "玩家列表",
   "e33chat.config.section.history": "历史与输入",

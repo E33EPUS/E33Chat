@@ -1,7 +1,7 @@
 package com.niuqu.chatbubble.texture;
-import com.mojang.logging.LogUtils;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.E33Log;
 import java.io.InputStream;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.NativeImage;
@@ -30,9 +30,15 @@ public final class UiTextureManager {
         MinecraftClient mc = MinecraftClient.getInstance();
         Identifier id = el.rl(theme);
         try {
+            //#if MC >= 11900
             var res = mc.getResourceManager().getResource(el.png(theme));
             if (res.isPresent()) {
                 try (InputStream in = res.get().getInputStream()) {
+            //#else
+            //$$ var res = mc.getResourceManager().getResource(el.png(theme));
+            //$$ if (res != null) {
+            //$$     try (InputStream in = res.getInputStream()) {
+            //#endif
                     //#if MC >= 12105
                     mc.getTextureManager().registerTexture(id,
                         new NativeImageBackedTexture(() -> "ui_texture", NativeImage.read(in)));
@@ -44,15 +50,18 @@ public final class UiTextureManager {
                 }
             }
         } catch (Exception e) {
-            LogUtils.getLogger().warn("[e33chat] resource pack texture {} failed to load, using generated default",
-                el.rl(theme), e);
+            E33Log.warn("[e33chat] resource pack texture " + el.rl(theme) + " failed to load, using generated default", e);
         }
         int argb = el.themeColor(theme);
         NativeImage img = new NativeImage(1, 1, false);
         //#if MC >= 12102
         img.setColorArgb(0, 0, argb);
         //#else
+        //#if MC >= 11800
         //$$ img.setColor(0, 0, TextureGenerators.argbToAbgr(argb));
+        //#else
+        //$$ img.setPixelColor(0, 0, TextureGenerators.argbToAbgr(argb));
+        //#endif
         //#endif
         //#if MC >= 12105
         mc.getTextureManager().registerTexture(id, new NativeImageBackedTexture(() -> "ui_texture", img));

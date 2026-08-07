@@ -1,6 +1,10 @@
 package com.niuqu.chatbubble;
 
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
@@ -11,7 +15,7 @@ public class BedScreen extends Screen {
     private static Screen screenBeforeSleep;
 
     public BedScreen() {
-        super(Text.translatable("multiplayer.stopSleeping"));
+        super(com.niuqu.chatbubble.Txt.translatable("multiplayer.stopSleeping"));
     }
 
     public static void setScreenBeforeSleep(Screen screen) {
@@ -20,20 +24,32 @@ public class BedScreen extends Screen {
 
     @Override
     protected void init() {
-        addDrawableChild(ButtonWidget.builder(Text.translatable("multiplayer.stopSleeping"), b -> sendWakeUp())
-            .dimensions(width / 2 - 100, height - 40, 200, 20).build());
+        GuiCompat.addDrawableChild(this, GuiCompat.button(com.niuqu.chatbubble.Txt.translatable("multiplayer.stopSleeping"), b -> sendWakeUp(),
+            width / 2 - 100, height - 40, 200, 20));
     }
 
+    //#if MC >= 12004
     @Override
     public void renderBackground(DrawContext g, int mouseX, int mouseY, float delta) {
     }
+    //#else
+    //#if MC >= 12000
+    //$$ @Override
+    //$$ public void renderBackground(DrawContext g) {
+    //$$ }
+    //#else
+    //$$ @Override
+    //$$ public void renderBackground(net.minecraft.client.util.math.MatrixStack g) {
+    //$$ }
+    //#endif
+    //#endif
 
     @Override
     public void tick() {
         if (client == null || client.player == null || !client.player.isSleeping()) {
-            client.setScreen(null);
+            GuiCompat.setScreen(client, null);
             if (screenBeforeSleep instanceof ChatBubbleScreen) {
-                client.setScreen(screenBeforeSleep);
+                GuiCompat.setScreen(client, screenBeforeSleep);
             }
             screenBeforeSleep = null;
         }
@@ -53,11 +69,11 @@ public class BedScreen extends Screen {
             return true;
         }
         //#if MC >= 12109
-        if (client.options.chatKey.matchesKey(key)) {
+        if (GuiCompat.matchesChatKey(client, keyCode, scanCode)) {
         //#else
-        //$$ if (client.options.chatKey.matchesKey(keyCode, scanCode)) {
+        //$$ if (GuiCompat.matchesChatKey(client, keyCode, scanCode)) {
         //#endif
-            client.setScreen(new ChatBubbleScreen(""));
+            GuiCompat.setScreen(client, new ChatBubbleScreen(""));
             return true;
         }
         //#if MC >= 12109
@@ -67,10 +83,17 @@ public class BedScreen extends Screen {
         //#endif
     }
 
+    //#if MC >= 11700
     @Override
     public boolean shouldPause() {
         return false;
     }
+    //#else
+    //$$ @Override
+    //$$ public boolean isPauseScreen() {
+    //$$     return false;
+    //$$ }
+    //#endif
 
     private void sendWakeUp() {
         if (client != null && client.player != null) {

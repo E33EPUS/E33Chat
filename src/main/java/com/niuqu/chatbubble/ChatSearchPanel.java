@@ -3,7 +3,11 @@ package com.niuqu.chatbubble;
 import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.font.TextRenderer;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
@@ -34,7 +38,7 @@ public class ChatSearchPanel {
 
     boolean visible;
 
-    public void render(DrawContext g, int mouseX, int mouseY,
+    public void render(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
             TextFieldWidget searchInput,
@@ -44,7 +48,7 @@ public class ChatSearchPanel {
         int px = clampX(panelX + panelW / 2 - w / 2, w, panelX, panelW);
         int py = barTop - PANEL_H - 4;
 
-        DrawHelper.drawTexture(g, UiTextureManager.rl(UiElement.CONTENT_BG),
+        RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.CONTENT_BG),
             px, py, 0f, 0f, w, PANEL_H, 1, 1);
         drawBorder(g, px, py, w, PANEL_H, c.divider());
 
@@ -56,13 +60,13 @@ public class ChatSearchPanel {
         int counterW = 0;
         if (!searchInput.getText().isEmpty()) {
             if (searchMatches.isEmpty())
-                counter = Text.translatable("e33chat.search.no_match").getString();
+                counter = com.niuqu.chatbubble.Txt.translatable("e33chat.search.no_match").getString();
             else
                 counter = (searchMatchIdx + 1) + "/" + searchMatches.size();
             counterW = font.getWidth(counter) + 6;
         }
 
-        DrawHelper.drawTexture(g, UiTextureManager.rl(UiElement.INPUT_BG),
+        RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.INPUT_BG),
             inputX, inputY, 0f, 0f, inputW, INPUT_H, 1, 1);
 
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
@@ -71,20 +75,22 @@ public class ChatSearchPanel {
             drawBorder(g, inputX, inputY, inputW, INPUT_H, c.textMuted());
 
         if (!counter.isEmpty()) {
-            g.drawText(font, counter, inputX + inputW - counterW, inputY + 3,
+            RenderHelper.drawText(g, font, counter, inputX + inputW - counterW, inputY + 3,
                 searchMatches.isEmpty() ? c.textMuted() : c.textSecondary(), false);
         }
 
         int editW = inputW - 4 - counterW;
         searchInput.setX(inputX + 2);
         searchInput.setWidth(editW - 4);
-        searchInput.setY(inputY + 3);
+        GuiCompat.setWidgetY(searchInput, inputY + 3);
+        //#if MC >= 12004
         searchInput.setHeight(INPUT_H - 2);
+        //#endif
         searchInput.setVisible(true);
 
         if (searchInput.getText().isEmpty()) {
-            String ph = Text.translatable("e33chat.search.placeholder").getString();
-            g.drawText(font, ph, inputX + 2, inputY + 3, c.textMuted(), false);
+            String ph = com.niuqu.chatbubble.Txt.translatable("e33chat.search.placeholder").getString();
+            RenderHelper.drawText(g, font, ph, inputX + 2, inputY + 3, c.textMuted(), false);
         }
     }
 
@@ -96,10 +102,10 @@ public class ChatSearchPanel {
         return mx >= sx && mx <= sx + w && my >= sy && my <= sy + PANEL_H;
     }
 
-    private static void drawBorder(DrawContext g, int x, int y, int w, int h, int color) {
-        g.fill(x, y, x + w, y + 1, color);
-        g.fill(x, y + h - 1, x + w, y + h, color);
-        g.fill(x, y + 1, x + 1, y + h - 1, color);
-        g.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+    private static void drawBorder(Object g, int x, int y, int w, int h, int color) {
+        RenderHelper.fill(g, x, y, x + w, y + 1, color);
+        RenderHelper.fill(g, x, y + h - 1, x + w, y + h, color);
+        RenderHelper.fill(g, x, y + 1, x + 1, y + h - 1, color);
+        RenderHelper.fill(g, x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 }

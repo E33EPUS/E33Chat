@@ -1,13 +1,17 @@
 package com.niuqu.chatbubble.texture;
-import com.niuqu.chatbubble.DrawHelper;
+import com.niuqu.chatbubble.RenderHelper;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.util.Identifier;
 public final class ColoredTextureRenderer {
     private ColoredTextureRenderer() {}
-    public static void drawWithAlpha(DrawContext g, Identifier tex,
+    public static void drawWithAlpha(Object g, Identifier tex,
                                      int x, int y, int w, int h, float alpha) {
         if (w <= 0 || h <= 0 || alpha <= 0.003f) return;
         int color = ((int) (alpha * 255) << 24) | 0xFFFFFF;
-        DrawHelper.drawTexture(g, tex, x, y, w, h, 0, 0, w, h, w, h, color);
+        RenderHelper.drawTexture(g, tex, x, y, w, h, 0, 0, w, h, w, h, color);
     }
 }

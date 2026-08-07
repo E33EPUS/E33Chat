@@ -5,7 +5,11 @@ import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.DrawHelper;
 import java.util.List;
 import net.minecraft.client.MinecraftClient;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.text.Text;
@@ -24,7 +28,7 @@ public class ChatBubbleHudOverlay {
 
     private static Identifier chatIconTex() {
         String theme = cfg().theme().toLowerCase();
-        return Identifier.of("e33chat", "textures/gui/" + theme + "/chat_icon");
+        return GuiCompat.id("e33chat", "textures/gui/" + theme + "/chat_icon");
     }
 
     private static void ensureIconLoaded() {
@@ -42,19 +46,19 @@ public class ChatBubbleHudOverlay {
 
     private static ChatBubbleTheme.Colors c() { return theme().colors(); }
 
-    public static void render(DrawContext g) {
+    public static void render(Object g) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.options == null) return;
 
         //#if MC >= 12106
-        g.getMatrices().pushMatrix();
+        RenderHelper.pushMatrix(g);
         //#else
-        //$$ g.getMatrices().push();
+        //$$ RenderHelper.pushMatrix(g);
         //#endif
         //#if MC >= 12106
-        g.getMatrices().translate(0, 0);
+        RenderHelper.translate(g, 0, 0);
         //#else
-        //$$ g.getMatrices().translate(0, 0, 300);
+        //$$ RenderHelper.translate(g, 0, 0, 300);
         //#endif
 
         MentionNotificationBanner.INSTANCE.tick();
@@ -65,12 +69,12 @@ public class ChatBubbleHudOverlay {
         }
 
         //#if MC >= 12106
-        if (mc.currentScreen != null) { g.getMatrices().popMatrix(); return; }
+        if (mc.currentScreen != null) { RenderHelper.popMatrix(g); return; }
         //#else
-        //$$ if (mc.currentScreen != null) { g.getMatrices().pop(); return; }
+        //$$ if (mc.currentScreen != null) { RenderHelper.popMatrix(g); return; }
         //#endif
 
-        String keyName = mc.options.chatKey.getBoundKeyLocalizedText().getString();
+        String keyName = GuiCompat.chatKeyText(mc).getString();
         int screenH = mc.getWindow().getScaledHeight();
         int x = 3;
         int iconY = screenH - ICON_S - 20;
@@ -90,13 +94,13 @@ public class ChatBubbleHudOverlay {
             String keyDisplay = "[" + keyName + "]";
             int keyW = mc.textRenderer.getWidth(keyDisplay);
             int keyX = keyW > ICON_S ? x : x + (ICON_S - keyW) / 2;
-            g.drawText(mc.textRenderer, keyDisplay, keyX, textY, 0xFFFFFFFF, false);
+            RenderHelper.drawText(g, mc.textRenderer, keyDisplay, keyX, textY, 0xFFFFFFFF, false);
         }
 
         //#if MC >= 12106
-        g.getMatrices().popMatrix();
+        RenderHelper.popMatrix(g);
         //#else
-        //$$ g.getMatrices().pop();
+        //$$ RenderHelper.popMatrix(g);
         //#endif
     }
 
@@ -124,23 +128,23 @@ public class ChatBubbleHudOverlay {
                 ChatBubbleScreen.loadIconTexture(chatIconTex(), classpath, "chat_icon");
             }
         } catch (Exception e) {
-            com.mojang.logging.LogUtils.getLogger().error("[e33chat] Failed to load HUD icon texture", e);
+            E33Log.error("[e33chat] Failed to load HUD icon texture", e);
             ChatBubbleScreen.loadIconTexture(chatIconTex(), classpath, "chat_icon");
         }
     }
 
-    private static void drawIcon(DrawContext g, int x, int y) {
+    private static void drawIcon(Object g, int x, int y) {
         var mc = MinecraftClient.getInstance();
         try {
             mc.getTextureManager().getTexture(chatIconTex());
         } catch (Exception e) {
             loadIconTexture();
         }
-        DrawHelper.drawTexture(g, chatIconTex(), x, y, 0.0F, 0.0F, ICON_S, ICON_S, ICON_S, ICON_S);
+        RenderHelper.drawTexture(g, chatIconTex(), x, y, 0.0F, 0.0F, ICON_S, ICON_S, ICON_S, ICON_S);
     }
 
     //#if MC >= 12111
-    public static void renderStrongHint(DrawContext g) {
+    public static void renderStrongHint(Object g) {
         MinecraftClient mc = MinecraftClient.getInstance();
         Text hint = ChatMessageStore.getStrongHintText();
         if (hint == null) return;
@@ -148,11 +152,11 @@ public class ChatBubbleHudOverlay {
         int textW = mc.textRenderer.getWidth(hint);
         int x = (screenW - textW) / 2;
         int y = 4;
-        g.drawText(mc.textRenderer, hint, x, y, 0xFFFFFFFF, true);
+        RenderHelper.drawText(g, mc.textRenderer, hint, x, y, 0xFFFFFFFF, true);
     }
     //#endif
 
-    private static void drawScaledTip(DrawContext g, int x, int y, int disp) {
+    private static void drawScaledTip(Object g, int x, int y, int disp) {
         Identifier tex = ChatBubbleScreen.iconTex("private_tip");
         var tm = MinecraftClient.getInstance().getTextureManager();
         try {
@@ -160,6 +164,6 @@ public class ChatBubbleHudOverlay {
         } catch (Exception e) {
             ChatBubbleScreen.loadIconTextures();
         }
-        DrawHelper.drawTexture(g, tex, x, y, disp, disp, (float) SRC_U, (float) SRC_V, SRC_S, SRC_S, 16, 16);
+        RenderHelper.drawTexture(g, tex, x, y, disp, disp, (float) SRC_U, (float) SRC_V, SRC_S, SRC_S, 16, 16);
     }
 }

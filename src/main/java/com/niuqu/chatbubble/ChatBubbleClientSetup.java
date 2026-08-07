@@ -32,7 +32,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
 
     public static void saveConfig(ChatBubbleConfig newConfig) {
         config = newConfig;
-        com.mojang.logging.LogUtils.getLogger().info("[e33chat] Saving config | soundPublic=" + newConfig.soundPublic() + " | soundSystem=" + newConfig.soundSystem());
+        E33Log.info("[e33chat] Saving config | soundPublic=" + newConfig.soundPublic() + " | soundSystem=" + newConfig.soundSystem());
         ConfigManager.save(configPath, config);
     }
 
@@ -45,11 +45,12 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         if (!Files.exists(configPath) && Files.exists(legacyPath)) {
             config = ConfigManager.load(legacyPath);
             ConfigManager.save(configPath, config);
-            com.mojang.logging.LogUtils.getLogger().info("[e33chat] Migrated config from config/e33chat.json to config/e33chat-client.json");
+            E33Log.info("[e33chat] Migrated config from config/e33chat.json to config/e33chat-client.json");
         } else {
             config = ConfigManager.load(configPath);
         }
 
+        //#if MC >= 12005
         ClientPlayNetworking.registerGlobalReceiver(ChatMetaPayload.ID, (payload, context) -> {
             context.client().execute(() -> ChatMessageStore.applyChatMeta(
                 payload.senderUUID(), payload.messageHash(),
@@ -66,11 +67,12 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         });
         // Server-config GUI: opened on the client only (server never loads the Screen)
         ClientPlayNetworking.registerGlobalReceiver(ServerConfigScreenPayload.ID, (payload, context) -> {
-            context.client().execute(() -> MinecraftClient.getInstance().setScreen(new ServerConfigScreen(
+            context.client().execute(() -> GuiCompat.setScreen(MinecraftClient.getInstance(), new ServerConfigScreen(
                 MinecraftClient.getInstance().currentScreen,
                 payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
                 payload.chatTemplates(), payload.whisperTemplates())));
         });
+        //#endif
 
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
             if (!config.enabled()) return;
@@ -107,7 +109,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                     double mx = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
                     double my = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
                     if (ChatBubbleHudOverlay.isMouseOverIcon(mx, my)) {
-                        client.setScreen(new ChatBubbleScreen(""));
+                        GuiCompat.setScreen(client, new ChatBubbleScreen(""));
                     }
                 }
                 leftWasDown = leftDown;
@@ -128,7 +130,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             new SimpleSynchronousResourceReloadListener() {
                 @Override
                 public Identifier getFabricId() {
-                    return Identifier.of(ChatBubbleMod.MOD_ID, "shader_reload");
+                    return GuiCompat.id(ChatBubbleMod.MOD_ID, "shader_reload");
                 }
                 @Override
                 public void reload(ResourceManager manager) {

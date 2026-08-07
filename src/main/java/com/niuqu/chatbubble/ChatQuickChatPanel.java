@@ -7,7 +7,11 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.input.MouseInput;
 //#endif
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
@@ -23,7 +27,7 @@ public class ChatQuickChatPanel {
     boolean visible;
     int scrollOffset;
 
-    public void render(DrawContext g, int mouseX, int mouseY,
+    public void render(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
             TextFieldWidget input) {
@@ -37,7 +41,7 @@ public class ChatQuickChatPanel {
         int px = panelX + panelW / 2 - W / 2;
         int py = barTop - panelH - 4;
 
-        DrawHelper.drawTexture(g, UiTextureManager.rl(UiElement.CONTENT_BG),
+        RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.CONTENT_BG),
             px, py, 0f, 0f, W, panelH, 1, 1);
         drawBorder(g, px, py, W, panelH, c.divider());
 
@@ -51,13 +55,13 @@ public class ChatQuickChatPanel {
             int trackTop = py + 4;
             int trackBottom = py + 4 + listH;
             int trackRgb = c.scrollbar() & 0x00FFFFFF;
-            g.fill(trackX, trackTop, trackX + 3, trackBottom, (0x30 << 24) | trackRgb);
+            RenderHelper.fill(g, trackX, trackTop, trackX + 3, trackBottom, (0x30 << 24) | trackRgb);
             int thumbH = Math.max(6, listH * MAX_VISIBLE / totalPhrases);
             int maxScrollOff = totalPhrases - MAX_VISIBLE;
             int travelRange = listH - thumbH;
             int thumbY = trackTop + (maxScrollOff > 0 ? scrollOffset * travelRange / maxScrollOff : 0);
             int thumbRgb = c.scrollbarHover() & 0x00FFFFFF;
-            g.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, (0x70 << 24) | thumbRgb);
+            RenderHelper.fill(g, trackX, thumbY, trackX + 3, thumbY + thumbH, (0x70 << 24) | thumbRgb);
         }
 
         int listY = py + 4;
@@ -69,34 +73,48 @@ public class ChatQuickChatPanel {
             String display = font.trimToWidth(phrase, textMaxW);
             boolean hover = mouseX >= px + 4 && mouseX <= hoverRight
                 && mouseY >= rowY && mouseY <= rowY + ROW_H;
-            if (hover) g.fill(px + 4, rowY, hoverRight, rowY + ROW_H, c.iconHover());
-            g.drawText(font, display, px + 6, rowY + 2, c.textPrimary(), false);
+            if (hover) RenderHelper.fill(g, px + 4, rowY, hoverRight, rowY + ROW_H, c.iconHover());
+            RenderHelper.drawText(g, font, display, px + 6, rowY + 2, c.textPrimary(), false);
             int delX = hoverRight - 13;
             int delY = rowY + 1;
             boolean hoverDel = mouseX >= delX && mouseX <= delX + 12 && mouseY >= delY && mouseY <= delY + 12;
-            g.fill(delX, delY, delX + 12, delY + 12, hoverDel ? c.closeHoverBg() : c.closeBg());
-            g.drawText(font, "\u2715", delX + 6 - font.getWidth("\u2715") / 2, delY + 2, c.closeText(), false);
+            RenderHelper.fill(g, delX, delY, delX + 12, delY + 12, hoverDel ? c.closeHoverBg() : c.closeBg());
+            RenderHelper.drawText(g, font, "\u2715", delX + 6 - font.getWidth("\u2715") / 2, delY + 2, c.closeText(), false);
         }
 
         int inputY = py + 4 + listH + separatorH + 4;
         int inputX = px + 4;
         int inputW = W - 10;
         int inputH = 14;
-        DrawHelper.drawTexture(g, UiTextureManager.rl(UiElement.INPUT_BG),
+        RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.INPUT_BG),
             inputX, inputY, 0f, 0f, inputW, inputH, 1, 1);
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + inputH;
         if (hoverInput || input.isFocused())
             drawBorder(g, inputX, inputY, inputW, inputH, c.textMuted());
         if (input.getText().isEmpty() && !input.isFocused())
-            g.drawText(font, Text.translatable("e33chat.quick_chat.placeholder").getString(),
+            RenderHelper.drawText(g, font, com.niuqu.chatbubble.Txt.translatable("e33chat.quick_chat.placeholder").getString(),
                 inputX + 2, inputY + 3, c.textMuted(), false);
 
         input.setX(inputX + 2);
         input.setWidth(inputW - 4);
-        input.setY(inputY + 3);
+        GuiCompat.setWidgetY(input, inputY + 3);
+        //#if MC >= 12004
         input.setHeight(inputH - 2);
+        //#endif
         input.setVisible(true);
+    }
+
+    public static boolean isInsideInput(int mx, int my, int panelX, int panelW, int barTop, int totalPhrases) {
+        int visiblePhrases = Math.min(totalPhrases, MAX_VISIBLE);
+        int listH = visiblePhrases * ROW_H;
+        int separatorH = visiblePhrases > 0 ? 4 : 0;
+        int panelH = 8 + listH + separatorH + 20;
+        int px = net.minecraft.util.math.MathHelper.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
+        int py = barTop - panelH - 4;
+        int inputX = px + 4;
+        int inputY = py + 4 + listH + separatorH + 4;
+        return mx >= inputX && mx <= inputX + W - 10 && my >= inputY && my <= inputY + 14;
     }
 
     public int handleClick(int mx, int my,
@@ -157,10 +175,10 @@ public class ChatQuickChatPanel {
         scrollOffset = MathHelper.clamp(scrollOffset - (int) scrollY, 0, maxScroll);
     }
 
-    private static void drawBorder(DrawContext g, int x, int y, int w, int h, int color) {
-        g.fill(x, y, x + w, y + 1, color);
-        g.fill(x, y + h - 1, x + w, y + h, color);
-        g.fill(x, y + 1, x + 1, y + h - 1, color);
-        g.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+    private static void drawBorder(Object g, int x, int y, int w, int h, int color) {
+        RenderHelper.fill(g, x, y, x + w, y + 1, color);
+        RenderHelper.fill(g, x, y + h - 1, x + w, y + h, color);
+        RenderHelper.fill(g, x, y + 1, x + 1, y + h - 1, color);
+        RenderHelper.fill(g, x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 }

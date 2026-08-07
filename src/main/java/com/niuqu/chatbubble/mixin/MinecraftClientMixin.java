@@ -2,6 +2,7 @@ package com.niuqu.chatbubble.mixin;
 import com.niuqu.chatbubble.BedScreen;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
+import com.niuqu.chatbubble.GuiCompat;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
@@ -20,11 +21,11 @@ public class MinecraftClientMixin {
         if (screen instanceof SleepingChatScreen) {
             ci.cancel();
             BedScreen.setScreenBeforeSleep(MinecraftClient.getInstance().currentScreen);
-            MinecraftClient.getInstance().setScreen(new BedScreen());
+            GuiCompat.setScreen(MinecraftClient.getInstance(), new BedScreen());
         } else if (screen instanceof ChatScreen chatScreen) {
             ci.cancel();
             String initial = getChatInitialText(chatScreen);
-            MinecraftClient.getInstance().setScreen(new ChatBubbleScreen(initial));
+            GuiCompat.setScreen(MinecraftClient.getInstance(), new ChatBubbleScreen(initial));
         }
     }
     private static String getChatInitialText(ChatScreen chatScreen) {

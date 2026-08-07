@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.texture;
+import com.niuqu.chatbubble.GuiCompat;
 import com.niuqu.chatbubble.ChatBubbleTheme;
 import java.util.function.Function;
 import net.minecraft.util.Identifier;
@@ -25,12 +26,12 @@ public enum UiElement {
     }
     /** 渲染/注册用的纹理 ID（不带 .png）。 */
     public Identifier rl(ChatBubbleTheme theme) {
-        return Identifier.of("e33chat",
+        return GuiCompat.id("e33chat",
             "textures/gui/" + theme.name().toLowerCase() + "/" + path);
     }
     /** 资源包文件路径（带 .png），供 getResource 查询。 */
     public Identifier png(ChatBubbleTheme theme) {
-        return Identifier.of(rl(theme).getNamespace(), rl(theme).getPath() + ".png");
+        return GuiCompat.id(rl(theme).getNamespace(), rl(theme).getPath() + ".png");
     }
     public int themeColor(ChatBubbleTheme theme) {
         return themeColor.apply(theme.colors());
