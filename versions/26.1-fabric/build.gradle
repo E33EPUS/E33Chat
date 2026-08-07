@@ -1,18 +1,45 @@
-plugins {
-    id "java"
+// 26.1 专用构建脚本 - 使用 Loom + 共享源码预处理器
+
+buildscript {
+    repositories {
+        maven { url = "https://maven.fabricmc.net/" }
+        maven { url = "https://jitpack.io" }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("net.fabricmc:fabric-loom:${project.loom_version}")
+        classpath("com.github.Fallen-Breath:preprocessor:4c38783")
+    }
 }
+
+println "Building: ${project.name} (MC ${project.minecraft_version}) - loom ${project.loom_version} (with preprocessor)"
+
+apply plugin: "java"
+apply plugin: "fabric-loom"
+apply plugin: "com.replaymod.preprocess"
+apply plugin: "maven-publish"
 
 group = rootProject.maven_group
 version = rootProject.mod_version
 base.archivesName = project.archives_base_name
 
+final int mcVersion = project.mcVersion
+preprocess {
+    vars.put("MC", mcVersion)
+}
+
 repositories {
     mavenCentral()
-    maven { url = "https://maven.fabricmc.net/" }
+    maven { url = "https://maven.terraformersmc.com/releases/" }
 }
 
 dependencies {
-    compileOnly "net.fabricmc:fabric-loader:${project.loader_version}"
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.minecraft_version}+build.${project.yarn_build}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 processResources {
@@ -27,7 +54,130 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
+tasks.named("remapSourcesJar").configure {
+    enabled = false
+}
+
+tasks.withType(Jar).configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
     options.encoding = "UTF-8"
+}
+
+def sharedSrcDir = file("${rootProject.projectDir}/src/main/java")
+def sharedResDir = file("${rootProject.projectDir}/src/main/resources")
+def versionResDir = file("${project.projectDir}/src/main/resources")
+def preprocessedDir = file("${buildDir}/preprocessed/main/java")
+
+abstract class PreprocessTask extends DefaultTask {
+    @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
+    def File srcDir
+
+    @OutputDirectory
+    def File outDir
+
+    @Input
+    def int targetMcVersion
+
+    @TaskAction
+    def preprocess() {
+        outDir.deleteDir()
+        srcDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+            if (f.name.endsWith(".java")) {
+                def relPath = srcDir.toPath().relativize(f.toPath())
+                def outFile = new File(outDir, relPath.toString())
+                outFile.parentFile.mkdirs()
+                def lines = f.readLines("UTF-8")
+                def outLines = []
+                def stack = []
+                lines.each { line ->
+                    def trimmed = line.trim()
+                    def matcher = (trimmed =~ /^\/\/#(if|else|endif)\s*(.*)/)
+                    if (matcher.matches()) {
+                        def directive = matcher.group(1)
+                        def expr = matcher.group(2)?.trim()
+                        if (directive == "if") {
+                            stack.push(evaluate(expr, targetMcVersion))
+                        } else if (directive == "else") {
+                            if (stack) {
+                                stack.push(!stack.pop())
+                            }
+                        } else if (directive == "endif") {
+                            if (stack) stack.pop()
+                        }
+                        return
+                    }
+                    boolean active = true
+                    for (def s : stack) {
+                        if (!s) { active = false; break }
+                    }
+                    if (active) {
+                        outLines.add(uncommentPreprocessLine(line))
+                    }
+                }
+                outFile.write(outLines.join("\n"), "UTF-8")
+            }
+        }
+    }
+
+    static String uncommentPreprocessLine(String line) {
+        def matcher = (line =~ /^(\s*)\/\/\$\$ ?(.*)$/)
+        return matcher.matches() ? matcher.group(1) + matcher.group(2) : line
+    }
+
+    static boolean evaluate(String expr, int ver) {
+        def m = (expr =~ /^\s*MC\s*(>=|<=|==|!=|<|>)\s*(\d+)\s*$/)
+        if (m.matches()) {
+            def op = m.group(1)
+            def val = Integer.parseInt(m.group(2))
+            switch (op) {
+                case ">=": return ver >= val
+                case "<=": return ver <= val
+                case "==": return ver == val
+                case "!=": return ver != val
+                case "<":  return ver < val
+                case ">":  return ver > val
+            }
+        }
+        return true
+    }
+}
+
+def preprocessTask = tasks.register("preprocessJava", PreprocessTask) {
+    srcDir = sharedSrcDir
+    outDir = preprocessedDir
+    targetMcVersion = project.mcVersion
+}
+
+sourceSets {
+    main {
+        java {
+            setSrcDirs([])
+            srcDir(preprocessedDir)
+        }
+        resources {
+            setSrcDirs([])
+            srcDir versionResDir
+            srcDir sharedResDir
+        }
+    }
+}
+
+tasks.named("compileJava").configure {
+    dependsOn(preprocessTask)
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
 }
