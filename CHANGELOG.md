@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.3.3
+
+**修复**
+- **重复消息残留引用块**：先发一条引用回复"妈妈"，紧接着发一条同样的"妈妈"（不引用），anti-spam 会把两条合并成一个气泡，但合并前的实现原样拷贝了第一条的引用块——第二条明明没引用却显示引用块。现在合并气泡的引用块只反映本条消息自己的引用状态；仍带引用继续连发同内容时引用块正常保留
+
+**新功能**
+- **ChatImage 图片兼容（三端）**：装 ChatImage 后，气泡内可直接显示图片——支持 `[[CICode,url=...]]`（含 CQ 码转换）和 `https/http` 图片链接两种格式，文本变为绿色 `[Image]` 并带悬浮预览，与聊天框行为一致；自己发送的图片即时预览。不装 ChatImage 时原样显示文本，完全不影响原有功能
+
+**Features**
+- ChatImage image support (all three platforms): with ChatImage installed, images render inside bubbles — both `[[CICode,url=...]]` (including CQ code conversion) and `https/http` image links become green `[Image]` text with a hover preview, matching the vanilla chat; your own sent images preview immediately. Without ChatImage the codes stay plain text and nothing else changes
+
+**Fixes**
+- Stale quote block on duplicated messages: send a quoted "妈妈", then an identical unquoted "妈妈" — anti-spam collapsed both into one bubble, but the merge copied the first bubble's quote block, so the second (unquoted) message wrongly showed one. The merged bubble now reflects only this send's own quote state; consecutive re-quoted duplicates keep their quote block
+- Tests: NeoForge 236 all green
+
 ## v2.3.2
 
 **新功能**

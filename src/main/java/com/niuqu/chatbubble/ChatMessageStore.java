@@ -410,6 +410,18 @@ public class ChatMessageStore {
         return isPlayerBlocked(m.rawPlayerName(), m.senderName(), ChatBubbleConfig.BLOCKED_PLAYERS.get());
     }
 
+    // package-private test seam: headless unit tests stub this to return null
+    // so addMessage never touches Minecraft.getInstance()
+    static java.util.function.Supplier<net.minecraft.world.entity.player.Player> localPlayerSupplier =
+        () -> net.minecraft.client.Minecraft.getInstance().player;
+
+    // package-private test seams: ModConfigSpec values throw until a config is
+    // loaded, so headless tests stub the two gates addMessage always hits
+    static java.util.function.BooleanSupplier antiSpamEnabledSupplier =
+        () -> ChatBubbleConfig.ANTI_SPAM.get();
+    static java.util.function.BooleanSupplier mentionRequireAtSupplier =
+        () -> ChatBubbleConfig.MENTION_REQUIRE_AT.get();
+
     public static void addMessage(Component content, UUID senderUUID, Component senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner, boolean localSend) {
         String messageHash = String.valueOf(content.getString().hashCode());
 
@@ -419,7 +431,7 @@ public class ChatMessageStore {
         // line breaks; single-line contexts (preview/hint) flatten them separately.
         if (content.getString().isBlank()) return;
 
-        var localPlayer = net.minecraft.client.Minecraft.getInstance().player;
+        var localPlayer = localPlayerSupplier.get();
         String playerName = localPlayer != null ? localPlayer.getName().getString() : "";
         // UUID is deterministic; the name fallback covers system-channel messages
         // flattened by NCR where the UUID is nil. Name-only comparison misjudged
@@ -437,19 +449,33 @@ public class ChatMessageStore {
         // list display name is null on vanilla servers.
         if (own) cacheOwnDecoratedName(senderName);
 
-        if (ChatBubbleConfig.ANTI_SPAM.get() && !messages.isEmpty()) {
+        if (antiSpamEnabledSupplier.getAsBoolean() && !messages.isEmpty()) {
             ChatMessage last = messages.get(messages.size() - 1);
             if (!last.isSystem() && isSameSender(last, senderName, rawPlayerName)
                 && last.content().getString().equals(content.getString())) {
-                if (own && pendingReplyContent != null) {
-                    pendingReplyContent = null;
-                    pendingReplySender = null;
+                // The merged bubble's quote block must reflect THIS send, not
+                // inherit the previous one's — an unquoted identical follow-up
+                // after a quoted send otherwise keeps a stale [引用] block.
+                PendingMeta pending = pendingMetas.remove(messageHash);
+                if (pending != null && System.currentTimeMillis() - pending.createdAt() > 10_000) {
+                    pending = null;
                 }
+                String mergeReplyContent = null;
+                String mergeReplySender = null;
+                if (own && pendingReplyContent != null) {
+                    mergeReplyContent = pendingReplyContent;
+                    mergeReplySender = pendingReplySender;
+                } else if (pending != null && !pending.quoteContent().isEmpty()) {
+                    mergeReplyContent = pending.quoteContent();
+                    mergeReplySender = pending.quoteSender();
+                }
+                pendingReplyContent = null;
+                pendingReplySender = null;
                 messages.set(messages.size() - 1, new ChatMessage(
                     last.senderUUID(), last.senderName(), last.content(),
                     System.currentTimeMillis(),
                     last.isOwn(), last.isSystem(),
-                    last.replyContent(), last.replySender(), last.messageHash(),
+                    mergeReplyContent, mergeReplySender, last.messageHash(),
                     last.duplicateCount() + 1,
                     last.rawPlayerName(),
                     last.whisper(), last.whisperPartner()
@@ -501,7 +527,7 @@ public class ChatMessageStore {
         boolean isMentionOrQuote = !isSystem
             && com.niuqu.chatbubble.chat.MentionDetector.isMentioned(
                 content.getString(), playerName,
-                ChatBubbleConfig.MENTION_REQUIRE_AT.get(), replySender);
+                mentionRequireAtSupplier.getAsBoolean(), replySender);
 
         if (isMentionOrQuote) {
             if (!screenOpen) hasUnreadMentionFlag = true;
@@ -527,7 +553,7 @@ public class ChatMessageStore {
         }
 
         boolean playSound = false;
-        if (!own && Minecraft.getInstance().player != null && !isMentionOrQuote && !whisper) {
+        if (!own && localPlayerSupplier.get() != null && !isMentionOrQuote && !whisper) {
             if (isSystem && ChatBubbleConfig.SOUND_SYSTEM.get()) playSound = true;
             else if (!isSystem && ChatBubbleConfig.SOUND_PUBLIC.get()) playSound = true;
         }
@@ -975,7 +1001,7 @@ public class ChatMessageStore {
         return new ChatMessage(
             new UUID(0, 0),
             parseStyledText(unescapeField(parts[1])),
-            parseStyledText(content),
+            ChatImageCompat.convert(parseStyledText(content)),
             millis,
             flags.contains("M"),
             flags.contains("S"),
@@ -1303,7 +1329,7 @@ public class ChatMessageStore {
             messages.add(new ChatMessage(
                 e.senderUUID(),
                 Component.literal(e.senderName()),
-                Component.literal(e.content()),
+                ChatImageCompat.convert(Component.literal(e.content())),
                 e.time(),
                 false,
                 e.isSystem(),
