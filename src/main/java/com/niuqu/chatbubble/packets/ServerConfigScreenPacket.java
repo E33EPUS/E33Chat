@@ -1,7 +1,5 @@
 package com.niuqu.chatbubble.packets;
 
-import com.niuqu.chatbubble.ServerConfigScreen;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
@@ -14,6 +12,13 @@ import java.util.function.Supplier;
 /**
  * Server -> client: open the server-config GUI with the current server settings
  * snapshot. Triggered by /e33chat gui (OP).
+ *
+ * Pure data + codec only — the client-side open logic lives in
+ * {@link ClientServerConfigGui} so the server (which loads packet classes when
+ * NetworkHandler registers them) never verifies a reference to the client-only
+ * Screen class. Without this, a dedicated server crashes at startup with
+ * "Attempted to load class net/minecraft/client/gui/screens/Screen for invalid
+ * dist DEDICATED_SERVER".
  */
 public class ServerConfigScreenPacket {
     private final boolean useTpa;
@@ -57,9 +62,7 @@ public class ServerConfigScreenPacket {
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() ->
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                Minecraft.getInstance().setScreen(new ServerConfigScreen(
-                    Minecraft.getInstance().screen,
-                    useTpa, historyEnabled, templateDebug, chatTemplates, whisperTemplates))
+                ClientServerConfigGui.open(useTpa, historyEnabled, templateDebug, chatTemplates, whisperTemplates)
             )
         );
         ctx.get().setPacketHandled(true);
