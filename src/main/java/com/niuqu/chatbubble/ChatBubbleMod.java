@@ -8,6 +8,7 @@ import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 
 @Mod(ChatBubbleMod.MODID)
 public class ChatBubbleMod {
@@ -16,6 +17,17 @@ public class ChatBubbleMod {
     public ChatBubbleMod() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(
             (FMLCommonSetupEvent event) -> event.enqueueWork(NetworkHandler::register));
+
+        // registerConfig(CLIENT) must run from the mod constructor: Forge loads
+        // client configs during CONFIG_LOAD (which precedes FMLClientSetupEvent)
+        // and only binds the childConfig there — registering later leaves the
+        // toml never loaded, so the config screen shows defaults and set() NPEs.
+        // ChatBubbleClientSetup still touches client-only classes, so it stays
+        // in the FMLClientSetupEvent handler below.
+        if (FMLEnvironment.dist.isClient()) {
+            ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT,
+                ChatBubbleConfig.CLIENT_CONFIG, "e33chat-client.toml");
+        }
 
         // FMLClientSetupEvent fires only on the client, so ChatBubbleClientSetup
         // (which loads client-only classes) is never touched on a dedicated
