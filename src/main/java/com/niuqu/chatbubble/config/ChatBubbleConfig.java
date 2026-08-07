@@ -26,6 +26,7 @@ public record ChatBubbleConfig(
     boolean preserveInput,
     boolean colorCodes,
     List<String> sidebarHidePatterns,
+    List<String> blockedPlayers,
     List<String> quickChatPhrases,
     boolean mentionBannerEnabled,
     boolean systemBannerEnabled,
@@ -48,7 +49,7 @@ public record ChatBubbleConfig(
             false, 0, 5, 1000, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
             false, false, true, false, true, false,
-            List.of(), List.of(),
+            List.of(), List.of(), List.of(),
             true, true, 4, true, true, true,
             true, 80, 80, false, false, false, 4
         );
@@ -70,7 +71,7 @@ public record ChatBubbleConfig(
             systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
-            soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, quickChatPhrases,
+            soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, blockedPlayers, quickChatPhrases,
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
     }
@@ -80,7 +81,7 @@ public record ChatBubbleConfig(
             systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
-            soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, phrases,
+            soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, blockedPlayers, phrases,
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
     }
@@ -90,7 +91,17 @@ public record ChatBubbleConfig(
             systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
-            soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, patterns, quickChatPhrases,
+            soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, patterns, blockedPlayers, quickChatPhrases,
+            mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
+    }
+
+    public ChatBubbleConfig withBlockedPlayers(List<String> blocked) {
+        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
+            systemChatAsBubble, antiSpam,
+            chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
+            panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
+            soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, blocked, quickChatPhrases,
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius);
     }

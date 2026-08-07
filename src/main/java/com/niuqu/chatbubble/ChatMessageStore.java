@@ -375,6 +375,46 @@ public class ChatMessageStore {
         return last.senderName().getString().equals(senderName.getString());
     }
 
+    // ==== Blocked players ====
+    // Exact-name matching (case-insensitive, §-stripped). rawPlayerName is the
+    // primary key — the profileless channel carries a nil UUID, so UUID-only
+    // matching would leak blocked players through that path.
+    public static boolean matchesBlocked(String name, List<? extends String> blocked) {
+        if (name == null || name.isEmpty() || blocked == null || blocked.isEmpty()) return false;
+        // Both sides §-stripped and trimmed so color-coded names and stray spaces
+        // in either the message or the config list can't break the match
+        String stripped = name.replaceAll("§.", "").trim();
+        for (String b : blocked) {
+            if (b == null || b.isBlank()) continue;
+            String candidate = b.replaceAll("§.", "").trim();
+            if (stripped.equalsIgnoreCase(candidate)) return true;
+        }
+        return false;
+    }
+
+    // senderName (tab-list display name) as fallback covers nickname plugins where
+    // the chat line carries the decorated name and rawPlayerName is the profile name
+    public static boolean isPlayerBlocked(String rawPlayerName, Text senderName, List<? extends String> blocked) {
+        if (blocked == null || blocked.isEmpty()) return false;
+        if (matchesBlocked(rawPlayerName, blocked)) return true;
+        return senderName != null && matchesBlocked(senderName.getString(), blocked);
+    }
+
+    // Blocking must also drop already-loaded history, or the sender's old messages
+    // keep showing in the chat panel after the block takes effect
+    public static void purgeBlocked(List<? extends String> blocked) {
+        if (blocked == null || blocked.isEmpty()) return;
+        messages.removeIf(m -> !m.isOwn() && !m.isSystem()
+            && isPlayerBlocked(m.rawPlayerName(), m.senderName(), blocked));
+    }
+
+    // History restored from disk / server packets must not re-import blocked
+    // senders' messages, or they reappear on the next world join
+    private static boolean isBlockedMessage(ChatMessage m) {
+        return isPlayerBlocked(m.rawPlayerName(), m.senderName(),
+            ChatBubbleClientSetup.config().blockedPlayers());
+    }
+
     public static void addMessage(Text content, UUID senderUUID, Text senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner, boolean localSend) {
         String messageHash = String.valueOf(content.getString().hashCode());
 
@@ -1241,6 +1281,7 @@ public class ChatMessageStore {
         if (head.trim().startsWith("[")) {
             List<ChatMessage> legacy = loadLegacyFile(f);
             for (ChatMessage m : legacy) {
+                if (isBlockedMessage(m)) continue;
                 messages.add(m);
                 if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
                     rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
@@ -1253,7 +1294,7 @@ public class ChatMessageStore {
                     if (line.isBlank()) continue;
                     try {
                         ChatMessage m = fromLine(line);
-                        if (m == null) continue;
+                        if (m == null || isBlockedMessage(m)) continue;
                         messages.add(m);
                         if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
                             rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
@@ -1295,6 +1336,8 @@ public class ChatMessageStore {
         if (!messages.isEmpty() || entries.isEmpty()) return;
         for (var e : entries) {
             if (e.content().isBlank()) continue;
+            if (isPlayerBlocked(e.senderName(), Text.literal(e.senderName()),
+                ChatBubbleClientSetup.config().blockedPlayers())) continue;
             messages.add(new ChatMessage(
                 e.senderUUID(),
                 Text.literal(e.senderName()),

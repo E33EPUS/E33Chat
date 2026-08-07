@@ -74,6 +74,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
     private List<String> sidebarHidePatterns;
+    private List<String> blockedPlayers;
 
     // 打开时的快照——用于 changeCount / revertAll
     private ChatBubbleConfig snapshot;
@@ -142,6 +143,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> preserveInput, v -> preserveInput = v));
         tracked.add(track(() -> colorCodes, v -> colorCodes = v));
         tracked.add(track(() -> new ArrayList<>(sidebarHidePatterns), v -> sidebarHidePatterns = new ArrayList<>(v)));
+        tracked.add(track(() -> new ArrayList<>(blockedPlayers), v -> blockedPlayers = new ArrayList<>(v)));
         tracked.add(track(() -> ownBubbleColor, v -> ownBubbleColor = v));
         tracked.add(track(() -> otherBubbleColor, v -> otherBubbleColor = v));
         tracked.add(track(() -> bubbleCornerRadius, v -> bubbleCornerRadius = v));
@@ -185,6 +187,7 @@ public class ChatBubbleConfigScreen extends Screen {
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes,
             sidebarHidePatterns,
+            blockedPlayers,
             ChatBubbleClientSetup.config().quickChatPhrases(),
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius));
@@ -218,6 +221,7 @@ public class ChatBubbleConfigScreen extends Screen {
         ownBubbleColor = cfg.ownBubbleColor(); otherBubbleColor = cfg.otherBubbleColor();
         ownTextColor = cfg.ownTextColor(); otherTextColor = cfg.otherTextColor();
         sidebarHidePatterns = new ArrayList<>(cfg.sidebarHidePatterns());
+        blockedPlayers = new ArrayList<>(cfg.blockedPlayers());
     }
 
     // ---- ChatScrollbar geometry inline ----
@@ -360,6 +364,15 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.anti_spam", y -> mkBoolButton(y, () -> antiSpam, v -> antiSpam = v), null));
         chat.add(new Opt("e33chat.config.time_separator", this::mkTimeSepButton, null));
         chat.add(new Opt("e33chat.config.color_codes", y -> mkBoolButton(y, () -> colorCodes, v -> colorCodes = v), null));
+        chat.add(Opt.header("e33chat.config.section.blocked"));
+        chat.add(new Opt("e33chat.config.blocked_players",
+            y -> mkPatternBox(y,
+                new ArrayList<>(blockedPlayers),
+                parts -> {
+                    blockedPlayers = new ArrayList<>(parts);
+                    ChatMessageStore.purgeBlocked(parts);
+                }),
+            null));
         cats.add(new Cat("e33chat.config.cat.chat", chat));
 
         List<Opt> hud = new ArrayList<>();

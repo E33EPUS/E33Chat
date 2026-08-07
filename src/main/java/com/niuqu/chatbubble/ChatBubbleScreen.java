@@ -917,7 +917,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void handleAvatarContextClick(int mx, int my) {
-        int menuH = CTX_ITEM_H * 2 + 3;
+        int menuH = CTX_ITEM_H * 3 + 4;
         int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
         int menuY = contextAvatarY - menuH;
         if (menuY < msgTop) menuY = contextAvatarY + 4;
@@ -932,9 +932,35 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatMessageStore.clearUnreadWhisper(name);
                 if (sidebarSearchBox != null) sidebarSearchBox.setText("");
                 setFocused(chatField); scrollToBottom = true;
+            } else if (my >= menuY + CTX_ITEM_H * 2 + 4 && my <= menuY + menuH) {
+                toggleBlockedPlayer();
             }
         }
         contextAvatarIndex = -1;
+    }
+
+    // 屏蔽/取消屏蔽右键菜单目标玩家：名单即时生效 + 从消息列表清掉历史 + 立即写盘
+    private void toggleBlockedPlayer() {
+        ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextAvatarIndex);
+        if (msg == null) return;
+        String name = msg.rawPlayerName();
+        if (name == null || name.isEmpty()) {
+            name = msg.senderName() != null ? msg.senderName().getString() : null;
+        }
+        if (name == null || name.isEmpty()) return;
+        final String target = name;
+
+        List<String> blocked = new ArrayList<>(ChatBubbleClientSetup.config().blockedPlayers());
+        boolean nowBlocked = ChatMessageStore.isPlayerBlocked(
+            msg.rawPlayerName(), msg.senderName(), blocked);
+        if (nowBlocked) {
+            blocked.removeIf(b -> b != null && b.trim().equalsIgnoreCase(target));
+        } else {
+            blocked.add(target.trim());
+        }
+        ChatBubbleClientSetup.saveConfig(ChatBubbleClientSetup.config().withBlockedPlayers(blocked));
+        ChatMessageStore.purgeBlocked(blocked);
+        ChatMessageStore.debugLog(() -> "[e33chat] Block list updated | name='" + target + "' | blocked=" + nowBlocked);
     }
 
     @Override
@@ -1503,7 +1529,6 @@ public class ChatBubbleScreen extends ChatScreen {
 
         boolean hoverCopy = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
-        int copyBg = hoverCopy ? c().contextHover() : c().sidebarItemSelected();
         g.drawTexture(UiTextureManager.rl(hoverCopy ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
             menuX + 1, menuY + 1, CTX_W - 2, CTX_ITEM_H - 1, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("copy"), menuX + 5, menuY + 3, 12);
@@ -1513,7 +1538,6 @@ public class ChatBubbleScreen extends ChatScreen {
 
         boolean hoverQuote = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY + CTX_ITEM_H + 1 && mouseY <= menuY + menuH;
-        int quoteBg = hoverQuote ? c().contextHover() : c().sidebarItemSelected();
         g.drawTexture(UiTextureManager.rl(hoverQuote ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
             menuX + 1, menuY + CTX_ITEM_H + 1, CTX_W - 2, CTX_ITEM_H, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("quote"), menuX + 5, menuY + CTX_ITEM_H + 3, 12);
@@ -1522,7 +1546,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private void renderAvatarContextMenu(DrawContext g, int mouseX, int mouseY) {
         if (contextAvatarIndex < 0) return;
-        int menuH = CTX_ITEM_H * 2 + 3;
+        int menuH = CTX_ITEM_H * 3 + 4;
         int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
         int menuY = contextAvatarY - menuH;
         if (menuY < msgTop) menuY = contextAvatarY + 4;
@@ -1535,7 +1559,6 @@ public class ChatBubbleScreen extends ChatScreen {
 
         boolean hoverTp = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
-        int tpBg = hoverTp ? c().contextHover() : c().sidebarItemSelected();
         g.drawTexture(UiTextureManager.rl(hoverTp ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
             menuX + 1, menuY + 1, CTX_W - 2, CTX_ITEM_H - 1, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("tp"), menuX + 5, menuY + 3, 12);
@@ -1544,12 +1567,25 @@ public class ChatBubbleScreen extends ChatScreen {
         g.fill(menuX + 4, menuY + CTX_ITEM_H + 1, menuX + CTX_W - 4, menuY + CTX_ITEM_H + 2, c().closeHoverBg());
 
         boolean hoverWhisper = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY + CTX_ITEM_H + 2 && mouseY <= menuY + menuH;
-        int whBg = hoverWhisper ? c().contextHover() : c().sidebarItemSelected();
+            && mouseY >= menuY + CTX_ITEM_H + 2 && mouseY <= menuY + CTX_ITEM_H * 2 + 2;
         g.drawTexture(UiTextureManager.rl(hoverWhisper ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
             menuX + 1, menuY + CTX_ITEM_H + 2, CTX_W - 2, CTX_ITEM_H, 0f, 0f, 16, 16, 16, 16);
         drawTextureIcon(g, iconTex("whisper"), menuX + 5, menuY + CTX_ITEM_H + 4, 12);
         g.drawText(textRenderer, Text.translatable("e33chat.context.whisper").getString(), menuX + 22, menuY + CTX_ITEM_H + 6, c().textPrimary(), false);
+
+        g.fill(menuX + 4, menuY + CTX_ITEM_H * 2 + 3, menuX + CTX_W - 4, menuY + CTX_ITEM_H * 2 + 4, c().closeHoverBg());
+
+        boolean hoverBlock = mouseX >= menuX && mouseX <= menuX + CTX_W
+            && mouseY >= menuY + CTX_ITEM_H * 2 + 4 && mouseY <= menuY + menuH;
+        g.drawTexture(UiTextureManager.rl(hoverBlock ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            menuX + 1, menuY + CTX_ITEM_H * 2 + 4, CTX_W - 2, CTX_ITEM_H, 0f, 0f, 16, 16, 16, 16);
+        drawTextureIcon(g, iconTex("block"), menuX + 5, menuY + CTX_ITEM_H * 2 + 6, 12);
+        ChatMessageStore.ChatMessage avaMsg = ChatMessageStore.getMessageAt(contextAvatarIndex);
+        boolean isBlocked = avaMsg != null
+            && ChatMessageStore.isPlayerBlocked(avaMsg.rawPlayerName(), avaMsg.senderName(),
+                ChatBubbleClientSetup.config().blockedPlayers());
+        g.drawText(textRenderer, Text.translatable(isBlocked ? "e33chat.context.unblock" : "e33chat.context.block").getString(),
+            menuX + 22, menuY + CTX_ITEM_H * 2 + 8, c().textPrimary(), false);
     }
 
     private static final int REPLY_BAR_H = 18;

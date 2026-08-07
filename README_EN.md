@@ -11,7 +11,7 @@
   <img alt="Loader" src="https://img.shields.io/badge/Loader-Forge%20%7C%20NeoForge%20%7C%20Fabric-orange">
   <img alt="Side" src="https://img.shields.io/badge/Side-Client%20required,%20server%20optional-blue">
   <img alt="Java" src="https://img.shields.io/badge/Java-17%2B%20%7C%2021%2B-yellow">
-  <img alt="Version" src="https://img.shields.io/badge/Version-2.3.0-informational">
+  <img alt="Version" src="https://img.shields.io/badge/Version-2.3.2-informational">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-brightgreen">
 </p>
 
@@ -88,7 +88,8 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - 😊 **Emoji & kaomoji** — Emoji panel + kaomoji picker, inserted at the cursor
 - 📌 **Quick phrases** — Save common phrases and fill them with one click
 - 📋 **Copy & quote reply** — Right-click a message to copy or quote-reply
-- 👤 **Head actions** — Right-click a head to whisper / teleport, left-click to @
+- 👤 **Head actions** — Right-click a head to whisper / teleport / block, left-click to @
+- 🚫 **Block players** — A blocked player's messages vanish completely (vanilla chat / bubbles / banners / sounds); blocking takes effect instantly and purges their history, never restored on rejoin; manage the list in Settings → Chat → Blocked List (exact names, comma-separated)
 - 🔔 **Notification banner** — Slide-in popup at the top covering @ / quote / whisper / system (system banner on by default); master volume slider with per-type toggles
 - 🗨️ **Vanilla chat box** — No custom HUD preview anymore; the vanilla chat renders as usual (shifted up clear of the HUD icon), so ChatHeads / ChatAnimation-style mods work out of the box
 - 🌈 **Colored messages** — Supports `&` color / format codes, rendered locally without changing what is sent

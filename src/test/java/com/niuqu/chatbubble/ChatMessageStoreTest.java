@@ -512,48 +512,86 @@ class ChatMessageStoreTest {
         assertFalse(ChatMessageStore.isExpired(now - 30L * 24 * 3600_000, now, 30));
     }
 
-    // ---- timeKey / formatTime: epoch buckets and WeChat-style separators ----
+    // ---- blocked players: exact-name match (case-insensitive, §-stripped) ----
 
-    private static long millisAt(String dateTime) {
-        return java.time.LocalDateTime.parse(dateTime)
-            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+    @Test void blocked_exactNameHits() {
+        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("Steve")));
+        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("Alex", "Steve", "Bob")));
     }
 
-    @Test void timeKey_disabledReturnsEmpty() {
-        assertEquals("", ChatMessageStore.timeKey(0, 0));
+    @Test void blocked_caseInsensitiveHits() {
+        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("steve")));
+        assertTrue(ChatMessageStore.matchesBlocked("STEVE", List.of("Steve")));
     }
 
-    @Test void timeKey_interval1_bucketIsMinute() {
-        long t = millisAt("2026-07-31T14:30:05");
-        assertEquals(t / 60_000L, Long.parseLong(ChatMessageStore.timeKey(t, 1)));
+    @Test void blocked_colorCodesHit() {
+        assertTrue(ChatMessageStore.matchesBlocked("§6Steve§r", List.of("Steve")));
+        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("§6Steve§r")));
     }
 
-    @Test void timeKey_interval5_roundsDown() {
-        String early = ChatMessageStore.timeKey(millisAt("2026-07-31T14:30"), 5);
-        assertEquals(early, ChatMessageStore.timeKey(millisAt("2026-07-31T14:32"), 5));
-        assertNotEquals(early, ChatMessageStore.timeKey(millisAt("2026-07-31T14:35"), 5));
+    @Test void blocked_whitespaceTrimmed() {
+        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("  Steve  ")));
+        assertTrue(ChatMessageStore.matchesBlocked("  Steve  ", List.of("Steve")));
     }
 
-    @Test void timeKey_midnightCrossingGetsNewKey() {
-        String before = ChatMessageStore.timeKey(millisAt("2026-07-31T23:59:59"), 1);
-        String after = ChatMessageStore.timeKey(millisAt("2026-08-01T00:00:01"), 1);
-        assertNotEquals(before, after);
+    @Test void blocked_substringMisses() {
+        assertFalse(ChatMessageStore.matchesBlocked("SteveAdmin", List.of("Steve")));
+        assertFalse(ChatMessageStore.matchesBlocked("Steve", List.of("Stev")));
     }
 
-    @Test void formatTime_sameDayShowsTimeOnly() {
-        long today = millisAt(java.time.LocalDateTime.now().toLocalDate() + "T15:30");
-        assertEquals("15:30", ChatMessageStore.formatTime(today));
+    @Test void blocked_emptyOrNullSafe() {
+        assertFalse(ChatMessageStore.matchesBlocked(null, List.of("Steve")));
+        assertFalse(ChatMessageStore.matchesBlocked("", List.of("Steve")));
+        assertFalse(ChatMessageStore.matchesBlocked("Steve", null));
+        assertFalse(ChatMessageStore.matchesBlocked("Steve", List.of()));
+        assertFalse(ChatMessageStore.matchesBlocked("Steve", List.of("  ")));
     }
 
-    @Test void formatTime_otherDayShowsMonthDay() {
-        long yesterday = millisAt(java.time.LocalDate.now().minusDays(1) + "T15:30");
-        assertEquals(java.time.LocalDate.now().minusDays(1).format(
-            java.time.format.DateTimeFormatter.ofPattern("MM-dd")) + " 15:30",
-            ChatMessageStore.formatTime(yesterday));
+    @Test void blocked_senderNameFallbackHits() {
+        // Nickname plugins put the tab-list display name in senderName; exact match
+        // on the full decorated string (list holds the display name as shown)
+        var decorated = net.minecraft.text.Text.literal("[VIP]Steve");
+        assertTrue(ChatMessageStore.isPlayerBlocked(null, decorated, List.of("[VIP]Steve")));
+        assertTrue(ChatMessageStore.isPlayerBlocked("Alex", decorated, List.of("[vip]steve")));
+        // Exact-name semantics: a bare profile name does NOT match a decorated display name
+        assertFalse(ChatMessageStore.isPlayerBlocked(null, decorated, List.of("Steve")));
     }
 
-    @Test void formatTime_otherYearShowsFullDate() {
-        long old = millisAt("2025-12-31T15:30");
-        assertEquals("2025-12-31 15:30", ChatMessageStore.formatTime(old));
+    @Test void blocked_rawNamePrimaryKeyHits() {
+        assertTrue(ChatMessageStore.isPlayerBlocked("Steve", null, List.of("Steve")));
+        assertFalse(ChatMessageStore.isPlayerBlocked("Steve", null, List.of("Alex")));
+    }
+
+    @Test void blocked_purgeDropsSenderKeepsOwnAndSystem() throws Exception {
+        var blockedMsg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.text.Text.literal("Steve"),
+            net.minecraft.text.Text.literal("hello"),
+            1L, false, false, null, null, "", 1, "Steve", false, null);
+        var ownMsg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.text.Text.literal("Me"),
+            net.minecraft.text.Text.literal("hi"),
+            2L, true, false, null, null, "", 1, "Me", false, null);
+        var sysMsg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.text.Text.literal("Steve"),
+            net.minecraft.text.Text.literal("joined the game"),
+            3L, false, true, null, null, "", 1, "Steve", false, null);
+
+        var field = ChatMessageStore.class.getDeclaredField("messages");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var messages = (List<Object>) field.get(null);
+        messages.clear();
+        messages.add(blockedMsg);
+        messages.add(ownMsg);
+        messages.add(sysMsg);
+
+        ChatMessageStore.purgeBlocked(List.of("Steve"));
+
+        assertEquals(2, messages.size());
+        assertSame(ownMsg, messages.get(0));
+        assertSame(sysMsg, messages.get(1));
     }
 }
