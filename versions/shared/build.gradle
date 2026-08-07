@@ -92,18 +92,94 @@ def mainProjectName = file("${rootProject.projectDir}/versions/mainProject").tex
 def sharedSrcDir = file("${rootProject.projectDir}/src/main/java")
 def sharedResDir = file("${rootProject.projectDir}/src/main/resources")
 def versionResDir = file("${project.projectDir}/src/main/resources")
+def preprocessedDir = file("${buildDir}/preprocessed/main/java")
+
+// 生成预处理代码的任务：按当前子项目 mcVersion 处理 //#if / //#else / //#endif，
+// 并在选中旧版本分支时把 //$$ 代码行恢复为真实 Java 代码。
+abstract class PreprocessTask extends DefaultTask {
+    @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
+    def File srcDir
+
+    @OutputDirectory
+    def File outDir
+
+    @Input
+    def int targetMcVersion
+
+    @TaskAction
+    def preprocess() {
+        outDir.deleteDir()
+        srcDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+            if (f.name.endsWith('.java')) {
+                def relPath = srcDir.toPath().relativize(f.toPath())
+                def outFile = new File(outDir, relPath.toString())
+                outFile.parentFile.mkdirs()
+                def lines = f.readLines('UTF-8')
+                def outLines = []
+                def stack = []
+                lines.each { line ->
+                    def trimmed = line.trim()
+                    def matcher = (trimmed =~ /^\/\/#(if|else|endif)\s*(.*)/)
+                    if (matcher.matches()) {
+                        def directive = matcher.group(1)
+                        def expr = matcher.group(2)?.trim()
+                        if (directive == 'if') {
+                            stack.push(evaluate(expr, targetMcVersion))
+                        } else if (directive == 'else') {
+                            if (stack) stack.push(!stack.pop())
+                        } else if (directive == 'endif') {
+                            if (stack) stack.pop()
+                        }
+                        return
+                    }
+                    boolean active = true
+                    for (def s : stack) {
+                        if (!s) { active = false; break }
+                    }
+                    if (active) {
+                        outLines.add(uncommentPreprocessLine(line))
+                    }
+                }
+                outFile.write(outLines.join('\n'), 'UTF-8')
+            }
+        }
+    }
+
+    static String uncommentPreprocessLine(String line) {
+        def matcher = (line =~ /^(\s*)\/\/\$\$ ?(.*)$/)
+        return matcher.matches() ? matcher.group(1) + matcher.group(2) : line
+    }
+
+    static boolean evaluate(String expr, int ver) {
+        def m = (expr =~ /^\s*MC\s*(>=|<=|==|!=|<|>)\s*(\d+)\s*$/)
+        if (m.matches()) {
+            def op = m.group(1)
+            def val = Integer.parseInt(m.group(2))
+            switch (op) {
+                case '>=': return ver >= val
+                case '<=': return ver <= val
+                case '==': return ver == val
+                case '!=': return ver != val
+                case '<':  return ver < val
+                case '>':  return ver > val
+            }
+        }
+        return true
+    }
+}
+
+def preprocessTask = tasks.register('preprocessJava', PreprocessTask) {
+    srcDir = sharedSrcDir
+    outDir = preprocessedDir
+    targetMcVersion = project.mcVersion
+}
 
 sourceSets {
     main {
         java {
             setSrcDirs([])
-            if (project.name == mainProjectName) {
-                // 主项目从共享源码目录读取（含预处理指令），预处理器将其处理到 build/preprocessed
-                srcDir(sharedSrcDir)
-            } else {
-                // 非主项目使用预处理器生成的代码
-                srcDir(file("${buildDir}/preprocessed/main/java"))
-            }
+            srcDir(preprocessedDir)
         }
         resources {
             setSrcDirs([])
@@ -113,6 +189,16 @@ sourceSets {
             srcDir sharedResDir
         }
     }
+}
+
+tasks.named('compileJava').configure {
+    dependsOn(preprocessTask)
+}
+
+// 本项目已经使用自定义 preprocessJava 处理 Java 源码，并通过 sourceSets 合并资源；
+// 禁用 replaymod 插件自动预处理任务，避免资源重复写入 build/preprocessed 导致冲突。
+tasks.matching { it.name == 'preprocessCode' || it.name == 'preprocessResources' }.configureEach {
+    enabled = false
 }
 
 

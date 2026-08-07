@@ -87,7 +87,15 @@ public class ChatBubbleMod implements ModInitializer {
 
         ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
             String rawText = message.getContent().getString();
+            //#if MC >= 12106
+            //#if MC < 12109
+            //$$ var server = sender.getWorld().getServer();
+            //#else
             var server = sender.getEntityWorld().getServer();
+            //#endif
+            //#else
+            var server = sender.getEntityWorld().getServer();
+            //#endif
             int playerCount = server != null
                 ? server.getPlayerManager().getPlayerList().size() : 1;
             List<String> mentions = extractMentions(rawText, playerCount);

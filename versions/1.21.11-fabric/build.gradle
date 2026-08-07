@@ -120,12 +120,17 @@ abstract class PreprocessTask extends DefaultTask {
                         if (!s) { active = false; break }
                     }
                     if (active) {
-                        outLines.add(line)
+                        outLines.add(uncommentPreprocessLine(line))
                     }
                 }
                 outFile.write(outLines.join('\n'), 'UTF-8')
             }
         }
+    }
+
+    static String uncommentPreprocessLine(String line) {
+        def matcher = (line =~ /^(\s*)\/\/\$\$ ?(.*)$/)
+        return matcher.matches() ? matcher.group(1) + matcher.group(2) : line
     }
 
     static boolean evaluate(String expr, int ver) {
