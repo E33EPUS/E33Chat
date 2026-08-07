@@ -35,6 +35,7 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue PRESERVE_INPUT;
     public static final ModConfigSpec.BooleanValue COLOR_CODES;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SIDEBAR_HIDE_PATTERNS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_PLAYERS;
 
     // mention
     public static final ModConfigSpec.BooleanValue MENTION_BANNER_ENABLED;
@@ -137,6 +138,11 @@ public class ChatBubbleConfig {
             .comment("Hide players matching these wildcard patterns from the sidebar whisper list (comma-separated, * = wildcard, e.g. Islot_*, *[NPC]*)")
             .translation("e33chat.config.sidebar_hide_patterns")
             .defineListAllowEmpty("sidebar_hide_patterns", ArrayList::new, () -> "", o -> o instanceof String);
+
+        BLOCKED_PLAYERS = builder
+            .comment("Blocked players: their messages vanish entirely — vanilla chat, bubbles, banners and sounds (comma-separated exact names)")
+            .translation("e33chat.config.blocked_players")
+            .defineListAllowEmpty("blocked_players", ArrayList::new, () -> "", o -> o instanceof String);
 
         builder.pop();
         builder.push("bubble");

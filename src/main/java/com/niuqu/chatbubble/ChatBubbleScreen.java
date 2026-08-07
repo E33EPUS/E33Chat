@@ -937,7 +937,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void handleAvatarContextClick(int mx, int my) {
-        int menuH = ChatContextMenus.CTX_ITEM_H * 2 + 3;
+        int menuH = ChatContextMenus.CTX_ITEM_H * 3 + 4;
         int menuX = ChatContextMenus.menuX(contextAvatarX, panelX, panelW);
         int menuY = ChatContextMenus.menuY(contextAvatarY, menuH, msgTop, true);
 
@@ -954,8 +954,37 @@ public class ChatBubbleScreen extends ChatScreen {
             if (sidebarSearchBox != null) sidebarSearchBox.setValue("");
             setFocused(input);
             scrollToBottom = true;
+        } else if (ChatContextMenus.isOverItem(mx, my, menuX,
+            menuY + ChatContextMenus.CTX_ITEM_H * 2 + 4, ChatContextMenus.CTX_ITEM_H)) {
+            toggleBlockedPlayer();
         }
         contextAvatarIndex = -1;
+    }
+
+    // 屏蔽/取消屏蔽右键菜单目标玩家：名单即时生效 + 从消息列表清掉历史 +
+    // 立即写盘（set() 只改内存，参考 doClose 的 saveClientConfig 约定）
+    private void toggleBlockedPlayer() {
+        ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextAvatarIndex);
+        if (msg == null) return;
+        String name = msg.rawPlayerName();
+        if (name == null || name.isEmpty()) {
+            name = msg.senderName() != null ? msg.senderName().getString() : null;
+        }
+        if (name == null || name.isEmpty()) return;
+        final String target = name;
+
+        List<String> blocked = new ArrayList<>(ChatBubbleConfig.BLOCKED_PLAYERS.get());
+        boolean nowBlocked = ChatMessageStore.isPlayerBlocked(
+            msg.rawPlayerName(), msg.senderName(), blocked);
+        if (nowBlocked) {
+            blocked.removeIf(b -> b != null && b.trim().equalsIgnoreCase(target));
+        } else {
+            blocked.add(target.trim());
+        }
+        ChatBubbleConfig.BLOCKED_PLAYERS.set(blocked);
+        ChatMessageStore.purgeBlocked(blocked);
+        com.niuqu.chatbubble.ChatBubbleMod.saveClientConfig();
+        ChatMessageStore.debugLog(() -> "[e33chat] Block list updated | name='" + target + "' | blocked=" + nowBlocked);
     }
 
     @Override
@@ -1316,9 +1345,13 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private void renderAvatarContextMenu(GuiGraphics g, int mouseX, int mouseY) {
         if (contextAvatarIndex < 0) return;
+        ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextAvatarIndex);
+        boolean isBlocked = msg != null
+            && ChatMessageStore.isPlayerBlocked(msg.rawPlayerName(), msg.senderName(),
+                ChatBubbleConfig.BLOCKED_PLAYERS.get());
         ChatContextMenus.renderAvatarMenu(g, font, mouseX, mouseY, c(), panelX, panelW,
-            msgTop, iconTex("tp"), iconTex("whisper"), contextAvatarX, contextAvatarY,
-            ChatMessageStore.useTpa());
+            msgTop, iconTex("tp"), iconTex("whisper"), iconTex("block"), isBlocked,
+            contextAvatarX, contextAvatarY, ChatMessageStore.useTpa());
     }
 
     private static final int REPLY_BAR_H = 18;
