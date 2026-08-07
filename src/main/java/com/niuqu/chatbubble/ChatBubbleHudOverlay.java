@@ -110,8 +110,8 @@ public class ChatBubbleHudOverlay {
     }
 
     private static void loadIconTexture() {
-        try (java.io.InputStream in = ChatBubbleHudOverlay.class.getClassLoader()
-                .getResourceAsStream("assets/e33chat/textures/gui/" + cfg().theme().toLowerCase() + "/chat_icon.png")) {
+        String classpath = "assets/e33chat/textures/gui/" + cfg().theme().toLowerCase() + "/chat_icon.png";
+        try (java.io.InputStream in = ChatBubbleHudOverlay.class.getClassLoader().getResourceAsStream(classpath)) {
             if (in != null) {
                 NativeImage img = NativeImage.read(in);
                 //#if MC >= 12105
@@ -120,9 +120,12 @@ public class ChatBubbleHudOverlay {
                 //$$ NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
                 //#endif
                 MinecraftClient.getInstance().getTextureManager().registerTexture(chatIconTex(), tex);
+            } else {
+                ChatBubbleScreen.loadIconTexture(chatIconTex(), classpath, "chat_icon");
             }
         } catch (Exception e) {
             com.mojang.logging.LogUtils.getLogger().error("[e33chat] Failed to load HUD icon texture", e);
+            ChatBubbleScreen.loadIconTexture(chatIconTex(), classpath, "chat_icon");
         }
     }
 

@@ -1826,23 +1826,24 @@ public class ChatBubbleScreen extends Screen {
     static void loadIconTextures() {
         String theme = ChatBubbleClientSetup.config().theme().toLowerCase();
         String base = "assets/e33chat/textures/gui/" + theme + "/";
-        loadIconTexture(iconTex("settings"), base + "settings.png");
-        loadIconTexture(iconTex("send"), base + "send.png");
-        loadIconTexture(iconTex("emoji"), base + "emoji.png");
-        loadIconTexture(iconTex("menu"), base + "menu.png");
-        loadIconTexture(iconTex("public_icon"), base + "public_icon.png");
-        loadIconTexture(iconTex("private_tip"), base + "private_tip.png");
-        loadIconTexture(iconTex("no_online"), base + "no_online.png");
-        loadIconTexture(iconTex("theme"), base + "theme.png");
-        loadIconTexture(iconTex("quick_chat"), base + "quick_chat.png");
-        loadIconTexture(iconTex("copy"), base + "copy.png");
-        loadIconTexture(iconTex("quote"), base + "quote.png");
-        loadIconTexture(iconTex("tp"), base + "tp.png");
-        loadIconTexture(iconTex("whisper"), base + "whisper.png");
-        loadIconTexture(iconTex("search"), base + "search.png");
+        loadIconTexture(iconTex("chat_icon"), base + "chat_icon.png", "chat_icon");
+        loadIconTexture(iconTex("settings"), base + "settings.png", "settings");
+        loadIconTexture(iconTex("send"), base + "send.png", "send");
+        loadIconTexture(iconTex("emoji"), base + "emoji.png", "emoji");
+        loadIconTexture(iconTex("menu"), base + "menu.png", "menu");
+        loadIconTexture(iconTex("public_icon"), base + "public_icon.png", "public_icon");
+        loadIconTexture(iconTex("private_tip"), base + "private_tip.png", "private_tip");
+        loadIconTexture(iconTex("no_online"), base + "no_online.png", "no_online");
+        loadIconTexture(iconTex("theme"), base + "theme.png", "theme");
+        loadIconTexture(iconTex("quick_chat"), base + "quick_chat.png", "quick_chat");
+        loadIconTexture(iconTex("copy"), base + "copy.png", "copy");
+        loadIconTexture(iconTex("quote"), base + "quote.png", "quote");
+        loadIconTexture(iconTex("tp"), base + "tp.png", "tp");
+        loadIconTexture(iconTex("whisper"), base + "whisper.png", "whisper");
+        loadIconTexture(iconTex("search"), base + "search.png", "search");
     }
 
-    private static void loadIconTexture(Identifier loc, String classpath) {
+    static void loadIconTexture(Identifier loc, String classpath, String name) {
         try (InputStream in = ChatBubbleScreen.class.getClassLoader().getResourceAsStream(classpath)) {
             if (in != null) {
                 NativeImage img = NativeImage.read(in);
@@ -1852,9 +1853,139 @@ public class ChatBubbleScreen extends Screen {
                 //$$ NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
                 //#endif
                 MinecraftClient.getInstance().getTextureManager().registerTexture(loc, tex);
+            } else {
+                registerGeneratedIcon(loc, name);
             }
         } catch (Exception e) {
             e.printStackTrace();
+            registerGeneratedIcon(loc, name);
+        }
+    }
+
+    private static void registerGeneratedIcon(Identifier loc, String name) {
+        NativeImage img = new NativeImage(16, 16, false);
+        int clear = 0x00000000;
+        int fg = "light".equalsIgnoreCase(ChatBubbleClientSetup.config().theme()) ? 0xFF222222 : 0xFFEFEFEF;
+        int accent = "light".equalsIgnoreCase(ChatBubbleClientSetup.config().theme()) ? 0xFF3366CC : 0xFF66D9EF;
+        for (int y = 0; y < 16; y++) {
+            for (int x = 0; x < 16; x++) {
+                setIconPixel(img, x, y, clear);
+            }
+        }
+        switch (name) {
+            case "send" -> {
+                line(img, 3, 3, 12, 8, accent);
+                line(img, 3, 12, 12, 8, accent);
+                line(img, 4, 8, 12, 8, accent);
+                line(img, 4, 4, 4, 12, accent);
+            }
+            case "emoji" -> {
+                rect(img, 3, 3, 10, 10, accent);
+                dot(img, 6, 7, fg); dot(img, 10, 7, fg);
+                line(img, 6, 11, 10, 11, fg);
+            }
+            case "settings" -> {
+                rect(img, 6, 2, 4, 12, accent);
+                rect(img, 2, 6, 12, 4, accent);
+                rect(img, 5, 5, 6, 6, fg);
+                rect(img, 7, 7, 2, 2, clear);
+            }
+            case "menu" -> {
+                rect(img, 3, 4, 10, 2, fg);
+                rect(img, 3, 7, 10, 2, fg);
+                rect(img, 3, 10, 10, 2, fg);
+            }
+            case "copy" -> {
+                outline(img, 4, 3, 7, 9, accent);
+                outline(img, 7, 6, 6, 7, fg);
+            }
+            case "quote" -> {
+                rect(img, 3, 4, 4, 5, accent);
+                rect(img, 9, 4, 4, 5, accent);
+                dot(img, 6, 10, accent); dot(img, 12, 10, accent);
+            }
+            case "search" -> {
+                outline(img, 3, 3, 7, 7, accent);
+                line(img, 9, 9, 13, 13, fg);
+            }
+            case "theme" -> {
+                rect(img, 3, 3, 5, 10, accent);
+                rect(img, 8, 3, 5, 10, fg);
+            }
+            case "quick_chat" -> {
+                outline(img, 3, 3, 10, 8, accent);
+                dot(img, 6, 7, fg); dot(img, 8, 7, fg); dot(img, 10, 7, fg);
+                line(img, 6, 11, 4, 13, accent);
+            }
+            case "tp" -> {
+                line(img, 3, 8, 12, 8, accent);
+                line(img, 9, 5, 12, 8, accent);
+                line(img, 9, 11, 12, 8, accent);
+            }
+            case "whisper", "private_tip" -> {
+                rect(img, 5, 4, 6, 8, accent);
+                rect(img, 7, 6, 2, 4, fg);
+            }
+            case "no_online" -> {
+                outline(img, 4, 3, 8, 8, fg);
+                line(img, 3, 13, 13, 3, accent);
+            }
+            case "public_icon" -> {
+                outline(img, 3, 3, 10, 10, accent);
+                line(img, 3, 8, 13, 8, fg);
+                line(img, 8, 3, 8, 13, fg);
+            }
+            default -> {
+                outline(img, 2, 2, 12, 12, accent);
+                rect(img, 5, 5, 6, 6, fg);
+            }
+        }
+        //#if MC >= 12105
+        NativeImageBackedTexture tex = new NativeImageBackedTexture(() -> "generated_icon", img);
+        //#else
+        //$$ NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
+        //#endif
+        MinecraftClient.getInstance().getTextureManager().registerTexture(loc, tex);
+    }
+
+    private static void setIconPixel(NativeImage img, int x, int y, int argb) {
+        if (x < 0 || y < 0 || x >= 16 || y >= 16) return;
+        //#if MC >= 12102
+        img.setColorArgb(x, y, argb);
+        //#else
+        //$$ img.setColor(x, y, com.niuqu.chatbubble.texture.TextureGenerators.argbToAbgr(argb));
+        //#endif
+    }
+
+    private static void dot(NativeImage img, int x, int y, int color) {
+        setIconPixel(img, x, y, color);
+    }
+
+    private static void rect(NativeImage img, int x, int y, int w, int h, int color) {
+        for (int yy = y; yy < y + h; yy++) {
+            for (int xx = x; xx < x + w; xx++) {
+                setIconPixel(img, xx, yy, color);
+            }
+        }
+    }
+
+    private static void outline(NativeImage img, int x, int y, int w, int h, int color) {
+        rect(img, x, y, w, 1, color);
+        rect(img, x, y + h - 1, w, 1, color);
+        rect(img, x, y, 1, h, color);
+        rect(img, x + w - 1, y, 1, h, color);
+    }
+
+    private static void line(NativeImage img, int x0, int y0, int x1, int y1, int color) {
+        int dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        int dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        int err = dx + dy;
+        while (true) {
+            setIconPixel(img, x0, y0, color);
+            if (x0 == x1 && y0 == y1) break;
+            int e2 = 2 * err;
+            if (e2 >= dy) { err += dy; x0 += sx; }
+            if (e2 <= dx) { err += dx; y0 += sy; }
         }
     }
 

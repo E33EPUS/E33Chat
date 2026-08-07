@@ -70,6 +70,7 @@ tasks.withType(JavaCompile).configureEach {
 
 def sharedSrcDir = file("${rootProject.projectDir}/src/main/java")
 def sharedResDir = file("${rootProject.projectDir}/src/main/resources")
+def versionResDir = file("${project.projectDir}/src/main/resources")
 def preprocessedDir = file("${buildDir}/preprocessed/main/java")
 
 // 生成预处理代码的任务
@@ -159,6 +160,9 @@ sourceSets {
         }
         resources {
             setSrcDirs([])
+            // 版本资源必须优先进入 jar，尤其是 fabric.mod.json；
+            // 根目录资源作为共享补充，重复项由 duplicatesStrategy 处理。
+            srcDir versionResDir
             srcDir sharedResDir
         }
     }
