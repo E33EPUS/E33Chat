@@ -136,6 +136,18 @@ public class ChatComponentMixin {
             );
         }
 
+        // Blocked sender: vanish completely — no vanilla line, no bubble, no
+        // banner/sound (addMessage below never runs). Checked before the echo and
+        // whisper-repost branches so a blocked player's whisper can't resurface
+        // as a [私聊] rewrite.
+        if (ChatMessageStore.isPlayerBlocked(meta.rawPlayerName(), meta.senderName(),
+                ChatBubbleConfig.BLOCKED_PLAYERS.get())) {
+            final String blockedName = meta.senderName().getString();
+            ci.cancel();
+            ChatMessageStore.debugLog(() -> "[e33chat] Blocked message dropped | sender='" + blockedName + "'");
+            return;
+        }
+
         // Self-sent echo on the signed channel: plain chat keeps the vanilla line;
         // whisper echoes get the [私聊] rewrite, quote replies get the [引用] rewrite
         // (quote replies travel as plain chat, so the echo's quoted flag is their

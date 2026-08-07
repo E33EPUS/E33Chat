@@ -142,6 +142,15 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.anti_spam", y -> mkBoolButton(y, ChatBubbleConfig.ANTI_SPAM), null));
         chat.add(new Opt("e33chat.config.time_separator", this::mkTimeSepButton, null));
         chat.add(new Opt("e33chat.config.color_codes", y -> mkBoolButton(y, ChatBubbleConfig.COLOR_CODES), null));
+        chat.add(Opt.header("e33chat.config.section.blocked"));
+        chat.add(new Opt("e33chat.config.blocked_players",
+            y -> mkPatternBox(y,
+                new ArrayList<>(ChatBubbleConfig.BLOCKED_PLAYERS.get()),
+                parts -> {
+                    ChatBubbleConfig.BLOCKED_PLAYERS.set(new ArrayList<>(parts));
+                    ChatMessageStore.purgeBlocked(parts);
+                }),
+            null));
         cats.add(new Cat("e33chat.config.cat.chat", chat));
 
         // HUD: icon / strong hint

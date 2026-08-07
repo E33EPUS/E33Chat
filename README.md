@@ -11,7 +11,7 @@
   <img alt="Loader" src="https://img.shields.io/badge/Loader-Forge%20%7C%20NeoForge%20%7C%20Fabric-orange">
   <img alt="Side" src="https://img.shields.io/badge/Side-Client%20required,%20server%20optional-blue">
   <img alt="Java" src="https://img.shields.io/badge/Java-17%2B%20%7C%2021%2B-yellow">
-  <img alt="Version" src="https://img.shields.io/badge/Version-2.3.0-informational">
+  <img alt="Version" src="https://img.shields.io/badge/Version-2.3.2-informational">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-brightgreen">
 </p>
 
@@ -88,7 +88,8 @@ E33Chat 是一款聊天增强模组，把原版聊天 HUD 重做成聊天 APP �
 - 😊 **表情 & 颜文字** — Emoji 面板 + 颜文字面板，点击在光标处插入
 - 📌 **常用语** — 保存常用短语，一键填充
 - 📋 **复制 & 引用回复** — 右键消息复制 / 引用回复
-- 👤 **头像交互** — 右键头像私聊 / 传送，左键 @ta
+- 👤 **头像交互** — 右键头像私聊 / 传送 / 屏蔽玩家，左键 @ta
+- 🚫 **屏蔽玩家** — 被屏蔽玩家的消息完全消失（原版聊天框 / 气泡 / 横幅 / 音效），屏蔽即刻生效并清除历史消息，重进服不恢复；名单可在设置 → 聊天框 → 屏蔽列表编辑（精确名字，逗号分隔）
 - 🔔 **通知横幅** — 屏幕顶部滑入弹窗，覆盖 @ / 引用 / 私聊 / 系统消息（系统横幅默认开启）；音效总音量滑条，按类型独立开关
 - 🗨️ **原版聊天框** — 不再用自定义 HUD 预览，原版聊天框正常渲染（上移避开 HUD 图标），ChatHeads / ChatAnimation 等改聊天框的 mod 直接生效
 - 🌈 **彩色消息** — 支持 `&` 颜色 / 格式码，本地渲染上色，不修改发出的内容

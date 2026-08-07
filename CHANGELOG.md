@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.3.2
+
+**新功能**
+- **屏蔽玩家**：右键玩家头像菜单新增「屏蔽玩家」项（已屏蔽则显示「取消屏蔽」），或在设置 → 聊天框 → 屏蔽列表直接编辑（逗号分隔精确名字）。被屏蔽玩家的消息**完全消失**——原版聊天框、气泡、横幅、音效全部没有；屏蔽即刻生效并清除该玩家已加载的历史消息，重进服也不会从历史恢复。匹配不区分大小写、自动忽略 § 颜色码；以玩家真实名称为主键、tab 列表显示名兜底，昵称插件/离线服也能命中
+
+**调整**
+- **屏蔽入口移到头像菜单**：此前临时加在消息右键菜单（复制/引用/屏蔽），现改为头像菜单第三项（传送/私聊/屏蔽），消息菜单恢复「复制/引用」两项，交互入口统一
+
+**Features**
+- Block players: a new "Block Player" item on the right-click avatar menu (shows "Unblock" once blocked), or edit the Blocked List directly in Settings → Chat → Blocked List (comma-separated exact names). A blocked player's messages vanish completely — vanilla chat, bubbles, banners and sounds. Blocking takes effect immediately and purges the player's already-loaded history; rejoining never restores it. Matching is case-insensitive, ignores § color codes, keys off the real player name with the tab-list display name as fallback (nickname plugins / offline servers)
+
+**Changes**
+- Block entry moved to the avatar menu: the temporary third item on the message menu (Copy/Quote/Block) is gone — the message menu is back to Copy/Quote, block now lives on the avatar menu (Teleport/Whisper/Block) as a single unified entry point
+
+**Fixes**
+- Tests: Forge 78 / NeoForge 78 / Fabric 78 all green
+
 ## v2.3.1
 
 **修复**
