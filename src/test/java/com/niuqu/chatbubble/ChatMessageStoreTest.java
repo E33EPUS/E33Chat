@@ -17,6 +17,14 @@ class ChatMessageStoreTest {
         var quoteTime = ChatMessageStore.class.getDeclaredField("lastQuoteSendTime");
         quoteTime.setAccessible(true);
         quoteTime.setLong(null, 0);
+        // Headless env: no Minecraft client, so addMessage must not touch it
+        ChatMessageStore.localPlayerSupplier = () -> null;
+        // ChatBubbleConfig values throw before the spec is loaded; load defaults
+        // so ChatBubbleConfig.ANTI_SPAM.get() works headless
+        var cfg = com.electronwill.nightconfig.core.CommentedConfig.inMemory();
+        cfg.set("configVersion", 1);
+        ChatBubbleConfig.CLIENT_CONFIG.correct(cfg);
+        ChatBubbleConfig.CLIENT_CONFIG.setConfig(cfg);
     }
 
     // ---- containsWholeName: echo suppression must not misattribute
@@ -593,5 +601,66 @@ class ChatMessageStoreTest {
         assertEquals(2, messages.size());
         assertSame(ownMsg, messages.get(0));
         assertSame(sysMsg, messages.get(1));
+    }
+
+    // ---- anti-spam merge must not inherit the previous bubble's quote block ----
+    // Regression: send a quoted message, then an identical unquoted follow-up.
+    // The merge collapsed them into one bubble but copied last.replyContent()/
+    // replySender(), leaving a stale [引用] block the follow-up never had.
+
+    @Test void antiSpamMerge_identicalFollowUpDropsStaleReplyBlock() throws Exception {
+        clearMessagesAndMetas();
+        var uuid = java.util.UUID.randomUUID();
+        var sender = net.minecraft.network.chat.Component.literal("Steve");
+        // Server pre-registers a quote meta for the first message
+        ChatMessageStore.applyChatMeta(uuid, String.valueOf("妈妈".hashCode()),
+            "A", "A的话", List.of());
+        ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("妈妈"),
+            uuid, sender, false, "Steve", false, null, false);
+        // Identical follow-up with no quote meta
+        ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("妈妈"),
+            uuid, sender, false, "Steve", false, null, false);
+
+        var field = ChatMessageStore.class.getDeclaredField("messages");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var messages = (List<ChatMessageStore.ChatMessage>) field.get(null);
+        assertEquals(1, messages.size(), "identical sends must collapse into one bubble");
+        var merged = messages.get(0);
+        assertEquals(2, merged.duplicateCount());
+        assertNull(merged.replyContent(), "merged bubble must not inherit the first send's quote block");
+        assertNull(merged.replySender());
+    }
+
+    @Test void antiSpamMerge_quotedFollowUpKeepsReplyBlock() throws Exception {
+        clearMessagesAndMetas();
+        var uuid = java.util.UUID.randomUUID();
+        var sender = net.minecraft.network.chat.Component.literal("Steve");
+        // First message quoted, follow-up identical AND quoted again
+        ChatMessageStore.applyChatMeta(uuid, String.valueOf("妈妈".hashCode()),
+            "A", "A的话", List.of());
+        ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("妈妈"),
+            uuid, sender, false, "Steve", false, null, false);
+        ChatMessageStore.applyChatMeta(uuid, String.valueOf("妈妈".hashCode()),
+            "A", "A的话", List.of());
+        ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("妈妈"),
+            uuid, sender, false, "Steve", false, null, false);
+
+        var field = ChatMessageStore.class.getDeclaredField("messages");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var messages = (List<ChatMessageStore.ChatMessage>) field.get(null);
+        assertEquals(1, messages.size());
+        var merged = messages.get(0);
+        assertEquals("A的话", merged.replyContent(), "re-quoted follow-up keeps the quote block");
+    }
+
+    private static void clearMessagesAndMetas() throws Exception {
+        var messagesField = ChatMessageStore.class.getDeclaredField("messages");
+        messagesField.setAccessible(true);
+        ((List<?>) messagesField.get(null)).clear();
+        var metasField = ChatMessageStore.class.getDeclaredField("pendingMetas");
+        metasField.setAccessible(true);
+        ((java.util.Map<?, ?>) metasField.get(null)).clear();
     }
 }

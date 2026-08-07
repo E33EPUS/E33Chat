@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.3.3
+
+**修复**
+- **Forge 客户端配置被重置/开 debug 崩溃（2.3.2 回归）**：2.3.2 为修专用服崩溃把 `registerConfig(CLIENT)` 从 mod 构造函数推迟到 `FMLClientSetupEvent`，但 Forge 在更早的 `CONFIG_LOAD` 阶段就加载客户端配置并绑定 `childConfig`——配置从未加载，界面显示默认值（"配置被重置"），`set()` 抛 NPE 崩溃。已改回在 mod 构造函数注册（仅客户端分支），专用服崩溃修复保持不变
+- **重复消息残留引用块**：先发一条引用回复"妈妈"，紧接着发一条同样的"妈妈"（不引用），anti-spam 会把两条合并成一个气泡，但合并且前的实现原样拷贝了第一条的引用块——第二条明明没引用却显示引用块。现在合并气泡的引用块只反映本条消息自己的引用状态；仍带引用继续连发同内容时引用块正常保留
+
+**新功能**
+- **ChatImage 图片兼容（三端）**：装 ChatImage 后，气泡内可直接显示图片——支持 `[[CICode,url=...]]`（含 CQ 码转换）和 `https/http` 图片链接两种格式，文本变为绿色 `[Image]` 并带悬浮预览，与聊天框行为一致；自己发送的图片即时预览。不装 ChatImage 时原样显示文本，完全不影响原有功能
+
+**Features**
+- ChatImage image support (all three platforms): with ChatImage installed, images render inside bubbles — both `[[CICode,url=...]]` (including CQ code conversion) and `https/http` image links become green `[Image]` text with a hover preview, matching the vanilla chat; your own sent images preview immediately. Without ChatImage the codes stay plain text and nothing else changes
+
+**Fixes**
+- Forge client config reset / debug-mode crash (2.3.2 regression): 2.3.2 moved `registerConfig(CLIENT)` out of the mod constructor to `FMLClientSetupEvent` to fix the dedicated-server crash, but Forge loads client configs during the earlier `CONFIG_LOAD` phase and binds `childConfig` there — the config was never loaded, the screen showed defaults ("config reset") and `set()` threw an NPE. Registration is back in the mod constructor (client-only branch); the dedicated-server fix is preserved
+- Stale quote block on duplicated messages: send a quoted "妈妈", then an identical unquoted "妈妈" — anti-spam collapsed both into one bubble, but the merge copied the first bubble's quote block, so the second (unquoted) message wrongly showed one. The merged bubble now reflects only this send's own quote state; consecutive re-quoted duplicates keep their quote block
+- Tests: Forge 80 / NeoForge 236 / Fabric 80 all green
+
 ## v2.3.2
 
 **新功能**

@@ -1708,7 +1708,12 @@ public class ChatBubbleScreen extends ChatScreen {
         boolean logBub = localBubble;
         ChatMessageStore.debugLog(() -> "[e33chat] Send | cmd='" + logCmd + "' | display='" + logDisp + "' | whisperTarget=" + logTarget + " | localBubble=" + logBub);
         if (localBubble) {
-            ChatMessageStore.addMessage(ChatBubbleConfig.COLOR_CODES.get() ? parseColorCodes(displayText) : Component.literal(displayText),
+            Component bubbleContent = ChatBubbleConfig.COLOR_CODES.get()
+                ? parseColorCodes(displayText) : Component.literal(displayText);
+            // Convert embedded image codes so the outgoing bubble previews the
+            // image like the vanilla chat does (ChatImage may be absent — then
+            // convert passes through unchanged)
+            ChatMessageStore.addMessage(ChatImageCompat.convert(bubbleContent),
                 minecraft.player.getUUID(),
                 ChatMessageStore.ownDisplayName(),
                 false,
