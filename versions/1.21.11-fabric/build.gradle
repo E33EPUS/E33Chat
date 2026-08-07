@@ -68,22 +68,104 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
-def sharedResDir = file("${rootProject.projectDir}/src/main/resources")
-
-// 主项目从共享源码目录直接读取（预处理指令在 Java 中都是注释，编译无影响）
 def sharedSrcDir = file("${rootProject.projectDir}/src/main/java")
+def sharedResDir = file("${rootProject.projectDir}/src/main/resources")
+def preprocessedDir = file("${buildDir}/preprocessed/main/java")
+
+// 生成预处理代码的任务
+abstract class PreprocessTask extends DefaultTask {
+    @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
+    def File srcDir
+
+    @OutputDirectory
+    def File outDir
+
+    @Input
+    def int targetMcVersion
+
+    @TaskAction
+    def preprocess() {
+        outDir.deleteDir()
+        srcDir.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+            if (f.name.endsWith('.java')) {
+                def relPath = srcDir.toPath().relativize(f.toPath())
+                def outFile = new File(outDir, relPath.toString())
+                outFile.parentFile.mkdirs()
+                def lines = f.readLines('UTF-8')
+                def outLines = []
+                def stack = []
+                lines.each { line ->
+                    def trimmed = line.trim()
+                    def matcher = (trimmed =~ /^\/\/#(if|else|endif)\s*(.*)/)
+                    if (matcher.matches()) {
+                        def directive = matcher.group(1)
+                        def expr = matcher.group(2)?.trim()
+                        if (directive == 'if') {
+                            def result = evaluate(expr, targetMcVersion)
+                            stack.push(result)
+                        } else if (directive == 'else') {
+                            if (stack) {
+                                def top = stack.pop()
+                                stack.push(!top)
+                            }
+                        } else if (directive == 'endif') {
+                            if (stack) stack.pop()
+                        }
+                        return
+                    }
+                    boolean active = true
+                    for (def s : stack) {
+                        if (!s) { active = false; break }
+                    }
+                    if (active) {
+                        outLines.add(line)
+                    }
+                }
+                outFile.write(outLines.join('\n'), 'UTF-8')
+            }
+        }
+    }
+
+    static boolean evaluate(String expr, int ver) {
+        def m = (expr =~ /^\s*MC\s*(>=|<=|==|!=|<|>)\s*(\d+)\s*$/)
+        if (m.matches()) {
+            def op = m.group(1)
+            def val = Integer.parseInt(m.group(2))
+            switch (op) {
+                case '>=': return ver >= val
+                case '<=': return ver <= val
+                case '==': return ver == val
+                case '!=': return ver != val
+                case '<':  return ver < val
+                case '>':  return ver > val
+            }
+        }
+        return true
+    }
+}
+
+def preprocessTask = tasks.register('preprocessJava', PreprocessTask) {
+    srcDir = sharedSrcDir
+    outDir = preprocessedDir
+    targetMcVersion = project.mcVersion
+}
 
 sourceSets {
     main {
         java {
             setSrcDirs([])
-            srcDir(sharedSrcDir)
+            srcDir(preprocessedDir)
         }
         resources {
             setSrcDirs([])
             srcDir sharedResDir
         }
     }
+}
+
+tasks.named('compileJava').configure {
+    dependsOn(preprocessTask)
 }
 
 publishing {

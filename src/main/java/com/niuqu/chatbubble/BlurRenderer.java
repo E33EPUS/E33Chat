@@ -1,6 +1,8 @@
 package com.niuqu.chatbubble;
 
+//#if MC < 12111
 import com.mojang.blaze3d.platform.GlStateManager;
+//#endif
 import net.minecraft.client.MinecraftClient;
 import org.lwjgl.opengl.GL30;
 
