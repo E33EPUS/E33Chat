@@ -1943,6 +1943,10 @@ public class ChatBubbleScreen extends ChatScreen {
         ChatMessageStore.debugLog("[e33chat] Send | cmd='" + text + "' | display='" + displayText + "' | whisperTarget=" + whisperTarget + " | localBubble=" + localBubble);
         if (localBubble) {
             Text contentForSend = cfg != null && cfg.colorCodes() ? parseColorCodes(displayText) : Text.literal(displayText);
+            // Convert embedded image codes so the outgoing bubble previews the
+            // image like the vanilla chat does (ChatImage may be absent — then
+            // convert passes through unchanged)
+            contentForSend = ChatImageCompat.convert(contentForSend);
             String playerName = client.player.getName().getString();
             String replySender = ChatMessageStore.getPendingReplySender();
 

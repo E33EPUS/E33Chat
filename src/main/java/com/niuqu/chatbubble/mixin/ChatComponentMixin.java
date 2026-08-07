@@ -2,6 +2,7 @@ package com.niuqu.chatbubble.mixin;
 
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
+import com.niuqu.chatbubble.ChatImageCompat;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
 import net.minecraft.client.MinecraftClient;
@@ -178,6 +179,10 @@ public class ChatComponentMixin {
         } else {
             content = finalComponent;
         }
+        // ChatImage rewrites the vanilla argument after our mixin, so the bubble
+        // stored the pre-conversion CICode text — convert it back to the styled
+        // [Image] component so the bubble matches the vanilla chat
+        content = ChatImageCompat.convert(content);
 
         Text logComp = finalComponent, logContent = content;
         SenderMeta logMeta = meta;
