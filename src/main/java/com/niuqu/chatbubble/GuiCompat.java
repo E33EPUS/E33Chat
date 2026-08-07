@@ -71,10 +71,14 @@ public final class GuiCompat {
     }
 
     public static boolean matchesChatKey(MinecraftClient client, int keyCode, int scanCode) {
+        //#if MC >= 12109
+        return client.options.chatKey.matchesKey(new net.minecraft.client.input.KeyInput(keyCode, scanCode, 0));
+        //#else
         //#if MC >= 11700
-        return client.options.chatKey.matchesKey(keyCode, scanCode);
+        //$$ return client.options.chatKey.matchesKey(keyCode, scanCode);
         //#else
         //$$ return client.options.keyChat.matchesKey(keyCode, scanCode);
+        //#endif
         //#endif
     }
 
@@ -172,13 +176,16 @@ public final class GuiCompat {
         return null;
     }
 
+    @SuppressWarnings("unchecked")
     public static PositionedSoundInstance uiSound(Object event, float volume, float pitch) {
-        SoundEvent sound = soundValue(event);
-        if (sound == null) return null;
-        //#if MC >= 12102
-        return PositionedSoundInstance.ui(sound, volume, pitch);
+        //#if MC >= 12111
+        return PositionedSoundInstance.ui((net.minecraft.registry.entry.RegistryEntry<SoundEvent>) event, pitch);
         //#else
-        //$$ return PositionedSoundInstance.master(sound, volume, pitch);
+        //#if MC >= 11903
+        //$$ return PositionedSoundInstance.master((net.minecraft.registry.entry.RegistryEntry<SoundEvent>) event, pitch);
+        //#else
+        //$$ return PositionedSoundInstance.master((SoundEvent) event, pitch);
+        //#endif
         //#endif
     }
 

@@ -843,7 +843,9 @@ public class ChatBubbleScreen extends Screen {
                         ChatBubbleClientSetup.config().quickChatPhrases().size())) {
                     quickChatInput.setVisible(true);
                     setFocused(quickChatInput);
+                    //#if MC >= 12000
                     input.setFocused(false);
+                    //#endif
                     return true;
                 }
                 int result = quickChatPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
