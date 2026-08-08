@@ -4,6 +4,7 @@
 
 **修复**
 - **@ 补全回车误输入补全名**：输入 `@` 弹出玩家补全后直接按回车，会把候选名字插进输入框（如 `/tp @s` 场景把含 "s" 的玩家名补进命令）。现在必须先用 ↑/↓ 或滚轮选中候选，回车才应用补全；没选过直接回车 = 发送当前文本。另外命令（`/` 开头）里不再弹玩家补全——`@s`/`@p` 是原版选择器不是玩家名，命令输入走原版指令建议框
+- **自 /msg 不弹横幅/音效（三端，开启"自己私聊通知"仍不弹）**：自己 /msg 自己的消息走"本地发送反馈"气泡，而 whisper 横幅/音效入口被 `!localSend` 无条件挡住——即使开启 `own_whisper_notify` 也不弹横幅和音效。现在该配置开启时本地反馈气泡也放行给通知控制器，自 /msg 正常弹横幅 + 音效（需对应开启私聊横幅/音效配置）
 
 **新功能**
 - **横幅位置偏移配置（三端）**：通知横幅默认固定在屏幕顶部中央，与 Jade 等 HUD mod 的显示区域重叠时无法挪开。新增 `banner_offset_x` / `banner_offset_y` 两个配置项（设置 → 通知 → 横幅通用），水平/垂直微调横幅位置，避开其他 HUD 元素
@@ -11,6 +12,7 @@
 
 **Fixes**
 - Mention completion no longer applied by raw Enter: after `@` pops the player list, Enter used to insert the highlighted candidate (e.g. typing `/tp @s` injected a matching player name into the command). Now Enter only applies the candidate after you actually selected it with ↑/↓ or the scroll wheel; otherwise Enter sends the text as-is. Player-name completion is also disabled inside commands (`/`-prefixed) — `@s`/`@p` are vanilla selectors, and command input is handled by the vanilla suggestion window
+- Self-whisper banner/sound never fired even with own-whisper notify enabled (all three platforms): a self /msg creates a local-send feedback bubble, and the whisper-notification entry was gated by `!localSend` unconditionally, so neither banner nor sound ever fired. The gate now lets the local bubble through when own-whisper notify is on (the controller already gates on isOwn/selfNotify, and the whisper banner/sound follow their own toggles)
 
 **Features**
 - Configurable banner position: the notification banner is fixed at top-center and could not be moved out of the way of HUD mods such as Jade. New `banner_offset_x` / `banner_offset_y` settings (Settings → Notifications → Banner (Shared)) nudge the banner horizontally/vertically to clear other HUD elements
