@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.3.5
+
+**修复**
+- **聊天界面掉帧（核显/低配明显，Intel Arc 130T 实测复现）**：面板背景模糊（blur）在聊天界面打开期间每一帧都执行完整 5 级金字塔（10 次全屏 blit）——`panelOpacity` 默认 80 使 `panelOpacity < 0.999` 的触发条件在滑入动画结束后永真，模糊停不下来。核显 + GL 转译层扛不住每帧全屏 blit。现在完整金字塔每 2 帧刷新一次，中间帧直接重贴上一帧的模糊缓存（1 次 blit），开销减半以上；窗口缩放重建强制刷新，不残留脏模糊。模糊背景无高频细节，降帧视觉几乎无感
+
+**Fixes**
+- Chat UI stutter on integrated/low-end GPUs (Intel Arc 130T reproduced): the panel blur ran the full 5-level pyramid (10 full-screen blits) every frame while the chat was open — `panelOpacity` defaults to 80, so the `panelOpacity < 0.999` blur guard never exits after the slide-in animation. The pyramid now refreshes every other frame and in-between frames replay the cached blur (1 blit), more than halving the cost; window-resize rebuilds force a full refresh so no stale blur lingers. The blur has no high-frequency detail, so the skipped frames are visually indistinguishable
+- Tests: Forge 241 / NeoForge 241 / Fabric 222 all green
+
 ## v2.3.4
 
 **修复**
