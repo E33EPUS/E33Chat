@@ -1,5 +1,6 @@
 package com.niuqu.chatbubble.config;
 
+import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 public record ChatBubbleConfig(
@@ -41,8 +42,8 @@ public record ChatBubbleConfig(
     boolean ownQuoteNotify,
     boolean ownWhisperNotify,
     int bannerCornerRadius,
-    int bannerOffsetX,
-    int bannerOffsetY
+    @SerializedName("banner_offset_x") int bannerOffsetX,
+    @SerializedName("banner_offset_y") int bannerOffsetY
 ) {
     public static ChatBubbleConfig defaults() {
         return new ChatBubbleConfig(
