@@ -71,6 +71,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean blurEnabled, ownMentionNotify, ownQuoteNotify, ownWhisperNotify;
     private int mentionBannerDuration, timeSeparatorMinutes;
     private int panelWidth, bubbleCornerRadius, panelOpacity, soundVolume, bannerCornerRadius;
+    private int bannerOffsetX, bannerOffsetY;
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
     private List<String> sidebarHidePatterns;
@@ -177,6 +178,8 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> ownQuoteNotify, v -> ownQuoteNotify = v));
         tracked.add(track(() -> ownWhisperNotify, v -> ownWhisperNotify = v));
         tracked.add(track(() -> bannerCornerRadius, v -> bannerCornerRadius = v));
+        tracked.add(track(() -> bannerOffsetX, v -> bannerOffsetX = v));
+        tracked.add(track(() -> bannerOffsetY, v -> bannerOffsetY = v));
     }
 
     private int changeCount() {
@@ -200,7 +203,8 @@ public class ChatBubbleConfigScreen extends Screen {
             blockedPlayers,
             ChatBubbleClientSetup.config().quickChatPhrases(),
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
-            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius));
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
+            bannerOffsetX, bannerOffsetY));
     }
 
     private void loadFromConfig() {
@@ -225,6 +229,8 @@ public class ChatBubbleConfigScreen extends Screen {
         ownMentionNotify = cfg.ownMentionNotify(); ownQuoteNotify = cfg.ownQuoteNotify();
         ownWhisperNotify = cfg.ownWhisperNotify();
         bannerCornerRadius = cfg.bannerCornerRadius();
+        bannerOffsetX = cfg.bannerOffsetX();
+        bannerOffsetY = cfg.bannerOffsetY();
         historyRetentionDays = cfg.historyRetentionDays();
         timeSeparatorMinutes = cfg.timeSeparatorMinutes(); panelWidth = cfg.panelWidth();
         bubbleCornerRadius = cfg.bubbleCornerRadius();
@@ -438,6 +444,10 @@ public class ChatBubbleConfigScreen extends Screen {
             y -> mkIntBox(y, String.valueOf(mentionBannerDuration), 2, 10, 2, v -> mentionBannerDuration = v), null));
         notify.add(new Opt("e33chat.config.banner_corner_radius",
             y -> mkIntBox(y, String.valueOf(bannerCornerRadius), 0, 10, 2, v -> bannerCornerRadius = v), null));
+        notify.add(new Opt("e33chat.config.banner_offset_x",
+            y -> mkIntBox(y, String.valueOf(bannerOffsetX), -500, 500, 2, v -> bannerOffsetX = v), null));
+        notify.add(new Opt("e33chat.config.banner_offset_y",
+            y -> mkIntBox(y, String.valueOf(bannerOffsetY), -500, 500, 2, v -> bannerOffsetY = v), null));
         notify.add(Opt.header("e33chat.config.section.sound"));
         notify.add(new Opt("e33chat.config.sound_volume",
             y -> mkIntSlider(y, () -> soundVolume, v -> soundVolume = v, 0, 100), null));

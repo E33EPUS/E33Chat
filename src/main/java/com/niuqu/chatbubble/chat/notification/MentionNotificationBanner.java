@@ -179,8 +179,8 @@ public class MentionNotificationBanner {
         int textW = current.textW;
         int bannerW = current.bannerW;
         int bannerH = current.bannerH;
-        int x = (screenW - bannerW) / 2;
-        int y = (int) ((-bannerH) + slide * bannerH);
+        int x = (screenW - bannerW) / 2 + ChatBubbleClientSetup.config().bannerOffsetX();
+        int y = (int) ((-bannerH) + slide * bannerH) + ChatBubbleClientSetup.config().bannerOffsetY();
 
         var theme = com.niuqu.chatbubble.ChatBubbleTheme.valueOf(
             ChatBubbleClientSetup.config().theme().toUpperCase()).colors();

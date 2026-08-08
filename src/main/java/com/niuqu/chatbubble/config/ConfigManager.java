@@ -60,7 +60,8 @@ public final class ConfigManager {
             c.panelOpacity() > 0 ? c.panelOpacity() : d.panelOpacity(),
             c.soundVolume() > 0 ? c.soundVolume() : d.soundVolume(),
             c.ownMentionNotify(), c.ownQuoteNotify(), c.ownWhisperNotify(),
-            c.bannerCornerRadius() > 0 ? c.bannerCornerRadius() : d.bannerCornerRadius());
+            c.bannerCornerRadius() > 0 ? c.bannerCornerRadius() : d.bannerCornerRadius(),
+            c.bannerOffsetX(), c.bannerOffsetY());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {
