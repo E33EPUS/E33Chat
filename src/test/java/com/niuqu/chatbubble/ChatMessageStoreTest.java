@@ -613,7 +613,7 @@ class ChatMessageStoreTest {
         var uuid = java.util.UUID.randomUUID();
         var sender = net.minecraft.network.chat.Component.literal("Steve");
         // Server pre-registers a quote meta for the first message
-        ChatMessageStore.applyChatMeta(uuid, String.valueOf("妈妈".hashCode()),
+        ChatMessageStore.applyChatMeta(uuid, "Steve", String.valueOf("妈妈".hashCode()),
             "A", "A的话", List.of());
         ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("妈妈"),
             uuid, sender, false, "Steve", false, null, false);
@@ -637,11 +637,11 @@ class ChatMessageStoreTest {
         var uuid = java.util.UUID.randomUUID();
         var sender = net.minecraft.network.chat.Component.literal("Steve");
         // First message quoted, follow-up identical AND quoted again
-        ChatMessageStore.applyChatMeta(uuid, String.valueOf("妈妈".hashCode()),
+        ChatMessageStore.applyChatMeta(uuid, "Steve", String.valueOf("妈妈".hashCode()),
             "A", "A的话", List.of());
         ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("妈妈"),
             uuid, sender, false, "Steve", false, null, false);
-        ChatMessageStore.applyChatMeta(uuid, String.valueOf("妈妈".hashCode()),
+        ChatMessageStore.applyChatMeta(uuid, "Steve", String.valueOf("妈妈".hashCode()),
             "A", "A的话", List.of());
         ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("妈妈"),
             uuid, sender, false, "Steve", false, null, false);
@@ -683,7 +683,7 @@ class ChatMessageStoreTest {
         ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("？"),
             bUuid, sender, false, "B", false, null, false);
         // The first send's ChatMeta arrives after the merge
-        ChatMessageStore.applyChatMeta(bUuid, hash, "A", "妈妈", List.of());
+        ChatMessageStore.applyChatMeta(bUuid, "B", hash, "A", "妈妈", List.of());
 
         var field = ChatMessageStore.class.getDeclaredField("messages");
         field.setAccessible(true);
@@ -703,7 +703,7 @@ class ChatMessageStoreTest {
         String hash = String.valueOf("？".hashCode());
         ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("？"),
             bUuid, sender, false, "B", false, null, false);
-        ChatMessageStore.applyChatMeta(bUuid, hash, "A", "妈妈", List.of());
+        ChatMessageStore.applyChatMeta(bUuid, "B", hash, "A", "妈妈", List.of());
 
         var field = ChatMessageStore.class.getDeclaredField("messages");
         field.setAccessible(true);
@@ -723,7 +723,7 @@ class ChatMessageStoreTest {
         var uuid = java.util.UUID.randomUUID();
         var sender = net.minecraft.network.chat.Component.literal("B");
         // First send: quoted (server pre-registers quote meta for "？")
-        ChatMessageStore.applyChatMeta(uuid, String.valueOf("？".hashCode()),
+        ChatMessageStore.applyChatMeta(uuid, "B", String.valueOf("？".hashCode()),
             "A", "妈妈", List.of());
         ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("？"),
             uuid, sender, false, "B", false, null, false);
@@ -740,5 +740,49 @@ class ChatMessageStoreTest {
         assertNull(messages.get(1).replyContent(),
             "unquoted second send with different content must not inherit a quote block");
         assertNull(messages.get(1).replySender());
+    }
+
+    // ---- offline-mode fallback: receiving side stores UUID(0,0) ----
+    // Server broadcasts the sender's real UUID, but on the receiving client the
+    // message was attributed to UUID(0,0) (offline/cracked player). The quote
+    // meta must still match via the raw player name.
+
+    @Test void applyChatMeta_offlinePlayerMatchesByRawName() throws Exception {
+        clearMessagesAndMetas();
+        var bUuid = java.util.UUID.randomUUID();
+        var sender = net.minecraft.network.chat.Component.literal("B");
+        String hash = String.valueOf("？".hashCode());
+        // B's message lands with UUID(0,0) on A's client (offline fallback)
+        ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("？"),
+            new java.util.UUID(0, 0), sender, false, "B", false, null, false);
+        // Server broadcasts B's real UUID + name; UUID won't match, name must
+        ChatMessageStore.applyChatMeta(bUuid, "B", hash, "A", "妈妈", List.of());
+
+        var field = ChatMessageStore.class.getDeclaredField("messages");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var messages = (List<ChatMessageStore.ChatMessage>) field.get(null);
+        assertEquals(1, messages.size());
+        assertEquals("妈妈", messages.get(0).replyContent(),
+            "offline player's message must receive the quote block via name match");
+    }
+
+    @Test void applyChatMeta_uuidMatchStillWorksWhenNameAbsent() throws Exception {
+        clearMessagesAndMetas();
+        var bUuid = java.util.UUID.randomUUID();
+        var sender = net.minecraft.network.chat.Component.literal("B");
+        String hash = String.valueOf("？".hashCode());
+        // Normal (online) path: UUID matches, senderName empty in the meta
+        ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("？"),
+            bUuid, sender, false, "B", false, null, false);
+        ChatMessageStore.applyChatMeta(bUuid, "", hash, "A", "妈妈", List.of());
+
+        var field = ChatMessageStore.class.getDeclaredField("messages");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var messages = (List<ChatMessageStore.ChatMessage>) field.get(null);
+        assertEquals(1, messages.size());
+        assertEquals("妈妈", messages.get(0).replyContent(),
+            "UUID match alone must still apply the quote meta");
     }
 }

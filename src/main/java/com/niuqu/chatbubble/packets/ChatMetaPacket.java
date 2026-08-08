@@ -13,14 +13,16 @@ import java.util.function.Supplier;
 
 public class ChatMetaPacket {
     private final UUID senderUUID;
+    private final String senderName;
     private final String messageHash;
     private final String quoteSender;
     private final String quoteContent;
     private final List<String> mentionTargets;
 
-    public ChatMetaPacket(UUID senderUUID, String messageHash, String quoteSender,
-                          String quoteContent, List<String> mentionTargets) {
+    public ChatMetaPacket(UUID senderUUID, String senderName, String messageHash,
+                          String quoteSender, String quoteContent, List<String> mentionTargets) {
         this.senderUUID = senderUUID;
+        this.senderName = senderName;
         this.messageHash = messageHash;
         this.quoteSender = quoteSender;
         this.quoteContent = quoteContent;
@@ -29,6 +31,7 @@ public class ChatMetaPacket {
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeUUID(senderUUID);
+        buf.writeUtf(senderName);
         buf.writeUtf(messageHash);
         buf.writeUtf(quoteSender);
         buf.writeUtf(quoteContent);
@@ -39,6 +42,7 @@ public class ChatMetaPacket {
 
     public static ChatMetaPacket decode(FriendlyByteBuf buf) {
         UUID senderUUID = buf.readUUID();
+        String senderName = buf.readUtf();
         String messageHash = buf.readUtf();
         String quoteSender = buf.readUtf();
         String quoteContent = buf.readUtf();
@@ -46,13 +50,13 @@ public class ChatMetaPacket {
         List<String> mentionTargets = new ArrayList<>(count);
         for (int i = 0; i < count; i++)
             mentionTargets.add(buf.readUtf());
-        return new ChatMetaPacket(senderUUID, messageHash, quoteSender, quoteContent, mentionTargets);
+        return new ChatMetaPacket(senderUUID, senderName, messageHash, quoteSender, quoteContent, mentionTargets);
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() ->
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                ChatMessageStore.applyChatMeta(senderUUID, messageHash, quoteSender, quoteContent, mentionTargets)
+                ChatMessageStore.applyChatMeta(senderUUID, senderName, messageHash, quoteSender, quoteContent, mentionTargets)
             )
         );
         ctx.get().setPacketHandled(true);
