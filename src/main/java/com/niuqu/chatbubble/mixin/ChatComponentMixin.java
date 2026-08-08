@@ -57,7 +57,11 @@ public class ChatComponentMixin {
     //$$     at = @At("HEAD"), cancellable = true, remap = false)
     //#endif
     //#endif
-    private void onRender(Object context,
+    //#if MC >= 12000
+    private void onRender(DrawContext context,
+    //#else
+    //$$ private void onRender(MatrixStack context,
+    //#endif
         //#if MC >= 12106
         net.minecraft.client.font.TextRenderer textRenderer,
         //#endif
@@ -93,7 +97,12 @@ public class ChatComponentMixin {
     //$$     at = @At("RETURN"), remap = false)
     //#endif
     //#endif
-    private void onRenderReturn(Object context,
+    private void onRenderReturn(
+        //#if MC >= 12000
+        DrawContext context,
+        //#else
+        //$$ MatrixStack context,
+        //#endif
         //#if MC >= 12106
         net.minecraft.client.font.TextRenderer textRenderer,
         //#endif

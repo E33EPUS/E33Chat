@@ -10,8 +10,8 @@ import net.minecraft.util.Identifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteSender,
-                               String quoteContent, List<String> mentionTargets)
+public record ChatMetaPayload(UUID senderUUID, String senderName, String messageHash,
+                               String quoteSender, String quoteContent, List<String> mentionTargets)
         //#if MC >= 12005
         implements CustomPayload {
         //#else
@@ -27,6 +27,7 @@ public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteS
         //$$ (value, buf) -> {
         //#endif
             buf.writeString(value.senderUUID.toString());
+            buf.writeString(value.senderName);
             buf.writeString(value.messageHash);
             buf.writeString(value.quoteSender);
             buf.writeString(value.quoteContent);
@@ -34,6 +35,7 @@ public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteS
         },
         buf -> new ChatMetaPayload(
             UUID.fromString(buf.readString()),
+            buf.readString(),
             buf.readString(),
             buf.readString(),
             buf.readString(),

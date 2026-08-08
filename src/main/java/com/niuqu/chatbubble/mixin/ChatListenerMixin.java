@@ -20,6 +20,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.*;
 @Mixin(value = net.minecraft.client.network.message.MessageHandler.class, priority = 500)
 public class ChatListenerMixin {
+    // 与 MessagePresentation.hasWhisperKeywordBeforeColon 检测词表对齐：缺词会让 "PM to X: hi" 式
+    // 出站回显不触发抑制 → 误判入站私聊，且 pendingEcho 残留 → 10s 内 partner 真回复被当 echo 吞
+    private static final java.util.regex.Pattern ECHO_WHISPER_PATTERN =
+        java.util.regex.Pattern.compile("\b(?:pm|message|msg|tell)\b");
+
+    private static long templateMissWindowStart;
+    private static int templateMissBurst;
+
     private static Text extractDecoratedName(Text fullLine, String contentStr,
                                               String rawName, Text fallback) {
         if (contentStr == null || contentStr.isEmpty()) return fallback;
@@ -345,6 +353,91 @@ public class ChatListenerMixin {
         }
         return null;
     }
+
+    // G4: 诊断信息含已配置模板列表（原始串），方便核对模板是否写错/漏配
+    private static void logTemplateMiss(String text) {
+        long now = System.currentTimeMillis();
+        if (now - templateMissWindowStart >= 60_000) {
+            templateMissWindowStart = now;
+            templateMissBurst = 0;
+        }
+        if (++templateMissBurst > 5) return;
+        String s = text.length() <= 100 ? text : text.substring(0, 100) + "…";
+        StringBuilder tpl = new StringBuilder();
+        for (var t : ChatMessageStore.serverChatTemplates()) tpl.append("\n  chat: ").append(t.raw());
+        for (var t : ChatMessageStore.serverWhisperTemplates()) tpl.append("\n  whisper: ").append(t.raw());
+        ChatMessageStore.debugLog(() -> "[e33chat] System(template miss) | text='" + s + "' | templates=" + tpl);
+    }
+
+    private static boolean isTemplateNameKnown(String name) {
+        if (name == null || name.isEmpty()) return false;
+        var player = MinecraftClient.getInstance().player;
+        if (player != null) {
+            String myName = player.getName().getString();
+            if (!myName.isEmpty() && (name.equals(myName) || name.contains(myName))) return true;
+        }
+        return findOnlinePlayer(name) != null || ChatMessageStore.findSeenUuid(name) != null;
+    }
+
+    // Server template parse: exact field split with style-preserving offsets.
+    // Returns null on no match (fall back to the guards) or when the line is our
+    // own echo (already bubbled via the authoritative player channel / suppressed).
+    private static SenderMeta matchByTemplate(Text message, String text) {
+        var r = com.niuqu.chatbubble.chat.TemplateMatcher.match(text, ChatMessageStore.serverChatTemplates(),
+            ChatMessageStore.serverWhisperTemplates(), ChatListenerMixin::isTemplateNameKnown);
+        if (r.isEmpty()) {
+            logTemplateMiss(text);
+            return null;
+        }
+        var tpl = r.orElseThrow();
+        String verified = tpl.verifiedName();
+        var info = findOnlinePlayer(verified);
+        UUID uid = info != null ?
+            //#if MC >= 12109
+            info.getProfile().id() :
+            //#else
+            //$$ info.getProfile().getId() :
+            //#endif
+            ChatMessageStore.findSeenUuid(verified);
+        String rawName = info != null ?
+            //#if MC >= 12109
+            info.getProfile().name() :
+            //#else
+            //$$ info.getProfile().getName() :
+            //#endif
+            verified;
+        var mc = MinecraftClient.getInstance();
+        boolean isSelf = uid != null && mc.player != null && uid.equals(mc.player.getUuid());
+        if (isSelf) {
+            if (tpl.whisper()) {
+                ChatMessageStore.markSuppressCapture();
+                ChatMessageStore.debugLog(() -> "[e33chat] System(template outgoing whisper) | text='" + text + "'");
+                return null;
+            }
+            ChatMessageStore.cacheOwnDecoratedName(
+                templateSlice(message, text, tpl.nameStart(), tpl.nameEnd()));
+            ChatMessageStore.debugLog(() -> "[e33chat] System(template own line) | text='" + text + "'");
+            return null;
+        }
+        Text nameComp = templateSlice(message, text, tpl.nameStart(), tpl.nameEnd());
+        Text contentComp = templateSlice(message, text, tpl.contentStart(), tpl.contentEnd());
+        boolean whisper = tpl.whisper();
+        String partner = whisper ? tpl.sender() : null;
+        ChatMessageStore.debugLog(() -> "[e33chat] System(template) | text='" + text + "' | name='" + nameComp.getString() + "' | whisper=" + whisper + " | partner=" + partner + " | content='" + contentComp.getString() + "'");
+        return new SenderMeta(uid != null ? uid : new UUID(0, 0), nameComp, contentComp,
+            false, rawName, whisper, partner);
+    }
+
+    // Template-path field slicing: if the captured region contains literal §-codes
+    // (some plugins embed raw "§6" text instead of real styles), rebuild it with
+    // parseStyledText to render actual colors; otherwise keep the original
+    // text slice (preserves real per-run styles like the guards do).
+    private static Text templateSlice(Text message, String text, int from, int to) {
+        String sub = text.substring(from, to);
+        if (sub.indexOf('§') >= 0) return ChatMessageStore.parseStyledText(sub);
+        return ChatMessageStore.sliceStyled(message, from, to);
+    }
+
     @Inject(method = "onChatMessage", at = @At("HEAD"))
     private void onPlayerChat(SignedMessage message, GameProfile gameProfile,
                                MessageType.Parameters params, CallbackInfo ci) {
@@ -380,6 +473,220 @@ public class ChatListenerMixin {
         Text nameText = com.niuqu.chatbubble.Txt.literal(name);
         ChatMessageStore.debugLog("[e33chat] onChatMessage | name=" + name + " | content='" + rawStr + "' | isWhisper=" + isWhisper);
         ChatMessageStore.setPendingMeta(new SenderMeta(senderId, nameText, raw, false, name, isWhisper, whisperPartner));
+    }
+
+    //#if MC >= 11902
+    @Inject(method = "onProfilelessMessage", at = @At("HEAD"))
+    private void onDisguisedChat(Text content, MessageType.Parameters params, CallbackInfo ci) {
+        String msgStr = content.getString();
+        if (isXaeroWaypoint(msgStr)) return;
+        boolean hasSender = params.name() != null;
+
+        boolean isWhisper = false;
+        String whisperPartner = null;
+        //#if MC >= 12005
+        //#if MC >= 26000
+        //$$ if (params.chatType().is(ChatType.MSG_COMMAND_INCOMING)) {
+        //#else
+        if (params.type().matchesKey(MessageType.MSG_COMMAND_INCOMING)) {
+        //#endif
+            isWhisper = true;
+            whisperPartner = hasSender ? params.name().getString() : null;
+        }
+        //#endif
+
+        // NCR fallback: keyword-based whisper detection for servers that strip chat type
+        if (!isWhisper) {
+            SenderMeta wm = detectWhisperInSystemMessage(msgStr, "disguised");
+            if (wm != null) { ChatMessageStore.setPendingMeta(wm); return; }
+        }
+
+        if (hasSender) {
+            Text disContent = content;
+            Text disSender = params.name();
+            if (isWhisper) {
+                disContent = com.niuqu.chatbubble.Txt.literal(extractWhisperContent(msgStr, params.name().getString()));
+                disSender = ChatMessageStore.extractWhisperDisplayName(content, disSender);
+            } else {
+                disSender = extractDecoratedName(content, msgStr, params.name().getString(), disSender);
+            }
+            ChatMessageStore.debugLog("[e33chat] Disguised | raw='" + msgStr + "' | whisper=" + isWhisper + " | partner=" + whisperPartner + " | sender='" + disSender.getString() + "' | content='" + disContent.getString() + "'");
+            ChatMessageStore.setPendingMeta(new SenderMeta(
+                new UUID(0, 0), disSender, disContent, false,
+                params.name().getString(), isWhisper, whisperPartner));
+            return;
+        }
+
+        // bound.name() empty — try text heuristics
+        var connection = MinecraftClient.getInstance().player != null
+            ? MinecraftClient.getInstance().player.networkHandler : null;
+        if (connection != null && !isWhisper) {
+            var onlineNames = connection.getPlayerList().stream()
+                .flatMap(info -> {
+                    var names = new ArrayList<String>();
+                    for (String cand : nameCandidates(info)) names.add(cand);
+                    return names.stream();
+                }).distinct().toList();
+            var parsed = MessagePresentation.parseDecoratedPlayerLine(msgStr, onlineNames);
+            if (parsed.isPresent()) {
+                var pl = parsed.orElseThrow();
+                var info = connection.getPlayerList().stream()
+                    .filter(i -> {
+                        for (String cand : nameCandidates(i))
+                            if (cand.equals(pl.playerName())) return true;
+                        return false;
+                    }).findFirst().orElse(null);
+                UUID uid = info != null ?
+                    //#if MC >= 12109
+                    info.getProfile().id() : new UUID(0, 0);
+                    //#else
+                    //$$ info.getProfile().getId() : new UUID(0, 0);
+                    //#endif
+                int nameIdx = pl.nameStart();
+                int cStart = pl.contentStart();
+                Text displayName = extractDecoratedName(content, pl.content(), pl.playerName(),
+                    com.niuqu.chatbubble.Txt.literal((msgStr.substring(0, nameIdx) + pl.playerName()).trim()));
+                Text contentComp = ChatMessageStore.sliceStyled(content, cStart, msgStr.length());
+                ChatMessageStore.debugLog("[e33chat] Disguised(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
+                ChatMessageStore.setPendingMeta(new SenderMeta(
+                    uid, displayName, contentComp, false,
+                    info != null ?
+                    //#if MC >= 12109
+                    info.getProfile().name() : pl.playerName(),
+                    //#else
+                    //$$ info.getProfile().getName() : pl.playerName(),
+                    //#endif
+                    false, null));
+                return;
+            }
+        }
+
+        SenderMeta tc = detectByTellClick(content, msgStr);
+        if (tc != null) { ChatMessageStore.setPendingMeta(tc); return; }
+
+        // 守卫全未命中 → 灰字兜底（系统消息）
+        ChatMessageStore.debugLog("[e33chat] Disguised(guard fallback -> gray) | text='" + msgStr + "'");
+        var cfg = ChatBubbleClientSetup.config();
+        boolean isSystem = cfg == null || !cfg.systemChatAsBubble();
+        ChatMessageStore.setPendingMeta(new SenderMeta(
+            new UUID(0, 0), com.niuqu.chatbubble.Txt.translatable("e33chat.sender.system"),
+            content, isSystem, null, false, null));
+    }
+    //#endif
+
+    @Inject(method = "onGameMessage", at = @At("HEAD"))
+    private void onSystemChat(Text message, boolean overlay, CallbackInfo ci) {
+        if (overlay) return;
+
+        if (classifyByKey(message)) return;
+
+        String sysText = message.getString();
+        boolean hasEchoFlag = ChatMessageStore.hasPendingWhisperEcho();
+        boolean hasKw = sysText.contains("悄悄") || sysText.contains("whispers") || sysText.contains("whisper")
+            || sysText.contains("私聊") || sysText.contains("密语") || sysText.contains("密聊")
+            || sysText.contains("私信") || sysText.contains("密谈")
+            || sysText.contains("对你说") || sysText.contains("to you")
+            || ECHO_WHISPER_PATTERN.matcher(sysText.toLowerCase()).find();
+        ChatMessageStore.debugLog("[e33chat] System(echo check) | text='" + sysText + "' | flag=" + hasEchoFlag + " | kw=" + hasKw);
+        if (hasEchoFlag && hasKw) {
+            boolean otherPlayerInText = false;
+            var conn = MinecraftClient.getInstance().player != null
+                ? MinecraftClient.getInstance().player.networkHandler : null;
+            if (conn != null) {
+                String localName = MinecraftClient.getInstance().player.getName().getString();
+                for (var info : conn.getPlayerList()) {
+                    //#if MC >= 12109
+                    String name = info.getProfile().name();
+                    //#else
+                    //$$ String name = info.getProfile().getName();
+                    //#endif
+                    if (name != null && !name.equals(localName) && sysText.contains(name)) {
+                        otherPlayerInText = true;
+                        break;
+                    }
+                }
+            }
+            if (!otherPlayerInText) {
+                ChatMessageStore.consumeWhisperEcho();
+                ChatMessageStore.debugLog("[e33chat] System(echo suppressed) | text='" + sysText + "'");
+                ChatMessageStore.markSuppressCapture();
+                return;
+            }
+        }
+        ChatMessageStore.debugLog("[e33chat] System | text='" + sysText + "' | overlay=" + overlay);
+
+        String text = message.getString();
+        var connection = MinecraftClient.getInstance().player != null
+            ? MinecraftClient.getInstance().player.networkHandler : null;
+
+        // Template layer: server-declared formats parse exactly (strongest evidence).
+        if ((!ChatMessageStore.serverChatTemplates().isEmpty()
+                || !ChatMessageStore.serverWhisperTemplates().isEmpty()) && connection != null) {
+            SenderMeta tpl = matchByTemplate(message, text);
+            if (tpl != null) { ChatMessageStore.setPendingMeta(tpl); return; }
+        }
+
+        // Layer 1: whisper detection FIRST — before name matching can steal it
+        SenderMeta wm = detectWhisperInSystemMessage(text, "whisper");
+        if (wm != null) { ChatMessageStore.setPendingMeta(wm); return; }
+
+        // Layer 2: parse decorated player line (NCR/plugin plain-text player chat)
+        if (connection != null) {
+            var namesSet = new LinkedHashSet<String>();
+            connection.getPlayerList().forEach(info -> {
+                for (String cand : nameCandidates(info)) namesSet.add(cand);
+            });
+            namesSet.addAll(ChatMessageStore.knownNameVariants());
+            var onlineNames = new ArrayList<>(namesSet);
+            var parsed = MessagePresentation.parseDecoratedPlayerLine(text, onlineNames);
+            if (parsed.isPresent()) {
+                var pl = parsed.orElseThrow();
+                var info = connection.getPlayerList().stream()
+                    .filter(i -> {
+                        for (String cand : nameCandidates(i))
+                            if (cand.equals(pl.playerName())) return true;
+                        return false;
+                    }).findFirst().orElse(null);
+                UUID uid = info != null ?
+                    //#if MC >= 12109
+                    info.getProfile().id() : new UUID(0, 0);
+                    //#else
+                    //$$ info.getProfile().getId() : new UUID(0, 0);
+                    //#endif
+                int nameIdx = pl.nameStart();
+                int cStart = pl.contentStart();
+                if (MessagePresentation.isWhitespaceOnlyGap(text, nameIdx + pl.playerName().length(), cStart)) {
+                    ChatMessageStore.debugLog("[e33chat] System(line skip: broadcast sentence) | text='" + text + "'");
+                } else {
+                    Text displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
+                        com.niuqu.chatbubble.Txt.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
+                    Text contentComp = ChatMessageStore.sliceStyled(message, cStart, text.length());
+                    ChatMessageStore.debugLog("[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
+                    ChatMessageStore.setPendingMeta(new SenderMeta(
+                        uid, displayName, contentComp, false,
+                        info != null ?
+                        //#if MC >= 12109
+                        info.getProfile().name() : pl.playerName(),
+                        //#else
+                        //$$ info.getProfile().getName() : pl.playerName(),
+                        //#endif
+                        false, null));
+                }
+                return;
+            }
+        }
+
+        // Layer 3: tell-click attribution (nickname servers)
+        SenderMeta tc = detectByTellClick(message, text);
+        if (tc != null) { ChatMessageStore.setPendingMeta(tc); return; }
+
+        // Fallback: real system message（模板 miss + 守卫全未命中 → 灰字兜底）
+        ChatMessageStore.debugLog("[e33chat] System(guard fallback -> gray) | text='" + text + "'");
+        var cfg = ChatBubbleClientSetup.config();
+        boolean isSystem = cfg == null || !cfg.systemChatAsBubble();
+        ChatMessageStore.setPendingMeta(new SenderMeta(
+            new UUID(0, 0), com.niuqu.chatbubble.Txt.translatable("e33chat.sender.system"),
+            message, isSystem, null, false, null));
     }
 }
 //#else

@@ -580,6 +580,12 @@ public class ChatMessageStore {
                 senderUUID, senderName, content, messages.size());
         }
 
+        // System messages (deaths/joins/broadcasts) pop the same banner as
+        // @/whisper/quote; the [系统] label is the name row.
+        if (isSystem && ChatBubbleClientSetup.config().systemBannerEnabled()) {
+            MentionNotificationController.INSTANCE.onSystemMessage(content, messages.size());
+        }
+
         //#if MC >= 12111
         boolean systemToHint = isSystem && ChatBubbleClientSetup.config().strongHintEnabled();
         //#endif
@@ -1383,11 +1389,16 @@ public class ChatMessageStore {
         }
     }
 
-    public static void applyChatMeta(UUID senderUUID, String messageHash, String quoteSender,
-                                      String quoteContent, List<String> mentionTargets) {
+    public static void applyChatMeta(UUID senderUUID, String senderName, String messageHash,
+                                      String quoteSender, String quoteContent, List<String> mentionTargets) {
         for (int i = messages.size() - 1; i >= 0; i--) {
             ChatMessage msg = messages.get(i);
-            if (msg.messageHash().equals(messageHash) && msg.senderUUID().equals(senderUUID)) {
+            // Offline/cracked players fall back to UUID(0,0) on the receiving side,
+            // so match by raw player name as well when the UUID doesn't line up
+            boolean nameMatch = senderName != null && !senderName.isEmpty()
+                && msg.rawPlayerName() != null && msg.rawPlayerName().equals(senderName);
+            if (msg.messageHash().equals(messageHash)
+                && (msg.senderUUID().equals(senderUUID) || nameMatch)) {
                 if (msg.replyContent() != null) continue;
                 // Anti-spam merge produced this bubble (the second send had no
                 // quote) — a late ChatMeta for the first send must not tag it

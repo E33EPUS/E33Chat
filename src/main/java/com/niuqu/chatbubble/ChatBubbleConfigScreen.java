@@ -199,9 +199,7 @@ public class ChatBubbleConfigScreen extends Screen {
         ChatBubbleClientSetup.saveConfig(new ChatBubbleConfig(
             enabled, theme.name().toLowerCase(), redDotEnabled, hideChatIcon, animationEnabled,
             strongHintEnabled, systemChatAsBubble,
-            //#if MC < 12111
             systemBannerEnabled,
-            //#endif
             antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
@@ -220,9 +218,7 @@ public class ChatBubbleConfigScreen extends Screen {
         hideChatIcon = cfg.hideChatIcon(); animationEnabled = cfg.animationEnabled();
         strongHintEnabled = cfg.strongHintEnabled();
         systemChatAsBubble = cfg.systemChatAsBubble();
-        //#if MC < 12111
         systemBannerEnabled = cfg.systemBannerEnabled();
-        //#endif
         antiSpam = cfg.antiSpam();
         chatHistoryEnabled = cfg.chatHistoryEnabled();
         soundPublic = cfg.soundPublic();
@@ -446,9 +442,7 @@ public class ChatBubbleConfigScreen extends Screen {
         notify.add(new Opt("e33chat.config.mention_whisper_banner", y -> mkBoolButton(y, () -> mentionWhisperBanner, v -> mentionWhisperBanner = v), null));
         notify.add(new Opt("e33chat.config.sound_whisper", y -> mkBoolButton(y, () -> soundWhisper, v -> soundWhisper = v), null));
         notify.add(Opt.header("e33chat.config.section.system"));
-        //#if MC < 12111
         notify.add(new Opt("e33chat.config.system_banner_enabled", y -> mkBoolButton(y, () -> systemBannerEnabled, v -> systemBannerEnabled = v), null));
-        //#endif
         notify.add(new Opt("e33chat.config.sound_system", y -> mkBoolButton(y, () -> soundSystem, v -> soundSystem = v), null));
         notify.add(Opt.header("e33chat.config.section.banner"));
         notify.add(new Opt("e33chat.config.mention_banner_duration",

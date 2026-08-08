@@ -33,9 +33,7 @@ public final class ConfigManager {
             c.enabled(), c.theme() != null ? c.theme() : d.theme(),
             c.redDotEnabled(), c.hideChatIcon(), c.animationEnabled(),
             c.strongHintEnabled(), c.systemChatAsBubble(),
-            //#if MC < 12111
             c.systemBannerEnabled(),
-            //#endif
             c.antiSpam(), c.chatHistoryEnabled(),
             c.historyRetentionDays(), c.timeSeparatorMinutes(),
             c.panelWidth(), c.bubbleCornerRadius(),

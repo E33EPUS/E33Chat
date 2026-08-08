@@ -30,7 +30,9 @@ import java.util.regex.Pattern;
 public class ChatBubbleMod implements ModInitializer {
     public static final String MOD_ID = "e33chat";
 
-    private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
+    // Align with Forge/Neo: \p{L}\p{N} covers non-ASCII names (cracked servers allow
+    // Chinese player names); @(\w+) only matched ASCII and missed them
+    private static final Pattern MENTION_PATTERN = Pattern.compile("@([\\p{L}\\p{N}_]+)");
     private static final int HISTORY_MAX = 50;
 
     private static final Map<UUID, QuotePending> pendingQuotes = new HashMap<>();
@@ -44,7 +46,14 @@ public class ChatBubbleMod implements ModInitializer {
     private static List<String> whisperTemplates = List.of();
     private static boolean configLoaded;
 
-    private record QuotePending(String quotedSenderName, String quotedContent, String messageHash) {}
+    private record QuotePending(String quotedSenderName, String quotedContent, String messageHash, long time) {}
+    // A quote that never made it into a sent message (e.g. an anti-spam plugin blocked
+    // it) must not tag a later unrelated message — expire after 10s (parity with Forge)
+    private static QuotePending takeQuote(UUID playerUUID) {
+        QuotePending quote = pendingQuotes.remove(playerUUID);
+        if (quote != null && System.currentTimeMillis() - quote.time() > 10_000) return null;
+        return quote;
+    }
 
     @Override
     public void onInitialize() {
@@ -62,7 +71,8 @@ public class ChatBubbleMod implements ModInitializer {
             context.server().execute(() -> {
                 String messageHash = payload.messageHash();
                 pendingQuotes.put(player.getUuid(),
-                    new QuotePending(payload.quotedSenderName(), payload.quotedContent(), messageHash));
+                    new QuotePending(payload.quotedSenderName(), payload.quotedContent(), messageHash,
+                        System.currentTimeMillis()));
             });
         });
 
@@ -120,14 +130,14 @@ public class ChatBubbleMod implements ModInitializer {
                 ? server.getPlayerManager().getPlayerList().size() : 1;
             List<String> mentions = extractMentions(rawText, playerCount);
 
-            QuotePending quote = pendingQuotes.remove(sender.getUuid());
+            QuotePending quote = takeQuote(sender.getUuid());
             String messageHash = quote != null ? quote.messageHash() : String.valueOf(rawText.hashCode());
             String quoteSender = quote != null ? quote.quotedSenderName() : "";
             String quoteContent = quote != null ? quote.quotedContent() : "";
 
             if (quote != null || !mentions.isEmpty()) {
                 ChatMetaPayload meta = new ChatMetaPayload(
-                    sender.getUuid(), messageHash, quoteSender, quoteContent, mentions);
+                    sender.getUuid(), sender.getName().getString(), messageHash, quoteSender, quoteContent, mentions);
                 //#if MC >= 12005
                 for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
                     ServerPlayNetworking.send(p, meta);
@@ -235,11 +245,11 @@ public class ChatBubbleMod implements ModInitializer {
             ServerCommandSource source = parseResults.getContext().getSource();
             ServerPlayerEntity sender = source.getPlayer();
             if (sender == null) return;
-            QuotePending quote = pendingQuotes.remove(sender.getUuid());
+            QuotePending quote = takeQuote(sender.getUuid());
             if (quote == null) return;
             //#if MC >= 12005
-            ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), quote.messageHash(),
-                quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
+            ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), sender.getName().getString(),
+                quote.messageHash(), quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
             for (ServerPlayerEntity p : source.getServer().getPlayerManager().getPlayerList()) {
                 ServerPlayNetworking.send(p, meta);
             }

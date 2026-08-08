@@ -28,11 +28,7 @@ import java.util.*;
 public class MentionNotificationBanner {
     public static final MentionNotificationBanner INSTANCE = new MentionNotificationBanner();
 
-    public enum NotificationType { MENTION, QUOTE, WHISPER
-        //#if MC >= 12111
-        , SYSTEM
-        //#endif
-    }
+    public enum NotificationType { MENTION, QUOTE, WHISPER, SYSTEM }
 
     private static final long SLIDE_MS = 250;
     private static final long VISIBLE_MS_PERIOD = 1000;
@@ -67,20 +63,14 @@ public class MentionNotificationBanner {
             case MENTION -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.mention").getString();
             case QUOTE -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.quote").getString();
             case WHISPER -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.whisper").getString();
-            //#if MC >= 12111
             case SYSTEM -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.system").getString();
-            //#endif
         };
         Text labeledName = com.niuqu.chatbubble.Txt.literal(prefix).append(senderName);
 
         // System banners carry no sender — plain text, no avatar, flush text start.
         // [系统] 标签与第一行内容同行，内容宽度预算扣掉标签宽，避免同行溢出横幅
         //#if MC >= 12004
-        //#if MC >= 12111
         boolean hasAvatar = type != NotificationType.SYSTEM;
-        //#else
-        //$$ boolean hasAvatar = true;
-        //#endif
         //#else
         //$$ boolean hasAvatar = false;
         //#endif

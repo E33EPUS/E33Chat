@@ -193,15 +193,15 @@ public final class GuiCompat {
     @SuppressWarnings("unchecked")
     public static PositionedSoundInstance uiSound(Object event, float volume, float pitch) {
         //#if MC >= 26000
-        return SimpleSoundInstance.forUI((net.minecraft.core.Holder<SoundEvent>) event, pitch);
+        return SimpleSoundInstance.forUI(soundValue(event), pitch, volume);
         //#else
         //#if MC >= 12111
         return PositionedSoundInstance.ui((net.minecraft.registry.entry.RegistryEntry<SoundEvent>) event, pitch);
         //#else
         //#if MC >= 11903
-        //$$ return PositionedSoundInstance.master((net.minecraft.registry.entry.RegistryEntry<SoundEvent>) event, pitch);
+        //$$ return PositionedSoundInstance.master(soundValue(event), pitch, volume);
         //#else
-        //$$ return PositionedSoundInstance.master((SoundEvent) event, pitch);
+        //$$ return PositionedSoundInstance.master((SoundEvent) event, pitch, volume);
         //#endif
         //#endif
         //#endif

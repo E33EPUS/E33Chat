@@ -8,9 +8,7 @@ public record ChatBubbleConfig(
     boolean animationEnabled,
     boolean strongHintEnabled,
     boolean systemChatAsBubble,
-    //#if MC < 12111
     boolean systemBannerEnabled,
-    //#endif
     boolean antiSpam,
     boolean chatHistoryEnabled,
     int historyRetentionDays,
@@ -47,9 +45,7 @@ public record ChatBubbleConfig(
         return new ChatBubbleConfig(
             true, "dark", true, false, true,
             true, false,
-            //#if MC < 12111
             true,
-            //#endif
             true, true,
             0, 5, 1000, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
@@ -72,9 +68,7 @@ public record ChatBubbleConfig(
     public ChatBubbleConfig withTheme(String theme) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
             strongHintEnabled, systemChatAsBubble,
-            //#if MC < 12111
             systemBannerEnabled,
-            //#endif
             antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
@@ -85,9 +79,7 @@ public record ChatBubbleConfig(
     public ChatBubbleConfig withQuickChatPhrases(List<String> phrases) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
             strongHintEnabled, systemChatAsBubble,
-            //#if MC < 12111
             systemBannerEnabled,
-            //#endif
             antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
@@ -98,9 +90,7 @@ public record ChatBubbleConfig(
     public ChatBubbleConfig withSidebarHidePatterns(List<String> patterns) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
             strongHintEnabled, systemChatAsBubble,
-            //#if MC < 12111
             systemBannerEnabled,
-            //#endif
             antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
@@ -111,9 +101,7 @@ public record ChatBubbleConfig(
     public ChatBubbleConfig withBlockedPlayers(List<String> blocked) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
             strongHintEnabled, systemChatAsBubble,
-            //#if MC < 12111
             systemBannerEnabled,
-            //#endif
             antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,

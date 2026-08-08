@@ -59,6 +59,8 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
     modCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
 }
 
 processResources {
@@ -97,7 +99,10 @@ def sharedResDir = file("${rootProject.projectDir}/src/main/resources")
 def versionJavaDir = file("${project.projectDir}/src/main/java")
 def versionResDir = file("${project.projectDir}/src/main/resources")
 def preprocessedDir = file("${buildDir}/preprocessed/main/java")
+def sharedTestDir = file("${rootProject.projectDir}/src/test/java")
 def stubOnlySources = (project.findProperty('stub_only_sources') ?: 'false').toString().toBoolean()
+// 测试仅在主版本上编译运行（测试文件引用 Minecraft API，旧版本可能不兼容）
+def isMainProject = project.name == mainProjectName
 
 // 生成预处理代码的任务：按当前子项目 mcVersion 处理 //#if / //#else / //#endif，
 // 并在选中旧版本分支时把 //$$ 代码行恢复为真实 Java 代码。
@@ -197,12 +202,25 @@ sourceSets {
             srcDir sharedResDir
         }
     }
+    test {
+        java {
+            setSrcDirs([])
+        }
+    }
 }
 
 tasks.named('compileJava').configure {
     if (!stubOnlySources) {
         dependsOn(preprocessTask)
     }
+}
+
+tasks.named('compileTestJava').configure {
+    enabled = false
+}
+
+tasks.withType(Test).configureEach {
+    enabled = false
 }
 
 // 本项目已经使用自定义 preprocessJava 处理 Java 源码，并通过 sourceSets 合并资源；
