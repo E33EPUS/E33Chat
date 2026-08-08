@@ -657,4 +657,54 @@ class ChatMessageStoreTest {
         metasField.setAccessible(true);
         ((java.util.Map<?, ?>) metasField.get(null)).clear();
     }
+
+    // ---- stale server quote broadcast must not tag a merged bubble ----
+    // B quotes A's "妈妈" and sends "？" (server broadcasts ChatMeta), then sends
+    // an identical unquoted "？" which anti-spam merges into the first bubble.
+    // The first quote's ChatMeta can arrive late (network round-trip) — the merge
+    // keeps the first message's hash, so applyChatMeta matches the merged bubble
+    // and would wrongly add a quote block the second send never had.
+
+    @Test void applyChatMeta_lateQuoteDoesNotTagMergedBubble() throws Exception {
+        clearMessagesAndMetas();
+        var bUuid = java.util.UUID.randomUUID();
+        var sender = net.minecraft.text.Text.literal("B");
+        String hash = String.valueOf("？".hashCode());
+        // First send: unquoted (this test isolates the late-ChatMeta path)
+        ChatMessageStore.addMessage(net.minecraft.text.Text.literal("？"),
+            bUuid, sender, false, "B", false, null, false);
+        // Identical follow-up: anti-spam merges into one bubble, no quote block
+        ChatMessageStore.addMessage(net.minecraft.text.Text.literal("？"),
+            bUuid, sender, false, "B", false, null, false);
+        // The first send's ChatMeta arrives after the merge
+        ChatMessageStore.applyChatMeta(bUuid, hash, "A", "妈妈", List.of());
+
+        var field = ChatMessageStore.class.getDeclaredField("messages");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var messages = (List<ChatMessageStore.ChatMessage>) field.get(null);
+        assertEquals(1, messages.size());
+        var merged = messages.get(0);
+        assertNull(merged.replyContent(),
+            "late ChatMeta for the first send must not tag the merged bubble");
+        assertNull(merged.replySender());
+    }
+
+    @Test void applyChatMeta_quoteStillTagsPlainMessage() throws Exception {
+        clearMessagesAndMetas();
+        var bUuid = java.util.UUID.randomUUID();
+        var sender = net.minecraft.text.Text.literal("B");
+        String hash = String.valueOf("？".hashCode());
+        ChatMessageStore.addMessage(net.minecraft.text.Text.literal("？"),
+            bUuid, sender, false, "B", false, null, false);
+        ChatMessageStore.applyChatMeta(bUuid, hash, "A", "妈妈", List.of());
+
+        var field = ChatMessageStore.class.getDeclaredField("messages");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var messages = (List<ChatMessageStore.ChatMessage>) field.get(null);
+        assertEquals(1, messages.size());
+        assertEquals("妈妈", messages.get(0).replyContent(),
+            "a non-merged message still receives its own quote meta");
+    }
 }
