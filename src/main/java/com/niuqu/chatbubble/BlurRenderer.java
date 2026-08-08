@@ -18,6 +18,12 @@ public class BlurRenderer {
     private static int fbo3 = -1, tex3 = -1; // 1/8
     private static int fbo4 = -1, tex4 = -1; // 1/16
     private static int cw, ch;
+    // 模糊降帧：完整 5 级金字塔每 2 帧刷新一次，中间帧只把上一帧模糊结果
+    // （fbo0 缓存）重贴回主缓冲（1 次 blit vs 10 次）。模糊背景无高频细节，
+    // 降帧视觉几乎无感——每帧全屏 blit 在核显/GL 转译层（Intel Arc 等）开销
+    // 大，是打开聊天界面掉帧的主因
+    private static boolean nextFull = true;
+    private static boolean recreated = true;
 
     private static int[] make(int w, int h) {
         w = Math.max(1, w); h = Math.max(1, h);
@@ -40,6 +46,7 @@ public class BlurRenderer {
         int mw = pw, mh = ph;
         if (mw == cw && mh == ch) return;
         destroy();
+        recreated = true;
         cw = mw; ch = mh;
         int[] a = make(mw,     mh);     fbo0 = a[0]; tex0 = a[1];
         int[] b = make(mw / 2, mh / 2); fbo1 = b[0]; tex1 = b[1];
@@ -95,18 +102,27 @@ public class BlurRenderer {
 
         GL30.glDisable(GL30.GL_SCISSOR_TEST);
 
-        blit(mainFb, x, glY0, x + w, glY1, fbo0, 0, 0, w, h);
+        // 完整帧：拷贝面板区 → 5 级下采样 → 上采样，fbo0 缓存最新模糊结果；
+        // 中间帧：跳过金字塔，直接用上一帧的 fbo0。recreated（窗口缩放重建）
+        // 后 fbo0 内容无效，强制走完整路径
+        boolean full = nextFull || recreated;
+        nextFull = !full;
+        if (full) {
+            blit(mainFb, x, glY0, x + w, glY1, fbo0, 0, 0, w, h);
 
-        blit(fbo0, 0, 0, w, h,    fbo1, 0, 0, w / 2, h / 2);
-        blit(fbo1, 0, 0, w / 2, h / 2, fbo2, 0, 0, w / 4, h / 4);
-        blit(fbo2, 0, 0, w / 4, h / 4, fbo3, 0, 0, w / 8, h / 8);
-        blit(fbo3, 0, 0, w / 8, h / 8, fbo4, 0, 0, w / 16, h / 16);
+            blit(fbo0, 0, 0, w, h,    fbo1, 0, 0, w / 2, h / 2);
+            blit(fbo1, 0, 0, w / 2, h / 2, fbo2, 0, 0, w / 4, h / 4);
+            blit(fbo2, 0, 0, w / 4, h / 4, fbo3, 0, 0, w / 8, h / 8);
+            blit(fbo3, 0, 0, w / 8, h / 8, fbo4, 0, 0, w / 16, h / 16);
 
-        blit(fbo4, 0, 0, w / 16, h / 16, fbo3, 0, 0, w / 8, h / 8);
-        blit(fbo3, 0, 0, w / 8, h / 8, fbo2, 0, 0, w / 4, h / 4);
-        blit(fbo2, 0, 0, w / 4, h / 4, fbo1, 0, 0, w / 2, h / 2);
-        blit(fbo1, 0, 0, w / 2, h / 2, fbo0, 0, 0, w, h);
+            blit(fbo4, 0, 0, w / 16, h / 16, fbo3, 0, 0, w / 8, h / 8);
+            blit(fbo3, 0, 0, w / 8, h / 8, fbo2, 0, 0, w / 4, h / 4);
+            blit(fbo2, 0, 0, w / 4, h / 4, fbo1, 0, 0, w / 2, h / 2);
+            blit(fbo1, 0, 0, w / 2, h / 2, fbo0, 0, 0, w, h);
+            recreated = false;
+        }
 
+        // 完整帧：写回刚生成的模糊；中间帧：重贴上一帧的模糊缓存
         blit(fbo0, 0, 0, w, h, mainFb, x, glY0, w, h);
 
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, oldFb);
