@@ -10,8 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteSender,
-                               String quoteContent, List<String> mentionTargets)
+public record ChatMetaPayload(UUID senderUUID, String senderName, String messageHash,
+                               String quoteSender, String quoteContent, List<String> mentionTargets)
         implements CustomPayload {
 
     public static final CustomPayload.Id<ChatMetaPayload> ID =
@@ -20,6 +20,7 @@ public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteS
     public static final PacketCodec<PacketByteBuf, ChatMetaPayload> CODEC = PacketCodec.of(
         (value, buf) -> {
             buf.writeString(value.senderUUID.toString());
+            buf.writeString(value.senderName);
             buf.writeString(value.messageHash);
             buf.writeString(value.quoteSender);
             buf.writeString(value.quoteContent);
@@ -27,6 +28,7 @@ public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteS
         },
         buf -> new ChatMetaPayload(
             UUID.fromString(buf.readString()),
+            buf.readString(),
             buf.readString(),
             buf.readString(),
             buf.readString(),

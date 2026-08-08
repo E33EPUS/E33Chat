@@ -51,7 +51,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
 
         ClientPlayNetworking.registerGlobalReceiver(ChatMetaPayload.ID, (payload, context) -> {
             context.client().execute(() -> ChatMessageStore.applyChatMeta(
-                payload.senderUUID(), payload.messageHash(),
+                payload.senderUUID(), payload.senderName(), payload.messageHash(),
                 payload.quoteSender(), payload.quoteContent(), payload.mentionTargets()));
         });
         ClientPlayNetworking.registerGlobalReceiver(HistoryPayload.ID, (payload, context) -> {

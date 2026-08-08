@@ -106,7 +106,8 @@ public class ChatBubbleMod implements ModInitializer {
 
             if (quote != null || !mentions.isEmpty()) {
                 ChatMetaPayload meta = new ChatMetaPayload(
-                    sender.getUuid(), messageHash, quoteSender, quoteContent, mentions);
+                    sender.getUuid(), sender.getName().getString(), messageHash,
+                    quoteSender, quoteContent, mentions);
                 for (ServerPlayerEntity p : sender.getServer().getPlayerManager().getPlayerList()) {
                     ServerPlayNetworking.send(p, meta);
                 }
@@ -160,8 +161,8 @@ public class ChatBubbleMod implements ModInitializer {
         if (sender == null) return;
         QuotePending quote = takeQuote(sender.getUuid());
         if (quote == null) return;
-        ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), quote.messageHash(),
-            quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
+        ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), sender.getName().getString(),
+            quote.messageHash(), quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
         for (ServerPlayerEntity p : source.getServer().getPlayerManager().getPlayerList()) {
             ServerPlayNetworking.send(p, meta);
         }
