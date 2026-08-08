@@ -531,10 +531,13 @@ public class ChatMessageStore {
                 messages.size(), replySender);
         }
 
-        // localSend = the user's own send feedback bubble — not a received whisper,
-        // so it never triggers the (self-)whisper banner/sound
-        if (whisper && rawPlayerName != null && !localSend
-            && ChatBubbleConfig.MENTION_WHISPER_BANNER.get()) {
+        // localSend = the user's own send feedback bubble — normally not a
+        // received whisper, so skip the (self-)whisper banner/sound; but
+        // own-whisper notify explicitly wants a banner for self /msg, and the
+        // controller gates on isOwn/selfNotify anyway.
+        if (whisper && rawPlayerName != null
+            && ChatBubbleConfig.MENTION_WHISPER_BANNER.get()
+            && (!localSend || ChatBubbleConfig.OWN_WHISPER_NOTIFY.get())) {
             MentionNotificationController.INSTANCE.onWhisperReceived(
                 senderUUID, senderName, content, messages.size());
         }
