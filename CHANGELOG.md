@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.3.4
+
+**修复**
+- **离线玩家引用块同步（三端）**：离线服/内网穿透场景下，未通过用户名验证的玩家（`Failed to verify username`）在接收端消息的 senderUUID 会落成 `UUID(0,0)`，与服务器广播的真实 UUID 失配——A 引用 B 的消息时，B 端永远补不上引用块。现在 ChatMeta 包附带发送者原始名字，匹配放宽为「UUID 精确 或 原始玩家名相等」，离线玩家也能正常同步引用块。网络包格式已变更，两端必须同升 2.3.4，老客户端混用会丢 meta
+
+**Fixes**
+- Quote block sync for offline players: on offline/LAN-forwarded servers, players who fail username verification (`Failed to verify username`) arrive on the receiving side with a `UUID(0,0)` sender, so the UUID in the broadcast ChatMeta never matched and the quoted player never saw the quote block. ChatMeta now carries the sender's raw name and matching accepts either an exact UUID or an equal raw player name. The packet format changed — both ends must run 2.3.4 together; mixing with an old client drops the meta
+- Tests: Forge 85 / NeoForge 85 / Fabric 85 all green
+
 ## v2.3.3
 
 **修复**
