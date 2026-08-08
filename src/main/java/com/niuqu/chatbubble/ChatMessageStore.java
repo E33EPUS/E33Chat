@@ -1336,6 +1336,9 @@ public class ChatMessageStore {
             ChatMessage msg = messages.get(i);
             if (msg.messageHash().equals(messageHash) && msg.senderUUID().equals(senderUUID)) {
                 if (msg.replyContent() != null) continue;
+                // Anti-spam merge produced this bubble (the second send had no
+                // quote) — a late ChatMeta for the first send must not tag it
+                if (msg.duplicateCount() > 1) continue;
                 if (System.currentTimeMillis() - msg.time() > 5_000) continue;
                 if (!quoteContent.isEmpty()) {
                     messages.set(i, new ChatMessage(
@@ -1343,8 +1346,8 @@ public class ChatMessageStore {
                         msg.isOwn(), msg.isSystem(), quoteContent, quoteSender, msg.messageHash(),
                         msg.duplicateCount(), msg.rawPlayerName(),
                         msg.whisper(), msg.whisperPartner()));
-                    String playerName = Minecraft.getInstance().player != null
-                        ? Minecraft.getInstance().player.getName().getString() : "";
+                    String playerName = localPlayerSupplier.get() != null
+                        ? localPlayerSupplier.get().getName().getString() : "";
                     if (!msg.isOwn() && !playerName.isEmpty()
                         && playerName.equals(quoteSender)
                         && !msg.content().getString().contains("@" + playerName)
