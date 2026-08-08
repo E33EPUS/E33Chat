@@ -20,10 +20,14 @@ public class E33ChatCommands {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             var tpl = net.minecraft.server.command.CommandManager.literal("template")
+                //#if MC >= 26000
+                //$$ .requires(s -> s.permissions().hasPermission(new net.minecraft.server.permissions.Permission.HasCommandLevel(net.minecraft.server.permissions.PermissionLevel.GAMEMASTERS)))
+                //#else
                 //#if MC >= 12111
                 .requires(s -> s.getPermissions().hasPermission(new net.minecraft.command.permission.Permission.Level(net.minecraft.command.permission.PermissionLevel.fromLevel(2))))
                 //#else
                 //$$ .requires(s -> s.hasPermissionLevel(2))
+                //#endif
                 //#endif
             ;
             tpl.then(net.minecraft.server.command.CommandManager.literal("list")
@@ -66,10 +70,14 @@ public class E33ChatCommands {
                                 StringArgumentType.getString(ctx, "text")))))));
             dispatcher.register(net.minecraft.server.command.CommandManager.literal("e33chat")
                 .then(net.minecraft.server.command.CommandManager.literal("gui")
+                    //#if MC >= 26000
+                    //$$ .requires(s -> s.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
+                    //#else
                     //#if MC >= 12111
                     .requires(s -> s.getPermissions().hasPermission(new net.minecraft.command.permission.Permission.Level(net.minecraft.command.permission.PermissionLevel.fromLevel(2))))
                     //#else
                     //$$ .requires(s -> s.hasPermissionLevel(2))
+                    //#endif
                     //#endif
                     .executes(ctx -> openServerGui(ctx.getSource())))
                 .then(tpl));

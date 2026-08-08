@@ -16,7 +16,11 @@ public record ConfigSyncPayload(boolean useTpa) implements CustomPayload {
     public static final CustomPayload.Id<ConfigSyncPayload> ID =
         new CustomPayload.Id<>(GuiCompat.id("e33chat", "config_sync"));
     public static final PacketCodec<PacketByteBuf, ConfigSyncPayload> CODEC = PacketCodec.of(
-        (value, buf) -> buf.writeBoolean(value.useTpa),
+        //#if MC >= 26000
+        (buf, value) -> buf.writeBoolean(value.useTpa),
+        //#else
+        //$$ (value, buf) -> buf.writeBoolean(value.useTpa),
+        //#endif
         buf -> new ConfigSyncPayload(buf.readBoolean())
     );
     @Override

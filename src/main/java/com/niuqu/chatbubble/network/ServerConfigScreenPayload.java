@@ -19,7 +19,11 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
     public static final CustomPayload.Id<ServerConfigScreenPayload> ID =
         new CustomPayload.Id<>(GuiCompat.id("e33chat", "server_config_screen"));
     public static final PacketCodec<PacketByteBuf, ServerConfigScreenPayload> CODEC = PacketCodec.of(
-        (value, buf) -> {
+        //#if MC >= 26000
+        (buf, value) -> {
+        //#else
+        //$$ (value, buf) -> {
+        //#endif
             buf.writeBoolean(value.useTpa);
             buf.writeBoolean(value.historyEnabled);
             buf.writeBoolean(value.templateDebug);

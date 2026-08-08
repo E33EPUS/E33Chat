@@ -1,5 +1,6 @@
 package com.niuqu.chatbubble;
 
+import com.niuqu.chatbubble.mixin.ScreenAccessor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -37,6 +38,12 @@ public final class GuiCompat {
 
     public static <T extends ClickableWidget> T addDrawableChild(Screen screen, T widget) {
         if (screen == null || widget == null) return widget;
+        //#if MC >= 11900
+        try {
+            return ((ScreenAccessor) screen).e33chat$addDrawableChild(widget);
+        } catch (Throwable ignored) {
+        }
+        //#endif
         if (invokeScreenMethod(screen, "addDrawableChild", widget)) return widget;
         if (invokeScreenMethod(screen, "addSelectableChild", widget)) return widget;
         if (invokeScreenMethod(screen, "addButton", widget)) return widget;
@@ -46,6 +53,13 @@ public final class GuiCompat {
 
     public static void clearChildren(Screen screen) {
         if (screen == null) return;
+        //#if MC >= 11900
+        try {
+            ((ScreenAccessor) screen).e33chat$clearChildren();
+            return;
+        } catch (Throwable ignored) {
+        }
+        //#endif
         if (invokeNoArg(screen, "clearChildren")) return;
         clearListField(screen, "children");
         clearListField(screen, "buttons");
@@ -178,6 +192,9 @@ public final class GuiCompat {
 
     @SuppressWarnings("unchecked")
     public static PositionedSoundInstance uiSound(Object event, float volume, float pitch) {
+        //#if MC >= 26000
+        return SimpleSoundInstance.forUI((net.minecraft.core.Holder<SoundEvent>) event, pitch);
+        //#else
         //#if MC >= 12111
         return PositionedSoundInstance.ui((net.minecraft.registry.entry.RegistryEntry<SoundEvent>) event, pitch);
         //#else
@@ -185,6 +202,7 @@ public final class GuiCompat {
         //$$ return PositionedSoundInstance.master((net.minecraft.registry.entry.RegistryEntry<SoundEvent>) event, pitch);
         //#else
         //$$ return PositionedSoundInstance.master((SoundEvent) event, pitch);
+        //#endif
         //#endif
         //#endif
     }

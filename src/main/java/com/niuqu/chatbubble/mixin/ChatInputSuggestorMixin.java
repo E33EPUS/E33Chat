@@ -16,7 +16,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = ChatInputSuggestor.class, priority = 500)
 public class ChatInputSuggestorMixin {
     @Inject(method = "renderMessages", at = @At("HEAD"), cancellable = true)
-    private void onRenderMessages(Object context, CallbackInfo ci) {
+    //#if MC >= 12000
+    private void onRenderMessages(DrawContext context, CallbackInfo ci) {
+    //#else
+    //$$ private void onRenderMessages(MatrixStack context, CallbackInfo ci) {
+    //#endif
         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
             ci.cancel();
         }

@@ -696,7 +696,11 @@ public class ServerConfigScreen extends Screen {
 
     @Override
     //#if MC >= 12000
+    //#if MC >= 26000
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    //#else
     public void render(DrawContext g, int mouseX, int mouseY, float partialTick) {
+    //#endif
     //#else
     //$$ public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
     //#endif

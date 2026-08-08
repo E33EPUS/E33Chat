@@ -548,8 +548,13 @@ public class ChatBubbleScreen extends Screen {
     }
 
     //#if MC >= 12004
+    //#if MC >= 26000
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+    //#else
     @Override
     public void renderBackground(DrawContext g, int mouseX, int mouseY, float delta) {
+    //#endif
         // no-op: disable vanilla blur
     }
     //#else
@@ -1086,7 +1091,11 @@ public class ChatBubbleScreen extends Screen {
 
     @Override
     //#if MC >= 12000
+    //#if MC >= 26000
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+    //#else
     public void render(DrawContext g, int mouseX, int mouseY, float delta) {
+    //#endif
     //#else
     //$$ public void render(MatrixStack g, int mouseX, int mouseY, float delta) {
     //#endif
@@ -1122,7 +1131,9 @@ public class ChatBubbleScreen extends Screen {
         Style hovered = getHoveredStyle(mouseX, mouseY);
         if (hovered != null && hovered.getHoverEvent() != null) {
             //#if MC >= 12000
+            //#if MC < 26000
             g.drawHoverEvent(textRenderer, hovered, mouseX, mouseY);
+            //#endif
             //#endif
         }
 
@@ -1489,9 +1500,14 @@ public class ChatBubbleScreen extends Screen {
             Text sn = msg.senderName();
             OrderedText nameSeq;
             if (textRenderer.getWidth(sn) > maxNameW) {
+                //#if MC >= 26000
+                //$$ var cut = font.plainSubstrByWidth(sn.getString(), maxNameW - font.width("..."));
+                //$$ nameSeq = Component.literal(cut + "...").getVisualOrderText();
+                //#else
                 var cut = textRenderer.trimToWidth(sn, maxNameW - textRenderer.getWidth("..."));
                 nameSeq = Language.getInstance().reorder(
                     StringVisitable.concat(cut, StringVisitable.plain("...")));
+                //#endif
             } else {
                 nameSeq = sn.asOrderedText();
             }

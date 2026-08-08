@@ -32,7 +32,11 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
     ) {}
     //#if MC >= 12005
     public static final PacketCodec<PacketByteBuf, HistoryPayload> CODEC = PacketCodec.of(
-        (value, buf) -> buf.writeCollection(value.entries, (b, e) -> {
+        //#if MC >= 26000
+        (buf, value) -> buf.writeCollection(value.entries, (b, e) -> {
+        //#else
+        //$$ (value, buf) -> buf.writeCollection(value.entries, (b, e) -> {
+        //#endif
             b.writeString(e.senderUUID().toString());
             b.writeString(e.senderName());
             b.writeString(e.content());

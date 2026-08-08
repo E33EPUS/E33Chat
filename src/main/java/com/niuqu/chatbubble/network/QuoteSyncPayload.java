@@ -16,7 +16,11 @@ public record QuoteSyncPayload(String quotedSenderName, String quotedContent, St
     public static final CustomPayload.Id<QuoteSyncPayload> ID =
         new CustomPayload.Id<>(GuiCompat.id("e33chat", "quote_sync"));
     public static final PacketCodec<PacketByteBuf, QuoteSyncPayload> CODEC = PacketCodec.of(
-        (value, buf) -> {
+        //#if MC >= 26000
+        (buf, value) -> {
+        //#else
+        //$$ (value, buf) -> {
+        //#endif
             buf.writeString(value.quotedSenderName);
             buf.writeString(value.quotedContent);
             buf.writeString(value.messageHash);

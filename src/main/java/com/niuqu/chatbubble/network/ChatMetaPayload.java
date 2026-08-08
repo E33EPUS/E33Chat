@@ -21,7 +21,11 @@ public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteS
     public static final CustomPayload.Id<ChatMetaPayload> ID =
         new CustomPayload.Id<>(GuiCompat.id("e33chat", "chat_meta"));
     public static final PacketCodec<PacketByteBuf, ChatMetaPayload> CODEC = PacketCodec.of(
-        (value, buf) -> {
+        //#if MC >= 26000
+        (buf, value) -> {
+        //#else
+        //$$ (value, buf) -> {
+        //#endif
             buf.writeString(value.senderUUID.toString());
             buf.writeString(value.messageHash);
             buf.writeString(value.quoteSender);

@@ -13,12 +13,17 @@ import net.minecraft.client.gui.DrawContext;
 //#endif
 import net.minecraft.client.gui.hud.ChatHud;
 //#if MC >= 11900
+//#if MC < 26000
 import net.minecraft.client.gui.hud.MessageIndicator;
 import net.minecraft.network.message.MessageSignatureData;
+//#endif
 //#endif
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import org.spongepowered.asm.mixin.Mixin;
+//#if MC >= 26000
+//$$ import org.spongepowered.asm.mixin.Shadow;
+//#endif
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -34,6 +39,14 @@ public class ChatComponentMixin {
     private String lastRepostText;
     private long lastRepostTime;
 
+    //#if MC >= 26000
+    //$$ @Shadow
+    //$$ private void addMessage(net.minecraft.network.chat.Component message,
+    //$$     net.minecraft.network.chat.MessageSignature signature,
+    //$$     net.minecraft.client.multiplayer.chat.GuiMessageSource source,
+    //$$     net.minecraft.client.multiplayer.chat.GuiMessageTag tag) {}
+    //#endif
+
     //#if MC >= 11900
     //#if MC >= 12106
     @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/font/TextRenderer;IIIZZ)V",
@@ -43,7 +56,7 @@ public class ChatComponentMixin {
     //$$     at = @At("HEAD"), cancellable = true, remap = false)
     //#endif
     //#endif
-    private void onRender(Object context,
+    private void onRender(DrawContext context,
         //#if MC >= 12106
         net.minecraft.client.font.TextRenderer textRenderer,
         //#endif
@@ -79,7 +92,7 @@ public class ChatComponentMixin {
     //$$     at = @At("RETURN"), remap = false)
     //#endif
     //#endif
-    private void onRenderReturn(Object context,
+    private void onRenderReturn(DrawContext context,
         //#if MC >= 12106
         net.minecraft.client.font.TextRenderer textRenderer,
         //#endif
@@ -99,19 +112,23 @@ public class ChatComponentMixin {
         }
     }
 
+    //#if MC < 26000
     @Inject(method = "addMessage(Lnet/minecraft/text/Text;)V",
             at = @At("HEAD"), cancellable = true)
     private void onAddMessage(Text message, CallbackInfo ci) {
         captureMessage(message, ci);
     }
+    //#endif
 
     //#if MC >= 11900
+    //#if MC < 26000
     @Inject(method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
             at = @At("HEAD"), cancellable = true)
     private void onAddMessageFull(Text message, MessageSignatureData signature,
                                   MessageIndicator indicator, CallbackInfo ci) {
         captureMessage(message, ci);
     }
+    //#endif
     //#endif
 
     // Vanilla chat gets a unified player-style format for whispers/quotes:
@@ -137,7 +154,11 @@ public class ChatComponentMixin {
         lastRepostTime = nowMs;
         ChatMessageStore.debugLog(() -> "[e33chat] Repost to vanilla | '" + repostStr + "' | quoting=" + quoting);
         e33chat$reposting = true;
+        //#if MC >= 26000
+        //$$ addMessage(reformatted, null, null, null);
+        //#else
         ((ChatHud) (Object) this).addMessage(reformatted);
+        //#endif
         e33chat$reposting = false;
     }
 

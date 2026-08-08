@@ -29,8 +29,13 @@ public class BedScreen extends Screen {
     }
 
     //#if MC >= 12004
+    //#if MC >= 26000
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+    //#else
     @Override
     public void renderBackground(DrawContext g, int mouseX, int mouseY, float delta) {
+    //#endif
     }
     //#else
     //#if MC >= 12000
@@ -97,8 +102,14 @@ public class BedScreen extends Screen {
 
     private void sendWakeUp() {
         if (client != null && client.player != null) {
+            //#if MC >= 26000
+            //$$ minecraft.player.connection.send(
+            //$$     new net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket(
+            //$$         minecraft.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.STOP_SLEEPING));
+            //#else
             client.player.networkHandler.sendPacket(
                 new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.STOP_SLEEPING));
+            //#endif
         }
     }
 }

@@ -69,14 +69,23 @@ public class ChatBubbleMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(ServerConfigSavePayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
             context.server().execute(() -> {
+                //#if MC >= 26000
+                //$$ if (!player.permissions().hasPermission(new net.minecraft.server.permissions.Permission.HasCommandLevel(net.minecraft.server.permissions.PermissionLevel.GAMEMASTERS))) {
+                //#else
                 //#if MC >= 12111
                 if (!player.getPermissions().hasPermission(
                     new net.minecraft.command.permission.Permission.Level(net.minecraft.command.permission.PermissionLevel.GAMEMASTERS))) {
                 //#else
                 //$$ if (!player.hasPermissionLevel(2)) {
                 //#endif
+                //#endif
+                    //#if MC >= 26000
+                    //$$ player.sendSystemMessage(com.niuqu.chatbubble.Txt.translatable("e33chat.server.op_required")
+                    //$$     .formatted(Formatting.RED));
+                    //#else
                     player.sendMessage(com.niuqu.chatbubble.Txt.translatable("e33chat.server.op_required")
                         .formatted(Formatting.RED), false);
+                    //#endif
                     return;
                 }
                 ServerConfigSavePayload.handleServer(payload, player, cfg -> {
@@ -92,7 +101,11 @@ public class ChatBubbleMod implements ModInitializer {
 
         //#if MC >= 11900
         ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
+            //#if MC >= 26000
+            //$$ String rawText = message.decoratedContent().getString();
+            //#else
             String rawText = message.getContent().getString();
+            //#endif
             //#if MC >= 12106
             //#if MC < 12109
             //$$ var server = sender.getWorld().getServer();

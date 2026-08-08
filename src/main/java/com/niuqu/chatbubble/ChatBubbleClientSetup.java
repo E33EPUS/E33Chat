@@ -10,7 +10,9 @@ import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+//#if MC < 26000
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+//#endif
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -74,10 +76,12 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         });
         //#endif
 
+        //#if MC < 26000
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
             if (!config.enabled()) return;
             ChatBubbleHudOverlay.render(drawContext);
         });
+        //#endif
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!texturesLoaded) {
@@ -118,6 +122,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             }
         });
 
+        //#if MC < 26000
         ScreenEvents.BEFORE_INIT.register((client, screen, width, height) ->
             ScreenEvents.afterRender(screen).register((scr, g, mouseX, mouseY, delta) -> {
                 //#if MC >= 12111
@@ -125,6 +130,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                 //#endif
             })
         );
+        //#endif
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(
             new SimpleSynchronousResourceReloadListener() {
@@ -133,7 +139,11 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                     return GuiCompat.id(ChatBubbleMod.MOD_ID, "shader_reload");
                 }
                 @Override
+                //#if MC >= 26000
+                //$$ public void onResourceManagerReload(ResourceManager manager) {
+                //#else
                 public void reload(ResourceManager manager) {
+                //#endif
                     RoundRectRenderer.resetShader();
                     com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
                 }

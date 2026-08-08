@@ -20,7 +20,11 @@ public record ConfigSyncV2Payload(boolean useTpa, List<String> chatTemplates,
     public static final CustomPayload.Id<ConfigSyncV2Payload> ID =
         new CustomPayload.Id<>(GuiCompat.id("e33chat", "config_sync_v2"));
     public static final PacketCodec<PacketByteBuf, ConfigSyncV2Payload> CODEC = PacketCodec.of(
-        (value, buf) -> {
+        //#if MC >= 26000
+        (buf, value) -> {
+        //#else
+        //$$ (value, buf) -> {
+        //#endif
             buf.writeBoolean(value.useTpa);
             writeList(buf, value.chatTemplates);
             writeList(buf, value.whisperTemplates);

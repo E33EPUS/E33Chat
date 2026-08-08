@@ -632,7 +632,11 @@ public class ChatBubbleConfigScreen extends Screen {
 
     @Override
     //#if MC >= 12000
+    //#if MC >= 26000
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    //#else
     public void render(DrawContext g, int mouseX, int mouseY, float partialTick) {
+    //#endif
     //#else
     //$$ public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
     //#endif
@@ -773,8 +777,13 @@ public class ChatBubbleConfigScreen extends Screen {
     }
 
     //#if MC >= 12004
+    //#if MC >= 26000
+    @Override
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    //#else
     @Override
     public void renderBackground(DrawContext g, int mouseX, int mouseY, float partialTick) {
+    //#endif
         // no-op：背景已在 render() 开头画，避免 1.21.1 batch 缓冲叠暗文字
     }
     //#else

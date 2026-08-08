@@ -1156,8 +1156,13 @@ public class ChatMessageStore {
             for (ChatMessage msg : messages) {
                 String line = toLine(msg);
                 if (line == null) continue;
+                //#if MC >= 26000
+                //$$ w.append(line);
+                //$$ w.append("\n");
+                //#else
                 w.write(line);
                 w.write("\n");
+                //#endif
             }
             w.flush();
         } catch (Exception e) {

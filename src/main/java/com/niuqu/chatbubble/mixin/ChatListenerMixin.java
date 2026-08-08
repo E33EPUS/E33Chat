@@ -353,7 +353,11 @@ public class ChatListenerMixin {
         //#else
         //$$ UUID senderId = gameProfile.getId();
         //#endif
+        //#if MC >= 26000
+        //$$ Component raw = message.decoratedContent();
+        //#else
         Text raw = message.getContent();
+        //#endif
         String rawStr = raw.getString();
         if (isXaeroWaypoint(rawStr)) return;
         //#if MC >= 12109
@@ -364,7 +368,11 @@ public class ChatListenerMixin {
         boolean isWhisper = false;
         String whisperPartner = null;
         //#if MC >= 12005
+        //#if MC >= 26000
+        //$$ if (params.chatType().is(ChatType.MSG_COMMAND_INCOMING)) {
+        //#else
         if (params.type().matchesKey(MessageType.MSG_COMMAND_INCOMING)) {
+        //#endif
             isWhisper = true;
             whisperPartner = name;
         }
