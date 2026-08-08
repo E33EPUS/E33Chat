@@ -1,7 +1,6 @@
 package com.niuqu.chatbubble;
 
 import com.mojang.authlib.GameProfile;
-import com.niuqu.chatbubble.DrawHelper;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
@@ -38,7 +37,6 @@ import net.minecraft.entity.player.SkinTextures;
 //#endif
 //#endif
 import net.minecraft.text.*;
-import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Language;
 import net.minecraft.util.Util;

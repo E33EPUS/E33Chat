@@ -360,8 +360,6 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("\\bwithFormatting\\b", "applyFormat")
         // Resource.getInputStream → open (Yarn→Mojang method rename)
         line = line.replaceAll("\\bgetInputStream\\b", "open")
-        // Undo render→extractRenderState for ChatSearchPanel (custom render method, not Renderable)
-        line = line.replaceAll("searchPanel\\.extractRenderState\\(", "searchPanel.render(")
         // ChatType.Bound.type() → chatType() (Yarn→Mojang method rename)
         line = line.replaceAll("\\bparams\\.type\\(\\)", "params.chatType()")
 

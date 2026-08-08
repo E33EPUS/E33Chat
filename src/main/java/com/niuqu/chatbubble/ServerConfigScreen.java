@@ -17,9 +17,6 @@ import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-//#if MC >= 12106
-import net.minecraft.client.gl.RenderPipelines;
-//#endif
 //#if MC >= 12109
 import net.minecraft.client.gui.Click;
 //#endif

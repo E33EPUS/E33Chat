@@ -6,9 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
-//#if MC >= 12106
-import net.minecraft.client.gl.RenderPipelines;
-//#endif
 //#if MC >= 12109
 import net.minecraft.client.gui.Click;
 //#endif

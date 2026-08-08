@@ -46,3 +46,7 @@ logs/
 temp_refmap/
 *.log
 crash_tmp/
+build-errors-*.txt
+build_*_log.txt
+tmp-jar-extract/
+*.patch
