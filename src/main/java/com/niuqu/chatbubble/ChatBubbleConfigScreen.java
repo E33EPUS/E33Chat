@@ -212,6 +212,10 @@ public class ChatBubbleConfigScreen extends Screen {
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.MENTION_BANNER_DURATION.get()), 2, 10, 2, ChatBubbleConfig.MENTION_BANNER_DURATION::set), null));
         notify.add(new Opt("e33chat.config.banner_corner_radius",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BANNER_CORNER_RADIUS.get()), 0, 10, 2, ChatBubbleConfig.BANNER_CORNER_RADIUS::set), null));
+        notify.add(new Opt("e33chat.config.banner_offset_x",
+            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BANNER_OFFSET_X.get()), -1000, 1000, 2, ChatBubbleConfig.BANNER_OFFSET_X::set), null));
+        notify.add(new Opt("e33chat.config.banner_offset_y",
+            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BANNER_OFFSET_Y.get()), -1000, 1000, 2, ChatBubbleConfig.BANNER_OFFSET_Y::set), null));
         notify.add(Opt.header("e33chat.config.section.sound"));
         notify.add(new Opt("e33chat.config.sound_volume",
             y -> mkIntSlider(y, ChatBubbleConfig.SOUND_VOLUME, 0, 100), null));

@@ -48,6 +48,8 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue OWN_QUOTE_NOTIFY;
     public static final ModConfigSpec.BooleanValue OWN_WHISPER_NOTIFY;
     public static final ModConfigSpec.IntValue BANNER_CORNER_RADIUS;
+    public static final ModConfigSpec.IntValue BANNER_OFFSET_X;
+    public static final ModConfigSpec.IntValue BANNER_OFFSET_Y;
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
@@ -258,6 +260,16 @@ public class ChatBubbleConfig {
             .comment("Banner corner radius (0 = square, max 10)")
             .translation("e33chat.config.banner_corner_radius")
             .defineInRange("banner_corner_radius", 6, 0, 10);
+
+        BANNER_OFFSET_X = builder
+            .comment("Banner horizontal offset in px (negative = left). Nudge to avoid HUD overlaps (e.g. Jade).")
+            .translation("e33chat.config.banner_offset_x")
+            .defineInRange("banner_offset_x", 0, -1000, 1000);
+
+        BANNER_OFFSET_Y = builder
+            .comment("Banner vertical offset in px (negative = up). Nudge to avoid HUD overlaps (e.g. Jade).")
+            .translation("e33chat.config.banner_offset_y")
+            .defineInRange("banner_offset_y", 0, -1000, 1000);
 
         builder.pop();
 

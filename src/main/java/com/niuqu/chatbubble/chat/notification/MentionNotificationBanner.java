@@ -183,8 +183,8 @@ public class MentionNotificationBanner {
         int textW = current.textW;
         int bannerW = current.bannerW;
         int bannerH = current.bannerH;
-        int x = (screenW - bannerW) / 2;
-        int y = (int)((-bannerH) + slide * bannerH);
+        int x = (screenW - bannerW) / 2 + ChatBubbleConfig.BANNER_OFFSET_X.get();
+        int y = (int)((-bannerH) + slide * bannerH) + ChatBubbleConfig.BANNER_OFFSET_Y.get();
 
         // Shadow
         int shadowAlpha = (int)(0x30 * alpha);

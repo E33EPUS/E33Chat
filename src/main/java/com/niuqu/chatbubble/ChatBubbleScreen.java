@@ -130,6 +130,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     // @mention autocomplete
     private boolean showMentions;
+    private boolean mentionNavigated;
     private final List<String> mentionCandidates = new ArrayList<>();
     private int mentionIdx;
     private String mentionFilter = "";
@@ -305,12 +306,16 @@ public class ChatBubbleScreen extends ChatScreen {
         input.setValue(text.substring(0, atIdx) + "@" + name + " ");
         input.moveCursorToEnd(false);
         showMentions = false;
+        mentionNavigated = false;
     }
 
     private void onInputEdited(String text) {
         showMentions = false;
+        mentionNavigated = false;
         int atIdx = text.lastIndexOf('@');
-        if (atIdx >= 0 && minecraft.player != null && minecraft.player.connection != null) {
+        // Commands use vanilla selectors (@s/@p/...) instead of player names:
+        // do not offer player-name completion inside a command.
+        if (atIdx >= 0 && !text.startsWith("/") && minecraft.player != null && minecraft.player.connection != null) {
             String after = text.substring(atIdx + 1);
             if (!after.contains(" ")) {
                 mentionFilter = after.toLowerCase();
@@ -464,19 +469,26 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             if (keyCode == 256) { // Esc
                 showMentions = false;
+                mentionNavigated = false;
                 return true;
             }
             if (keyCode == 265) { // Up
                 mentionIdx = mentionIdx > 0 ? mentionIdx - 1 : mentionCandidates.size() - 1;
+                mentionNavigated = true;
                 return true;
             }
             if (keyCode == 264) { // Down
                 mentionIdx = mentionIdx < mentionCandidates.size() - 1 ? mentionIdx + 1 : 0;
+                mentionNavigated = true;
                 return true;
             }
             if (keyCode == 257 || keyCode == 335) { // Enter
-                insertMention(mentionCandidates.get(mentionIdx));
-                return true;
+                // Only apply the highlighted candidate when the player actually
+                // navigated it (arrow keys); otherwise Enter just sends the text.
+                if (mentionNavigated) {
+                    insertMention(mentionCandidates.get(mentionIdx));
+                    return true;
+                }
             }
         }
 
@@ -544,6 +556,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         if (showMentions && !mentionCandidates.isEmpty()) {
             mentionIdx = Mth.clamp(mentionIdx - (int) scrollY, 0, mentionCandidates.size() - 1);
+            mentionNavigated = true;
             return true;
         }
         int sidebarX = (int) getSidebarScreenX();
