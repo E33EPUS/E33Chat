@@ -227,22 +227,25 @@ public class ChatBubbleMod implements ModInitializer {
     // dispatch — if the command is a private message and the sender has a pending
     // quote, broadcast the ChatMeta to all players so the recipient's client tags it.
     public static void consumePrivateMessageQuote(ParseResults<ServerCommandSource> parseResults, String command) {
-        String[] parts = command.split(" ");
-        if (parts.length < 3) return;
-        String label = parts[0];
-        if (label.startsWith("/")) label = label.substring(1);
-        if (!label.equals("msg") && !label.equals("tell") && !label.equals("w") && !label.equals("whisper")) return;
-        ServerCommandSource source = parseResults.getContext().getSource();
-        ServerPlayerEntity sender = source.getPlayer();
-        if (sender == null) return;
-        QuotePending quote = pendingQuotes.remove(sender.getUuid());
-        if (quote == null) return;
-        //#if MC >= 12005
-        ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), quote.messageHash(),
-            quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
-        for (ServerPlayerEntity p : source.getServer().getPlayerManager().getPlayerList()) {
-            ServerPlayNetworking.send(p, meta);
+        try {
+            String[] parts = command.split(" ");
+            if (parts.length < 3) return;
+            String label = parts[0];
+            if (label.startsWith("/")) label = label.substring(1);
+            if (!label.equals("msg") && !label.equals("tell") && !label.equals("w") && !label.equals("whisper")) return;
+            ServerCommandSource source = parseResults.getContext().getSource();
+            ServerPlayerEntity sender = source.getPlayer();
+            if (sender == null) return;
+            QuotePending quote = pendingQuotes.remove(sender.getUuid());
+            if (quote == null) return;
+            //#if MC >= 12005
+            ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), quote.messageHash(),
+                quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
+            for (ServerPlayerEntity p : source.getServer().getPlayerManager().getPlayerList()) {
+                ServerPlayNetworking.send(p, meta);
+            }
+            //#endif
+        } catch (Exception ignored) {
         }
-        //#endif
     }
 }

@@ -276,6 +276,8 @@ abstract class PreprocessTask extends DefaultTask {
         // Entity methods
         line = line.replaceAll("\\bgetEntityWorld\\b", "level")
         // MinecraftServer methods
+        // Compound: getPlayerManager().getPlayerList() → getPlayerList().getPlayers() (must run before individual mappings)
+        line = line.replaceAll("getPlayerManager\\(\\)\\.getPlayerList\\(\\)", "getPlayerList().getPlayers()")
         line = line.replaceAll("\\bgetPlayerManager\\b", "getPlayerList")
         // InGameHud field → gui
         line = line.replaceAll("\\binGameHud\\b", "gui")
@@ -351,8 +353,7 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("PlayerSkinDrawer\\.draw\\b", "PlayerFaceExtractor.extractRenderState")
         // FormattedText.plain → FormattedText.of (moved to after Step 5, needs Mojang class name)
         // DefaultPlayerSkin.getSkin → DefaultPlayerSkin.get (moved to after Step 5, needs Mojang class name)
-        // PlayerList.getPlayerList() → getPlayers() (only when chained after ). to avoid MinecraftServer.getPlayerList())
-        line = line.replaceAll("(?<=\\)\\.)getPlayerList\\(\\)", "getPlayers()")
+        // PlayerList.getPlayerList() → getPlayers() handled by compound mapping above
         // Undo .write(→.insertText( for java.io.Writer (EditBox.write uses insertText, Writer.write stays)
         line = line.replaceAll("([wW]riter)\\.insertText\\(", "\$1.write(")
         // Style.withFormatting → applyFormat (Yarn→Mojang method rename)
@@ -367,6 +368,7 @@ abstract class PreprocessTask extends DefaultTask {
         // Step 5: Class name replacements (word-boundary regex, longest names first)
         line = line.replaceAll("\\bNativeImageBackedTexture\\b", "DynamicTexture")
         line = line.replaceAll("\\bServerPlayerEntity\\b", "ServerPlayer")
+        line = line.replaceAll("\\bPlayerEntity\\b", "Player")
         line = line.replaceAll("\\bPlayerListEntry\\b", "PlayerInfo")
         line = line.replaceAll("\\bClientPlayNetworkHandler\\b", "ClientPacketListener")
         line = line.replaceAll("\\bPositionedSoundInstance\\b", "SimpleSoundInstance")

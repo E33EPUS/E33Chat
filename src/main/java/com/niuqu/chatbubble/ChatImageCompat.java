@@ -1,12 +1,10 @@
 package com.niuqu.chatbubble;
 
-import com.mojang.logging.LogUtils;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.List;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
-import org.slf4j.Logger;
 
 /**
  * Bridge to kitUIN's ChatImage mod. ChatImage's @ModifyVariable rewrites the
@@ -22,7 +20,6 @@ import org.slf4j.Logger;
  * the input passes through unchanged.
  */
 public final class ChatImageCompat {
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     private static boolean resolved = false;
     private static boolean available = false;
@@ -47,7 +44,7 @@ public final class ChatImageCompat {
             available = true;
         } catch (Throwable t) {
             // ChatImage (or its ChatImageCode dependency) is not installed — degrade
-            LOGGER.debug("[e33chat] ChatImage not present, image codes shown as plain text: {}", t.toString());
+            System.out.println("[e33chat] ChatImage not present, image codes shown as plain text: " + t);
         }
     }
 
@@ -65,15 +62,15 @@ public final class ChatImageCompat {
             List<Object> parts = (List<Object>) sliceMsg.invoke(
                 null, input.getString(), false, allString,
                 (java.util.function.Consumer<Exception>) e ->
-                    LOGGER.debug("[e33chat] ChatImage code parse failed: {}", e.toString()));
+                    System.out.println("[e33chat] ChatImage code parse failed: " + e));
             checkImageUri.invoke(null, parts, false, allString);
             if (allString.getClass().getMethod("isValue").invoke(allString).equals(Boolean.TRUE)) {
                 return input; // plain text, nothing to do
             }
-            MutableText out = Text.empty();
+            MutableText out = Txt.empty();
             for (Object part : parts) {
                 if (part instanceof String s) {
-                    out.append(Text.literal(s));
+                    out.append(Txt.literal(s));
                 } else {
                     out.append((MutableText) messageFromCode.invoke(null, part));
                 }
@@ -81,7 +78,7 @@ public final class ChatImageCompat {
             return out;
         } catch (Throwable t) {
             // Any hiccup (mix of code and unparseable text) falls back to plain
-            LOGGER.debug("[e33chat] ChatImage convert failed, showing plain text: {}", t.toString());
+            System.out.println("[e33chat] ChatImage convert failed, showing plain text: " + t);
             return input;
         }
     }
