@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.tooltip.HoveredTooltipPositioner;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -778,7 +779,11 @@ public class ChatBubbleConfigScreen extends Screen {
                 width / 2 + 112, height - 26, c().configLabel(), false);
 
         if (tooltipKey != null)
-            g.drawTooltip(textRenderer, Text.translatable(tooltipKey), mouseX, mouseY);
+            // wrap to 190px like Forge/Neo's font.split — the single-Text overload
+            // renders one unwrapped line and long descriptions overflow the screen
+            g.drawTooltip(textRenderer,
+                textRenderer.wrapLines(Text.translatable(tooltipKey), 190),
+                HoveredTooltipPositioner.INSTANCE, mouseX, mouseY);
     }
 
     private void drawBubblePreview(DrawContext g) {

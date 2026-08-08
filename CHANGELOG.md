@@ -5,6 +5,8 @@
 **修复**
 - **@ 补全回车误输入补全名**：输入 `@` 弹出玩家补全后直接按回车，会把候选名字插进输入框（如 `/tp @s` 场景把含 "s" 的玩家名补进命令）。现在必须先用 ↑/↓ 或滚轮选中候选，回车才应用补全；没选过直接回车 = 发送当前文本。另外命令（`/` 开头）里不再弹玩家补全——`@s`/`@p` 是原版选择器不是玩家名，命令输入走原版指令建议框
 - **自 /msg 不弹横幅（仅 Fabric，开启"自己私聊通知"仍不弹）**：Fabric 上自己 /msg 自己的消息，服务器回显被 echo 抑制吞掉，只剩"本地发送反馈"气泡，而 whisper 横幅入口被 `!localSend` 无条件挡住——即使开启 `own_whisper_notify` 也不弹横幅/音效（Forge/Neo 走服务器回显路径，本来正常）。现在该配置开启时 Fabric 的本地反馈气泡也放行给通知控制器，自 /msg 正常弹横幅
+- **IMBlocker 初始 `/` 不切英文（Fabric）**：按 `/` 打开聊天框时初始填充的 `/` 无法触发输入法切换（`setText` 先于 `setChangedListener` 绑定，open 时的初始文本不走文本变更回调），删掉 `/` 重打才生效。现在打开聊天框时同步一次当前文本，初始 `/` 即切英文
+- **配置界面描述无换行溢出（Fabric）**：悬停配置项的说明文字用单行渲染，长描述直接画出屏幕右缘。现在按 190px 宽度换行（与 Forge/Neo 一致）
 
 **新功能**
 - **横幅位置偏移配置（三端）**：通知横幅默认固定在屏幕顶部中央，与 Jade 等 HUD mod 的显示区域重叠时无法挪开。新增 `banner_offset_x` / `banner_offset_y` 两个配置项（设置 → 通知 → 横幅通用），水平/垂直微调横幅位置，避开其他 HUD 元素
@@ -13,6 +15,8 @@
 **Fixes**
 - Mention completion no longer applied by raw Enter: after `@` pops the player list, Enter used to insert the highlighted candidate (e.g. typing `/tp @s` injected a matching player name into the command). Now Enter only applies the candidate after you actually selected it with ↑/↓ or the scroll wheel; otherwise Enter sends the text as-is. Player-name completion is also disabled inside commands (`/`-prefixed) — `@s`/`@p` are vanilla selectors, and command input is handled by the vanilla suggestion window
 - Self-whisper banner never fired even with own-whisper notify enabled (Fabric only): on Fabric a self /msg has its server echo suppressed, leaving only the local-send feedback bubble, and the whisper-notification entry was gated by `!localSend` unconditionally, so the banner/sound never fired (Forge/Neo already worked via the server-echo path). The gate now lets the local bubble through when own-whisper notify is on (the controller already gates on isOwn/selfNotify)
+- IMBlocker initial "/" did not switch to English (Fabric): opening chat with "/" pre-filled did not trigger the IME switch (the initial text is set before the change listener binds, so it never flows through the text-changed callback) — deleting and re-typing "/" worked. The screen now syncs the current text once on open, so the initial "/" switches to English immediately
+- Config-screen description overflow (Fabric): hovering a setting showed its description as a single unwrapped line, running past the screen edge on long texts. Descriptions now wrap at 190px like Forge/Neo
 
 **Features**
 - Configurable banner position: the notification banner is fixed at top-center and could not be moved out of the way of HUD mods such as Jade. New `banner_offset_x` / `banner_offset_y` settings (Settings → Notifications → Banner (Shared)) nudge the banner horizontally/vertically to clear other HUD elements
