@@ -158,6 +158,7 @@ public class ChatBubbleScreen extends Screen {
     private long lastScrollTime;
 
     private boolean showMentions;
+    private boolean mentionNavigated;
     private final List<String> mentionCandidates = new ArrayList<>();
     private int mentionIdx;
     private String mentionFilter = "";
@@ -486,12 +487,16 @@ public class ChatBubbleScreen extends Screen {
         //$$ input.setCursorToEnd();
         //#endif
         showMentions = false;
+        mentionNavigated = false;
     }
 
     private void onEdited(String text) {
         showMentions = false;
+        mentionNavigated = false;
         int atIdx = text.lastIndexOf('@');
-        if (atIdx >= 0 && client.player != null && client.player.networkHandler != null) {
+        // Commands use vanilla selectors (@s/@p/...) instead of player names:
+        // do not offer player-name completion inside a command.
+        if (atIdx >= 0 && !text.startsWith("/") && client.player != null && client.player.networkHandler != null) {
             String after = text.substring(atIdx + 1);
             if (!after.contains(" ")) {
                 mentionFilter = after.toLowerCase();
@@ -515,6 +520,10 @@ public class ChatBubbleScreen extends Screen {
             commandSuggestions.refresh();
         }
         //#endif
+        // IMBlocker listens to vanilla ChatScreen.onChatFieldUpdate, which we
+        // bypass; mirror its command-detection hook so the IME still switches
+        // to English while typing a command. No-op when IMBlocker is absent.
+        IMBlockerCompat.setCommandMode(input, text.startsWith("/"));
     }
 
     private void onSearchEdited(String text) {
@@ -612,10 +621,14 @@ public class ChatBubbleScreen extends Screen {
 
         if (showMentions) {
             if (keyCode == 258) { insertMention(mentionCandidates.get(mentionIdx)); return true; }
-            if (keyCode == 256) { showMentions = false; return true; }
-            if (keyCode == 265) { mentionIdx = mentionIdx > 0 ? mentionIdx - 1 : mentionCandidates.size() - 1; return true; }
-            if (keyCode == 264) { mentionIdx = mentionIdx < mentionCandidates.size() - 1 ? mentionIdx + 1 : 0; return true; }
-            if (keyCode == 257 || keyCode == 335) { insertMention(mentionCandidates.get(mentionIdx)); return true; }
+            if (keyCode == 256) { showMentions = false; mentionNavigated = false; return true; }
+            if (keyCode == 265) { mentionIdx = mentionIdx > 0 ? mentionIdx - 1 : mentionCandidates.size() - 1; mentionNavigated = true; return true; }
+            if (keyCode == 264) { mentionIdx = mentionIdx < mentionCandidates.size() - 1 ? mentionIdx + 1 : 0; mentionNavigated = true; return true; }
+            if (keyCode == 257 || keyCode == 335) {
+                // Only apply the highlighted candidate when the player actually
+                // navigated it (arrow keys); otherwise Enter just sends the text.
+                if (mentionNavigated) { insertMention(mentionCandidates.get(mentionIdx)); return true; }
+            }
         }
 
         //#if MC >= 11900
@@ -664,6 +677,7 @@ public class ChatBubbleScreen extends Screen {
         }
         if (showMentions && !mentionCandidates.isEmpty()) {
             mentionIdx = MathHelper.clamp(mentionIdx - (int) scrollY, 0, mentionCandidates.size() - 1);
+            mentionNavigated = true;
             return true;
         }
         int sidebarX = getSidebarScreenX();
