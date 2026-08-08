@@ -711,4 +711,32 @@ class ChatMessageStoreTest {
         assertEquals("妈妈", messages.get(0).replyContent(),
             "a non-merged message still receives its own quote meta");
     }
+
+    // ---- quoted send then an UNQUOTED send with different content ----
+    // No merge happens (different text), so the second bubble must not inherit
+    // the first send's quote block. User-required behavior.
+
+    @Test void quoteInheritance_differentContentSecondSendIsClean() throws Exception {
+        clearMessagesAndMetas();
+        var uuid = java.util.UUID.randomUUID();
+        var sender = net.minecraft.network.chat.Component.literal("B");
+        // First send: quoted (server pre-registers quote meta for "？")
+        ChatMessageStore.applyChatMeta(uuid, String.valueOf("？".hashCode()),
+            "A", "妈妈", List.of());
+        ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("？"),
+            uuid, sender, false, "B", false, null, false);
+        // Second send: different content, no quote — no merge, independent bubble
+        ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("别的"),
+            uuid, sender, false, "B", false, null, false);
+
+        var field = ChatMessageStore.class.getDeclaredField("messages");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var messages = (List<ChatMessageStore.ChatMessage>) field.get(null);
+        assertEquals(2, messages.size(), "different content must not anti-spam merge");
+        assertEquals("妈妈", messages.get(0).replyContent(), "first quoted send keeps its quote");
+        assertNull(messages.get(1).replyContent(),
+            "unquoted second send with different content must not inherit a quote block");
+        assertNull(messages.get(1).replySender());
+    }
 }
