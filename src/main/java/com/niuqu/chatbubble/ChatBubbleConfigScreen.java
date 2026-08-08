@@ -83,6 +83,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
     private List<String> sidebarHidePatterns;
+    private List<String> blockedPlayers;
 
     // 打开时的快照——用于 changeCount / revertAll
     private ChatBubbleConfig snapshot;
@@ -100,9 +101,19 @@ public class ChatBubbleConfigScreen extends Screen {
         ClickableWidget create(int y);
     }
 
-    private record Opt(String key, WidgetFactory factory, Supplier<String> previewColor) {
-        static Opt header(String key) { return new Opt(key, null, null); }
-        boolean isHeader() { return factory == null; }
+    // 一个选项行可生成多个控件（如 [编辑框][删除]），配合 rows 占多行
+    private interface WidgetsFactory {
+        List<ClickableWidget> create(int y);
+    }
+
+    private record Opt(String key, WidgetFactory factory, WidgetsFactory multiFactory,
+                       int rows, Supplier<String> previewColor) {
+        Opt(String key, WidgetFactory factory, Supplier<String> previewColor) {
+            this(key, factory, null, 1, previewColor);
+        }
+        static Opt header(String key) { return new Opt(key, null, null, 1, null); }
+        static Opt multi(String key, WidgetsFactory f, int rows) { return new Opt(key, null, f, rows, null); }
+        boolean isHeader() { return factory == null && multiFactory == null; }
     }
 
     private record Cat(String key, List<Opt> opts) {}
@@ -152,6 +163,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> preserveInput, v -> preserveInput = v));
         tracked.add(track(() -> colorCodes, v -> colorCodes = v));
         tracked.add(track(() -> new ArrayList<>(sidebarHidePatterns), v -> sidebarHidePatterns = new ArrayList<>(v)));
+        tracked.add(track(() -> new ArrayList<>(blockedPlayers), v -> blockedPlayers = new ArrayList<>(v)));
         tracked.add(track(() -> ownBubbleColor, v -> ownBubbleColor = v));
         tracked.add(track(() -> otherBubbleColor, v -> otherBubbleColor = v));
         tracked.add(track(() -> bubbleCornerRadius, v -> bubbleCornerRadius = v));
@@ -198,6 +210,7 @@ public class ChatBubbleConfigScreen extends Screen {
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes,
             sidebarHidePatterns,
+            blockedPlayers,
             ChatBubbleClientSetup.config().quickChatPhrases(),
             mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius));
@@ -235,6 +248,7 @@ public class ChatBubbleConfigScreen extends Screen {
         ownBubbleColor = cfg.ownBubbleColor(); otherBubbleColor = cfg.otherBubbleColor();
         ownTextColor = cfg.ownTextColor(); otherTextColor = cfg.otherTextColor();
         sidebarHidePatterns = new ArrayList<>(cfg.sidebarHidePatterns());
+        blockedPlayers = new ArrayList<>(cfg.blockedPlayers());
     }
 
     // ---- ChatScrollbar geometry inline ----
@@ -311,12 +325,22 @@ public class ChatBubbleConfigScreen extends Screen {
         int wi = 0;
         for (Opt opt : visibleOpts()) {
             if (opt.isHeader()) { y += HEADER_H; continue; }
-            if (wi < scrollWidgets.size()) {
+            int count = opt.multiFactory() != null ? opt.multiFactory().create(0).size() : 1;
+            // multi 行的控件共享同一 y（水平并排），逐行推进
+            if (opt.multiFactory() != null) {
+                for (int k = 0; k < count; k++) {
+                    if (wi < scrollWidgets.size()) {
+                        ClickableWidget w = scrollWidgets.get(wi++);
+                        GuiCompat.setWidgetY(w, y);
+                        w.visible = y >= viewTop() && y + 20 <= viewBottom();
+                    }
+                }
+            } else if (wi < scrollWidgets.size()) {
                 ClickableWidget w = scrollWidgets.get(wi++);
                 GuiCompat.setWidgetY(w, y);
                 w.visible = y >= viewTop() && y + 20 <= viewBottom();
             }
-            y += ROW_H;
+            y += ROW_H * opt.rows();
         }
     }
 
@@ -328,7 +352,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private int calcMaxScroll() {
         int total = 0;
         for (Opt opt : visibleOpts())
-            total += opt.isHeader() ? HEADER_H : ROW_H;
+            total += opt.isHeader() ? HEADER_H : ROW_H * opt.rows();
         return Math.max(0, viewTop() + total - viewBottom());
     }
 
@@ -344,7 +368,8 @@ public class ChatBubbleConfigScreen extends Screen {
     // ---- UI construction ----
 
     private void buildCats() {
-        if (cats != null) return;
+        // 不缓存：屏蔽列表分区按当前名单动态生成行（删除/添加后 rebuild 重排），
+        // 缓存会把行数定死在首次构建
         cats = new ArrayList<>();
 
         List<Opt> chat = new ArrayList<>();
@@ -377,6 +402,35 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.anti_spam", y -> mkBoolButton(y, () -> antiSpam, v -> antiSpam = v), null));
         chat.add(new Opt("e33chat.config.time_separator", this::mkTimeSepButton, null));
         chat.add(new Opt("e33chat.config.color_codes", y -> mkBoolButton(y, () -> colorCodes, v -> colorCodes = v), null));
+        chat.add(Opt.header("e33chat.config.section.blocked"));
+        // 逐行编辑：每个屏蔽名一行 [编辑框][✕]，下方 [添加玩家] 按钮（学服务端模板编辑交互）
+        for (int i = 0; i < blockedPlayers.size(); i++) {
+            int idx = i;
+            chat.add(Opt.multi("e33chat.config.blocked_players", y -> {
+                TextFieldWidget box = new TextFieldWidget(textRenderer, inputX, y, INPUT_W - 24, 20, com.niuqu.chatbubble.Txt.literal(""));
+                box.setText(blockedPlayers.get(idx));
+                box.setMaxLength(32);
+                box.setChangedListener(s -> {
+                    if (idx < blockedPlayers.size() && !s.equals(blockedPlayers.get(idx))) {
+                        blockedPlayers.set(idx, s.trim());
+                        ChatMessageStore.purgeBlocked(blockedPlayers);
+                    }
+                });
+                ButtonWidget rm = GuiCompat.button(com.niuqu.chatbubble.Txt.literal("\u2715"), b -> {
+                    blockedPlayers.remove(idx);
+                    ChatMessageStore.purgeBlocked(blockedPlayers);
+                    rebuild();
+                }, inputX + INPUT_W - 22, y, 20, 20);
+                return List.of(box, rm);
+            }, 1));
+        }
+        chat.add(Opt.multi("e33chat.config.blocked_add", y -> {
+            ButtonWidget add = GuiCompat.button(com.niuqu.chatbubble.Txt.translatable("e33chat.config.blocked_add"), b -> {
+                blockedPlayers.add("");
+                rebuild();
+            }, inputX, y, 72, 20);
+            return List.of(add);
+        }, 1));
         cats.add(new Cat("e33chat.config.cat.chat", chat));
 
         List<Opt> hud = new ArrayList<>();
@@ -453,6 +507,14 @@ public class ChatBubbleConfigScreen extends Screen {
         int y = viewTop() - scrollOffset;
         for (Opt opt : visibleOpts()) {
             if (opt.isHeader()) { y += HEADER_H; continue; }
+            if (opt.multiFactory() != null) {
+                for (ClickableWidget w : opt.multiFactory().create(y)) {
+                    w.visible = y >= viewTop() && y + 20 <= viewBottom();
+                    scrollWidgets.add(GuiCompat.addDrawableChild(this, w));
+                }
+                y += ROW_H * opt.rows();
+                continue;
+            }
             ClickableWidget w = opt.factory().create(y);
             w.visible = y >= viewTop() && y + 20 <= viewBottom();
             scrollWidgets.add(GuiCompat.addDrawableChild(this, w));

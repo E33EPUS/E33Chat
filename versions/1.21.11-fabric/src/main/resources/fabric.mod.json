@@ -23,8 +23,11 @@
   },
   "mixins": [
     {
-      "config": "e33chat.mixins.json",
+      "config": "e33chat.client.mixins.json",
       "environment": "client"
+    },
+    {
+      "config": "e33chat.server.mixins.json"
     }
   ],
   "depends": {

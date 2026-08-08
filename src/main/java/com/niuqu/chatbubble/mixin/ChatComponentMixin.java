@@ -2,6 +2,7 @@ package com.niuqu.chatbubble.mixin;
 
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
+import com.niuqu.chatbubble.ChatImageCompat;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
 import com.niuqu.chatbubble.RenderHelper;
@@ -215,6 +216,18 @@ public class ChatComponentMixin {
             );
         }
 
+        // Blocked sender: vanish completely — no vanilla line, no bubble, no
+        // banner/sound (addMessage below never runs). Checked before the echo and
+        // whisper-repost branches so a blocked player's whisper can't resurface
+        // as a [私聊] rewrite.
+        if (ChatMessageStore.isPlayerBlocked(meta.rawPlayerName(), meta.senderName(),
+                ChatBubbleClientSetup.config().blockedPlayers())) {
+            final String blockedName = meta.senderName().getString();
+            ci.cancel();
+            ChatMessageStore.debugLog(() -> "[e33chat] Blocked message dropped | sender='" + blockedName + "'");
+            return;
+        }
+
         // Self-sent echo on the signed channel: plain chat keeps the vanilla line;
         // whisper echoes get the [私聊] rewrite, quote replies get the [引用] rewrite
         // (quote replies travel as plain chat, so the echo's quoted flag is their
@@ -244,6 +257,10 @@ public class ChatComponentMixin {
         } else {
             content = finalComponent;
         }
+        // ChatImage rewrites the vanilla argument after our mixin, so the bubble
+        // stored the pre-conversion CICode text — convert it back to the styled
+        // [Image] component so the bubble matches the vanilla chat
+        content = ChatImageCompat.convert(content);
 
         Text logComp = finalComponent, logContent = content;
         SenderMeta logMeta = meta;

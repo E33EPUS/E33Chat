@@ -9,6 +9,7 @@ import com.niuqu.chatbubble.network.HistoryPayload;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.network.ServerConfigSavePayload;
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
+import com.mojang.brigadier.ParseResults;
 import net.fabricmc.api.ModInitializer;
 //#if MC >= 11900
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
@@ -18,6 +19,7 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 //#endif
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -218,5 +220,29 @@ public class ChatBubbleMod implements ModInitializer {
         Matcher m = MENTION_PATTERN.matcher(text);
         while (m.find()) mentions.add(m.group(1));
         return mentions;
+    }
+
+    // Fabric API has no command-execution event, so /msg /tell /w /whisper quotes
+    // would never be consumed server-side. Called by CommandManagerMixin before
+    // dispatch — if the command is a private message and the sender has a pending
+    // quote, broadcast the ChatMeta to all players so the recipient's client tags it.
+    public static void consumePrivateMessageQuote(ParseResults<ServerCommandSource> parseResults, String command) {
+        String[] parts = command.split(" ");
+        if (parts.length < 3) return;
+        String label = parts[0];
+        if (label.startsWith("/")) label = label.substring(1);
+        if (!label.equals("msg") && !label.equals("tell") && !label.equals("w") && !label.equals("whisper")) return;
+        ServerCommandSource source = parseResults.getContext().getSource();
+        ServerPlayerEntity sender = source.getPlayer();
+        if (sender == null) return;
+        QuotePending quote = pendingQuotes.remove(sender.getUuid());
+        if (quote == null) return;
+        //#if MC >= 12005
+        ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), quote.messageHash(),
+            quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
+        for (ServerPlayerEntity p : source.getServer().getPlayerManager().getPlayerList()) {
+            ServerPlayNetworking.send(p, meta);
+        }
+        //#endif
     }
 }

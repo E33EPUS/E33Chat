@@ -46,6 +46,7 @@ public final class ConfigManager {
             c.soundPublic(), c.soundSystem(), c.soundWhisper(),
             c.debugLog(), c.preserveInput(), c.colorCodes(),
             c.sidebarHidePatterns() != null ? c.sidebarHidePatterns() : d.sidebarHidePatterns(),
+            c.blockedPlayers() != null ? c.blockedPlayers() : d.blockedPlayers(),
             c.quickChatPhrases() != null ? c.quickChatPhrases() : d.quickChatPhrases(),
             c.mentionBannerEnabled(),
             c.mentionBannerDuration() > 0 ? c.mentionBannerDuration() : d.mentionBannerDuration(),
