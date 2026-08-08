@@ -256,6 +256,11 @@ public class ChatBubbleScreen extends ChatScreen {
         addRenderableWidget(searchInput);
 
         setInitialFocus(input);
+        // The chat field's initial text is set before setResponder binds,
+        // so the open-time value (e.g. "/" from the chat key) never flows
+        // through onInputEdited — sync it once so the IMBlocker IME state
+        // is correct.
+        onInputEdited(input.getValue());
     }
 
     private void rebuildLayout() {
@@ -332,6 +337,10 @@ public class ChatBubbleScreen extends ChatScreen {
             suggestions.setAllowSuggestions(!text.equals(initialText));
             suggestions.updateCommandInfo();
         }
+        // IMBlocker listens to vanilla ChatScreen.onChatFieldUpdate, which we
+        // bypass; mirror its command-detection hook so the IME still switches
+        // to English while typing a command. No-op when IMBlocker is absent.
+        IMBlockerCompat.setCommandMode(input, text.startsWith("/"));
     }
 
     private void onSearchEdited(String text) {

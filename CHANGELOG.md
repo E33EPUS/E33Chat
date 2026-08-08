@@ -7,12 +7,14 @@
 
 **新功能**
 - **横幅位置偏移配置（三端）**：通知横幅默认固定在屏幕顶部中央，与 Jade 等 HUD mod 的显示区域重叠时无法挪开。新增 `banner_offset_x` / `banner_offset_y` 两个配置项（设置 → 通知 → 横幅通用），水平/垂直微调横幅位置，避开其他 HUD 元素
+- **IMBlocker 输入法适配（三端）**：装了 IMBlocker 后，命令输入会自动切换到英文输入法、退出命令恢复中文——与装原版聊天框的行为一致。e33chat 的自定义聊天框绕过了 IMBlocker 监听的 vanilla 回调，现在通过反射桥补上同一钩子；没装 IMBlocker 时完全无影响
 
 **Fixes**
 - Mention completion no longer applied by raw Enter: after `@` pops the player list, Enter used to insert the highlighted candidate (e.g. typing `/tp @s` injected a matching player name into the command). Now Enter only applies the candidate after you actually selected it with ↑/↓ or the scroll wheel; otherwise Enter sends the text as-is. Player-name completion is also disabled inside commands (`/`-prefixed) — `@s`/`@p` are vanilla selectors, and command input is handled by the vanilla suggestion window
 
 **Features**
 - Configurable banner position: the notification banner is fixed at top-center and could not be moved out of the way of HUD mods such as Jade. New `banner_offset_x` / `banner_offset_y` settings (Settings → Notifications → Banner (Shared)) nudge the banner horizontally/vertically to clear other HUD elements
+- IMBlocker IME support (all three platforms): with IMBlocker installed, typing a command auto-switches the input method to English and back to Chinese on exit — matching vanilla chat. e33chat's custom chat screen bypasses the vanilla callback IMBlocker listens to; a reflection bridge now re-attaches the same hook, and does nothing when IMBlocker is absent
 - Tests: Forge 241 / NeoForge 241 / Fabric 222 all green
 
 ## v2.3.5
