@@ -926,7 +926,7 @@ public class ChatBubbleScreen extends ChatScreen {
             String name = msg != null ? msg.rawPlayerName() : null;
             if (name == null || name.isEmpty()) { contextAvatarIndex = -1; return; }
             if (my >= menuY && my <= menuY + CTX_ITEM_H) {
-                client.player.networkHandler.sendCommand((ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
+                client.player.networkHandler.sendChatCommand((ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
             } else if (my >= menuY + CTX_ITEM_H + 2 && my <= menuY + CTX_ITEM_H * 2 + 2) {
                 whisperPartner = name;
                 ChatMessageStore.clearUnreadWhisper(name);
@@ -1935,7 +1935,10 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         if (text.startsWith("/"))
-            client.player.networkHandler.sendCommand(text.substring(1));
+            // yarn: sendChatCommand is the full signed path (vanilla ChatScreen
+            // uses it); sendCommand silently drops commands with signable
+            // arguments (/msg /tell /w) — regression from the 1.20 port
+            client.player.networkHandler.sendChatCommand(text.substring(1));
         else
             client.player.networkHandler.sendChatMessage(text);
         client.inGameHud.getChatHud().addToMessageHistory(text);

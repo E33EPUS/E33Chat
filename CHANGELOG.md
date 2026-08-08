@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.3.4
+
+**修复**
+- **私聊 /msg 静默失败（Fabric）**：命令发送误用了 `sendCommand`，而 1.21.1 的该方法是"无签名参数才发、有签名参数直接丢"（vanilla 对应 `sendUnsignedCommand`）——`/msg`/`/tell`/`/w` 的 message 参数是签名参数，包根本没发出去，导致局域网/专用服私聊双盲（发送方也收不到自己的回显）。已改为 vanilla ChatScreen 同款的 `sendChatCommand`（完整签名路径），tpa/tp 右键菜单一并修正。1.20 移植时埋下的坑，1.21 重构后暴露
+
+**Fixes**
+- Private messages silently failing on Fabric: command sending used `sendCommand`, which on 1.21.1 only sends when there are no signable arguments and otherwise drops the packet silently (vanilla's `sendUnsignedCommand`) — `/msg`/`/tell`/`/w` take a signable message argument, so the packet never left the client and both sides saw nothing. Switched to the same `sendChatCommand` (full signed path) vanilla ChatScreen uses; the tpa/tp avatar-menu commands got the same fix. A bug carried over from the 1.20 port that surfaced after the 1.21 networking refactor
+
 ## v2.3.3
 
 **修复**
