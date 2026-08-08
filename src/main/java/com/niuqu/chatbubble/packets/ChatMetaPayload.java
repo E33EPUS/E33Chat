@@ -11,8 +11,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteSender,
-                               String quoteContent, List<String> mentionTargets)
+public record ChatMetaPayload(UUID senderUUID, String senderName, String messageHash,
+                               String quoteSender, String quoteContent, List<String> mentionTargets)
         implements CustomPacketPayload {
 
     public static final Type<ChatMetaPayload> TYPE =
@@ -20,6 +20,7 @@ public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteS
 
     public static final StreamCodec<ByteBuf, ChatMetaPayload> STREAM_CODEC = StreamCodec.composite(
         ByteBufCodecs.STRING_UTF8.map(UUID::fromString, UUID::toString), ChatMetaPayload::senderUUID,
+        ByteBufCodecs.STRING_UTF8, ChatMetaPayload::senderName,
         ByteBufCodecs.STRING_UTF8, ChatMetaPayload::messageHash,
         ByteBufCodecs.STRING_UTF8, ChatMetaPayload::quoteSender,
         ByteBufCodecs.STRING_UTF8, ChatMetaPayload::quoteContent,
@@ -35,6 +36,7 @@ public record ChatMetaPayload(UUID senderUUID, String messageHash, String quoteS
     public static void handleClient(ChatMetaPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ChatMessageStore.applyChatMeta(
             payload.senderUUID(),
+            payload.senderName(),
             payload.messageHash(),
             payload.quoteSender(),
             payload.quoteContent(),

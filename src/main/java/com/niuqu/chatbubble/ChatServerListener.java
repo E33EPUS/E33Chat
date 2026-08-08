@@ -47,7 +47,8 @@ public class ChatServerListener {
 
         if (quote != null || !mentions.isEmpty()) {
             ChatMetaPayload meta = new ChatMetaPayload(
-                player.getUUID(), messageHash, quoteSender, quoteContent, mentions);
+                player.getUUID(), player.getName().getString(), messageHash,
+                quoteSender, quoteContent, mentions);
             PacketDistributor.sendToAllPlayers(meta);
         }
 
@@ -75,7 +76,7 @@ public class ChatServerListener {
 
         String messageHash = quote.messageHash();
         ChatMetaPayload meta = new ChatMetaPayload(
-            sender.getUUID(), messageHash,
+            sender.getUUID(), sender.getName().getString(), messageHash,
             quote.quotedSenderName(), quote.quotedContent(),
             Collections.emptyList());
         PacketDistributor.sendToAllPlayers(meta);
