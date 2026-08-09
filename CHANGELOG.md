@@ -2,6 +2,18 @@
 
 ## v2.3.7
 
+## v2.3.7
+
+**修复（2.3.7 补发 2）**
+- **弹层 SLIDE 上滑+淡入（三端）**：此前弹层 SLIDE 与 FADE 效果几乎一样（只有淡入、无位移），预期是从下往上滑入。现在 SLIDE 弹出时上滑 10px + 淡入
+- **侧边栏 FADE 关闭方向走滑动**：面板 FADE 关闭时侧边栏仍硬编码向左滑出（关闭分支绕过了动画风格分派，只有打开方向是原地淡入）。现在 FADE 下关闭方向同样原地淡出
+- **侧边栏 ZOOM 不跟随面板**：ZOOM 的缩放矩阵只包住聊天面板，侧边栏在矩阵外永远走滑动，与面板割裂。现在侧边栏并入面板缩放矩阵，一起绕面板中心缩放弹入
+
+**Fixes (2.3.7 follow-up 2)**
+- Popup SLIDE now rises up 10px while fading in (all three platforms): previously SLIDE looked almost identical to FADE (fade only, no displacement)
+- Sidebar FADE closing no longer slides out: the closing branch hard-coded the slide offset and bypassed the animation-style dispatch (only the opening direction faded in place). It now fades in place in both directions
+- Sidebar ZOOM now scales with the panel: the ZOOM matrix only wrapped the chat panel, so the sidebar (outside the matrix) always slid and looked detached. It is now inside the same matrix, zooming around the panel center
+
 **新功能**
 - **UI 多风格动画（三端）**：此前聊天界面/横幅/弹层只有一种滑入滑出动画，且缓动曲线写死在代码里。现在每个元素可独立选择动画风格：`滑动`（保持原有滑入滑出）、`淡入淡出`（仅透明度，vanilla Toast 同款 quad 曲线）、`缩放弹入`（绕中心缩放 + 过冲回弹）、`无动画`（关闭该元素动画）
 - **消息条目进入动画（三端，默认开启）**：新消息气泡出现时上滑 8px + 淡入（250ms），连续多条消息逐条交错 40ms 延迟——聊天界面更有"消息流"的层次感
