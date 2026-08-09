@@ -9,7 +9,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -69,9 +68,9 @@ public final class ChatSidebar {
                               ChatBubbleTheme.Colors c, int panelW, int msgBottom,
                               String whisperPartner, ResourceLocation publicIcon,
                               ResourceLocation noOnlineIcon, ResourceLocation privateTipIcon,
-                              EditBox searchBox, int scrollOffset, int prevMaxScroll) {
-        g.blit(UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, WIDTH, 999, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), WIDTH - 1, 0, 1, 999, 0f, 0f, 1, 1, 1, 1);
+                              EditBox searchBox, int scrollOffset, int prevMaxScroll, float alpha) {
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, WIDTH, 999, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), WIDTH - 1, 0, 1, 999, alpha);
 
         Minecraft mc = Minecraft.getInstance();
         int y = 2;
@@ -80,7 +79,7 @@ public final class ChatSidebar {
         int sbx = 2;
         int sby = 2;
         int sbw = WIDTH - 5;
-        g.blit(UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, sbw + 1, SEARCH_H, 0f, 0f, 1, 1, 1, 1);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, sbw + 1, SEARCH_H, alpha);
         boolean hoverSearch = mouseX >= sbx - 1 && mouseX <= sbx + sbw
             && mouseY >= sby && mouseY <= sby + SEARCH_H;
         if (hoverSearch || searchBox.isFocused())
@@ -95,10 +94,10 @@ public final class ChatSidebar {
         boolean isPublic = whisperPartner == null;
         boolean hoverTab = mouseX >= 0 && mouseX <= WIDTH && mouseY >= y && mouseY <= y + ITEM_H;
         if (isPublic)
-            g.blit(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, y, WIDTH, ITEM_H, 0f, 0f, 1, 1, 1, 1);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, y, WIDTH, ITEM_H, alpha);
         else if (hoverTab)
-            g.blit(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, y, WIDTH, ITEM_H, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, publicIcon, 2, y + 1, ICON_S);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, y, WIDTH, ITEM_H, alpha);
+        drawIcon(g, publicIcon, 2, y + 1, ICON_S, alpha);
         int nameX = 2 + ICON_S + 3;
         String publicLabel = Component.translatable("e33chat.sidebar.public").getString();
         g.drawString(font, Component.literal(publicLabel), nameX, y + 1, c.textPrimary(), false);
@@ -131,7 +130,7 @@ public final class ChatSidebar {
             }
 
             if (totalH == 0) {
-                drawIcon(g, noOnlineIcon, (WIDTH - 32) / 2, startY + 8, 32);
+                drawIcon(g, noOnlineIcon, (WIDTH - 32) / 2, startY + 8, 32, alpha);
                 String noPlayers = Component.translatable("e33chat.sidebar.no_players").getString();
                 int textW = font.width(noPlayers);
                 g.drawString(font, Component.literal(noPlayers),
@@ -155,12 +154,12 @@ public final class ChatSidebar {
                         boolean hoverRow = mouseX >= 0 && mouseX <= WIDTH
                             && mouseY >= scrollY && mouseY <= scrollY + ITEM_H;
                         if (sel)
-                            g.blit(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, scrollY, WIDTH, ITEM_H, 0f, 0f, 1, 1, 1, 1);
+                            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, scrollY, WIDTH, ITEM_H, alpha);
                         else if (hoverRow)
-                            g.blit(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, WIDTH, ITEM_H, 0f, 0f, 1, 1, 1, 1);
+                            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, WIDTH, ITEM_H, alpha);
 
                         ResourceLocation skin = getSkin(info.getProfile().getId(), name);
-                        drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18);
+                        drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18, alpha);
 
                         int tipW = ChatMessageStore.hasUnreadWhisper(name) ? 16 : 0;
                         int maxNameW = WIDTH - nameX - 4 - tipW - 2;
@@ -182,7 +181,7 @@ public final class ChatSidebar {
                             int tipX = WIDTH - 16 - 2;
                             double wave = Math.abs(Math.sin(System.currentTimeMillis() / 300.0)) * 3;
                             int tipY = scrollY + 3 + (int) wave;
-                            drawIcon(g, privateTipIcon, tipX, tipY, 16);
+                            drawIcon(g, privateTipIcon, tipX, tipY, 16, alpha);
                         }
                     }
                     scrollY += ITEM_H + 2;
@@ -215,31 +214,24 @@ public final class ChatSidebar {
     }
 
     private static void drawPlayerHead(GuiGraphics g, ResourceLocation skin, int x, int y,
-                                       int baseSize, int hatSize) {
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        g.blit(skin, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64);
+                                       int baseSize, int hatSize, float alpha) {
+        if (alpha <= 0.003f) return;
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, x, y, baseSize, baseSize,
+            8.0F, 8.0F, 8, 8, 64, 64, alpha);
         int hatOff = (hatSize - baseSize) / 2;
-        g.blit(skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64);
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, x - hatOff, y - hatOff, hatSize, hatSize,
+            40.0F, 8.0F, 8, 8, 64, 64, alpha);
     }
 
-    private static void drawIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size) {
-        var tm = Minecraft.getInstance().getTextureManager();
-        AbstractTexture abstractTex;
-        try {
-            abstractTex = tm.getTexture(tex);
-        } catch (Exception e) {
-            return;
-        }
-        com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, abstractTex.getId());
-        com.mojang.blaze3d.systems.RenderSystem.setShader(
-            net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+    private static void drawIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size, float alpha) {
+        if (alpha <= 0.003f) return;
         if (size < 16) {
             // 同 ChatBars.drawIcon：采样内容区 14x14（偏移1,1）完整绘制，避免切掉图标右/下缘
-            g.blit(tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size,
+                1f, 1f, 14, 14, 16, 16, alpha);
         } else {
-            g.blit(tex, x, y, 0, 0, size, size, size, size);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size,
+                0f, 0f, size, size, size, size, alpha);
         }
     }
 }

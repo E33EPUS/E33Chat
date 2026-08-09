@@ -4,6 +4,18 @@
 
 ## v2.3.7
 
+**修复（2.3.7 补发 8）**
+- **上下栏/侧边栏无法淡入（Forge/Neo，Fabric 上下栏已修）**：`ChatBars` 用 `setShaderColor(1,1,1,alpha)` 包 vanilla `blit`——但 `blit` 走 `POSITION_TEX` 着色器（顶点只有位置+UV，无颜色通道），alpha 对背景纹理完全无效，只有文字（独立管线 alphaBlend）能淡。现在 Forge/Neo 上下栏背景/边框/图标全部改 `drawWithAlpha`（带颜色通道的渲染路径），对齐 Fabric
+- **侧边栏淡入无效（三端）**：侧边栏的 `fadeSidebar` 也是 `setShaderColor` 包整个侧边栏——内部全是无颜色通道的 `drawTexture`/`blit`，背景/头像/图标从不淡，只有位移停住。现在侧边栏渲染加 `float alpha` 参数，背景/选中/悬停/图标/玩家头像全部走带 alpha 路径——FADE 下侧边栏真正原地淡入，ZOOM 下缩放+淡入与面板节奏一致
+- **消息气泡头像不随消息淡入（三端）**：消息进入动画淡入时头像用 `setShaderColor` 包 `blit`（无效），头像瞬间显示。现在头像改 `drawWithAlpha`，随气泡一起淡入
+
+**Fixes (2.3.7 follow-up 8)**
+- Title/bottom bar couldn't fade on Forge/Neo (Fabric's bars were already fixed): `ChatBars` wrapped vanilla `blit` with `setShaderColor(1,1,1,alpha)`, but `blit` uses the `POSITION_TEX` shader (vertices carry position+UV only, no color channel), so the alpha never reached the background textures — only text (its own alphaBlend pipeline) faded. The bars' backgrounds/borders/icons now use `drawWithAlpha` (the color-channel path), matching Fabric
+- Sidebar fade didn't work (all three platforms): `fadeSidebar` also wrapped the whole sidebar in `setShaderColor`, but internally it drew with color-less `drawTexture`/`blit` — the background/avatar/icons never faded, only the offset stopped. The sidebar render now takes a `float alpha` and draws its background/selection/hover/icons/player-heads through the alpha path — under FADE it truly fades in place, and under ZOOM it scales + fades in sync with the panel
+- Message-bubble avatars didn't fade with the message (all three platforms): the enter-animation avatar used `setShaderColor` around `blit` (ineffective), so it popped in. Avatars now use `drawWithAlpha` and fade in with the bubble
+
+## v2.3.7
+
 **修复（2.3.7 补发 7）**
 - **FADE 面板下汉堡切换侧边栏无动画（三端）**：点汉堡切换侧边栏时，面板风格为 FADE 时 `fadeSidebar` 判定未区分"面板开合动画"与"汉堡切换"——它只看面板风格不看 `sidebarAnimating`，强制侧边栏位移为 0（slide 进度被丢弃），透明度又用面板开合进度（此时早已结束 = 1，淡入也没有）→ 侧边栏完全静止。修复：`fadeSidebar` 仅在面板自己的开合动画时生效，汉堡切换永远滑动（与 ZOOM/SLIDE 面板下行为一致）
 

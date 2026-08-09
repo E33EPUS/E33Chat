@@ -297,14 +297,14 @@ public final class ChatMessageRenderer {
             renderLineWithClicks(g, font, lines.get(li), bubbleX + BUBBLE_PAD_X,
                 bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fgA, fb, clickableSpans);
 
-        // Draw avatar
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-        g.blit(skin, avatarX, avatarY, 20, 20, 8.0F, 8.0F, 8, 8, 64, 64);
-        int hatOff = 1;
-        g.blit(skin, avatarX - hatOff, avatarY - hatOff, 22, 22, 40.0F, 8.0F, 8, 8, 64, 64);
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+        // Draw avatar (per-element alpha: vanilla blit ignores setShaderColor)
+        if (alpha > 0.003f) {
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX, avatarY, 20, 20,
+                8.0F, 8.0F, 8, 8, 64, 64, alpha);
+            int hatOff = 1;
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX - hatOff, avatarY - hatOff, 22, 22,
+                40.0F, 8.0F, 8, 8, 64, 64, alpha);
+        }
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
