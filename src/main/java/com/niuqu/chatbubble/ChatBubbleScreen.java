@@ -187,9 +187,9 @@ public class ChatBubbleScreen extends ChatScreen {
         panelW = Math.max(100, Math.min(physicalW / Math.max(1, guiScale), width));
         if (sidebarOpen) {
             panelX = SIDEBAR_W;
-            sidebarTargetOpen = true;
-            sidebarAnimating = true;
-            sidebarAnimStart = Util.getMeasuringTimeMs();
+            sidebarAnimating = false; // sidebar is already in place; the panel's
+            // own open animation (by style) handles its entrance — don't let the
+            // sidebar state machine re-drive panelX (slides the whole panel)
         } else {
             panelX = 0;
             sidebarAnimating = false;
@@ -233,7 +233,7 @@ public class ChatBubbleScreen extends ChatScreen {
         sidebarSearchBox.setVisible(sidebarOpen);
         sidebarSearchBox.setChangedListener(s -> sidebarScrollOffset = 0);
         sidebarSearchBox.setFocusUnlocked(true);
-        if (sidebarOpen) sidebarSearchBox.setX(2 - SIDEBAR_W);
+        if (sidebarOpen) sidebarSearchBox.setX(2);
         addDrawableChild(sidebarSearchBox);
 
         quickChatInput = new TextFieldWidget(textRenderer, 0, 0, QUICK_CHAT_W - 8, 12, Text.translatable("e33chat.menu.quick_chat"));

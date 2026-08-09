@@ -4,6 +4,16 @@
 
 ## v2.3.7
 
+**修复（2.3.7 补发 5）**
+- **Fabric 打开聊天框时面板被 slide 污染（仅 Fabric）**：Fabric 的 `init()` 在侧边栏开启时强制 `sidebarAnimating = true`，每帧把侧边栏滑动进度写进 `panelX`（所有面板内容的布局左边界），FADE/ZOOM 下面板矩阵不位移、但内容被 `panelX` 拖着水平滑动——叠成 slide + fade/zoom。Forge/Neo 的 `init()` 是 `sidebarAnimating = false`（侧边栏直接就位），从根上没有污染。修复：Fabric `init()` 对齐 Forge/Neo。**侧边栏的进入动画本就由面板开合动画承载**（打开=FADE 原地淡入 / ZOOM 缩放 / SLIDE 一起滑），不需要侧边栏状态机在打开时重新驱动
+- **侧边栏搜索框位置（三端）**：打开聊天框时搜索框初始 `setX(2 - SIDEBAR_W)` 藏在屏幕外（原为配合侧边栏滑入动画），但打开方向侧边栏不走自己动画、进入动画由面板承载——Forge/Neo 下搜索框停在屏幕外不可点、不可见。修复：初始直接就位 `setX(2)`
+
+**Fixes (2.3.7 follow-up 5)**
+- Fabric panel content no longer slides under FADE/ZOOM when opening the chat (Fabric only): `init()` force-set `sidebarAnimating = true` with the sidebar open, and the tick wrote the sidebar slide progress into `panelX` — the layout origin of all panel content — so the whole panel slid horizontally under FADE/ZOOM (no matrix displacement). Forge/Neo never had this: their `init()` leaves `sidebarAnimating = false`. Fixed: Fabric `init()` now matches Forge/Neo. The sidebar's entrance is carried by the panel's open animation (FADE fades in place / ZOOM scales / SLIDE slides together); the sidebar state machine shouldn't re-drive it when the screen opens
+- Sidebar search box position (all three platforms): it was initialized at `setX(2 - SIDEBAR_W)` (off-screen, for the sidebar's own slide-in) but the sidebar no longer plays its own animation on open — on Forge/Neo it stayed off-screen, invisible and unclickable. Fixed: initialized at `setX(2)`
+
+## v2.3.7
+
 **修复（2.3.7 补发 4）**
 - **侧边栏开启时面板背景 FADE/ZOOM 下滑入**：侧边栏开启时面板背景左缘按动画进度从屏幕左缘水平长到侧边栏右缘（原为配合 SLIDE 面板滑入），但 FADE/ZOOM 下 `panelOffset` 无位移，只有背景还在水平生长——叠成"slide + fade/zoom"两重效果。现在只有 SLIDE 时背景才水平生长；FADE/ZOOM 时背景固定画在面板区原地淡入/缩放，与侧边栏一起作为整体
 
