@@ -302,7 +302,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         // FADE/NONE have no horizontal displacement: the sidebar fades in place.
         if (style == AnimationStyle.FADE || style == AnimationStyle.NONE) return sidebarOpen ? 1f : 0f;
-        if (sidebarOpen) return 1f;
+        if (!sidebarOpen) return 0f;
         return getAnimProgress(); // follow the panel's open animation
     }
 
