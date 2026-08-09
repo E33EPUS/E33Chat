@@ -50,6 +50,10 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.IntValue BANNER_CORNER_RADIUS;
     public static final ModConfigSpec.IntValue BANNER_OFFSET_X;
     public static final ModConfigSpec.IntValue BANNER_OFFSET_Y;
+    public static final ModConfigSpec.EnumValue<AnimationStyle> PANEL_ANIM_STYLE;
+    public static final ModConfigSpec.EnumValue<AnimationStyle> BANNER_ANIM_STYLE;
+    public static final ModConfigSpec.EnumValue<AnimationStyle> POPUP_ANIM_STYLE;
+    public static final ModConfigSpec.EnumValue<AnimationStyle> MESSAGE_ANIM_STYLE;
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
@@ -270,6 +274,26 @@ public class ChatBubbleConfig {
             .comment("Banner vertical offset in px (negative = up). Nudge to avoid HUD overlaps (e.g. Jade).")
             .translation("e33chat.config.banner_offset_y")
             .defineInRange("banner_offset_y", 0, -1000, 1000);
+
+        PANEL_ANIM_STYLE = builder
+            .comment("Chat panel/sidebar open-close animation style: SLIDE, FADE, ZOOM or NONE")
+            .translation("e33chat.config.panel_anim_style")
+            .defineEnum("panel_anim_style", AnimationStyle.SLIDE);
+
+        BANNER_ANIM_STYLE = builder
+            .comment("Notification banner appear/leave animation style: SLIDE, FADE, ZOOM or NONE")
+            .translation("e33chat.config.banner_anim_style")
+            .defineEnum("banner_anim_style", AnimationStyle.SLIDE);
+
+        POPUP_ANIM_STYLE = builder
+            .comment("Popup panel open animation style (settings/emoji/quick-chat/search): SLIDE, FADE, ZOOM or NONE")
+            .translation("e33chat.config.popup_anim_style")
+            .defineEnum("popup_anim_style", AnimationStyle.FADE);
+
+        MESSAGE_ANIM_STYLE = builder
+            .comment("New message bubble enter animation style (slide up + fade, staggered): SLIDE, FADE, ZOOM or NONE")
+            .translation("e33chat.config.message_anim_style")
+            .defineEnum("message_anim_style", AnimationStyle.FADE);
 
         builder.pop();
 

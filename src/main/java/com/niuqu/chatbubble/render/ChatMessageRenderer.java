@@ -214,12 +214,13 @@ public final class ChatMessageRenderer {
                                      int searchHighlightIndex,
                                      int bubbleMaxW,
                                      List<int[]> bubbleRects,
-                                     List<ClickableSpan> clickableSpans) {
+                                     List<ClickableSpan> clickableSpans,
+                                     float alpha) {
         if (msg.isSystem()) {
             List<FormattedCharSequence> lines = wrapContent(msg.content(), font, panelW - ChatLayout.PAD * 2 - 20);
             int yy = baseY + 2;
             Style fb = findClickStyle(msg.content());
-            int sysColor = c.textMuted();
+            int sysColor = ChatBubbleTheme.alphaBlend(c.textMuted(), (int)(255 * alpha));
             int beforeSys = clickableSpans.size();
             for (var line : lines) {
                 int lw = font.width(line);
@@ -280,7 +281,7 @@ public final class ChatMessageRenderer {
             }
             int nameW = font.width(nameSeq);
             int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
-            g.drawString(font, nameSeq, startX, nameY, c.nameColor(), false);
+            g.drawString(font, nameSeq, startX, nameY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
         }
 
         int bubbleY = baseY + NAME_H;
@@ -291,18 +292,21 @@ public final class ChatMessageRenderer {
 
         // 气泡背景：SDF 圆角（shader 数学，任何半径平滑；配置实时生效，不可被资源包覆盖）
         RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
-            cornerRadius, bg);
+            cornerRadius, ChatBubbleTheme.alphaBlend(bg, (int)(255 * alpha)));
 
         Style fb = findClickStyle(msg.content());
+        int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
         for (int li = 0; li < lines.size(); li++)
             renderLineWithClicks(g, font, lines.get(li), bubbleX + BUBBLE_PAD_X,
-                bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fg, fb, clickableSpans);
+                bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fgA, fb, clickableSpans);
 
         // Draw avatar
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         g.blit(skin, avatarX, avatarY, 20, 20, 8.0F, 8.0F, 8, 8, 64, 64);
         int hatOff = 1;
         g.blit(skin, avatarX - hatOff, avatarY - hatOff, 22, 22, 40.0F, 8.0F, 8, 8, 64, 64);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         com.mojang.blaze3d.systems.RenderSystem.disableBlend();
 
         if (msg.duplicateCount() > 1) {
@@ -311,7 +315,7 @@ public final class ChatMessageRenderer {
             int labelX, labelY = bubbleY + (bubbleH - font.lineHeight) / 2;
             if (own) labelX = bubbleX - labelW - 3;
             else labelX = bubbleX + bubbleW + 3;
-            g.drawString(font, Component.literal(label), labelX, labelY, c.duplicateLabel(), false);
+            g.drawString(font, Component.literal(label), labelX, labelY, ChatBubbleTheme.alphaBlend(c.duplicateLabel(), (int)(255 * alpha)), false);
         }
 
         if (msg.replyContent() != null) {
@@ -328,8 +332,8 @@ public final class ChatMessageRenderer {
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
             // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, c.contextHover());
-            g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, c.textSecondary(), false);
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
+            g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)), false);
         }
 
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});

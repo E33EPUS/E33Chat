@@ -106,6 +106,9 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int QUICK_CHAT_W = 140;
     private static String whisperPartner;
 
+    // Popup open animation timestamps (opening only; closing stays instant)
+    private long settingsAnimStart, emojiAnimStart, quickAnimStart, searchAnimStart;
+
     // Sidebar — animation state owned by ChatBubbleScreen, rendering delegated to ChatSidebar
     private static boolean sidebarOpen;
     private boolean sidebarAnimating;
@@ -375,7 +378,33 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private float getAnimProgress() {
         if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) return 1.0f;
-        return Animation.progress(animStart, ANIM_MS, closing);
+        AnimationStyle style = ChatBubbleConfig.PANEL_ANIM_STYLE.get();
+        if (style == AnimationStyle.NONE) return 1.0f;
+        long elapsed = net.minecraft.Util.getMillis() - animStart;
+        float t = Mth.clamp((float) elapsed / ANIM_MS, 0f, 1f);
+        if (closing) return 1.0f - (t * t);
+        return Animation.styleCurve(style, t);
+    }
+
+    // Popup open animation (opening only — closing stays instant). FADE fades the
+    // whole panel in; ZOOM scales it in around the screen center with overshoot.
+    private void renderPopupWithAnim(GuiGraphics g, long startMs, Runnable render) {
+        if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) { render.run(); return; }
+        AnimationStyle style = ChatBubbleConfig.POPUP_ANIM_STYLE.get();
+        float t = Mth.clamp((float) (net.minecraft.Util.getMillis() - startMs) / 150f, 0f, 1f);
+        float curve = Animation.styleCurve(style, t);
+        if (curve >= 1f) { render.run(); return; }
+        if (style == AnimationStyle.ZOOM) {
+            g.pose().pushPose();
+            float s = 0.85f + 0.15f * Animation.easeOutBack(curve);
+            g.pose().translate(width / 2f, height / 2f, 0);
+            g.pose().scale(s, s, 1f);
+            g.pose().translate(-width / 2f, -height / 2f, 0);
+        }
+        RenderSystem.setShaderColor(1f, 1f, 1f, curve);
+        render.run();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        if (style == AnimationStyle.ZOOM) g.pose().popPose();
     }
 
     private float getSidebarAnimProgress() {
@@ -918,7 +947,9 @@ public class ChatBubbleScreen extends ChatScreen {
         if (mx >= gearX && mx <= gearX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
             if (emojiPanel.visible) emojiPanel.visible = false;
             if (searchPanel.visible) closeSearchPanel();
-            settingsMenu.visible = !settingsMenu.visible;
+            boolean opening = !settingsMenu.visible;
+            settingsMenu.visible = opening;
+            if (opening) settingsAnimStart = net.minecraft.Util.getMillis();
             return true;
         }
         // Emoji icon — toggle emoji panel
@@ -927,7 +958,9 @@ public class ChatBubbleScreen extends ChatScreen {
         if (mx >= emojiX && mx <= emojiX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
             if (settingsMenu.visible) settingsMenu.visible = false;
             if (searchPanel.visible) closeSearchPanel();
-            emojiPanel.visible = !emojiPanel.visible;
+            boolean opening = !emojiPanel.visible;
+            emojiPanel.visible = opening;
+            if (opening) emojiAnimStart = net.minecraft.Util.getMillis();
             showMentions = false;
             if (emojiPanel.visible) emojiPanel.scroll = 0;
             return true;
@@ -1014,18 +1047,28 @@ public class ChatBubbleScreen extends ChatScreen {
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
+        AnimationStyle pstyle = ChatBubbleConfig.PANEL_ANIM_STYLE.get();
         float panelOpacity = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * anim;
         int fillLeft = (!sidebarAnimating && sidebarOpen)
             ? (int)(anim * SIDEBAR_W) : panelX;
 
-        int panelOffset = currentPanelOffset();
+        int panelOffset = (pstyle == AnimationStyle.SLIDE) ? currentPanelOffset() : 0;
+        boolean zoom = (pstyle == AnimationStyle.ZOOM) && anim < 1f;
+        float panelScale = 1f;
+        if (zoom) panelScale = 0.8f + 0.2f * Animation.easeOutBack(anim);
 
-        if (ChatBubbleConfig.BLUR_ENABLED.get() && panelOpacity < 0.999f) {
+        if (ChatBubbleConfig.BLUR_ENABLED.get() && panelOpacity < 0.999f && !zoom) {
             BlurRenderer.blurPanel(panelOffset + fillLeft, 0, panelX + panelW - fillLeft, height);
         }
 
         g.pose().pushPose();
         g.pose().translate(panelOffset, 0, 0);
+        if (zoom) {
+            float cx = panelX + panelW / 2f;
+            g.pose().translate(cx, height / 2f, 0);
+            g.pose().scale(panelScale, panelScale, 1f);
+            g.pose().translate(-cx, -height / 2f, 0);
+        }
 
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
@@ -1048,10 +1091,10 @@ public class ChatBubbleScreen extends ChatScreen {
         // 会盖住它们，提升弹层 z 到侧边栏之上避免遮挡
         g.pose().pushPose();
         g.pose().translate(0, 0, 100);
-        settingsMenu.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex);
-        emojiPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ICON_S, PAD);
-        quickChatPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, quickChatInput);
-        searchPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx);
+        renderPopupWithAnim(g, settingsAnimStart, () -> settingsMenu.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex));
+        renderPopupWithAnim(g, emojiAnimStart, () -> emojiPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ICON_S, PAD));
+        renderPopupWithAnim(g, quickAnimStart, () -> quickChatPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, quickChatInput));
+        renderPopupWithAnim(g, searchAnimStart, () -> searchPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx));
         // 输入框 widget 在 z=50 的 renderables 循环渲染，会被这里 z=100 的不透明面板背景盖住
         // （5bb740e 弹层 z 提升引入）——面板打开时在同 z 重画一次，文字/光标才可见。
         // widget 无背景（setBordered(false)），只画文字/光标，不遮挡面板内容
@@ -1234,7 +1277,27 @@ public class ChatBubbleScreen extends ChatScreen {
             contentY += h + GAP;
 
             if (screenY + h <= effectiveMsgTop || screenY >= effectiveMsgBottom) { fullIdx++; continue; }
-            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY);
+
+            // New-message enter animation: fade in + slide up 8px, staggered 40ms
+            // per message from the tail (250ms window, keyed on msg.time()).
+            float mAlpha = 1f;
+            int mDy = 0;
+            if (ChatBubbleConfig.ANIMATION_ENABLED.get()) {
+                AnimationStyle mstyle = ChatBubbleConfig.MESSAGE_ANIM_STYLE.get();
+                if (mstyle != AnimationStyle.NONE) {
+                    int tailIdx = messages.size() - 1 - i;
+                    float raw = (float) (net.minecraft.Util.getMillis() - msg.time() - tailIdx * 40L) / 250f;
+                    if (raw < 1f) {
+                        float curve = Animation.styleCurve(mstyle, raw);
+                        mAlpha = curve;
+                        mDy = Math.round((1f - curve) * 8f);
+                    }
+                }
+            }
+            g.pose().pushPose();
+            g.pose().translate(0, mDy, 0);
+            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha);
+            g.pose().popPose();
             fullIdx++;
         }
         renderScrollbar(g, mouseX, mouseY, effectiveMsgBottom);
@@ -1265,6 +1328,8 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private int currentPanelOffset() {
+        if (ChatBubbleConfig.PANEL_ANIM_STYLE.get() != AnimationStyle.SLIDE)
+            return 0; // FADE/ZOOM/NONE have no horizontal displacement
         float anim = getAnimProgress();
         int moveDist;
         if (sidebarOpen) {
@@ -1287,7 +1352,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
 
     private void renderBubble(GuiGraphics g, ChatMessageStore.ChatMessage msg,
-                               int index, int baseY, int mouseX, int mouseY) {
+                               int index, int baseY, int mouseX, int mouseY, float alpha) {
         boolean own = msg.isOwn();
         int bubbleMaxW = panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2
             - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
@@ -1302,7 +1367,7 @@ public class ChatBubbleScreen extends ChatScreen {
         ChatMessageRenderer.renderBubble(g, font, msg, index, baseY, mouseX, mouseY,
             panelX, panelW, ownBg, otherBg, ownFg, otherFg, own,
             ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get(), c(), skin,
-            searchHighlightIndex, bubbleMaxW, bubbleRects, clickableSpans);
+            searchHighlightIndex, bubbleMaxW, bubbleRects, clickableSpans, alpha);
     }
 
     private void renderLineWithClicks(GuiGraphics g, FormattedCharSequence line,
@@ -1477,6 +1542,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (quickChatPanel.visible) { quickChatPanel.visible = false; quickChatInput.setVisible(false); }
                 if (emojiPanel.visible) emojiPanel.visible = false;
                 searchPanel.visible = true;
+                searchAnimStart = net.minecraft.Util.getMillis();
                 searchInput.setValue("");
                 searchMatches.clear();
                 searchMatchIdx = -1;
@@ -1487,6 +1553,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (searchPanel.visible) closeSearchPanel();
                 if (emojiPanel.visible) emojiPanel.visible = false;
                 quickChatPanel.visible = true;
+                quickAnimStart = net.minecraft.Util.getMillis();
                 quickChatPanel.scrollOffset = 0;
                 quickChatInput.setValue("");
                 setFocused(input);
