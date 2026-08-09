@@ -68,8 +68,9 @@ public class ChatEmojiPanel {
 
     public void render(DrawContext g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
-            int panelX, int panelW, int barTop, int iconS, int pad) {
+            int panelX, int panelW, int barTop, int iconS, int pad, float alpha) {
         if (!visible) return;
+        int a255 = (int) (255 * alpha);
         int sendX = panelX + panelW - pad - iconS + 2;
 
         boolean isKaomoji = tab == 1;
@@ -82,36 +83,42 @@ public class ChatEmojiPanel {
             Text.translatable("e33chat.emoji.tab_kaomoji").getString()
         };
         int tabW = pw / tabLabels.length;
-        g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.TITLE_BAR),
-            px, py, pw, TAB_H + 1, 0f, 0f, 16, 16, 16, 16);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.TITLE_BAR),
+            px, py, pw, TAB_H + 1, alpha);
         for (int t = 0; t < tabLabels.length; t++) {
             int tx = px + t * tabW;
             if (t == tab)
-                g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
-                    tx, py, tabW, TAB_H, 0f, 0f, 16, 16, 16, 16);
+                com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+                    com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
+                    tx, py, tabW, TAB_H, alpha);
             String label = tabLabels[t];
             g.drawText(font, label,
-                tx + tabW / 2 - font.getWidth(label) / 2, py + (TAB_H - font.fontHeight) / 2, c.textPrimary(), false);
+                tx + tabW / 2 - font.getWidth(label) / 2, py + (TAB_H - font.fontHeight) / 2,
+                com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
-        g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
-            px, py + TAB_H, pw, 1, 0f, 0f, 16, 16, 16, 16);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
+            px, py + TAB_H, pw, 1, alpha);
 
         int cy = py + TAB_H + 1;
         int ch = PANEL_H - TAB_H - 1;
-        g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, cy, pw, py + PANEL_H - cy, 0f, 0f, 16, 16, 16, 16);
-        g.drawBorder(px, py, pw, PANEL_H, c.divider());
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+            px, cy, pw, py + PANEL_H - cy, alpha);
+        g.drawBorder(px, py, pw, PANEL_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         if (isKaomoji) {
-            renderKaomojiList(g, mouseX, mouseY, font, c, px, cy, pw, ch);
+            renderKaomojiList(g, mouseX, mouseY, font, c, px, cy, pw, ch, alpha);
         } else {
-            renderEmojiGrid(g, mouseX, mouseY, font, c, px, cy, pw, ch, gridCols(pw));
+            renderEmojiGrid(g, mouseX, mouseY, font, c, px, cy, pw, ch, gridCols(pw), alpha);
         }
     }
 
     private void renderEmojiGrid(DrawContext g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
-            int px, int cy, int pw, int ch, int cols) {
+            int px, int cy, int pw, int ch, int cols, float alpha) {
+        int a255 = (int) (255 * alpha);
         int rows = (EMOTES.length + cols - 1) / cols;
         int totalH = rows * SLOT + 4;
         int maxScroll = Math.max(0, totalH - ch + 4);
@@ -127,19 +134,21 @@ public class ChatEmojiPanel {
             if (ey + SLOT <= cy || ey >= cy + ch) continue;
             if (mouseX >= ex && mouseX <= ex + SLOT - 1
                 && mouseY >= ey && mouseY <= ey + SLOT - 1)
-                g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
-                    ex, ey, SLOT - 1, SLOT - 1, 0f, 0f, 16, 16, 16, 16);
+                com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+                    com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                    ex, ey, SLOT - 1, SLOT - 1, alpha);
             String emoji = EMOTES[i];
             g.drawText(font, emoji,
                 ex + SLOT / 2 - font.getWidth(emoji) / 2,
-                ey + (SLOT - font.fontHeight) / 2, c.textPrimary(), false);
+                ey + (SLOT - font.fontHeight) / 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
         g.disableScissor();
     }
 
     private void renderKaomojiList(DrawContext g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
-            int px, int cy, int pw, int ch) {
+            int px, int cy, int pw, int ch, float alpha) {
+        int a255 = (int) (255 * alpha);
         int kCols = KAO_COLS;
         int kColW = (pw - 8) / kCols;
         int totalH = ((KAO.length + kCols - 1) / kCols) * KAO_ITEM_H + 4;
@@ -156,10 +165,11 @@ public class ChatEmojiPanel {
             if (ey + KAO_ITEM_H <= cy || ey >= cy + ch) continue;
             if (mouseX >= ex && mouseX <= ex + kColW - 1
                 && mouseY >= ey && mouseY <= ey + KAO_ITEM_H - 1)
-                g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
-                    ex, ey, kColW - 1, KAO_ITEM_H - 1, 0f, 0f, 16, 16, 16, 16);
+                com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+                    com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                    ex, ey, kColW - 1, KAO_ITEM_H - 1, alpha);
             g.drawText(font, KAO[i],
-                ex + 2, ey + (KAO_ITEM_H - font.fontHeight) / 2, c.textPrimary(), false);
+                ex + 2, ey + (KAO_ITEM_H - font.fontHeight) / 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
         g.disableScissor();
     }

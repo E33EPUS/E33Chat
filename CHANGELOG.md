@@ -16,11 +16,17 @@
 - Tests: Forge 241 / NeoForge 241 / Fabric 222 all green
 
 **修复（2.3.7 补发）**
+- **消息动画三风格（三端）**：此前消息进入动画只有上滑+淡入一种效果（三种风格视觉几乎一样）。现在：`滑动` = QQ 式横向滑入+淡入（自己的气泡从右往左、别人的从左往右）；`淡入淡出` = 纯淡入无位移；`缩放弹入` = 绕气泡中心缩放弹入（过冲回弹）
+- **弹层动画改为完整淡入（三端）**：此前弹层 FADE 只有背景淡入、文字/图标直接出现（vanilla drawTexture/blit 走无颜色通道的 shader，setShaderColor 对它们无效）。现在设置/表情/快捷/搜索面板的背景、文字、图标全部逐元素 alpha 淡入
+- **侧边栏跟随面板淡入（三端）**：面板 FADE 打开时侧边栏不再只做滑动，而是跟随面板原地淡入（打开和关闭两个方向都生效）
 - **新消息气泡/头像永久消失（三端）**：消息进入动画把 MC 渲染时钟（`getMeasuringTimeMs`/`getMillis`，nanoTime 基准）与消息时间戳（`System.currentTimeMillis`，epoch 基准）直接相减——两个时钟差约等于 JVM 运行时长，算出巨大负进度 → 透明度恒 0 → 气泡/头像永不可见。修复：动画 now 侧改用 `System.currentTimeMillis()`（与消息时间戳同源）
 - **上栏/下栏不随面板淡入**：标题栏/底栏背景从不乘面板透明度（此前 SLIDE 靠位移掩盖），FADE/ZOOM 下原形毕露。修复：两栏背景改带 alpha 绘制、文字/图标/边框逐元素 alphaBlend，跟随面板淡入淡出
 - **侧边栏动画与面板割裂**：侧边栏硬编码 slide 曲线，且 Fabric 缺 Forge/Neo 的"跟随面板进度"回退。修复：侧边栏进度走面板动画风格曲线；FADE 下侧边栏原地淡入（不位移）
 
 **Fixes (2.3.7 follow-up)**
+- Message enter animation now has three distinct styles (all three platforms): Slide = QQ-style horizontal slide-in + fade (own bubbles from right to left, others from left to right); Fade = pure fade, no displacement; Zoom = scale-in around the bubble center with overshoot
+- Popup animation is now a full fade (all three platforms): vanilla drawTexture/blit uses a color-less shader so setShaderColor never affected them — the settings/emoji/quick-chat/search panels now fade their backgrounds, text and icons per-element
+- Sidebar now fades in place with the panel under FADE in both directions
 - New-message bubbles/avatars permanently invisible (all three platforms): the message enter animation subtracted the MC render clock (`getMeasuringTimeMs`/`getMillis`, nanoTime-based) from the message timestamp (`System.currentTimeMillis`, epoch-based) — two unrelated clocks, off by roughly the JVM uptime, so the progress went hugely negative and the alpha stayed 0 forever. Fixed: the animation now uses `System.currentTimeMillis()` on the "now" side, matching the timestamp
 - Title bar / bottom bar no longer followed the panel fade: their backgrounds never multiplied the panel opacity (the old slide hid it), which FADE/ZOOM exposed. Fixed: both bars render with alpha and their text/icons/borders use per-element alphaBlend
 - Sidebar animation felt detached from the panel: it used a hard-coded slide curve, and Fabric lacked the Forge/Neo fallback that follows the panel's progress. Fixed: the sidebar follows the panel's animation style curve, and fades in place (no displacement) under FADE

@@ -528,25 +528,30 @@ public class ChatBubbleScreen extends ChatScreen {
         return Animation.styleCurve(style, t);
     }
 
-    // Popup open animation (opening only — closing stays instant). FADE fades the
-    // whole panel in; ZOOM scales it in around the screen center with overshoot.
-    private void renderPopupWithAnim(DrawContext g, long startMs, Runnable render) {
-        if (!ChatBubbleClientSetup.config().animationEnabled()) { render.run(); return; }
+    // Popup open animation (opening only — closing stays instant). The panel
+    // renders itself with the given alpha (per-element fade); ZOOM additionally
+    // scales it in around the screen center with overshoot.
+    private void renderPopupWithAnim(DrawContext g, long startMs, java.util.function.Function<Float, Runnable> renderer) {
+        float alpha = 1f;
+        float t = 1f;
         AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().popupAnimStyle());
-        float t = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - startMs) / 150f, 0f, 1f);
-        float curve = Animation.styleCurve(style, t);
-        if (curve >= 1f) { render.run(); return; }
+        if (ChatBubbleClientSetup.config().animationEnabled() && style != AnimationStyle.NONE) {
+            t = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - startMs) / 150f, 0f, 1f);
+            alpha = Animation.styleCurve(style, t);
+        }
+        Runnable render = renderer.apply(alpha);
+        if (t >= 1f || style == AnimationStyle.NONE) { render.run(); return; }
         if (style == AnimationStyle.ZOOM) {
             g.getMatrices().push();
-            float s = 0.85f + 0.15f * Animation.easeOutBack(curve);
+            float s = 0.85f + 0.15f * Animation.easeOutBack(alpha);
             g.getMatrices().translate(width / 2f, height / 2f, 0);
             g.getMatrices().scale(s, s, 1f);
             g.getMatrices().translate(-width / 2f, -height / 2f, 0);
+            render.run();
+            g.getMatrices().pop();
+        } else {
+            render.run();
         }
-        RenderSystem.setShaderColor(1f, 1f, 1f, curve);
-        render.run();
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        if (style == AnimationStyle.ZOOM) g.getMatrices().pop();
     }
 
     @Override
@@ -1070,10 +1075,10 @@ public class ChatBubbleScreen extends ChatScreen {
         // 会盖住它们，提升弹层 z 到侧边栏之上避免遮挡
         g.getMatrices().push();
         g.getMatrices().translate(0, 0, 100);
-        renderPopupWithAnim(g, settingsAnimStart, () -> settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex));
-        renderPopupWithAnim(g, emojiAnimStart, () -> emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD));
-        renderPopupWithAnim(g, quickAnimStart, () -> quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput));
-        renderPopupWithAnim(g, searchAnimStart, () -> searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx));
+        renderPopupWithAnim(g, settingsAnimStart, a -> () -> settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex, a));
+        renderPopupWithAnim(g, emojiAnimStart, a -> () -> emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD, a));
+        renderPopupWithAnim(g, quickAnimStart, a -> () -> quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput, a));
+        renderPopupWithAnim(g, searchAnimStart, a -> () -> searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx, a));
         // 输入框 widget 在 z=50 的 children 循环渲染，会被这里 z=100 的不透明面板背景盖住
         // （5bb740e 弹层 z 提升引入）——面板打开时在同 z 重画一次，文字/光标才可见。
         // widget 无背景（drawsBackground=false），只画文字/光标，不遮挡面板内容
@@ -1085,7 +1090,8 @@ public class ChatBubbleScreen extends ChatScreen {
 
         if (sidebarOpen || sidebarAnimating) {
             g.getMatrices().push();
-            boolean fadeSidebar = pstyle == AnimationStyle.FADE && closing;
+            // FADE: the sidebar fades in place with the panel (both directions)
+            boolean fadeSidebar = pstyle == AnimationStyle.FADE;
             int sidebarOffset = closing
                 ? (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W)
                 : getSidebarScreenX();
@@ -1264,10 +1270,15 @@ public class ChatBubbleScreen extends ChatScreen {
 
             if (screenY + h <= effectiveMsgTop || screenY >= effectiveMsgBottom) { fullIdx++; continue; }
 
-            // New-message enter animation: fade in + slide up 8px, staggered 40ms
-            // per message from the tail (250ms window, keyed on msg.time()).
+            // New-message enter animation, staggered 40ms per message from the
+            // tail (250ms window, keyed on msg.time()).
+            // SLIDE: slide in horizontally — own bubbles from right to left,
+            // others from left to right — plus fade. FADE: pure fade, no
+            // displacement. ZOOM: scale in around the bubble center with overshoot.
             float mAlpha = 1f;
+            int mDx = 0;
             int mDy = 0;
+            float mScale = 1f;
             if (ChatBubbleClientSetup.config().animationEnabled()) {
                 AnimationStyle mstyle = AnimationStyle.parse(ChatBubbleClientSetup.config().messageAnimStyle());
                 if (mstyle != AnimationStyle.NONE) {
@@ -1279,12 +1290,31 @@ public class ChatBubbleScreen extends ChatScreen {
                     if (raw < 1f) {
                         float curve = Animation.styleCurve(mstyle, raw);
                         mAlpha = curve;
-                        mDy = Math.round((1f - curve) * 8f);
+                        switch (mstyle) {
+                            case SLIDE -> mDx = Math.round((1f - curve) * 40f) * (msg.isOwn() ? 1 : -1);
+                            case FADE -> { /* pure fade, no displacement */ }
+                            case ZOOM -> mScale = 0.8f + 0.2f * Animation.easeOutBack(curve);
+                            default -> { }
+                        }
                     }
                 }
             }
             g.getMatrices().push();
-            g.getMatrices().translate(0, mDy, 0);
+            g.getMatrices().translate(mDx, mDy, 0);
+            if (mScale != 1f) {
+                // Bubble top-left for the ZOOM pivot (mirrors renderBubble's layout)
+                int zW = 0;
+                for (var zl : wrapContent(msg.content(), panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16))
+                    zW = Math.max(zW, textRenderer.getWidth(zl));
+                int zBubbleW = zW + BUBBLE_PAD_X * 2;
+                int zBubbleX = msg.isOwn()
+                    ? panelX + panelW - PAD - AVATAR - 4 - zBubbleW
+                    : panelX + PAD + AVATAR + 4;
+                int zBubbleY = screenY + NAME_H;
+                g.getMatrices().translate(zBubbleX + zBubbleW / 2f, zBubbleY, 0);
+                g.getMatrices().scale(mScale, mScale, 1f);
+                g.getMatrices().translate(-(zBubbleX + zBubbleW / 2f), -zBubbleY, 0);
+            }
             renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha);
             g.getMatrices().pop();
             fullIdx++;
@@ -1886,6 +1916,16 @@ public class ChatBubbleScreen extends ChatScreen {
             g.drawTexture(tex, x, y, size, size, 1.0F, 1.0F, 14, 14, 16, 16);
         } else {
             g.drawTexture(tex, x, y, 0, 0, size, size, size, size);
+        }
+    }
+
+    /** 带透明度图标的绘制：与 drawTextureIcon 同采样语义，但走带 alpha 的渲染路径（弹层淡入用）。 */
+    static void drawTextureIconAlpha(DrawContext g, Identifier tex, int x, int y, int size, float alpha) {
+        if (alpha <= 0.003f) return;
+        if (size < 16) {
+            ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16, alpha);
+        } else {
+            ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 0f, 0f, size, size, size, size, alpha);
         }
     }
 

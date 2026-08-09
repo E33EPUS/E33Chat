@@ -59,4 +59,31 @@ public final class ColoredTextureRenderer {
         BufferRenderer.drawWithGlobalProgram(bb.end());
         RenderSystem.disableBlend();
     }
+
+    /**
+     * 带整体透明度 + UV 采样的纹理渲染：等价 drawTexture 的
+     * (u,v,regionWidth,regionHeight,textureWidth,textureHeight) 语义，但带动态 alpha。
+     * 图标/带采样区域的元素淡入用（drawTexture 走 POSITION_TEXTURE 不吃 setShaderColor）。
+     */
+    public static void drawWithAlpha(DrawContext g, Identifier tex,
+                                     int x, int y, int w, int h,
+                                     float u, float v, int regionW, int regionH,
+                                     int texW, int texH, float alpha) {
+        if (w <= 0 || h <= 0 || alpha <= 0.003f) return;
+        g.draw();
+        RenderSystem.setShaderTexture(0, tex);
+        RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        float u1 = u / texW, u2 = (u + regionW) / texW;
+        float v1 = v / texH, v2 = (v + regionH) / texH;
+        Matrix4f pose = g.getMatrices().peek().getPositionMatrix();
+        BufferBuilder bb = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+        bb.vertex(pose, x, y, 0).texture(u1, v1).color(1f, 1f, 1f, alpha);
+        bb.vertex(pose, x, y + h, 0).texture(u1, v2).color(1f, 1f, 1f, alpha);
+        bb.vertex(pose, x + w, y + h, 0).texture(u2, v2).color(1f, 1f, 1f, alpha);
+        bb.vertex(pose, x + w, y, 0).texture(u2, v1).color(1f, 1f, 1f, alpha);
+        BufferRenderer.drawWithGlobalProgram(bb.end());
+        RenderSystem.disableBlend();
+    }
 }
