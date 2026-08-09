@@ -4,6 +4,16 @@
 
 ## v2.3.7
 
+**修复（2.3.7 补发 6）**
+- **Fabric 侧边栏在 SLIDE 下不跟随面板滑动**：`getSidebarAnimProgress` 分支写反——侧边栏开启时直接返回 1f（原地不动），面板却还在滑动，SLIDE 下面板与侧边栏割裂。修复：对齐 Forge/Neo 的判定（侧边栏未开返回 0，开启时跟随面板开合动画进度），SLIDE 下侧边栏与面板一体滑动
+- **NeoForge mod 列表描述乱码（仅 NeoForge）**：`gradle.properties` 的 `mod_description` 中文部分 UTF-8 尾字节损坏，游戏内 mod 列表显示乱码。修复：统一为与 Forge/Fabric 一致的纯英文描述
+
+**Fixes (2.3.7 follow-up 6)**
+- Fabric sidebar no longer detached under SLIDE: `getSidebarAnimProgress` had an inverted branch — with the sidebar open it returned 1f (fixed in place) while the panel kept sliding, so the panel and sidebar split under SLIDE. Fixed to match Forge/Neo (0 when closed, follow the panel's open-animation progress when open); the sidebar now slides as one unit with the panel under SLIDE
+- NeoForge mod-list description was garbled (NeoForge only): the Chinese part of `mod_description` in `gradle.properties` had a corrupted UTF-8 trailing byte, showing mojibake in-game. Fixed: unified to the same plain-English description as Forge/Fabric
+
+## v2.3.7
+
 **修复（2.3.7 补发 5）**
 - **Fabric 打开聊天框时面板被 slide 污染（仅 Fabric）**：Fabric 的 `init()` 在侧边栏开启时强制 `sidebarAnimating = true`，每帧把侧边栏滑动进度写进 `panelX`（所有面板内容的布局左边界），FADE/ZOOM 下面板矩阵不位移、但内容被 `panelX` 拖着水平滑动——叠成 slide + fade/zoom。Forge/Neo 的 `init()` 是 `sidebarAnimating = false`（侧边栏直接就位），从根上没有污染。修复：Fabric `init()` 对齐 Forge/Neo。**侧边栏的进入动画本就由面板开合动画承载**（打开=FADE 原地淡入 / ZOOM 缩放 / SLIDE 一起滑），不需要侧边栏状态机在打开时重新驱动
 - **侧边栏搜索框位置（三端）**：打开聊天框时搜索框初始 `setX(2 - SIDEBAR_W)` 藏在屏幕外（原为配合侧边栏滑入动画），但打开方向侧边栏不走自己动画、进入动画由面板承载——Forge/Neo 下搜索框停在屏幕外不可点、不可见。修复：初始直接就位 `setX(2)`
