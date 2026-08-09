@@ -292,12 +292,17 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private float getSidebarAnimProgress() {
         if (!ChatBubbleClientSetup.config().animationEnabled()) return sidebarOpen ? 1f : 0f;
-        // Independent sidebar toggle while chat is already open
+        AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle());
+        // FADE/NONE have no horizontal displacement: the sidebar fades in place.
+        if (style == AnimationStyle.FADE || style == AnimationStyle.NONE) return sidebarOpen ? 1f : 0f;
         if (sidebarAnimating) {
-            float progress = Animation.progress(sidebarAnimStart, ANIM_MS, false);
+            long elapsed = Util.getMeasuringTimeMs() - sidebarAnimStart;
+            float t = MathHelper.clamp((float) elapsed / ANIM_MS, 0f, 1f);
+            float progress = Animation.styleCurve(style, t);
             return sidebarTargetOpen ? progress : 1.0f - progress;
         }
-        return sidebarOpen ? 1f : 0f;
+        if (sidebarOpen) return 1f;
+        return getAnimProgress(); // follow the panel's open animation
     }
 
     private int getSidebarScreenX() {
@@ -1046,7 +1051,7 @@ public class ChatBubbleScreen extends ChatScreen {
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
 
-        renderTitleBar(g, mouseX, mouseY);
+        renderTitleBar(g, mouseX, mouseY, panelOpacity);
         renderMessages(g, mouseX, mouseY);
         Style hovered = getHoveredStyle(mouseX, mouseY);
         if (hovered != null && hovered.getHoverEvent() != null) {
@@ -1059,7 +1064,7 @@ public class ChatBubbleScreen extends ChatScreen {
         renderContextMenu(g, mouseX, mouseY);
         renderAvatarContextMenu(g, mouseX, mouseY);
         renderToast(g);
-        renderBottomBar(g, mouseX, mouseY);
+        renderBottomBar(g, mouseX, mouseY, panelOpacity);
         renderMentionPopup(g, mouseX, mouseY);
         // 弹层面板（设置/表情/快捷/搜索）画在底栏之上，z 高一层——侧边栏同 z 后画
         // 会盖住它们，提升弹层 z 到侧边栏之上避免遮挡
@@ -1080,11 +1085,14 @@ public class ChatBubbleScreen extends ChatScreen {
 
         if (sidebarOpen || sidebarAnimating) {
             g.getMatrices().push();
+            boolean fadeSidebar = pstyle == AnimationStyle.FADE && closing;
             int sidebarOffset = closing
                 ? (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W)
                 : getSidebarScreenX();
             g.getMatrices().translate(sidebarOffset, 0, 50);
+            if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, getAnimProgress());
             renderSidebar(g, mouseX - sidebarOffset, mouseY);
+            if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
             g.getMatrices().pop();
             if (closing) sidebarSearchBox.setX(2 + sidebarOffset);
         }
@@ -1106,35 +1114,37 @@ public class ChatBubbleScreen extends ChatScreen {
         // Notification banner is rendered by ChatBubbleHudOverlay at z=300
     }
 
-    private void renderTitleBar(DrawContext g, int mouseX, int mouseY) {
+    private void renderTitleBar(DrawContext g, int mouseX, int mouseY, float panelAlpha) {
         int ty = titleY;
-        g.drawTexture(UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, panelW, TITLE_H, 0f, 0f, 16, 16, 16, 16);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + TITLE_H, panelW, 1, 0f, 0f, 16, 16, 16, 16);
+        int a255 = (int) (255 * panelAlpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, panelW, TITLE_H, panelAlpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + TITLE_H, panelW, 1, panelAlpha);
 
         int menuX = panelX + 3;
         int menuY = ty + (TITLE_H - ICON_S) / 2;
         boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S && mouseY >= menuY && mouseY <= menuY + ICON_S;
-        if (hoverMenu) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 16, 16, 16, 16);
+        if (hoverMenu) ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, ICON_S + 2, ICON_S + 2, panelAlpha);
+        RenderSystem.setShaderColor(1f, 1f, 1f, panelAlpha);
         drawTextureIcon(g, iconTex("menu"), menuX, menuY, ICON_S);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         String title = getDisplayTitle();
         int titleW = textRenderer.getWidth(title);
         int titleX = UiLayout.centerX(panelX, panelW, titleW);
         int titleTextY = ty + (TITLE_H - textRenderer.fontHeight) / 2;
-        g.drawText(textRenderer, title, titleX, titleTextY, c().textPrimary(), false);
+        g.drawText(textRenderer, title, titleX, titleTextY, ChatBubbleTheme.alphaBlend(c().textPrimary(), a255), false);
 
         String time = LocalTime.now().format(TIME_FMT);
         int timeW = textRenderer.getWidth(time);
         g.drawText(textRenderer, time,
-            panelX + panelW - PAD - 20 - timeW, ty + (TITLE_H - textRenderer.fontHeight) / 2, c().timeColor(), false);
+            panelX + panelW - PAD - 20 - timeW, ty + (TITLE_H - textRenderer.fontHeight) / 2, ChatBubbleTheme.alphaBlend(c().timeColor(), a255), false);
 
         int closeX = panelX + panelW - 18;
         int closeY = ty + 6;
         boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12 && mouseY >= closeY && mouseY <= closeY + 12;
-        int closeBg = hoverClose ? c().closeHoverBg() : c().closeBg();
-        g.drawTexture(UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
-            closeX, closeY, 12, 12, 0f, 0f, 16, 16, 16, 16);
-        g.drawText(textRenderer, "✕", closeX + 6 - textRenderer.getWidth("✕") / 2, closeY + 2, c().closeText(), false);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
+            closeX, closeY, 12, 12, panelAlpha);
+        g.drawText(textRenderer, "✕", closeX + 6 - textRenderer.getWidth("✕") / 2, closeY + 2, ChatBubbleTheme.alphaBlend(c().closeText(), a255), false);
     }
 
     private boolean isMouseOverHamburger(double mx, double my) {
@@ -1262,7 +1272,10 @@ public class ChatBubbleScreen extends ChatScreen {
                 AnimationStyle mstyle = AnimationStyle.parse(ChatBubbleClientSetup.config().messageAnimStyle());
                 if (mstyle != AnimationStyle.NONE) {
                     int tailIdx = messages.size() - 1 - i;
-                    float raw = (float) (Util.getMeasuringTimeMs() - msg.time() - tailIdx * 40L) / 250f;
+                    // msg.time() is epoch millis (System.currentTimeMillis), so the
+                    // "now" side must use the same clock — the MC render clock is
+                    // nanoTime-based and subtracting it yields a huge negative raw.
+                    float raw = (float) (System.currentTimeMillis() - msg.time() - tailIdx * 40L) / 250f;
                     if (raw < 1f) {
                         float curve = Animation.styleCurve(mstyle, raw);
                         mAlpha = curve;
@@ -1816,9 +1829,10 @@ public class ChatBubbleScreen extends ChatScreen {
         setFocused(chatField);
     }
 
-    private void renderBottomBar(DrawContext g, int mouseX, int mouseY) {
-        g.drawTexture(UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, panelW, height - barTop, 0f, 0f, 16, 16, 16, 16);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, panelW, 1, 0f, 0f, 16, 16, 16, 16);
+    private void renderBottomBar(DrawContext g, int mouseX, int mouseY, float panelAlpha) {
+        int a255 = (int) (255 * panelAlpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, panelW, height - barTop, panelAlpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, panelW, 1, panelAlpha);
 
         int iconY = barTop + (BAR_H - ICON_S) / 2;
 
@@ -1826,12 +1840,12 @@ public class ChatBubbleScreen extends ChatScreen {
         int ibY = inputY;
         int ibW = chatField.getWidth();
         int ibH = INPUT_H;
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, ibW + 1, 1, 0f, 0f, 16, 16, 16, 16);
-        g.drawTexture(UiTextureManager.rl(UiElement.INPUT_BG), ibX - 1, ibY, ibW + 1, ibH, 0f, 0f, 16, 16, 16, 16);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, ibW + 1, 1, panelAlpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.INPUT_BG), ibX - 1, ibY, ibW + 1, ibH, panelAlpha);
 
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + ibW && mouseY >= ibY && mouseY <= ibY + ibH;
         if (hoverInput || chatField.isFocused())
-            g.drawBorder(ibX - 1, ibY, ibW + 1, ibH, c().textMuted());
+            g.drawBorder(ibX - 1, ibY, ibW + 1, ibH, ChatBubbleTheme.alphaBlend(c().textMuted(), a255));
 
         int gearX = panelX + 4;
         int sendX = panelX + panelW - PAD - ICON_S + 2;
@@ -1839,18 +1853,24 @@ public class ChatBubbleScreen extends ChatScreen {
 
         boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverGear) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 16, 16, 16, 16);
+        if (hoverGear) ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, panelAlpha);
+        RenderSystem.setShaderColor(1f, 1f, 1f, panelAlpha);
         drawTextureIcon(g, iconTex("settings"), gearX, iconY, ICON_S);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverEmoji || emojiPanel.visible) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 16, 16, 16, 16);
+        if (hoverEmoji || emojiPanel.visible) ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, panelAlpha);
+        RenderSystem.setShaderColor(1f, 1f, 1f, panelAlpha);
         drawTextureIcon(g, iconTex("emoji"), emojiX, iconY, ICON_S);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverSend) g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 16, 16, 16, 16);
+        if (hoverSend) ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, panelAlpha);
+        RenderSystem.setShaderColor(1f, 1f, 1f, panelAlpha);
         drawTextureIcon(g, iconTex("send"), sendX, iconY, ICON_S);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
     }
 
 
