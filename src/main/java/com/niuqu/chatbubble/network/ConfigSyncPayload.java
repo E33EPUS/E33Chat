@@ -1,5 +1,4 @@
 package com.niuqu.chatbubble.network;
-import com.niuqu.chatbubble.GuiCompat;
 import com.niuqu.chatbubble.ChatMessageStore;
 import net.minecraft.network.PacketByteBuf;
 //#if MC >= 12005
@@ -14,7 +13,7 @@ public record ConfigSyncPayload(boolean useTpa) implements CustomPayload {
 //#endif
     //#if MC >= 12005
     public static final CustomPayload.Id<ConfigSyncPayload> ID =
-        new CustomPayload.Id<>(GuiCompat.id("e33chat", "config_sync"));
+        new CustomPayload.Id<>(PayloadIds.of("config_sync"));
     public static final PacketCodec<PacketByteBuf, ConfigSyncPayload> CODEC = PacketCodec.of(
         //#if MC >= 26000
         (buf, value) -> buf.writeBoolean(value.useTpa),

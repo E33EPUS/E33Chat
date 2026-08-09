@@ -1,5 +1,4 @@
 package com.niuqu.chatbubble.network;
-import com.niuqu.chatbubble.GuiCompat;
 import com.niuqu.chatbubble.ChatMessageStore;
 import net.minecraft.network.PacketByteBuf;
 //#if MC >= 12005
@@ -19,7 +18,7 @@ public record ChatMetaPayload(UUID senderUUID, String senderName, String message
         //#endif
     //#if MC >= 12005
     public static final CustomPayload.Id<ChatMetaPayload> ID =
-        new CustomPayload.Id<>(GuiCompat.id("e33chat", "chat_meta"));
+        new CustomPayload.Id<>(PayloadIds.of("chat_meta"));
     public static final PacketCodec<PacketByteBuf, ChatMetaPayload> CODEC = PacketCodec.of(
         //#if MC >= 26000
         (buf, value) -> {

@@ -1,5 +1,4 @@
 package com.niuqu.chatbubble.network;
-import com.niuqu.chatbubble.GuiCompat;
 import net.minecraft.network.PacketByteBuf;
 //#if MC >= 12005
 import net.minecraft.network.codec.PacketCodec;
@@ -17,7 +16,7 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
         //#endif
     //#if MC >= 12005
     public static final CustomPayload.Id<ServerConfigScreenPayload> ID =
-        new CustomPayload.Id<>(GuiCompat.id("e33chat", "server_config_screen"));
+        new CustomPayload.Id<>(PayloadIds.of("server_config_screen"));
     public static final PacketCodec<PacketByteBuf, ServerConfigScreenPayload> CODEC = PacketCodec.of(
         //#if MC >= 26000
         (buf, value) -> {

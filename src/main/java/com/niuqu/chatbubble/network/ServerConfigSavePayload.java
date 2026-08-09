@@ -1,5 +1,4 @@
 package com.niuqu.chatbubble.network;
-import com.niuqu.chatbubble.GuiCompat;
 import com.niuqu.chatbubble.config.ServerConfig;
 import com.niuqu.chatbubble.config.ServerConfigManager;
 import com.niuqu.chatbubble.chat.TemplateMatcher;
@@ -23,7 +22,7 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
         //#endif
     //#if MC >= 12005
     public static final CustomPayload.Id<ServerConfigSavePayload> ID =
-        new CustomPayload.Id<>(GuiCompat.id("e33chat", "server_config_save"));
+        new CustomPayload.Id<>(PayloadIds.of("server_config_save"));
     public static final PacketCodec<PacketByteBuf, ServerConfigSavePayload> CODEC = PacketCodec.of(
         //#if MC >= 26000
         (buf, value) -> {

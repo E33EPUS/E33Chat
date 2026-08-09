@@ -1,5 +1,4 @@
 package com.niuqu.chatbubble.network;
-import com.niuqu.chatbubble.GuiCompat;
 import net.minecraft.network.PacketByteBuf;
 //#if MC >= 12005
 import net.minecraft.network.codec.PacketCodec;
@@ -17,7 +16,7 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
         //#endif
     //#if MC >= 12005
     public static final CustomPayload.Id<HistoryPayload> ID =
-        new CustomPayload.Id<>(GuiCompat.id("e33chat", "chat_history"));
+        new CustomPayload.Id<>(PayloadIds.of("chat_history"));
     //#else
     //$$ public static final Identifier ID = new Identifier("e33chat", "chat_history");
     //#endif

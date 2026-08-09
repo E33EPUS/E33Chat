@@ -1,5 +1,4 @@
 package com.niuqu.chatbubble.network;
-import com.niuqu.chatbubble.GuiCompat;
 import net.minecraft.network.PacketByteBuf;
 //#if MC >= 12005
 import net.minecraft.network.codec.PacketCodec;
@@ -14,7 +13,7 @@ public record QuoteSyncPayload(String quotedSenderName, String quotedContent, St
 //#endif
     //#if MC >= 12005
     public static final CustomPayload.Id<QuoteSyncPayload> ID =
-        new CustomPayload.Id<>(GuiCompat.id("e33chat", "quote_sync"));
+        new CustomPayload.Id<>(PayloadIds.of("quote_sync"));
     public static final PacketCodec<PacketByteBuf, QuoteSyncPayload> CODEC = PacketCodec.of(
         //#if MC >= 26000
         (buf, value) -> {
