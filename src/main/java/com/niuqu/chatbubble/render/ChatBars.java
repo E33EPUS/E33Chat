@@ -22,18 +22,16 @@ public final class ChatBars {
                                        String title, String time,
                                        ResourceLocation menuIcon, float alpha) {
         int a255 = (int) (255 * alpha);
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         int ty = 0;
-        g.blit(UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, panelW, ChatLayout.TITLE_H, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + ChatLayout.TITLE_H, panelW, 1, 0f, 0f, 1, 1, 1, 1);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, panelW, ChatLayout.TITLE_H, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + ChatLayout.TITLE_H, panelW, 1, alpha);
 
         int menuX = panelX + 3;
         int menuY = ty + (ChatLayout.TITLE_H - ICON_S) / 2;
         boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S
             && mouseY >= menuY && mouseY <= menuY + ICON_S;
-        if (hoverMenu) g.blit(UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, menuIcon, menuX, menuY, ICON_S);
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        if (hoverMenu) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, ICON_S + 2, ICON_S + 2, alpha);
+        drawIcon(g, menuIcon, menuX, menuY, ICON_S, alpha);
 
         int titleW = font.width(title);
         int titleX = UiLayout.centerX(panelX, panelW, titleW);
@@ -45,14 +43,12 @@ public final class ChatBars {
             panelX + panelW - ChatLayout.PAD - 20 - timeW,
             ty + (ChatLayout.TITLE_H - font.lineHeight) / 2, ChatBubbleTheme.alphaBlend(c.timeColor(), a255), false);
 
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         int closeX = panelX + panelW - 18;
         int closeY = ty + 6;
         boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12
             && mouseY >= closeY && mouseY <= closeY + 12;
-        g.blit(UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
-            closeX, closeY, 12, 12, 0f, 0f, 1, 1, 1, 1);
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
+            closeX, closeY, 12, 12, alpha);
         g.drawString(font, Component.literal("✕"), closeX + 6 - font.width("✕") / 2,
             closeY + 2, ChatBubbleTheme.alphaBlend(c.closeText(), a255), false);
     }
@@ -66,17 +62,16 @@ public final class ChatBars {
                                         ResourceLocation emojiIcon,
                                         ResourceLocation sendIcon, float alpha) {
         int a255 = (int) (255 * alpha);
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-        g.blit(UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, panelW, screenH - barTop, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, panelW, 1, 0f, 0f, 1, 1, 1, 1);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, panelW, screenH - barTop, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, panelW, 1, alpha);
 
         int iconY = barTop + (ChatLayout.BAR_H - ICON_S) / 2;
 
         int ibX = inputX;
         int ibY = inputY;
         int ibH = INPUT_H;
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, inputW + 1, 1, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.INPUT_BG), ibX - 1, ibY, inputW + 1, ibH, 0f, 0f, 1, 1, 1, 1);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), ibX - 1, ibY - 1, inputW + 1, 1, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.INPUT_BG), ibX - 1, ibY, inputW + 1, ibH, alpha);
 
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + inputW
             && mouseY >= ibY && mouseY <= ibY + ibH;
@@ -89,33 +84,31 @@ public final class ChatBars {
 
         boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverGear) g.blit(UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, settingsIcon, gearX, iconY, ICON_S);
+        if (hoverGear) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, alpha);
+        drawIcon(g, settingsIcon, gearX, iconY, ICON_S, alpha);
 
         boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverEmoji || emojiPanelVisible)
-            g.blit(UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, emojiIcon, emojiX, iconY, ICON_S);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, alpha);
+        drawIcon(g, emojiIcon, emojiX, iconY, ICON_S, alpha);
 
         boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
-        if (hoverSend) g.blit(UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, sendIcon, sendX, iconY, ICON_S);
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        if (hoverSend) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, alpha);
+        drawIcon(g, sendIcon, sendX, iconY, ICON_S, alpha);
     }
 
-    private static void drawIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size) {
-        com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, tex);
-        com.mojang.blaze3d.systems.RenderSystem.setShader(
-            net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+    private static void drawIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size, float alpha) {
+        if (alpha <= 0.003f) return;
         if (size < 16) {
             // 图标纹理约定 16x16（内容居中，四周 1px 透明边）。采样内容区 14x14（偏移1,1）
             // 完整绘制——窗口取 size(12) 会切掉内容右/下 2px（copy 双页右页被切）。
-            g.blit(tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size,
+                1f, 1f, 14, 14, 16, 16, alpha);
         } else {
-            g.blit(tex, x, y, 0, 0, size, size, size, size);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size,
+                0f, 0f, size, size, size, size, alpha);
         }
     }
 }

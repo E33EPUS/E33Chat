@@ -300,11 +300,11 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private static final int SIDEBAR_SEARCH_H = 14;
 
-    private void renderSidebar(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderSidebar(GuiGraphics g, int mouseX, int mouseY, float alpha) {
         sidebarMaxScroll = ChatSidebar.render(g, font, mouseX, mouseY, c(), panelW,
             msgBottom > 0 ? msgBottom : height - BAR_H, whisperPartner,
             iconTex("public_icon"), iconTex("no_online"), iconTex("private_tip"),
-            sidebarSearchBox, sidebarScrollOffset, sidebarMaxScroll);
+            sidebarSearchBox, sidebarScrollOffset, sidebarMaxScroll, alpha);
         if (sidebarScrollOffset > sidebarMaxScroll) sidebarScrollOffset = sidebarMaxScroll;
     }
 
@@ -1141,9 +1141,9 @@ public class ChatBubbleScreen extends ChatScreen {
                 ? (int)((getAnimProgress() - 1.0f) * SIDEBAR_W)
                 : (fadeSidebar ? 0 : (int) getSidebarScreenX());
             g.pose().translate(sidebarOffset, 0, 50);
-            if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, getAnimProgress());
-            renderSidebar(g, mouseX - sidebarOffset, mouseY);
-            if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+            // Per-element alpha (vanilla blit ignores setShaderColor; the sidebar
+            // fades its own textures through ChatSidebar's alpha path)
+            renderSidebar(g, mouseX - sidebarOffset, mouseY, fadeSidebar ? getAnimProgress() : 1f);
             g.pose().popPose();
             if (closing) sidebarSearchBox.setX(2 + sidebarOffset);
         }
