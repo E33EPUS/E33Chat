@@ -286,6 +286,10 @@ public class ChatBubbleScreen extends Screen {
         GuiCompat.addDrawableChild(this, searchInput);
 
         setFocused(input);
+        // The chat field's initial text is set before setChangedListener binds,
+        // so the open-time value (e.g. "/" from the chat key) never flows through
+        // onEdited — sync it once so the IMBlocker IME state is correct.
+        onEdited(input.getText());
     }
 
     private void rebuildLayout() {

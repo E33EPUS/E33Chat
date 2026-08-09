@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "e33chat",
+  "version": "${version}",
+  "name": "E33Chat",
+  "description": "Rebuilds the vanilla chat HUD in a chat-app style",
+  "authors": [
+    "E33EPUS"
+  ],
+  "license": "MIT",
+  "icon": "logo.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.niuqu.chatbubble.ChatBubbleMod"
+    ],
+    "client": [
+      "com.niuqu.chatbubble.ChatBubbleClientSetup"
+    ],
+    "modmenu": [
+      "com.niuqu.chatbubble.integration.ModMenuIntegration"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "e33chat.client.mixins.json",
+      "environment": "client"
+    },
+    {
+      "config": "e33chat.server.mixins.json"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "1.19.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "recommends": {
+    "modmenu": ">=6.0.0"
+  }
+}

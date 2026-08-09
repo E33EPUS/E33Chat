@@ -21,7 +21,7 @@ public final class GuiCompat {
     private GuiCompat() {}
 
     public static ButtonWidget button(Text message, ButtonWidget.PressAction action, int x, int y, int w, int h) {
-        //#if MC >= 12000
+        //#if MC >= 11903
         return ButtonWidget.builder(message, action).dimensions(x, y, w, h).build();
         //#else
         //$$ return new ButtonWidget(x, y, w, h, message, action);
@@ -210,7 +210,8 @@ public final class GuiCompat {
     public static void renderTooltip(Object ctx, Screen screen, Text text, int x, int y) {
         if (screen == null || text == null) return;
         //#if MC >= 12000
-        ((net.minecraft.client.gui.DrawContext) ctx).drawTooltip(MinecraftClient.getInstance().textRenderer, text, x, y);
+        var tr = MinecraftClient.getInstance().textRenderer;
+        ((net.minecraft.client.gui.DrawContext) ctx).drawTooltip(tr, text, x, y);
         //#else
         //$$ screen.renderTooltip((net.minecraft.client.util.math.MatrixStack) ctx, text, x, y);
         //#endif
