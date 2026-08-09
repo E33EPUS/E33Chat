@@ -409,8 +409,13 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private float getSidebarAnimProgress() {
         if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) return sidebarOpen ? 1f : 0f;
+        AnimationStyle style = ChatBubbleConfig.PANEL_ANIM_STYLE.get();
+        // FADE/NONE have no horizontal displacement: the sidebar fades in place.
+        if (style == AnimationStyle.FADE || style == AnimationStyle.NONE) return sidebarOpen ? 1f : 0f;
         if (sidebarAnimating) {
-            float progress = Animation.progress(sidebarAnimStart, ANIM_MS, false);
+            long elapsed = net.minecraft.Util.getMillis() - sidebarAnimStart;
+            float t = Mth.clamp((float) elapsed / ANIM_MS, 0f, 1f);
+            float progress = Animation.styleCurve(style, t);
             return sidebarTargetOpen ? progress : 1.0f - progress;
         }
         if (!sidebarOpen) return 0f;
@@ -1107,11 +1112,14 @@ public class ChatBubbleScreen extends ChatScreen {
         // Sidebar on top of chat panel, with its own slide animation
         if (sidebarOpen || sidebarAnimating) {
             g.pose().pushPose();
+            boolean fadeSidebar = pstyle == AnimationStyle.FADE && closing;
             int sidebarOffset = closing
                 ? (int)((getAnimProgress() - 1.0f) * SIDEBAR_W)
                 : (int) getSidebarScreenX();
             g.pose().translate(sidebarOffset, 0, 50);
+            if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, getAnimProgress());
             renderSidebar(g, mouseX - sidebarOffset, mouseY);
+            if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
             g.pose().popPose();
             if (closing) sidebarSearchBox.setX(2 + sidebarOffset);
         }
@@ -1143,8 +1151,9 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
+        float panelAlpha = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * getAnimProgress();
         ChatBars.renderTitleBar(g, font, mouseX, mouseY, c(), panelX, panelW,
-            getDisplayTitle(), LocalTime.now().format(TIME_FMT), iconTex("menu"));
+            getDisplayTitle(), LocalTime.now().format(TIME_FMT), iconTex("menu"), panelAlpha);
     }
 
     private boolean isMouseOverHamburger(double mx, double my) {
@@ -1286,7 +1295,10 @@ public class ChatBubbleScreen extends ChatScreen {
                 AnimationStyle mstyle = ChatBubbleConfig.MESSAGE_ANIM_STYLE.get();
                 if (mstyle != AnimationStyle.NONE) {
                     int tailIdx = messages.size() - 1 - i;
-                    float raw = (float) (net.minecraft.Util.getMillis() - msg.time() - tailIdx * 40L) / 250f;
+                    // msg.time() is epoch millis (System.currentTimeMillis), so the
+                    // "now" side must use the same clock — the MC render clock is
+                    // nanoTime-based and subtracting it yields a huge negative raw.
+                    float raw = (float) (System.currentTimeMillis() - msg.time() - tailIdx * 40L) / 250f;
                     if (raw < 1f) {
                         float curve = Animation.styleCurve(mstyle, raw);
                         mAlpha = curve;
@@ -1596,9 +1608,10 @@ public class ChatBubbleScreen extends ChatScreen {
 
 
     private void renderBottomBar(GuiGraphics g, int mouseX, int mouseY) {
+        float panelAlpha = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * getAnimProgress();
         ChatBars.renderBottomBar(g, font, mouseX, mouseY, c(), panelX, panelW, barTop, height,
             inputX, inputY, input.getWidth(), input.isFocused(), emojiPanel.visible,
-            iconTex("settings"), iconTex("emoji"), iconTex("send"));
+            iconTex("settings"), iconTex("emoji"), iconTex("send"), panelAlpha);
     }
 
     static void drawTextureIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size) {

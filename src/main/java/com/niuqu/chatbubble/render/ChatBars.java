@@ -20,7 +20,9 @@ public final class ChatBars {
                                        ChatBubbleTheme.Colors c,
                                        int panelX, int panelW,
                                        String title, String time,
-                                       ResourceLocation menuIcon) {
+                                       ResourceLocation menuIcon, float alpha) {
+        int a255 = (int) (255 * alpha);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         int ty = 0;
         g.blit(UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, panelW, ChatLayout.TITLE_H, 0f, 0f, 1, 1, 1, 1);
         g.blit(UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + ChatLayout.TITLE_H, panelW, 1, 0f, 0f, 1, 1, 1, 1);
@@ -31,25 +33,28 @@ public final class ChatBars {
             && mouseY >= menuY && mouseY <= menuY + ICON_S;
         if (hoverMenu) g.blit(UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
         drawIcon(g, menuIcon, menuX, menuY, ICON_S);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         int titleW = font.width(title);
         int titleX = UiLayout.centerX(panelX, panelW, titleW);
         int titleTextY = ty + (ChatLayout.TITLE_H - font.lineHeight) / 2;
-        g.drawString(font, Component.literal(title), titleX, titleTextY, c.textPrimary(), false);
+        g.drawString(font, Component.literal(title), titleX, titleTextY, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
 
         int timeW = font.width(time);
         g.drawString(font, Component.literal(time),
             panelX + panelW - ChatLayout.PAD - 20 - timeW,
-            ty + (ChatLayout.TITLE_H - font.lineHeight) / 2, c.timeColor(), false);
+            ty + (ChatLayout.TITLE_H - font.lineHeight) / 2, ChatBubbleTheme.alphaBlend(c.timeColor(), a255), false);
 
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         int closeX = panelX + panelW - 18;
         int closeY = ty + 6;
         boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12
             && mouseY >= closeY && mouseY <= closeY + 12;
         g.blit(UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
             closeX, closeY, 12, 12, 0f, 0f, 1, 1, 1, 1);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         g.drawString(font, Component.literal("✕"), closeX + 6 - font.width("✕") / 2,
-            closeY + 2, c.closeText(), false);
+            closeY + 2, ChatBubbleTheme.alphaBlend(c.closeText(), a255), false);
     }
 
     public static void renderBottomBar(GuiGraphics g, Font font, int mouseX, int mouseY,
@@ -59,7 +64,9 @@ public final class ChatBars {
                                         boolean emojiPanelVisible,
                                         ResourceLocation settingsIcon,
                                         ResourceLocation emojiIcon,
-                                        ResourceLocation sendIcon) {
+                                        ResourceLocation sendIcon, float alpha) {
+        int a255 = (int) (255 * alpha);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         g.blit(UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, panelW, screenH - barTop, 0f, 0f, 1, 1, 1, 1);
         g.blit(UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, panelW, 1, 0f, 0f, 1, 1, 1, 1);
 
@@ -74,7 +81,7 @@ public final class ChatBars {
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + inputW
             && mouseY >= ibY && mouseY <= ibY + ibH;
         if (hoverInput || inputFocused)
-            g.renderOutline(ibX - 1, ibY, inputW + 1, ibH, c.textMuted());
+            g.renderOutline(ibX - 1, ibY, inputW + 1, ibH, ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
 
         int gearX = panelX + 4;
         int sendX = panelX + panelW - ChatLayout.PAD - ICON_S + 2;
@@ -95,6 +102,7 @@ public final class ChatBars {
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverSend) g.blit(UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, 0f, 0f, 1, 1, 1, 1);
         drawIcon(g, sendIcon, sendX, iconY, ICON_S);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
     }
 
     private static void drawIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size) {

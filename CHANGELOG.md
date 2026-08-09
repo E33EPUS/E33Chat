@@ -15,6 +15,16 @@
 - New settings ×4: `panel_anim_style` / `banner_anim_style` / `popup_anim_style` / `message_anim_style`, cycled via buttons in the config screen; the global "Animation" toggle still applies
 - Tests: Forge 241 / NeoForge 241 / Fabric 222 all green
 
+**修复（2.3.7 补发）**
+- **新消息气泡/头像永久消失（三端）**：消息进入动画把 MC 渲染时钟（`getMillis`，nanoTime 基准）与消息时间戳（`System.currentTimeMillis`，epoch 基准）直接相减——两个时钟差约等于 JVM 运行时长，算出巨大负进度 → 透明度恒 0 → 气泡/头像永不可见。修复：动画 now 侧改用 `System.currentTimeMillis()`（与消息时间戳同源）
+- **上栏/下栏不随面板淡入**：标题栏/底栏背景从不乘面板透明度（此前 SLIDE 靠位移掩盖），FADE/ZOOM 下原形毕露。修复：两栏背景改带 alpha 绘制、文字/图标/边框逐元素 alphaBlend，跟随面板淡入淡出
+- **侧边栏动画与面板割裂**：侧边栏硬编码 slide 曲线。修复：侧边栏进度走面板动画风格曲线；FADE 下侧边栏原地淡入（不位移）
+
+**Fixes (2.3.7 follow-up)**
+- New-message bubbles/avatars permanently invisible (all three platforms): the message enter animation subtracted the MC render clock (`getMillis`, nanoTime-based) from the message timestamp (`System.currentTimeMillis`, epoch-based) — two unrelated clocks, off by roughly the JVM uptime, so the progress went hugely negative and the alpha stayed 0 forever. Fixed: the animation now uses `System.currentTimeMillis()` on the "now" side, matching the timestamp
+- Title bar / bottom bar no longer followed the panel fade: their backgrounds never multiplied the panel opacity (the old slide hid it), which FADE/ZOOM exposed. Fixed: both bars render with alpha and their text/icons/borders use per-element alphaBlend
+- Sidebar animation felt detached from the panel: it used a hard-coded slide curve. Fixed: the sidebar follows the panel's animation style curve, and fades in place (no displacement) under FADE
+
 ## v2.3.6
 
 **修复**
