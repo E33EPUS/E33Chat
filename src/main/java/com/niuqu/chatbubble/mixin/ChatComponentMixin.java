@@ -271,6 +271,22 @@ public class ChatComponentMixin {
         // [Image] component so the bubble matches the vanilla chat
         content = ChatImageCompat.convert(content);
 
+        // Fallback: if the sender name is just the raw GameProfile name (no
+        // prefix/title decorations), try to extract the decorated name from the
+        // fully rendered final component — covers servers whose chat-type
+        // params.name() returned null or the bare name, but the chat-type
+        // decoration added the prefix in the rendered output.
+        if (!meta.isSystem() && meta.rawPlayerName() != null && !meta.rawPlayerName().isEmpty()
+                && meta.senderName().getString().equals(meta.rawPlayerName())
+                && finalStr.contains(rawStr) && !rawStr.isEmpty()) {
+            Text decorated = ChatMessageStore.extractDecoratedName(
+                finalComponent, rawStr, meta.rawPlayerName(), meta.senderName());
+            if (!decorated.getString().equals(meta.senderName().getString())) {
+                meta = new SenderMeta(meta.senderUUID(), decorated, meta.rawContent(),
+                    meta.isSystem(), meta.rawPlayerName(), meta.whisper(), meta.whisperPartner());
+            }
+        }
+
         Text logComp = finalComponent, logContent = content;
         SenderMeta logMeta = meta;
         ChatMessageStore.debugLog(() -> "[e33chat] Capture | final='" + logComp.getString() + "' | content='" + logContent.getString() + "' | whisper=" + logMeta.whisper() + " | partner=" + logMeta.whisperPartner() + " | isSystem=" + logMeta.isSystem());

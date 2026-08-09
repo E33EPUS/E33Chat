@@ -638,6 +638,55 @@ public class ChatMessageStore {
         return out;
     }
 
+    /**
+     * Extract the decorated sender name (with prefix/title) from a fully
+     * rendered chat line by locating the content text and taking everything
+     * before it as the name area.
+     */
+    public static Text extractDecoratedName(Text fullLine, String contentStr,
+                                             String rawName, Text fallback) {
+        if (contentStr == null || contentStr.isEmpty()) return fallback;
+        String fullStr = fullLine.getString();
+        int idx = fullStr.lastIndexOf(contentStr);
+        if (idx <= 0) return fallback;
+        return cleanNameArea(fullLine, 0, idx, rawName, fallback);
+    }
+
+    /**
+     * Clean up a name area extracted from a chat line: strip whitespace,
+     * trailing separators (colons, »), angle brackets wrapping the bare name,
+     * so the result keeps decorations ([VIP], 【称号】) but not the separators.
+     */
+    public static Text cleanNameArea(Text fullLine, int a, int b,
+                                      String rawName, Text fallback) {
+        String fullStr = fullLine.getString();
+        while (a < b && Character.isWhitespace(fullStr.charAt(a))) a++;
+        while (b > a) {
+            char ch = fullStr.charAt(b - 1);
+            if (Character.isWhitespace(ch) || ch == ':' || ch == '：' || ch == '»') b--;
+            else if (ch == '>' && b >= a + 2 && fullStr.charAt(b - 2) == '>') b -= 2;
+            else break;
+        }
+        if (a >= b) return fallback;
+        Text nameArea = sliceStyled(fullLine, a, b);
+        String ns = nameArea.getString();
+        if (rawName != null && !rawName.isEmpty()) {
+            String bracketed = "<" + rawName + ">";
+            int p = ns.indexOf(bracketed);
+            if (p >= 0) {
+                var out = com.niuqu.chatbubble.Txt.empty();
+                if (p > 0) out.append(sliceStyled(nameArea, 0, p));
+                out.append(sliceStyled(nameArea, p + 1, p + 1 + rawName.length()));
+                int tail = p + bracketed.length();
+                if (tail < ns.length()) out.append(sliceStyled(nameArea, tail, ns.length()));
+                return out;
+            }
+            if (ns.length() > 2 && ns.charAt(0) == '<' && ns.charAt(ns.length() - 1) == '>')
+                return sliceStyled(nameArea, 1, ns.length() - 1);
+        }
+        return nameArea;
+    }
+
     // Flatten the component into styled runs with control chars (newline, tab, ...)
     // replaced by spaces — for single-line contexts (the strong hint) that can't break
     // on '\n' and would otherwise draw "LF" boxes. Keeps style + click/hover events.

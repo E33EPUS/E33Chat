@@ -28,42 +28,14 @@ public class ChatListenerMixin {
     private static long templateMissWindowStart;
     private static int templateMissBurst;
 
+    // Delegated to ChatMessageStore so ChatComponentMixin can also use them
     private static Text extractDecoratedName(Text fullLine, String contentStr,
                                               String rawName, Text fallback) {
-        if (contentStr == null || contentStr.isEmpty()) return fallback;
-        String fullStr = fullLine.getString();
-        int idx = fullStr.lastIndexOf(contentStr);
-        if (idx <= 0) return fallback;
-        return cleanNameArea(fullLine, 0, idx, rawName, fallback);
+        return ChatMessageStore.extractDecoratedName(fullLine, contentStr, rawName, fallback);
     }
     private static Text cleanNameArea(Text fullLine, int a, int b,
                                        String rawName, Text fallback) {
-        String fullStr = fullLine.getString();
-        while (a < b && Character.isWhitespace(fullStr.charAt(a))) a++;
-        while (b > a) {
-            char ch = fullStr.charAt(b - 1);
-            if (Character.isWhitespace(ch) || ch == ':' || ch == '：' || ch == '»') b--;
-            else if (ch == '>' && b >= a + 2 && fullStr.charAt(b - 2) == '>') b -= 2;
-            else break;
-        }
-        if (a >= b) return fallback;
-        Text nameArea = ChatMessageStore.sliceStyled(fullLine, a, b);
-        String ns = nameArea.getString();
-        if (rawName != null && !rawName.isEmpty()) {
-            String bracketed = "<" + rawName + ">";
-            int p = ns.indexOf(bracketed);
-            if (p >= 0) {
-                var out = com.niuqu.chatbubble.Txt.empty();
-                if (p > 0) out.append(ChatMessageStore.sliceStyled(nameArea, 0, p));
-                out.append(ChatMessageStore.sliceStyled(nameArea, p + 1, p + 1 + rawName.length()));
-                int tail = p + bracketed.length();
-                if (tail < ns.length()) out.append(ChatMessageStore.sliceStyled(nameArea, tail, ns.length()));
-                return out;
-            }
-            if (ns.length() > 2 && ns.charAt(0) == '<' && ns.charAt(ns.length() - 1) == '>')
-                return ChatMessageStore.sliceStyled(nameArea, 1, ns.length() - 1);
-        }
-        return nameArea;
+        return ChatMessageStore.cleanNameArea(fullLine, a, b, rawName, fallback);
     }
     private static String[] nameCandidates(PlayerListEntry info) {
         var out = new LinkedHashSet<String>();
@@ -470,8 +442,11 @@ public class ChatListenerMixin {
             whisperPartner = name;
         }
         //#endif
-        Text nameText = com.niuqu.chatbubble.Txt.literal(name);
-        ChatMessageStore.debugLog("[e33chat] onChatMessage | name=" + name + " | content='" + rawStr + "' | isWhisper=" + isWhisper);
+        // Use the chat-type display name (carries server-side prefix/title
+        // decorations like "[VIP]Steve") instead of the bare GameProfile name.
+        Text paramName = params.name();
+        Text nameText = paramName != null ? paramName : com.niuqu.chatbubble.Txt.literal(name);
+        ChatMessageStore.debugLog("[e33chat] onChatMessage | name=" + name + " | display='" + nameText.getString() + "' | content='" + rawStr + "' | isWhisper=" + isWhisper);
         ChatMessageStore.setPendingMeta(new SenderMeta(senderId, nameText, raw, false, name, isWhisper, whisperPartner));
     }
 
