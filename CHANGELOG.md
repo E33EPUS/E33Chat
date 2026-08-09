@@ -4,6 +4,16 @@
 
 ## v2.3.7
 
+**修复（2.3.7 补发 3）**
+- **ZOOM 下面板与侧边栏割裂**：面板 ZOOM 缩放时侧边栏仍保留水平位移，与缩放矩阵叠加成"滑动+缩放"两重效果。现在侧边栏去掉位移，与面板一起绕面板中心缩放 + 同步淡入，成为整体
+- **FADE 下侧边栏切换无动画**：点汉堡切换侧边栏开关时，FADE/NONE 进度被短路成 0/1，切换瞬间无任何动画。现在汉堡切换永远走滑动动画（侧边栏是独立个体，切换动画不随面板动画风格）
+
+**Fixes (2.3.7 follow-up 3)**
+- Sidebar no longer slides under panel ZOOM: it kept its horizontal offset while the panel scaled, stacking slide + zoom. It now drops the offset and scales with the panel around the panel center, fading in sync
+- Sidebar toggle had no animation under FADE: the FADE/NONE progress shortcut snapped to 0/1, so the hamburger toggle was instant. The toggle now always slides, independent of the panel animation style
+
+## v2.3.7
+
 **修复（2.3.7 补发 2）**
 - **弹层 SLIDE 上滑+淡入（三端）**：此前弹层 SLIDE 与 FADE 效果几乎一样（只有淡入、无位移），预期是从下往上滑入。现在 SLIDE 弹出时上滑 10px + 淡入
 - **侧边栏 FADE 关闭方向走滑动**：面板 FADE 关闭时侧边栏仍硬编码向左滑出（关闭分支绕过了动画风格分派，只有打开方向是原地淡入）。现在 FADE 下关闭方向同样原地淡出
