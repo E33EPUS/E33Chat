@@ -17,8 +17,9 @@ public class ChatQuickChatPanel {
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
-            net.minecraft.client.gui.components.EditBox input) {
+            net.minecraft.client.gui.components.EditBox input, float alpha) {
         if (!visible) return;
+        int a255 = (int) (255 * alpha);
         var phrases = ChatBubbleConfig.QUICK_CHAT_PHRASES.get();
         int visiblePhrases = Math.min(phrases.size(), MAX_VISIBLE);
         int listH = visiblePhrases * ROW_H;
@@ -30,9 +31,10 @@ public class ChatQuickChatPanel {
         int px = Mth.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
 
-        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, py, W, panelH, 0f, 0f, 1, 1, 1, 1);
-        g.renderOutline(px, py, W, panelH, c.divider());
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+            px, py, W, panelH, alpha);
+        g.renderOutline(px, py, W, panelH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         // Scrollbar
         int totalPhrases = phrases.size();
@@ -68,17 +70,19 @@ public class ChatQuickChatPanel {
             String display = font.plainSubstrByWidth(phrase, textMaxW);
             boolean hover = mouseX >= px + 4 && mouseX <= hoverRight
                 && mouseY >= rowY && mouseY <= rowY + ROW_H;
-            if (hover) g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
-                px + 4, rowY, hoverRight - (px + 4), ROW_H, 0f, 0f, 1, 1, 1, 1);
-            g.drawString(font, Component.literal(display), px + 6, rowY + 2, c.textPrimary(), false);
+            if (hover) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+                com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                px + 4, rowY, hoverRight - (px + 4), ROW_H, alpha);
+            g.drawString(font, Component.literal(display), px + 6, rowY + 2, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
             int delX = hoverRight - 13;
             int delY = rowY + 1;
             boolean hoverDel = mouseX >= delX && mouseX <= delX + 12 && mouseY >= delY && mouseY <= delY + 12;
-            g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(hoverDel
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+                com.niuqu.chatbubble.texture.UiTextureManager.rl(hoverDel
                     ? com.niuqu.chatbubble.texture.UiElement.CLOSE_HOVER
                     : com.niuqu.chatbubble.texture.UiElement.CLOSE_BG),
-                delX, delY, 12, 12, 0f, 0f, 1, 1, 1, 1);
-            g.drawString(font, Component.literal("✕"), delX + 6 - font.width("✕") / 2, delY + 2, c.closeText(), false);
+                delX, delY, 12, 12, alpha);
+            g.drawString(font, Component.literal("✕"), delX + 6 - font.width("✕") / 2, delY + 2, ChatBubbleTheme.alphaBlend(c.closeText(), a255), false);
         }
 
         // Input box
@@ -86,15 +90,16 @@ public class ChatQuickChatPanel {
         int inputX = px + 4;
         int inputW = W - 10;
         int inputH = 14;
-        g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
-            inputX, inputY, inputW, inputH, 0f, 0f, 1, 1, 1, 1);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
+            inputX, inputY, inputW, inputH, alpha);
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + inputH;
         if (hoverInput || input.isFocused())
-            g.renderOutline(inputX, inputY, inputW, inputH, c.textMuted());
+            g.renderOutline(inputX, inputY, inputW, inputH, ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
         if (input.getValue().isEmpty() && !input.isFocused())
             g.drawString(font, Component.translatable("e33chat.quick_chat.placeholder"),
-                inputX + 2, inputY + 3, c.textMuted(), false);
+                inputX + 2, inputY + 3, ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
 
         input.setX(inputX + 2);
         input.setWidth(inputW - 4);
