@@ -35,30 +35,30 @@ public final class ChatContextMenus {
                                           ChatBubbleTheme.Colors c, int panelX, int panelW,
                                           int msgTop, ResourceLocation copyIcon,
                                           ResourceLocation quoteIcon,
-                                          int contextX, int contextY) {
+                                          int contextX, int contextY, float alpha) {
         int menuH = CTX_ITEM_H * 2 + 2;
         int mx = menuX(contextX, panelX, panelW);
         int my = menuY(contextY, menuH, msgTop, true);
 
-        g.blit(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), mx, my, CTX_W, menuH, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my, CTX_W, 1, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my + menuH - 1, CTX_W, 1, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my, 1, menuH, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx + CTX_W - 1, my, 1, menuH, 0f, 0f, 1, 1, 1, 1);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), mx, my, CTX_W, menuH, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my, CTX_W, 1, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my + menuH - 1, CTX_W, 1, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my, 1, menuH, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx + CTX_W - 1, my, 1, menuH, alpha);
 
         boolean hoverCopy = isOverItem(mouseX, mouseY, mx, my, CTX_ITEM_H);
-        g.blit(UiTextureManager.rl(hoverCopy ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
-            mx + 1, my + 1, CTX_W - 2, CTX_ITEM_H - 1, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, copyIcon, mx + 5, my + 3, 12);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverCopy ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            mx + 1, my + 1, CTX_W - 2, CTX_ITEM_H - 1, alpha);
+        drawIcon(g, copyIcon, mx + 5, my + 3, 12, alpha);
         g.drawString(font, Component.translatable("e33chat.context.copy"),
             mx + 22, my + 4, c.textPrimary(), false);
 
         g.fill(mx + 4, my + CTX_ITEM_H, mx + CTX_W - 4, my + CTX_ITEM_H + 1, c.closeHoverBg());
 
         boolean hoverQuote = isOverItem(mouseX, mouseY, mx, my + CTX_ITEM_H + 1, CTX_ITEM_H);
-        g.blit(UiTextureManager.rl(hoverQuote ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
-            mx + 1, my + CTX_ITEM_H + 1, CTX_W - 2, CTX_ITEM_H, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, quoteIcon, mx + 5, my + CTX_ITEM_H + 3, 12);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverQuote ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            mx + 1, my + CTX_ITEM_H + 1, CTX_W - 2, CTX_ITEM_H, alpha);
+        drawIcon(g, quoteIcon, mx + 5, my + CTX_ITEM_H + 3, 12, alpha);
         g.drawString(font, Component.translatable("e33chat.context.quote"),
             mx + 22, my + CTX_ITEM_H + 5, c.textPrimary(), false);
     }
@@ -70,53 +70,52 @@ public final class ChatContextMenus {
                                          ResourceLocation blockIcon,
                                          boolean isBlocked,
                                          int contextAvatarX, int contextAvatarY,
-                                         boolean useTpa) {
+                                         boolean useTpa, float alpha) {
         int menuH = CTX_ITEM_H * 3 + 4;
         int mx = menuX(contextAvatarX, panelX, panelW);
         int my = menuY(contextAvatarY, menuH, msgTop, true);
 
-        g.blit(UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), mx, my, CTX_W, menuH, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my, CTX_W, 1, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my + menuH - 1, CTX_W, 1, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx, my, 1, menuH, 0f, 0f, 1, 1, 1, 1);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), mx + CTX_W - 1, my, 1, menuH, 0f, 0f, 1, 1, 1, 1);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), mx, my, CTX_W, menuH, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my, CTX_W, 1, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my + menuH - 1, CTX_W, 1, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my, 1, menuH, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx + CTX_W - 1, my, 1, menuH, alpha);
 
         boolean hoverTp = isOverItem(mouseX, mouseY, mx, my, CTX_ITEM_H);
-        g.blit(UiTextureManager.rl(hoverTp ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
-            mx + 1, my + 1, CTX_W - 2, CTX_ITEM_H - 1, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, tpIcon, mx + 5, my + 3, 12);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverTp ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            mx + 1, my + 1, CTX_W - 2, CTX_ITEM_H - 1, alpha);
+        drawIcon(g, tpIcon, mx + 5, my + 3, 12, alpha);
         String tpKey = useTpa ? "e33chat.context.tpa" : "e33chat.context.tp";
         g.drawString(font, Component.translatable(tpKey), mx + 22, my + 4, c.textPrimary(), false);
 
         g.fill(mx + 4, my + CTX_ITEM_H + 1, mx + CTX_W - 4, my + CTX_ITEM_H + 2, c.closeHoverBg());
 
         boolean hoverWhisper = isOverItem(mouseX, mouseY, mx, my + CTX_ITEM_H + 2, CTX_ITEM_H);
-        g.blit(UiTextureManager.rl(hoverWhisper ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
-            mx + 1, my + CTX_ITEM_H + 2, CTX_W - 2, CTX_ITEM_H, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, whisperIcon, mx + 5, my + CTX_ITEM_H + 4, 12);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverWhisper ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            mx + 1, my + CTX_ITEM_H + 2, CTX_W - 2, CTX_ITEM_H, alpha);
+        drawIcon(g, whisperIcon, mx + 5, my + CTX_ITEM_H + 4, 12, alpha);
         g.drawString(font, Component.translatable("e33chat.context.whisper"),
             mx + 22, my + CTX_ITEM_H + 6, c.textPrimary(), false);
 
         g.fill(mx + 4, my + CTX_ITEM_H * 2 + 3, mx + CTX_W - 4, my + CTX_ITEM_H * 2 + 4, c.closeHoverBg());
 
         boolean hoverBlock = isOverItem(mouseX, mouseY, mx, my + CTX_ITEM_H * 2 + 4, CTX_ITEM_H);
-        g.blit(UiTextureManager.rl(hoverBlock ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
-            mx + 1, my + CTX_ITEM_H * 2 + 4, CTX_W - 2, CTX_ITEM_H, 0f, 0f, 1, 1, 1, 1);
-        drawIcon(g, blockIcon, mx + 5, my + CTX_ITEM_H * 2 + 6, 12);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverBlock ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            mx + 1, my + CTX_ITEM_H * 2 + 4, CTX_W - 2, CTX_ITEM_H, alpha);
+        drawIcon(g, blockIcon, mx + 5, my + CTX_ITEM_H * 2 + 6, 12, alpha);
         g.drawString(font, Component.translatable(isBlocked ? "e33chat.context.unblock" : "e33chat.context.block"),
             mx + 22, my + CTX_ITEM_H * 2 + 8, c.textPrimary(), false);
     }
 
-    private static void drawIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size) {
-        com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, tex);
-        com.mojang.blaze3d.systems.RenderSystem.setShader(
-            net.minecraft.client.renderer.GameRenderer::getPositionTexShader);
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+    private static void drawIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size, float alpha) {
+        if (alpha <= 0.003f) return;
         if (size < 16) {
             // 同 ChatBars.drawIcon：采样内容区 14x14（偏移1,1）完整绘制，避免切掉图标右/下缘
-            g.blit(tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size,
+                1f, 1f, 14, 14, 16, 16, alpha);
         } else {
-            g.blit(tex, x, y, 0, 0, size, size, size, size);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size,
+                0f, 0f, size, size, size, size, alpha);
         }
     }
 }

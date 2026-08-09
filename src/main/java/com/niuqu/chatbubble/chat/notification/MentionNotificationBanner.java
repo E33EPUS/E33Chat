@@ -226,9 +226,8 @@ public class MentionNotificationBanner {
             int avatarY = y + (bannerH - AVATAR_HAT) / 2;
             ResourceLocation skin = getSkin(current.senderUUID, current.senderName.getString());
             RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-            drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
+            drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT, alpha);
             RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-
             // Name (prefix already baked into nameSeq in enqueue)
             int nameY = y + 6;
             int nameAlpha = (int)((theme.textPrimary() >>> 24) * alpha);
@@ -287,12 +286,13 @@ public class MentionNotificationBanner {
     }
 
     private void drawPlayerHead(GuiGraphics g, ResourceLocation skin, int x, int y,
-                                 int baseSize, int hatSize) {
-        RenderSystem.enableBlend();
-        g.blit(skin, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64);
+                                 int baseSize, int hatSize, float alpha) {
+        if (alpha <= 0.003f) return;
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, x, y, baseSize, baseSize,
+            8.0F, 8.0F, 8, 8, 64, 64, alpha);
         int hatOff = (hatSize - baseSize) / 2;
-        g.blit(skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64);
-        RenderSystem.disableBlend();
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, x - hatOff, y - hatOff, hatSize, hatSize,
+            40.0F, 8.0F, 8, 8, 64, 64, alpha);
     }
 
     // Width-limit a component run by run, keeping each run's style (colors of
