@@ -1059,7 +1059,11 @@ public class ChatBubbleScreen extends ChatScreen {
         float anim = getAnimProgress();
         AnimationStyle pstyle = ChatBubbleConfig.PANEL_ANIM_STYLE.get();
         float panelOpacity = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * anim;
-        int fillLeft = (!sidebarAnimating && sidebarOpen)
+        // When sidebar is synced to main animation, extend panel bg to
+        // sidebar's right edge so there's no gap between them. Only SLIDE
+        // moves horizontally (the panel slides in); FADE/ZOOM keep the bg
+        // in place and fade/scale it in place instead.
+        int fillLeft = (!sidebarAnimating && sidebarOpen && pstyle == AnimationStyle.SLIDE)
             ? (int)(anim * SIDEBAR_W) : panelX;
         int panelOffset = (pstyle == AnimationStyle.SLIDE) ? currentPanelOffset() : 0;
         boolean zoom = (pstyle == AnimationStyle.ZOOM) && anim < 1f;
