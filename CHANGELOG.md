@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.3.7
+
+**新功能**
+- **UI 多风格动画（三端）**：此前聊天界面/横幅/弹层只有一种滑入滑出动画，且缓动曲线写死在代码里。现在每个元素可独立选择动画风格：`滑动`（保持原有滑入滑出）、`淡入淡出`（仅透明度，vanilla Toast 同款 quad 曲线）、`缩放弹入`（绕中心缩放 + 过冲回弹）、`无动画`（关闭该元素动画）
+- **消息条目进入动画（三端，默认开启）**：新消息气泡出现时上滑 8px + 淡入（250ms），连续多条消息逐条交错 40ms 延迟——聊天界面更有"消息流"的层次感
+- **弹层弹出动画（三端，默认开启）**：设置/表情/快捷/搜索面板弹出时淡入或缩放弹入（关闭保持即时）
+- **新配置项 ×4**：`panel_anim_style`（面板，默认滑动）/ `banner_anim_style`（横幅，默认滑动）/ `popup_anim_style`（弹层，默认淡入淡出）/ `message_anim_style`（消息，默认淡入淡出），设置界面循环按钮切换；全局"动画"总开关仍然有效
+
+**Fixes**
+- Multi-style UI animations (all three platforms): the chat panel/banner/popups previously had a single slide-in animation with hard-coded easing. Each element now picks its own style independently: Slide (original), Fade (opacity only, vanilla-toast quad easing), Zoom (scale-in around center with overshoot), or None
+- Message enter animation (all three platforms, on by default): new bubbles slide up 8px + fade in over 250ms, staggered 40ms between consecutive messages
+- Popup open animation (all three platforms, on by default): settings/emoji/quick-chat/search panels fade or zoom in when opened (closing stays instant)
+- New settings ×4: `panel_anim_style` / `banner_anim_style` / `popup_anim_style` / `message_anim_style`, cycled via buttons in the config screen; the global "Animation" toggle still applies
+- Tests: Forge 241 / NeoForge 241 / Fabric 222 all green
+
 ## v2.3.6
 
 **修复**

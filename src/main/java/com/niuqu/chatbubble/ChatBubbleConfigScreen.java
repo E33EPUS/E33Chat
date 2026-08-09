@@ -132,6 +132,9 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.panel_opacity",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.PANEL_OPACITY.get()), 0, 100, 3, ChatBubbleConfig.PANEL_OPACITY::set), null));
         chat.add(new Opt("e33chat.config.animation", y -> mkBoolButton(y, ChatBubbleConfig.ANIMATION_ENABLED), null));
+        chat.add(new Opt("e33chat.config.panel_anim_style", this::mkPanelStyleButton, null));
+        chat.add(new Opt("e33chat.config.popup_anim_style", this::mkPopupStyleButton, null));
+        chat.add(new Opt("e33chat.config.message_anim_style", this::mkMessageStyleButton, null));
         chat.add(Opt.header("e33chat.config.section.bubble_font"));
         chat.add(new Opt("e33chat.config.bubble_corner_radius",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get()), 0, 10, 2, ChatBubbleConfig.BUBBLE_CORNER_RADIUS::set), null));
@@ -216,6 +219,7 @@ public class ChatBubbleConfigScreen extends Screen {
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BANNER_OFFSET_X.get()), -1000, 1000, 2, ChatBubbleConfig.BANNER_OFFSET_X::set), null));
         notify.add(new Opt("e33chat.config.banner_offset_y",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BANNER_OFFSET_Y.get()), -1000, 1000, 2, ChatBubbleConfig.BANNER_OFFSET_Y::set), null));
+        notify.add(new Opt("e33chat.config.banner_anim_style", this::mkBannerStyleButton, null));
         notify.add(Opt.header("e33chat.config.section.sound"));
         notify.add(new Opt("e33chat.config.sound_volume",
             y -> mkIntSlider(y, ChatBubbleConfig.SOUND_VOLUME, 0, 100), null));
@@ -255,6 +259,10 @@ public class ChatBubbleConfigScreen extends Screen {
     // 快照全部可编辑配置项（常用语除外，那在游戏内面板管理）
     private void snapshotAll() {
         tracked.add(track(ChatBubbleConfig.THEME));
+        tracked.add(track(ChatBubbleConfig.PANEL_ANIM_STYLE));
+        tracked.add(track(ChatBubbleConfig.BANNER_ANIM_STYLE));
+        tracked.add(track(ChatBubbleConfig.POPUP_ANIM_STYLE));
+        tracked.add(track(ChatBubbleConfig.MESSAGE_ANIM_STYLE));
         tracked.add(track(ChatBubbleConfig.ENABLED));
         tracked.add(track(ChatBubbleConfig.RED_DOT_ENABLED));
         tracked.add(track(ChatBubbleConfig.HIDE_CHAT_ICON));
@@ -386,6 +394,24 @@ public class ChatBubbleConfigScreen extends Screen {
             }
         ).bounds(inputX, y, INPUT_W, 20).build();
     }
+
+    // Animation style cycle buttons (SLIDE → FADE → ZOOM → NONE → ...)
+    private Button mkStyleButton(int y, ForgeConfigSpec.EnumValue<AnimationStyle> cfg) {
+        AnimationStyle[] values = AnimationStyle.values();
+        return Button.builder(
+            Component.translatable("e33chat.config.anim_style." + cfg.get().name().toLowerCase()),
+            btn -> {
+                int next = (cfg.get().ordinal() + 1) % values.length;
+                cfg.set(values[next]);
+                btn.setMessage(Component.translatable("e33chat.config.anim_style." + values[next].name().toLowerCase()));
+            }
+        ).bounds(inputX, y, INPUT_W, 20).build();
+    }
+
+    private Button mkPanelStyleButton(int y) { return mkStyleButton(y, ChatBubbleConfig.PANEL_ANIM_STYLE); }
+    private Button mkBannerStyleButton(int y) { return mkStyleButton(y, ChatBubbleConfig.BANNER_ANIM_STYLE); }
+    private Button mkPopupStyleButton(int y) { return mkStyleButton(y, ChatBubbleConfig.POPUP_ANIM_STYLE); }
+    private Button mkMessageStyleButton(int y) { return mkStyleButton(y, ChatBubbleConfig.MESSAGE_ANIM_STYLE); }
 
     private Button mkBoolButton(int y, ForgeConfigSpec.BooleanValue cfg) {
         boolean v = cfg.get();

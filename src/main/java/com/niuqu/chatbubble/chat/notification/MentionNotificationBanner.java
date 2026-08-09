@@ -2,6 +2,8 @@ package com.niuqu.chatbubble.chat.notification;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.niuqu.chatbubble.Animation;
+import com.niuqu.chatbubble.AnimationStyle;
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
@@ -158,20 +160,34 @@ public class MentionNotificationBanner {
                 ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_MS)
                 : 1f;
 
-        // Slide: easeOutBack (overshoot then settle) for down, ease-in for up
+        AnimationStyle bstyle = ChatBubbleConfig.BANNER_ANIM_STYLE.get();
         float slide;
-        if (state == BannerState.SLIDING_DOWN) {
-            float c = 1.70158f;
-            slide = 1f + c * (float)Math.pow(raw - 1, 3) + c * (float)Math.pow(raw - 1, 2);
-        } else if (state == BannerState.SLIDING_UP) {
-            slide = raw * raw;
-        } else {
+        float alpha;
+        float bscale = 1f;
+        if (bstyle == AnimationStyle.NONE) {
             slide = 1f;
+            alpha = 1f;
+        } else if (bstyle == AnimationStyle.FADE) {
+            slide = 1f;
+            alpha = state == BannerState.SLIDING_UP ? raw : Animation.easeOutQuad(raw);
+        } else if (bstyle == AnimationStyle.ZOOM) {
+            slide = 1f;
+            alpha = state == BannerState.SLIDING_UP ? raw : Animation.easeOutQuad(raw);
+            if (state == BannerState.SLIDING_DOWN) bscale = 0.8f + 0.2f * Animation.easeOutBack(raw);
+            else if (state == BannerState.SLIDING_UP) bscale = 0.8f + 0.2f * raw;
+        } else {
+            // SLIDE (default): slide from the top with overshoot, fade in early
+            if (state == BannerState.SLIDING_DOWN) {
+                float c = 1.70158f;
+                slide = 1f + c * (float)Math.pow(raw - 1, 3) + c * (float)Math.pow(raw - 1, 2);
+            } else if (state == BannerState.SLIDING_UP) {
+                slide = raw * raw;
+            } else {
+                slide = 1f;
+            }
+            float fadeRaw = Math.min(1f, raw / 0.6f);
+            alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
         }
-
-        // Fade: faster than slide (complete at 60% of slide duration)
-        float fadeRaw = Math.min(1f, raw / 0.6f);
-        float alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
 
         var theme = ChatBubbleConfig.THEME.get().colors();
         int bg = theme.bannerBg();
@@ -185,6 +201,13 @@ public class MentionNotificationBanner {
         int bannerH = current.bannerH;
         int x = (screenW - bannerW) / 2 + ChatBubbleConfig.BANNER_OFFSET_X.get();
         int y = (int)((-bannerH) + slide * bannerH) + ChatBubbleConfig.BANNER_OFFSET_Y.get();
+
+        if (bscale != 1f) {
+            g.pose().pushPose();
+            g.pose().translate(x + bannerW / 2f, y + bannerH / 2f, 0);
+            g.pose().scale(bscale, bscale, 1f);
+            g.pose().translate(-(x + bannerW / 2f), -(y + bannerH / 2f), 0);
+        }
 
         // Shadow
         int shadowAlpha = (int)(0x30 * alpha);
@@ -236,6 +259,8 @@ public class MentionNotificationBanner {
                 g.drawString(mc.font, msgLines.get(i), textX,
                     textY + i * lineH, msgColor, false);
         }
+
+        if (bscale != 1f) g.pose().popPose();
     }
 
     public int currentMessageIndex() {
