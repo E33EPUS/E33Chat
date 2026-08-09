@@ -1167,7 +1167,7 @@ public class ChatBubbleScreen extends Screen {
         int fillLeft = (!sidebarAnimating && sidebarOpen)
             ? (int)(anim * SIDEBAR_W) : panelX;
         if (ChatBubbleClientSetup.config().blurEnabled() && panelOpacity < 0.999f) {
-            BlurRenderer.blurPanel(fillLeft, 0, panelX + panelW - fillLeft, height);
+            BlurRenderer.blurPanel(g, fillLeft, 0, panelX + panelW - fillLeft, height);
         }
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);

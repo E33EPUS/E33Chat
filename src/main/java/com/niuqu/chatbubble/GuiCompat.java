@@ -182,11 +182,12 @@ public final class GuiCompat {
 
     public static SoundEvent soundValue(Object event) {
         if (event instanceof SoundEvent) return (SoundEvent) event;
-        try {
-            Object value = event.getClass().getMethod("value").invoke(event);
+        //#if MC >= 11903
+        if (event instanceof net.minecraft.registry.entry.RegistryEntry<?>) {
+            Object value = ((net.minecraft.registry.entry.RegistryEntry<?>) event).value();
             if (value instanceof SoundEvent) return (SoundEvent) value;
-        } catch (Exception ignored) {
         }
+        //#endif
         return null;
     }
 
