@@ -236,7 +236,7 @@ public class ChatBubbleScreen extends ChatScreen {
         sidebarSearchBox.setVisible(sidebarOpen);
         sidebarSearchBox.setCanLoseFocus(true);
         sidebarSearchBox.setResponder(s -> sidebarScrollOffset = 0);
-        if (sidebarOpen) sidebarSearchBox.setX(2 - SIDEBAR_W);
+        if (sidebarOpen) sidebarSearchBox.setX(2);
         addRenderableWidget(sidebarSearchBox);
 
         quickChatInput = new EditBox(font, 0, 0, QUICK_CHAT_W - 8, 12, Component.translatable("e33chat.menu.quick_chat"));
