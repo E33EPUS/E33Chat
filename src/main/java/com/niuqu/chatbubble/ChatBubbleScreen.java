@@ -420,14 +420,15 @@ public class ChatBubbleScreen extends ChatScreen {
     private float getSidebarAnimProgress() {
         if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) return sidebarOpen ? 1f : 0f;
         AnimationStyle style = ChatBubbleConfig.PANEL_ANIM_STYLE.get();
-        // FADE/NONE have no horizontal displacement: the sidebar fades in place.
-        if (style == AnimationStyle.FADE || style == AnimationStyle.NONE) return sidebarOpen ? 1f : 0f;
+        // Hamburger toggle always slides, regardless of the panel animation style
         if (sidebarAnimating) {
             long elapsed = net.minecraft.Util.getMillis() - sidebarAnimStart;
             float t = Mth.clamp((float) elapsed / ANIM_MS, 0f, 1f);
-            float progress = Animation.styleCurve(style, t);
+            float progress = Animation.styleCurve(AnimationStyle.SLIDE, t);
             return sidebarTargetOpen ? progress : 1.0f - progress;
         }
+        // FADE/NONE have no horizontal displacement: the sidebar fades in place.
+        if (style == AnimationStyle.FADE || style == AnimationStyle.NONE) return sidebarOpen ? 1f : 0f;
         if (!sidebarOpen) return 0f;
         return getAnimProgress();
     }
@@ -1130,11 +1131,10 @@ public class ChatBubbleScreen extends ChatScreen {
                 g.pose().scale(panelScale, panelScale, 1f);
                 g.pose().translate(-cx, -height / 2f, 0);
             }
-            // FADE: the sidebar fades in place with the panel (both directions)
-            boolean fadeSidebar = pstyle == AnimationStyle.FADE;
-            int sidebarOffset = closing
-                ? (fadeSidebar ? 0 : (int)((getAnimProgress() - 1.0f) * SIDEBAR_W))
-                : getSidebarScreenX();
+            boolean fadeSidebar = pstyle == AnimationStyle.FADE || zoom;
+            int sidebarOffset = (closing && !fadeSidebar)
+                ? (int)((getAnimProgress() - 1.0f) * SIDEBAR_W)
+                : (fadeSidebar ? 0 : getSidebarScreenX());
             g.pose().translate(sidebarOffset, 0, 50);
             if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, getAnimProgress());
             renderSidebar(g, mouseX - sidebarOffset, mouseY);
