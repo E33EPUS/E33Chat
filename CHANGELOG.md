@@ -4,6 +4,14 @@
 
 ## v2.3.7
 
+**修复（2.3.7 补发 4）**
+- **侧边栏开启时面板背景 FADE/ZOOM 下滑入**：侧边栏开启时面板背景左缘按动画进度从屏幕左缘水平长到侧边栏右缘（原为配合 SLIDE 面板滑入），但 FADE/ZOOM 下 `panelOffset` 无位移，只有背景还在水平生长——叠成"slide + fade/zoom"两重效果。现在只有 SLIDE 时背景才水平生长；FADE/ZOOM 时背景固定画在面板区原地淡入/缩放，与侧边栏一起作为整体
+
+**Fixes (2.3.7 follow-up 4)**
+- Panel background no longer slides in under FADE/ZOOM when the sidebar is open: its left edge grew from the screen's left edge to the sidebar's right edge (designed for the SLIDE panel), but under FADE/ZOOM the panel doesn't move — only the background did, stacking slide + fade/zoom. The background now only grows under SLIDE; under FADE/ZOOM it stays in the panel region and fades/scales in place with the sidebar as one unit
+
+## v2.3.7
+
 **修复（2.3.7 补发 3）**
 - **ZOOM 下面板与侧边栏割裂**：面板 ZOOM 缩放时侧边栏仍保留水平位移，与缩放矩阵叠加成"滑动+缩放"两重效果。现在侧边栏去掉位移，与面板一起绕面板中心缩放 + 同步淡入，成为整体
 - **FADE 下侧边栏切换无动画**：点汉堡切换侧边栏开关时，FADE/NONE 进度被短路成 0/1，切换瞬间无任何动画。现在汉堡切换永远走滑动动画（侧边栏是独立个体，切换动画不随面板动画风格）
