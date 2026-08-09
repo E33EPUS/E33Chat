@@ -73,6 +73,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private int mentionBannerDuration, timeSeparatorMinutes;
     private int panelWidth, bubbleCornerRadius, panelOpacity, soundVolume, bannerCornerRadius;
     private int bannerOffsetX, bannerOffsetY;
+    private String panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle;
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
     private List<String> sidebarHidePatterns;
@@ -181,6 +182,10 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> bannerCornerRadius, v -> bannerCornerRadius = v));
         tracked.add(track(() -> bannerOffsetX, v -> bannerOffsetX = v));
         tracked.add(track(() -> bannerOffsetY, v -> bannerOffsetY = v));
+        tracked.add(track(() -> panelAnimStyle, v -> panelAnimStyle = v));
+        tracked.add(track(() -> bannerAnimStyle, v -> bannerAnimStyle = v));
+        tracked.add(track(() -> popupAnimStyle, v -> popupAnimStyle = v));
+        tracked.add(track(() -> messageAnimStyle, v -> messageAnimStyle = v));
     }
 
     private int changeCount() {
@@ -205,7 +210,7 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().quickChatPhrases(),
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
-            bannerOffsetX, bannerOffsetY));
+            bannerOffsetX, bannerOffsetY, panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle));
     }
 
     private void loadFromConfig() {
@@ -232,6 +237,8 @@ public class ChatBubbleConfigScreen extends Screen {
         bannerCornerRadius = cfg.bannerCornerRadius();
         bannerOffsetX = cfg.bannerOffsetX();
         bannerOffsetY = cfg.bannerOffsetY();
+        panelAnimStyle = cfg.panelAnimStyle(); bannerAnimStyle = cfg.bannerAnimStyle();
+        popupAnimStyle = cfg.popupAnimStyle(); messageAnimStyle = cfg.messageAnimStyle();
         historyRetentionDays = cfg.historyRetentionDays();
         timeSeparatorMinutes = cfg.timeSeparatorMinutes(); panelWidth = cfg.panelWidth();
         bubbleCornerRadius = cfg.bubbleCornerRadius();
@@ -371,6 +378,9 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.panel_opacity",
             y -> mkIntBox(y, String.valueOf(panelOpacity), 0, 100, 3, v -> panelOpacity = v), null));
         chat.add(new Opt("e33chat.config.animation", y -> mkBoolButton(y, () -> animationEnabled, v -> animationEnabled = v), null));
+        chat.add(new Opt("e33chat.config.panel_anim_style", this::mkPanelStyleButton, null));
+        chat.add(new Opt("e33chat.config.popup_anim_style", this::mkPopupStyleButton, null));
+        chat.add(new Opt("e33chat.config.message_anim_style", this::mkMessageStyleButton, null));
         chat.add(Opt.header("e33chat.config.section.bubble_font"));
         chat.add(new Opt("e33chat.config.bubble_corner_radius",
             y -> mkIntBox(y, String.valueOf(bubbleCornerRadius), 0, 10, 2, v -> bubbleCornerRadius = v), null));
@@ -449,6 +459,7 @@ public class ChatBubbleConfigScreen extends Screen {
             y -> mkIntBox(y, String.valueOf(bannerOffsetX), -500, 500, 2, v -> bannerOffsetX = v), null));
         notify.add(new Opt("e33chat.config.banner_offset_y",
             y -> mkIntBox(y, String.valueOf(bannerOffsetY), -500, 500, 2, v -> bannerOffsetY = v), null));
+        notify.add(new Opt("e33chat.config.banner_anim_style", this::mkBannerStyleButton, null));
         notify.add(Opt.header("e33chat.config.section.sound"));
         notify.add(new Opt("e33chat.config.sound_volume",
             y -> mkIntSlider(y, () -> soundVolume, v -> soundVolume = v, 0, 100), null));
@@ -573,6 +584,24 @@ public class ChatBubbleConfigScreen extends Screen {
             }
         ).position(inputX, y).size(INPUT_W, 20).build();
     }
+
+    // Animation style cycle buttons (SLIDE → FADE → ZOOM → NONE → ...)
+    private ButtonWidget mkStyleButton(int y, java.util.function.Supplier<String> getter, java.util.function.Consumer<String> setter) {
+        return ButtonWidget.builder(
+            Text.translatable("e33chat.config.anim_style." + getter.get()),
+            btn -> {
+                AnimationStyle[] values = AnimationStyle.values();
+                int next = (java.util.Arrays.asList(values).indexOf(AnimationStyle.valueOf(getter.get().toUpperCase())) + 1) % values.length;
+                setter.accept(values[next].name().toLowerCase());
+                btn.setMessage(Text.translatable("e33chat.config.anim_style." + getter.get()));
+            }
+        ).position(inputX, y).size(INPUT_W, 20).build();
+    }
+
+    private ButtonWidget mkPanelStyleButton(int y) { return mkStyleButton(y, () -> panelAnimStyle, v -> panelAnimStyle = v); }
+    private ButtonWidget mkBannerStyleButton(int y) { return mkStyleButton(y, () -> bannerAnimStyle, v -> bannerAnimStyle = v); }
+    private ButtonWidget mkPopupStyleButton(int y) { return mkStyleButton(y, () -> popupAnimStyle, v -> popupAnimStyle = v); }
+    private ButtonWidget mkMessageStyleButton(int y) { return mkStyleButton(y, () -> messageAnimStyle, v -> messageAnimStyle = v); }
 
     private ButtonWidget mkBoolButton(int y, java.util.function.BooleanSupplier getter, java.util.function.Consumer<Boolean> setter) {
         boolean v = getter.getAsBoolean();

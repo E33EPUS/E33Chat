@@ -58,4 +58,39 @@ class AnimationTest {
         assertEquals(255, Animation.fadeInOut(14, 10, 5, 10));
         assertEquals(0, Animation.fadeInOut(25, 10, 5, 10));
     }
+
+    @Test void easeOutQuad_endpoints() {
+        assertEquals(0f, Animation.easeOutQuad(0f), 0.0001f);
+        assertEquals(1f, Animation.easeOutQuad(1f), 0.0001f);
+        assertEquals(0.75f, Animation.easeOutQuad(0.5f), 0.0001f);
+    }
+
+    @Test void easeOutBack_overshootsThenSettles() {
+        assertEquals(0f, Animation.easeOutBack(0f), 0.0001f);
+        assertEquals(1f, Animation.easeOutBack(1f), 0.0001f);
+        assertTrue(Animation.easeOutBack(0.5f) > 1f, "easeOutBack(0.5) should overshoot past 1");
+    }
+
+    @Test void styleCurve_noneIsOne() {
+        assertEquals(1f, Animation.styleCurve(AnimationStyle.NONE, 0f), 0.0001f);
+        assertEquals(1f, Animation.styleCurve(AnimationStyle.NONE, 0.5f), 0.0001f);
+    }
+
+    @Test void styleCurve_endpoints() {
+        assertEquals(0f, Animation.styleCurve(AnimationStyle.SLIDE, 0f), 0.0001f);
+        assertEquals(1f, Animation.styleCurve(AnimationStyle.SLIDE, 1f), 0.0001f);
+        assertEquals(0f, Animation.styleCurve(AnimationStyle.FADE, 0f), 0.0001f);
+        assertEquals(1f, Animation.styleCurve(AnimationStyle.FADE, 1f), 0.0001f);
+        assertEquals(0f, Animation.styleCurve(AnimationStyle.ZOOM, 0f), 0.0001f);
+        assertEquals(1f, Animation.styleCurve(AnimationStyle.ZOOM, 1f), 0.0001f);
+    }
+
+    @Test void styleCurve_slideMatchesCubic() {
+        assertEquals(Animation.easeOutCubic(0.5f), Animation.styleCurve(AnimationStyle.SLIDE, 0.5f), 0.0001f);
+    }
+
+    @Test void styleCurve_clamps() {
+        assertEquals(0f, Animation.styleCurve(AnimationStyle.SLIDE, -1f), 0.0001f);
+        assertEquals(1f, Animation.styleCurve(AnimationStyle.SLIDE, 2f), 0.0001f);
+    }
 }

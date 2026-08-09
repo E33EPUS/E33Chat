@@ -61,7 +61,11 @@ public final class ConfigManager {
             c.soundVolume() > 0 ? c.soundVolume() : d.soundVolume(),
             c.ownMentionNotify(), c.ownQuoteNotify(), c.ownWhisperNotify(),
             c.bannerCornerRadius() > 0 ? c.bannerCornerRadius() : d.bannerCornerRadius(),
-            c.bannerOffsetX(), c.bannerOffsetY());
+            c.bannerOffsetX(), c.bannerOffsetY(),
+            c.panelAnimStyle() != null ? c.panelAnimStyle() : d.panelAnimStyle(),
+            c.bannerAnimStyle() != null ? c.bannerAnimStyle() : d.bannerAnimStyle(),
+            c.popupAnimStyle() != null ? c.popupAnimStyle() : d.popupAnimStyle(),
+            c.messageAnimStyle() != null ? c.messageAnimStyle() : d.messageAnimStyle());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {

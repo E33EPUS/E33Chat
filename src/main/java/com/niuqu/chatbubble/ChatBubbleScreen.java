@@ -103,6 +103,9 @@ public class ChatBubbleScreen extends ChatScreen {
     private TextFieldWidget quickChatInput;
     private static final int QUICK_CHAT_W = 140;
     private static boolean sidebarOpen;
+
+    // Popup open animation timestamps (opening only; closing stays instant)
+    private long settingsAnimStart, emojiAnimStart, quickAnimStart, searchAnimStart;
     private String whisperPartner;
     private int sidebarScrollOffset;
     private int sidebarMaxScroll;
@@ -512,7 +515,33 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private float getAnimProgress() {
         if (!ChatBubbleClientSetup.config().animationEnabled()) return 1.0f;
-        return Animation.progress(animStart, ANIM_MS, closing);
+        AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle());
+        if (style == AnimationStyle.NONE) return 1.0f;
+        long elapsed = Util.getMeasuringTimeMs() - animStart;
+        float t = MathHelper.clamp((float) elapsed / ANIM_MS, 0f, 1f);
+        if (closing) return 1.0f - (t * t);
+        return Animation.styleCurve(style, t);
+    }
+
+    // Popup open animation (opening only — closing stays instant). FADE fades the
+    // whole panel in; ZOOM scales it in around the screen center with overshoot.
+    private void renderPopupWithAnim(DrawContext g, long startMs, Runnable render) {
+        if (!ChatBubbleClientSetup.config().animationEnabled()) { render.run(); return; }
+        AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().popupAnimStyle());
+        float t = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - startMs) / 150f, 0f, 1f);
+        float curve = Animation.styleCurve(style, t);
+        if (curve >= 1f) { render.run(); return; }
+        if (style == AnimationStyle.ZOOM) {
+            g.getMatrices().push();
+            float s = 0.85f + 0.15f * Animation.easeOutBack(curve);
+            g.getMatrices().translate(width / 2f, height / 2f, 0);
+            g.getMatrices().scale(s, s, 1f);
+            g.getMatrices().translate(-width / 2f, -height / 2f, 0);
+        }
+        RenderSystem.setShaderColor(1f, 1f, 1f, curve);
+        render.run();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        if (style == AnimationStyle.ZOOM) g.getMatrices().pop();
     }
 
     @Override
@@ -899,7 +928,9 @@ public class ChatBubbleScreen extends ChatScreen {
         if (mx >= gearX && mx <= gearX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
             if (emojiPanel.visible) emojiPanel.visible = false;
             if (searchPanel.visible) closeSearchPanel();
-            settingsMenu.visible = !settingsMenu.visible;
+            boolean opening = !settingsMenu.visible;
+            settingsMenu.visible = opening;
+            if (opening) settingsAnimStart = Util.getMeasuringTimeMs();
             return true;
         }
         int sendX = panelX + panelW - PAD - ICON_S + 2;
@@ -907,7 +938,9 @@ public class ChatBubbleScreen extends ChatScreen {
         if (mx >= emojiX && mx <= emojiX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
             if (settingsMenu.visible) settingsMenu.visible = false;
             if (searchPanel.visible) closeSearchPanel();
-            emojiPanel.visible = !emojiPanel.visible;
+            boolean opening = !emojiPanel.visible;
+            emojiPanel.visible = opening;
+            if (opening) emojiAnimStart = Util.getMeasuringTimeMs();
             showMentions = false;
             if (emojiPanel.visible) emojiPanel.scroll = 0;
             return true;
@@ -986,17 +1019,27 @@ public class ChatBubbleScreen extends ChatScreen {
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
-        int panelOffset = currentPanelOffset();
+        AnimationStyle pstyle = AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle());
+        int panelOffset = (pstyle == AnimationStyle.SLIDE) ? currentPanelOffset() : 0;
+        boolean zoom = (pstyle == AnimationStyle.ZOOM) && anim < 1f;
+        float panelScale = 1f;
+        if (zoom) panelScale = 0.8f + 0.2f * Animation.easeOutBack(anim);
 
         g.getMatrices().push();
         g.getMatrices().translate(panelOffset, 0, 0);
+        if (zoom) {
+            float cx = panelX + panelW / 2f;
+            g.getMatrices().translate(cx, height / 2f, 0);
+            g.getMatrices().scale(panelScale, panelScale, 1f);
+            g.getMatrices().translate(-cx, -height / 2f, 0);
+        }
 
         float panelOpacity = ChatBubbleClientSetup.config().panelOpacity() / 100f * anim;
         // When sidebar is synced to main animation, extend panel bg to
         // sidebar's right edge so there's no gap between them.
         int fillLeft = (!sidebarAnimating && sidebarOpen)
             ? (int)(anim * SIDEBAR_W) : panelX;
-        if (ChatBubbleClientSetup.config().blurEnabled() && panelOpacity < 0.999f) {
+        if (ChatBubbleClientSetup.config().blurEnabled() && panelOpacity < 0.999f && !zoom) {
             g.draw();
             BlurRenderer.blurPanel(panelOffset + fillLeft, 0, panelX + panelW - fillLeft, height);
         }
@@ -1022,10 +1065,10 @@ public class ChatBubbleScreen extends ChatScreen {
         // 会盖住它们，提升弹层 z 到侧边栏之上避免遮挡
         g.getMatrices().push();
         g.getMatrices().translate(0, 0, 100);
-        settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex);
-        emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD);
-        quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
-        searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx);
+        renderPopupWithAnim(g, settingsAnimStart, () -> settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex));
+        renderPopupWithAnim(g, emojiAnimStart, () -> emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD));
+        renderPopupWithAnim(g, quickAnimStart, () -> quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput));
+        renderPopupWithAnim(g, searchAnimStart, () -> searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx));
         // 输入框 widget 在 z=50 的 children 循环渲染，会被这里 z=100 的不透明面板背景盖住
         // （5bb740e 弹层 z 提升引入）——面板打开时在同 z 重画一次，文字/光标才可见。
         // widget 无背景（drawsBackground=false），只画文字/光标，不遮挡面板内容
@@ -1210,7 +1253,27 @@ public class ChatBubbleScreen extends ChatScreen {
             contentY += h + GAP;
 
             if (screenY + h <= effectiveMsgTop || screenY >= effectiveMsgBottom) { fullIdx++; continue; }
-            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY);
+
+            // New-message enter animation: fade in + slide up 8px, staggered 40ms
+            // per message from the tail (250ms window, keyed on msg.time()).
+            float mAlpha = 1f;
+            int mDy = 0;
+            if (ChatBubbleClientSetup.config().animationEnabled()) {
+                AnimationStyle mstyle = AnimationStyle.parse(ChatBubbleClientSetup.config().messageAnimStyle());
+                if (mstyle != AnimationStyle.NONE) {
+                    int tailIdx = messages.size() - 1 - i;
+                    float raw = (float) (Util.getMeasuringTimeMs() - msg.time() - tailIdx * 40L) / 250f;
+                    if (raw < 1f) {
+                        float curve = Animation.styleCurve(mstyle, raw);
+                        mAlpha = curve;
+                        mDy = Math.round((1f - curve) * 8f);
+                    }
+                }
+            }
+            g.getMatrices().push();
+            g.getMatrices().translate(0, mDy, 0);
+            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha);
+            g.getMatrices().pop();
             fullIdx++;
         }
         renderScrollbar(g, mouseX, mouseY, effectiveMsgBottom);
@@ -1287,6 +1350,8 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private int currentPanelOffset() {
+        if (AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle()) != AnimationStyle.SLIDE)
+            return 0; // FADE/ZOOM/NONE have no horizontal displacement
         float anim = getAnimProgress();
         int moveDist;
         if (sidebarOpen) {
@@ -1314,14 +1379,15 @@ public class ChatBubbleScreen extends ChatScreen {
         return h;
     }
 
-    private void renderBubble(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY) {
+    private void renderBubble(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY, float alpha) {
         if (msg.isSystem()) {
             List<OrderedText> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
             int yy = baseY + 2;
             Style fb = findClickStyle(msg.content());
+            int sysColor = ChatBubbleTheme.alphaBlend(c().textMuted(), (int)(255 * alpha));
             for (var line : lines) {
                 int lw = textRenderer.getWidth(line);
-                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, c().textMuted(), fb);
+                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, sysColor, fb);
                 yy += textRenderer.fontHeight;
             }
             return;
@@ -1360,7 +1426,7 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             int nameW = textRenderer.getWidth(nameSeq);
             int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
-            g.drawText(textRenderer, nameSeq, startX, nameY, c().nameColor(), false);
+            g.drawText(textRenderer, nameSeq, startX, nameY, ChatBubbleTheme.alphaBlend(c().nameColor(), (int)(255 * alpha)), false);
         }
 
         int bubbleY = baseY + NAME_H;
@@ -1375,24 +1441,27 @@ public class ChatBubbleScreen extends ChatScreen {
 
         // 气泡背景：SDF 圆角（shader 数学，任何半径平滑；配置实时生效，不可被资源包覆盖）
         RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
-            ChatBubbleClientSetup.config().bubbleCornerRadius(), bg);
+            ChatBubbleClientSetup.config().bubbleCornerRadius(), ChatBubbleTheme.alphaBlend(bg, (int)(255 * alpha)));
 
         Style fbP = findClickStyle(msg.content());
+        int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
         for (int li = 0; li < lines.size(); li++)
             renderLineWithClicks(g, lines.get(li), bubbleX + BUBBLE_PAD_X,
-                bubbleY + BUBBLE_PAD_Y + li * textRenderer.fontHeight, fg, fbP);
+                bubbleY + BUBBLE_PAD_Y + li * textRenderer.fontHeight, fgA, fbP);
 
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
         Identifier skin = getSkin(msg.senderUUID(), skinName);
+        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         drawPlayerHead(g, skin, avatarX, avatarY, 20, 22);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
             int labelW = textRenderer.getWidth(label);
             int labelX, labelY = bubbleY + (bubbleH - textRenderer.fontHeight) / 2;
             if (own) { labelX = bubbleX - labelW - 3; } else { labelX = bubbleX + bubbleW + 3; }
-            g.drawText(textRenderer, label, labelX, labelY, c().duplicateLabel(), false);
+            g.drawText(textRenderer, label, labelX, labelY, ChatBubbleTheme.alphaBlend(c().duplicateLabel(), (int)(255 * alpha)), false);
         }
 
         if (msg.replyContent() != null) {
@@ -1409,8 +1478,8 @@ public class ChatBubbleScreen extends ChatScreen {
             if (quoteX < panelX + PAD) quoteX = panelX + PAD;
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
             // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, c().contextHover());
-            g.drawText(textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, c().textSecondary(), false);
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
+            g.drawText(textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
         }
 
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
@@ -1702,6 +1771,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (quickChatPanel.visible) { quickChatPanel.visible = false; quickChatInput.setVisible(false); }
                 if (emojiPanel.visible) emojiPanel.visible = false;
                 searchPanel.visible = true;
+                searchAnimStart = Util.getMeasuringTimeMs();
                 searchInput.setText("");
                 searchMatches.clear(); searchMatchIdx = -1; searchHighlightIndex = -1;
                 setFocused(searchInput);
@@ -1710,6 +1780,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (searchPanel.visible) closeSearchPanel();
                 if (emojiPanel.visible) emojiPanel.visible = false;
                 quickChatPanel.visible = true;
+                quickAnimStart = Util.getMeasuringTimeMs();
                 quickChatPanel.scrollOffset = 0;
                 quickChatInput.setText("");
                 setFocused(chatField);
