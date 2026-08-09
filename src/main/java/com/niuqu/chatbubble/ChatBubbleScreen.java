@@ -1106,7 +1106,9 @@ public class ChatBubbleScreen extends ChatScreen {
                 g.getMatrices().scale(panelScale, panelScale, 1f);
                 g.getMatrices().translate(-cx, -height / 2f, 0);
             }
-            boolean fadeSidebar = pstyle == AnimationStyle.FADE || zoom;
+            // Fade/zoom-in-place applies only to the panel's own open/close
+            // animation; the hamburger toggle always slides.
+            boolean fadeSidebar = !sidebarAnimating && (pstyle == AnimationStyle.FADE || zoom);
             int sidebarOffset = (closing && !fadeSidebar)
                 ? (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W)
                 : (fadeSidebar ? 0 : getSidebarScreenX());

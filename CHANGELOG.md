@@ -4,6 +4,14 @@
 
 ## v2.3.7
 
+**修复（2.3.7 补发 7）**
+- **FADE 面板下汉堡切换侧边栏无动画（三端）**：点汉堡切换侧边栏时，面板风格为 FADE 时 `fadeSidebar` 判定未区分"面板开合动画"与"汉堡切换"——它只看面板风格不看 `sidebarAnimating`，强制侧边栏位移为 0（slide 进度被丢弃），透明度又用面板开合进度（此时早已结束 = 1，淡入也没有）→ 侧边栏完全静止。修复：`fadeSidebar` 仅在面板自己的开合动画时生效，汉堡切换永远滑动（与 ZOOM/SLIDE 面板下行为一致）
+
+**Fixes (2.3.7 follow-up 7)**
+- Sidebar toggle had no animation under a FADE panel (all three platforms): the `fadeSidebar` check only looked at the panel style, not whether a hamburger toggle was animating — under FADE it forced the sidebar offset to 0 (dropping the slide progress) and used the panel's own open/close progress for alpha (already finished = 1, so no fade either), leaving the sidebar completely static. Fixed: `fadeSidebar` now applies only to the panel's own open/close animation; the hamburger toggle always slides (matching the ZOOM/SLIDE behavior)
+
+## v2.3.7
+
 **修复（2.3.7 补发 6）**
 - **Fabric 侧边栏在 SLIDE 下不跟随面板滑动**：`getSidebarAnimProgress` 分支写反——侧边栏开启时直接返回 1f（原地不动），面板却还在滑动，SLIDE 下面板与侧边栏割裂。修复：对齐 Forge/Neo 的判定（侧边栏未开返回 0，开启时跟随面板开合动画进度），SLIDE 下侧边栏与面板一体滑动
 - **NeoForge mod 列表描述乱码（仅 NeoForge）**：`gradle.properties` 的 `mod_description` 中文部分 UTF-8 尾字节损坏，游戏内 mod 列表显示乱码。修复：统一为与 Forge/Fabric 一致的纯英文描述
