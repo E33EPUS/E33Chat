@@ -196,7 +196,7 @@ public final class GuiCompat {
         return SimpleSoundInstance.forUI(soundValue(event), pitch, volume);
         //#else
         //#if MC >= 12111
-        return PositionedSoundInstance.ui((net.minecraft.registry.entry.RegistryEntry<SoundEvent>) event, pitch);
+        return PositionedSoundInstance.ui(soundValue(event), pitch, volume);
         //#else
         //#if MC >= 11903
         //$$ return PositionedSoundInstance.master(soundValue(event), pitch, volume);

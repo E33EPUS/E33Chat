@@ -331,6 +331,10 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("\\bpublic void close\\(\\)", "public void onClose()")
         // GuiGraphicsExtractor methods
         line = line.replaceAll("\\bdrawHoverEvent\\b", "setTooltipForNextFrame")
+        // ChatListener method names (Yarn→Mojang)
+        line = line.replaceAll("\\bonChatMessage\\b", "handlePlayerChatMessage")
+        line = line.replaceAll("\\bonProfilelessMessage\\b", "handleDisguisedChatMessage")
+        line = line.replaceAll("\\bonGameMessage\\b", "handleSystemMessage")
         // Fabric API PayloadTypeRegistry method renames
         line = line.replaceAll("\\bplayC2S\\b", "serverboundPlay")
         line = line.replaceAll("\\bplayS2C\\b", "clientboundPlay")

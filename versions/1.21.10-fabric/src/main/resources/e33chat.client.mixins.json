@@ -8,6 +8,7 @@
     "ChatInputSuggestorMixin",
     "ChatInputSuggestorAccessor",
     "SuggestionWindowAccessor",
+    "ScreenAccessor",
     "ChatListenerMixin",
     "MinecraftClientMixin"
   ]

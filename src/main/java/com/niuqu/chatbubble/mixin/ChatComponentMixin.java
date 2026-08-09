@@ -48,13 +48,46 @@ public class ChatComponentMixin {
     //$$     net.minecraft.client.multiplayer.chat.GuiMessageTag tag) {}
     //#endif
 
+    //#if MC >= 26000
+    //$$ @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true, remap = false)
+    //$$ private void onRender(DrawContext context,
+    //$$     net.minecraft.client.font.TextRenderer font,
+    //$$     int tickDelta, int mouseX, int mouseY,
+    //$$     Object displayMode, boolean focused, CallbackInfo ci) {
+    //$$     e33chat$shifted = false;
+    //$$     if (ChatBubbleClientSetup.config().enabled()) {
+    //$$         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
+    //$$             ci.cancel();
+    //$$             return;
+    //$$         }
+    //$$         RenderHelper.pushMatrix(context);
+    //$$         RenderHelper.translate(context, 0, -8);
+    //$$         e33chat$shifted = true;
+    //$$     }
+    //$$ }
+    //$$
+    //$$ @Inject(method = "extractRenderState", at = @At("RETURN"), remap = false)
+    //$$ private void onRenderReturn(DrawContext context,
+    //$$     net.minecraft.client.font.TextRenderer font,
+    //$$     int tickDelta, int mouseX, int mouseY,
+    //$$     Object displayMode, boolean focused, CallbackInfo ci) {
+    //$$     if (e33chat$shifted) {
+    //$$         RenderHelper.popMatrix(context);
+    //$$     }
+    //$$ }
+    //#else
     //#if MC >= 11900
     //#if MC >= 12106
     @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/font/TextRenderer;IIIZZ)V",
         at = @At("HEAD"), cancellable = true, remap = false)
     //#else
+    //#if MC >= 12000
     //$$ @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;IIIZ)V",
     //$$     at = @At("HEAD"), cancellable = true, remap = false)
+    //#else
+    //$$ @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;IIIZ)V",
+    //$$     at = @At("HEAD"), cancellable = true, remap = false)
+    //#endif
     //#endif
     //#endif
     //#if MC >= 12000
@@ -93,8 +126,13 @@ public class ChatComponentMixin {
     @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/font/TextRenderer;IIIZZ)V",
         at = @At("RETURN"), remap = false)
     //#else
+    //#if MC >= 12000
     //$$ @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;IIIZ)V",
     //$$     at = @At("RETURN"), remap = false)
+    //#else
+    //$$ @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;IIIZ)V",
+    //$$     at = @At("RETURN"), remap = false)
+    //#endif
     //#endif
     //#endif
     private void onRenderReturn(
@@ -121,6 +159,7 @@ public class ChatComponentMixin {
             //#endif
         }
     }
+    //#endif
 
     //#if MC < 26000
     @Inject(method = "addMessage(Lnet/minecraft/text/Text;)V",
@@ -139,6 +178,19 @@ public class ChatComponentMixin {
         captureMessage(message, ci);
     }
     //#endif
+    //#endif
+
+    // 26.x: addMessage signature changed to (Component, MessageSignature, GuiMessageSource, GuiMessageTag).
+    // Uses method name only (no descriptor) to avoid build.gradle client→minecraft regex
+    // corrupting the /net/minecraft/client/ path inside the descriptor string.
+    //#if MC >= 26000
+    //$$ @Inject(method = "addMessage", at = @At("HEAD"), cancellable = true, remap = false)
+    //$$ private void onAddMessage(net.minecraft.network.chat.Component message,
+    //$$     net.minecraft.network.chat.MessageSignature signature,
+    //$$     net.minecraft.client.multiplayer.chat.GuiMessageSource source,
+    //$$     net.minecraft.client.multiplayer.chat.GuiMessageTag tag, CallbackInfo ci) {
+    //$$     captureMessage(message, ci);
+    //$$ }
     //#endif
 
     // Vanilla chat gets a unified player-style format for whispers/quotes:

@@ -13,7 +13,10 @@ import net.minecraft.client.gui.DrawContext;
 //#endif
 //#if MC >= 12004
 import net.minecraft.client.gui.PlayerSkinDrawer;
+//#endif
+import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.util.DefaultSkinHelper;
+//#if MC >= 12004
 //#if MC >= 12109
 import net.minecraft.entity.player.SkinTextures;
 //#else
@@ -22,6 +25,7 @@ import net.minecraft.entity.player.SkinTextures;
 //#endif
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 import java.util.*;
 
@@ -51,6 +55,8 @@ public class MentionNotificationBanner {
 
     //#if MC >= 12004
     private static final Map<UUID, SkinTextures> skinCache = new HashMap<>();
+    //#else
+    //$$ private static final Map<UUID, Identifier> legacySkinCache = new HashMap<>();
     //#endif
 
     private MentionNotificationBanner() {}
@@ -69,11 +75,7 @@ public class MentionNotificationBanner {
 
         // System banners carry no sender — plain text, no avatar, flush text start.
         // [系统] 标签与第一行内容同行，内容宽度预算扣掉标签宽，避免同行溢出横幅
-        //#if MC >= 12004
         boolean hasAvatar = type != NotificationType.SYSTEM;
-        //#else
-        //$$ boolean hasAvatar = false;
-        //#endif
         int textOriginX = hasAvatar ? TEXT_X : TEXT_X_PLAIN;
         int maxTextW = Math.min(MAX_TEXT_W, mc.getWindow().getScaledWidth() - textOriginX - 12);
         int dotsW = mc.textRenderer.getWidth("...");
@@ -217,6 +219,9 @@ public class MentionNotificationBanner {
             //#if MC >= 12004
             SkinTextures skin = getSkin(current.senderUUID, current.senderName.getString());
             drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
+            //#else
+            //$$ Identifier skinTex = getSkinIdentifier(current.senderUUID, current.senderName.getString());
+            //$$ drawPlayerHead(g, skinTex, x + AVATAR_X, avatarY, AVATAR);
             //#endif
 
             int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
@@ -290,6 +295,32 @@ public class MentionNotificationBanner {
         if (skin == null) return;
         PlayerSkinDrawer.draw((DrawContext) g, skin, x, y, baseSize);
     }
+    //#else
+    // Legacy skin rendering for MC < 1.20.4: uses Identifier + drawTexture
+    // instead of PlayerSkinDrawer/SkinTextures which were added in 1.20.4.
+    //$$ private Identifier getSkinIdentifier(UUID uuid, String name) {
+    //$$     MinecraftClient mc = MinecraftClient.getInstance();
+    //$$     if (mc.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
+    //$$         PlayerListEntry info = mc.getNetworkHandler().getPlayerListEntry(uuid);
+    //$$         if (info != null) {
+    //$$             Identifier tex = info.getSkinTexture();
+    //$$             if (tex != null) return tex;
+    //$$         }
+    //$$     }
+    //$$     if (uuid != null && !uuid.equals(NIL_UUID)) {
+    //$$         Identifier cached = legacySkinCache.get(uuid);
+    //$$         if (cached != null) return cached;
+    //$$     }
+    //$$     Identifier fallback = DefaultSkinHelper.getTexture();
+    //$$     if (uuid != null && !uuid.equals(NIL_UUID)) legacySkinCache.put(uuid, fallback);
+    //$$     return fallback;
+    //$$ }
+    //$$
+    //$$ private void drawPlayerHead(Object g, Identifier skinTex, int x, int y, int size) {
+    //$$     if (skinTex == null) return;
+    //$$     RenderHelper.drawTexture(g, skinTex, x, y, size, size, 8f, 8f, 8, 8, 64, 64);
+    //$$     RenderHelper.drawTexture(g, skinTex, x, y, size, size, 40f, 8f, 8, 8, 64, 64);
+    //$$ }
     //#endif
 
     // Width-limit a component run by run, keeping each run's style (colors of
@@ -303,19 +334,11 @@ public class MentionNotificationBanner {
             if (used[0] >= budget) return java.util.Optional.<Object>empty();
             int w = font.getWidth(text);
             if (used[0] + w <= budget) {
-                //#if MC >= 12109
                 out.append(com.niuqu.chatbubble.Txt.literal(text).fillStyle(style));
-                //#else
-                //$$ out.append(com.niuqu.chatbubble.Txt.literal(text).setStyle(style));
-                //#endif
                 used[0] += w;
             } else {
                 String sub = font.trimToWidth(text, budget - used[0]);
-                //#if MC >= 12111
                 out.append(com.niuqu.chatbubble.Txt.literal(sub).fillStyle(style));
-                //#else
-                //$$ out.append(com.niuqu.chatbubble.Txt.literal(sub).setStyle(style));
-                //#endif
                 used[0] = budget;
             }
             return java.util.Optional.<Object>empty();

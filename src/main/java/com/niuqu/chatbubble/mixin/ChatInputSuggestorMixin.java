@@ -15,17 +15,26 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = ChatInputSuggestor.class, priority = 500)
 public class ChatInputSuggestorMixin {
+    //#if MC >= 26000
+    //$$ @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
+    //$$ private void onRenderMessages(DrawContext context, int mouseX, int mouseY, CallbackInfo ci) {
+    //#else
     @Inject(method = "renderMessages", at = @At("HEAD"), cancellable = true)
     //#if MC >= 12000
     private void onRenderMessages(DrawContext context, CallbackInfo ci) {
     //#else
     //$$ private void onRenderMessages(MatrixStack context, CallbackInfo ci) {
     //#endif
+    //#endif
         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
             ci.cancel();
         }
     }
+    //#if MC >= 26000
+    //$$ @Inject(method = "showSuggestions(Z)V", at = @At("TAIL"))
+    //#else
     @Inject(method = "show(Z)V", at = @At("TAIL"))
+    //#endif
     private void afterShow(CallbackInfo ci) {
         if (!(MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen)) return;
         ChatInputSuggestor.SuggestionWindow window = ((ChatInputSuggestorAccessor) this).getWindow();

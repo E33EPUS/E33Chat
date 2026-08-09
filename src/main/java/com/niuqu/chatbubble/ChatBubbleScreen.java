@@ -28,8 +28,8 @@ import net.minecraft.client.gui.PlayerSkinDrawer;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
-//#if MC >= 12004
 import net.minecraft.client.util.DefaultSkinHelper;
+//#if MC >= 12004
 //#if MC >= 12109
 import net.minecraft.entity.player.SkinTextures;
 //#else
@@ -452,6 +452,10 @@ public class ChatBubbleScreen extends Screen {
         //$$ SkinTextures skin = getSkin(info.getProfile().getId(), info.getProfile().getName());
         //#endif
                         drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18);
+                    //#else
+                        Identifier skinTex = getSkinIdentifier(
+                            info.getProfile().getId(), info.getProfile().getName());
+                        drawPlayerHead(g, skinTex, 4, scrollY + 3, 16);
                     //#endif
 
                         int tipW = ChatMessageStore.hasUnreadWhisper(name) ? 16 : 0;
@@ -1581,6 +1585,9 @@ public class ChatBubbleScreen extends Screen {
         //#if MC >= 12004
         SkinTextures skin = getSkin(msg.senderUUID(), skinName);
         drawPlayerHead(g, skin, avatarX, avatarY, 20, 22);
+        //#else
+        Identifier skinTex = getSkinIdentifier(msg.senderUUID(), skinName);
+        drawPlayerHead(g, skinTex, avatarX, avatarY, 20);
         //#endif
 
         if (msg.duplicateCount() > 1) {
@@ -2209,6 +2216,38 @@ public class ChatBubbleScreen extends Screen {
         }
         return DefaultSkinHelper.getSkinTextures(
             new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : ""));
+    }
+    //#else
+    // Legacy skin rendering for MC < 1.20.4: uses Identifier + drawTexture
+    // instead of PlayerSkinDrawer/SkinTextures which were added in 1.20.4.
+    private static final java.util.Map<UUID, Identifier> legacySkinCache = new java.util.HashMap<>();
+
+    private void drawPlayerHead(Object g, Identifier skinTex, int x, int y, int size) {
+        if (skinTex == null) return;
+        // Face: 8x8 region at UV (8,8) in the 64x64 skin texture
+        RenderHelper.drawTexture(g, skinTex, x, y, size, size, 8f, 8f, 8, 8, 64, 64);
+        // Hat overlay: 8x8 region at UV (40,8) in the 64x64 skin texture
+        RenderHelper.drawTexture(g, skinTex, x, y, size, size, 40f, 8f, 8, 8, 64, 64);
+    }
+
+    private Identifier getSkinIdentifier(UUID uuid, String name) {
+        // Online players: read fresh every frame so async skin downloads appear
+        if (client.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
+            PlayerListEntry info = client.getNetworkHandler().getPlayerListEntry(uuid);
+            if (info != null) {
+                // getSkinTexture() returns Identifier directly in all MC < 1.20.4
+                Identifier tex = info.getSkinTexture();
+                if (tex != null) return tex;
+            }
+        }
+        // Offline player: check cache, then fall back to default skin
+        if (uuid != null && !uuid.equals(NIL_UUID)) {
+            Identifier cached = legacySkinCache.get(uuid);
+            if (cached != null) return cached;
+        }
+        Identifier fallback = DefaultSkinHelper.getTexture();
+        if (uuid != null && !uuid.equals(NIL_UUID)) legacySkinCache.put(uuid, fallback);
+        return fallback;
     }
     //#endif
 
