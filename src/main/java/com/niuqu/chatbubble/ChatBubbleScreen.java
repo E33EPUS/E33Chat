@@ -333,9 +333,9 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private static final int SIDEBAR_SEARCH_H = 14;
 
-    private void renderSidebar(DrawContext g, int mouseX, int mouseY) {
-        g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, SIDEBAR_W, height, 0f, 0f, 16, 16, 16, 16);
-        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER), SIDEBAR_W - 1, 0, 1, height, 0f, 0f, 16, 16, 16, 16);
+    private void renderSidebar(DrawContext g, int mouseX, int mouseY, float alpha) {
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, SIDEBAR_W, height, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), SIDEBAR_W - 1, 0, 1, height, alpha);
 
         int y = 2;
         int itemH = SIDEBAR_ITEM_H;
@@ -344,7 +344,7 @@ public class ChatBubbleScreen extends ChatScreen {
         int sby = 2;
         int sbw = SIDEBAR_W - 5;
         int sbh = SIDEBAR_SEARCH_H;
-        g.drawTexture(UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, sbw + 1, sbh, 0f, 0f, 16, 16, 16, 16);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, sbw + 1, sbh, alpha);
         boolean hoverSearch = mouseX >= sbx - 1 && mouseX <= sbx + sbw && mouseY >= sby && mouseY <= sby + sbh;
         if (hoverSearch || sidebarSearchBox.isFocused())
             g.drawBorder(sbx - 1, sby, sbw + 1, sbh, c().textMuted());
@@ -356,10 +356,10 @@ public class ChatBubbleScreen extends ChatScreen {
         boolean isPublic = whisperPartner == null;
         boolean hoverTab = mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= y && mouseY <= y + itemH;
         if (isPublic)
-            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, y, SIDEBAR_W, itemH, 0f, 0f, 16, 16, 16, 16);
+            ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, y, SIDEBAR_W, itemH, alpha);
         else if (hoverTab)
-            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, y, SIDEBAR_W, itemH, 0f, 0f, 16, 16, 16, 16);
-        drawTextureIcon(g, iconTex("public_icon"), 2, y + 1, SIDEBAR_ICON_S);
+            ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, y, SIDEBAR_W, itemH, alpha);
+        drawTextureIconAlpha(g, iconTex("public_icon"), 2, y + 1, SIDEBAR_ICON_S, alpha);
         int nameX = 2 + SIDEBAR_ICON_S + 3;
         String publicLabel = Text.translatable("e33chat.sidebar.public").getString();
         g.drawText(textRenderer, publicLabel, nameX, y + 1, c().textPrimary(), false);
@@ -391,7 +391,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
             if (totalH == 0) {
                 int iconS = 32;
-                drawTextureIcon(g, iconTex("no_online"), (SIDEBAR_W - iconS) / 2, startY + 8, iconS);
+                drawTextureIconAlpha(g, iconTex("no_online"), (SIDEBAR_W - iconS) / 2, startY + 8, iconS, alpha);
                 String noPlayers = Text.translatable("e33chat.sidebar.no_players").getString();
                 int textW = textRenderer.getWidth(noPlayers);
                 g.drawText(textRenderer, noPlayers,
@@ -413,12 +413,12 @@ public class ChatBubbleScreen extends ChatScreen {
                         boolean sel = name.equals(whisperPartner);
                         boolean hoverRow = mouseX >= 0 && mouseX <= SIDEBAR_W && mouseY >= scrollY && mouseY <= scrollY + itemH;
                         if (sel)
-                            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, scrollY, SIDEBAR_W, itemH, 0f, 0f, 16, 16, 16, 16);
+                            ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_SELECTED), 0, scrollY, SIDEBAR_W, itemH, alpha);
                         else if (hoverRow)
-                            g.drawTexture(UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, SIDEBAR_W, itemH, 0f, 0f, 16, 16, 16, 16);
+                            ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, SIDEBAR_W, itemH, alpha);
 
                         Identifier skin = getSkin(info.getProfile().getId(), info.getProfile().getName());
-                        drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18);
+                        drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18, alpha);
 
                         int tipW = ChatMessageStore.hasUnreadWhisper(name) ? 16 : 0;
                         int maxNameW = SIDEBAR_W - nameX - 4 - tipW - 2;
@@ -437,7 +437,7 @@ public class ChatBubbleScreen extends ChatScreen {
                         if (ChatMessageStore.hasUnreadWhisper(name)) {
                             int tipX = SIDEBAR_W - 16 - 2;
                             int tipY = scrollY + 3 + (int) (Math.abs(Math.sin(System.currentTimeMillis() / 300.0)) * 3);
-                            drawTextureIcon(g, iconTex("private_tip"), tipX, tipY, 16);
+                            drawTextureIconAlpha(g, iconTex("private_tip"), tipX, tipY, 16, alpha);
                         }
                     }
                     scrollY += itemH + 2;
@@ -1113,9 +1113,9 @@ public class ChatBubbleScreen extends ChatScreen {
                 ? (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W)
                 : (fadeSidebar ? 0 : getSidebarScreenX());
             g.getMatrices().translate(sidebarOffset, 0, 50);
-            if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, getAnimProgress());
-            renderSidebar(g, mouseX - sidebarOffset, mouseY);
-            if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+            // Per-element alpha (vanilla drawTexture ignores setShaderColor; the
+            // sidebar fades its own textures through the alpha path)
+            renderSidebar(g, mouseX - sidebarOffset, mouseY, fadeSidebar ? getAnimProgress() : 1f);
             g.getMatrices().pop();
             if (closing) sidebarSearchBox.setX(2 + sidebarOffset);
         }
@@ -1512,9 +1512,7 @@ public class ChatBubbleScreen extends ChatScreen {
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
         Identifier skin = getSkin(msg.senderUUID(), skinName);
-        RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-        drawPlayerHead(g, skin, avatarX, avatarY, 20, 22);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        drawPlayerHead(g, skin, avatarX, avatarY, 20, 22, alpha);
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
@@ -1948,12 +1946,11 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private static final UUID NIL_UUID = new UUID(0, 0);
 
-    private void drawPlayerHead(DrawContext g, Identifier skin, int x, int y, int baseSize, int hatSize) {
-        RenderSystem.enableBlend();
-        g.drawTexture(skin, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64);
+    private void drawPlayerHead(DrawContext g, Identifier skin, int x, int y, int baseSize, int hatSize, float alpha) {
+        if (alpha <= 0.003f) return;
+        ColoredTextureRenderer.drawWithAlpha(g, skin, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64, alpha);
         int hatOff = (hatSize - baseSize) / 2;
-        g.drawTexture(skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64);
-        RenderSystem.disableBlend();
+        ColoredTextureRenderer.drawWithAlpha(g, skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64, alpha);
     }
 
     private Identifier getSkin(UUID uuid, String name) {
