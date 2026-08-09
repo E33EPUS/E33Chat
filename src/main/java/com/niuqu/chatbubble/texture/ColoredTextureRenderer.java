@@ -61,4 +61,32 @@ public final class ColoredTextureRenderer {
         BufferUploader.drawWithShader(bb.end());
         RenderSystem.disableBlend();
     }
+
+    /**
+     * 带整体透明度 + UV 采样的纹理渲染：等价 blit 的
+     * (u,v,regionWidth,regionHeight,textureWidth,textureHeight) 语义，但带动态 alpha。
+     * 图标/带采样区域的元素淡入用（blit 走 POSITION_TEX 不吃 setShaderColor）。
+     */
+    public static void drawWithAlpha(GuiGraphics g, ResourceLocation tex,
+                                     int x, int y, int w, int h,
+                                     float u, float v, int regionW, int regionH,
+                                     int texW, int texH, float alpha) {
+        if (w <= 0 || h <= 0 || alpha <= 0.003f) return;
+        g.flush();
+        RenderSystem.setShaderTexture(0, tex);
+        RenderSystem.setShader(GameRenderer::getPositionColorTexShader);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        float u1 = u / texW, u2 = (u + regionW) / texW;
+        float v1 = v / texH, v2 = (v + regionH) / texH;
+        Matrix4f pose = g.pose().last().pose();
+        BufferBuilder bb = Tesselator.getInstance().getBuilder();
+        bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_TEX);
+        bb.vertex(pose, x, y, 0).color(1f, 1f, 1f, alpha).uv(u1, v1).endVertex();
+        bb.vertex(pose, x, y + h, 0).color(1f, 1f, 1f, alpha).uv(u1, v2).endVertex();
+        bb.vertex(pose, x + w, y + h, 0).color(1f, 1f, 1f, alpha).uv(u2, v2).endVertex();
+        bb.vertex(pose, x + w, y, 0).color(1f, 1f, 1f, alpha).uv(u2, v1).endVertex();
+        BufferUploader.drawWithShader(bb.end());
+        RenderSystem.disableBlend();
+    }
 }
