@@ -187,8 +187,10 @@ public final class MessagePresentation {
         }
         String zone = colon < 0 ? text : text.substring(0, colon);
         String lower = zone.toLowerCase();
+        // 裸 "to you" 不算私聊词——"wants to teleport to you"（tpa 请求）/"says to you"
+        // 会误伤；whisper 系由 whisper/悄悄/对你说 覆盖，PM 系由下方 EN 词表覆盖
         if (zone.contains("悄悄") || zone.contains("whisper") || zone.contains("对你说")
-            || zone.contains("to you") || zone.contains("私聊") || zone.contains("密语")
+            || zone.contains("私聊") || zone.contains("密语")
             || zone.contains("密聊") || zone.contains("私信") || zone.contains("密谈"))
             return true;
         // 短英文词（pm/msg/tell/message）易撞玩家名/前缀（Msg: hi、[PM]Steve）——

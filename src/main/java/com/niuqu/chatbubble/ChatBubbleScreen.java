@@ -1406,7 +1406,7 @@ public class ChatBubbleScreen extends ChatScreen {
         if (cached != null) return cached;
         int bubbleMaxW = panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2
             - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
-        int h = ChatMessageRenderer.msgHeight(msg, font, bubbleMaxW);
+        int h = ChatMessageRenderer.msgHeight(msg, font, bubbleMaxW, panelW);
         msgHeightCache.put(msg, h);
         return h;
     }
