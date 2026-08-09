@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.3.8
+
+**修复（2.3.8）**
+- **tpa 请求被误判为私聊（三端）**：whisper 检测词表里的裸 "to you" 太宽松——"wants to teleport to you"（Essentials 系 tpa 请求）恰好含 "to you"，被误判成私聊：`[Essentials]` 前缀被剥、渲染成私聊玩家气泡、触发私聊横幅、`[Yes]/[No]` 按钮样式丢失。现在裸 "to you" 不再算私聊词（真私聊由 whisper/悄悄/对你说/PM 词表覆盖），tpa 请求正确显示为系统消息；echo 抑制误判（对方请求刚好在 /msg 某人之后到达，被当成自己回显吞掉）同步消除
+- **长系统消息文本重叠（Forge/Neo）**：系统消息高度计算用 999 宽度（几乎不换行→按 1 行算），实际绘制用面板内宽（长文本画 2-3 行）——高度预算不足，下一条消息压上来重叠。现在高度计算与绘制同宽（`panelW - PAD*2 - 20`），每条系统消息独立占行不再互相覆盖
+
+**Fixes (2.3.8)**
+- tpa requests misread as private messages (all three platforms): the bare "to you" keyword in the whisper detector was too loose — "wants to teleport to you" (Essentials-style tpa requests) contains it and was claimed as a whisper: the `[Essentials]` prefix was stripped, the message rendered as a private-player bubble, a whisper banner fired and the `[Yes]/[No]` buttons lost their styling. Bare "to you" is no longer a whisper keyword (real whispers are covered by whisper/悄悄/对你说 and the PM word list); tpa requests now show as system messages, and the echo-suppression misread (a request arriving right after you /msg someone was suppressed as your own echo) is gone with it
+- Long system messages overlapped (Forge/Neo): the height computation wrapped content at width 999 (nearly one line) while rendering wrapped at the panel-inner width (2-3 lines) — the height budget fell short and the next message drew on top. Height now uses the same wrap width as rendering (`panelW - PAD*2 - 20`), so each system message occupies its own rows
+
 ## v2.3.7
 
 ## v2.3.7
