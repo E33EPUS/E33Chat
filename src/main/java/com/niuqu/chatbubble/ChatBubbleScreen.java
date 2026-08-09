@@ -1053,8 +1053,10 @@ public class ChatBubbleScreen extends ChatScreen {
 
         float panelOpacity = ChatBubbleClientSetup.config().panelOpacity() / 100f * anim;
         // When sidebar is synced to main animation, extend panel bg to
-        // sidebar's right edge so there's no gap between them.
-        int fillLeft = (!sidebarAnimating && sidebarOpen)
+        // sidebar's right edge so there's no gap between them. Only SLIDE
+        // moves horizontally (the panel slides in); FADE/ZOOM keep the bg
+        // in place and fade/scale it in place instead.
+        int fillLeft = (!sidebarAnimating && sidebarOpen && pstyle == AnimationStyle.SLIDE)
             ? (int)(anim * SIDEBAR_W) : panelX;
         if (ChatBubbleClientSetup.config().blurEnabled() && panelOpacity < 0.999f && !zoom) {
             g.draw();
