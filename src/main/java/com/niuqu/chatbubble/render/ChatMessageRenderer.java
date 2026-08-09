@@ -31,9 +31,11 @@ public final class ChatMessageRenderer {
 
     // ---- Pure computation (testable) ----
 
-    public static int msgHeight(ChatMessageStore.ChatMessage msg, Font font, int bubbleMaxW) {
+    public static int msgHeight(ChatMessageStore.ChatMessage msg, Font font, int bubbleMaxW, int panelW) {
         if (msg.isSystem()) {
-            List<FormattedCharSequence> lines = wrapContent(msg.content(), font, 999);
+            // 与 renderBubble 系统分支同宽（panelW - PAD*2 - 20）：宽度不一致会让
+            // 长系统消息高度算 1 行、实际画多行 → 下一条消息重叠
+            List<FormattedCharSequence> lines = wrapContent(msg.content(), font, panelW - ChatLayout.PAD * 2 - 20);
             return lines.size() * font.lineHeight + 4;
         }
         List<FormattedCharSequence> lines = wrapContent(msg.content(), font, bubbleMaxW);
@@ -61,11 +63,11 @@ public final class ChatMessageRenderer {
     }
 
     public static int computeTotalH(List<ChatMessageStore.ChatMessage> messages,
-                                     Font font, int bubbleMaxW, int interval) {
+                                     Font font, int bubbleMaxW, int panelW, int interval) {
         int totalH = 0;
         String lastKey = null;
         for (var msg : messages) {
-            totalH += msgHeight(msg, font, bubbleMaxW) + GAP;
+            totalH += msgHeight(msg, font, bubbleMaxW, panelW) + GAP;
             if (!msg.isSystem()) {
                 String key = timeKey(msg.time(), interval);
                 if (lastKey == null || !key.equals(lastKey)) { lastKey = key; }
