@@ -19,6 +19,7 @@ import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
+import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
 import com.niuqu.chatbubble.packets.QuoteSyncPayload;
 import com.niuqu.chatbubble.render.ChatBars;
@@ -1202,7 +1203,7 @@ public class ChatBubbleScreen extends ChatScreen {
         if (whisperPartner != null) {
             indicatorH = 14;
             int indY = msgTop;
-            g.blit(UiTextureManager.rl(UiElement.WHISPER_BAR), panelX, indY, panelW, indicatorH, 0f, 0f, 1, 1, 1, 1);
+            ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.WHISPER_BAR), panelX, indY, panelW, indicatorH, getAnimProgress());
             String modeText = Component.translatable("e33chat.whisper.mode").getString() + ": " + whisperPartner;
             int modeTW = font.width(modeText);
             g.drawString(font, Component.literal(modeText), panelX + (panelW - modeTW) / 2, indY + 2, c().textPrimary(), false);
@@ -1461,7 +1462,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private void renderNotificationBar(GuiGraphics g, int mouseX, int mouseY) {
         if (newMessageCount <= 0) return;
         int notifY = barTop - NOTIF_H;
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), panelX, notifY - 1, panelW, 1, 0f, 0f, 1, 1, 1, 1);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), panelX, notifY - 1, panelW, 1, getAnimProgress());
         int yellow = c().notificationText();
         int textY = notifY + (NOTIF_H - font.lineHeight) / 2;
         String ct = newMessageCount + Component.translatable("e33chat.notif.new_messages").getString() + " ▽";
@@ -1487,7 +1488,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private void renderContextMenu(GuiGraphics g, int mouseX, int mouseY) {
         if (contextMsgIndex < 0) return;
         ChatContextMenus.renderMessageMenu(g, font, mouseX, mouseY, c(), panelX, panelW,
-            msgTop, iconTex("copy"), iconTex("quote"), contextX, contextY);
+            msgTop, iconTex("copy"), iconTex("quote"), contextX, contextY, getAnimProgress());
     }
 
     private void renderAvatarContextMenu(GuiGraphics g, int mouseX, int mouseY) {
@@ -1498,7 +1499,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatBubbleConfig.BLOCKED_PLAYERS.get());
         ChatContextMenus.renderAvatarMenu(g, font, mouseX, mouseY, c(), panelX, panelW,
             msgTop, iconTex("tp"), iconTex("whisper"), iconTex("block"), isBlocked,
-            contextAvatarX, contextAvatarY, ChatMessageStore.useTpa());
+            contextAvatarX, contextAvatarY, ChatMessageStore.useTpa(), getAnimProgress());
     }
 
     private static final int REPLY_BAR_H = 18;
@@ -1518,7 +1519,7 @@ public class ChatBubbleScreen extends ChatScreen {
         float panelBgAlpha = (c().panelBg() >>> 24) / 255f;
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             barX, barY, barW, barTop - notifOffset - barY, panelBgAlpha);
-        g.blit(UiTextureManager.rl(UiElement.DIVIDER), barX, barTop - notifOffset - 1, barW, 1, 0f, 0f, 1, 1, 1, 1);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), barX, barTop - notifOffset - 1, barW, 1, getAnimProgress());
 
         String sender = target.senderName().getString();
         if (sender.isEmpty()) sender = Component.translatable("e33chat.sender.system").getString();
@@ -1531,8 +1532,8 @@ public class ChatBubbleScreen extends ChatScreen {
         int cx = barX + barW - 16;
         int cy = barY + 3;
         boolean hoverX = mouseX >= cx && mouseX <= cx + 12 && mouseY >= cy && mouseY <= cy + 12;
-        g.blit(UiTextureManager.rl(hoverX ? UiElement.CLOSE_HOVER : UiElement.SIDEBAR_SELECTED),
-            cx, cy, 12, 12, 0f, 0f, 1, 1, 1, 1);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverX ? UiElement.CLOSE_HOVER : UiElement.SIDEBAR_SELECTED),
+            cx, cy, 12, 12, getAnimProgress());
         g.drawString(font, Component.literal("✕"), cx + 6 - font.width("✕") / 2, cy + 2, c().closeText(), false);
     }
 
@@ -1562,8 +1563,8 @@ public class ChatBubbleScreen extends ChatScreen {
         int popupY = input.getY() - popupH - 2;
         if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
 
-        g.blit(UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, popupW, popupH, 0f, 0f, 1, 1, 1, 1);
-        g.renderOutline(popupX, popupY, popupW, popupH, c().divider());
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, popupW, popupH, getAnimProgress());
+        g.renderOutline(popupX, popupY, popupW, popupH, ChatBubbleTheme.alphaBlend(c().divider(), (int) (255 * getAnimProgress())));
 
         int startIdx = Math.max(0, mentionIdx - visible + 1);
         int endIdx = Math.min(mentionCandidates.size(), startIdx + visible);
