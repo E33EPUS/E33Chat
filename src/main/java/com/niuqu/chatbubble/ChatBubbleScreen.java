@@ -549,6 +549,12 @@ public class ChatBubbleScreen extends ChatScreen {
             g.getMatrices().translate(-width / 2f, -height / 2f, 0);
             render.run();
             g.getMatrices().pop();
+        } else if (style == AnimationStyle.SLIDE) {
+            // SLIDE: rise up from below while fading in
+            g.getMatrices().push();
+            g.getMatrices().translate(0, (1f - alpha) * 10f, 0);
+            render.run();
+            g.getMatrices().pop();
         } else {
             render.run();
         }
@@ -1090,10 +1096,17 @@ public class ChatBubbleScreen extends ChatScreen {
 
         if (sidebarOpen || sidebarAnimating) {
             g.getMatrices().push();
+            // ZOOM: the sidebar scales with the panel around the panel center
+            if (zoom) {
+                float cx = panelX + panelW / 2f;
+                g.getMatrices().translate(cx, height / 2f, 0);
+                g.getMatrices().scale(panelScale, panelScale, 1f);
+                g.getMatrices().translate(-cx, -height / 2f, 0);
+            }
             // FADE: the sidebar fades in place with the panel (both directions)
             boolean fadeSidebar = pstyle == AnimationStyle.FADE;
             int sidebarOffset = closing
-                ? (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W)
+                ? (fadeSidebar ? 0 : (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W))
                 : getSidebarScreenX();
             g.getMatrices().translate(sidebarOffset, 0, 50);
             if (fadeSidebar) RenderSystem.setShaderColor(1f, 1f, 1f, getAnimProgress());
