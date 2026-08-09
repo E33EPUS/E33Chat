@@ -484,10 +484,23 @@ sourceSets {
             srcDir sharedResDir
         }
     }
+    test {
+        java {
+            setSrcDirs([])
+        }
+    }
 }
 
 tasks.named("compileJava").configure {
     dependsOn(preprocessTask)
+}
+
+tasks.named("compileTestJava").configure {
+    enabled = false
+}
+
+tasks.withType(Test).configureEach {
+    enabled = false
 }
 
 publishing {

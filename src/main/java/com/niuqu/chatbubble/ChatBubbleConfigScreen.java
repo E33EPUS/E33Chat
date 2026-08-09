@@ -212,7 +212,11 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().quickChatPhrases(),
             mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
-            bannerOffsetX, bannerOffsetY));
+            bannerOffsetX, bannerOffsetY,
+            ChatBubbleClientSetup.config().panelAnimStyle(),
+            ChatBubbleClientSetup.config().bannerAnimStyle(),
+            ChatBubbleClientSetup.config().popupAnimStyle(),
+            ChatBubbleClientSetup.config().messageAnimStyle()));
     }
 
     private void loadFromConfig() {
