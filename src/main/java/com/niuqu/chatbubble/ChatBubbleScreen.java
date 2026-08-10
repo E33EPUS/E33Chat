@@ -2272,11 +2272,13 @@ public class ChatBubbleScreen extends Screen {
         //#if MC >= 12109
         Identifier tex = skin.body().texturePath();
         ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, baseSize, baseSize, 8f, 8f, 8, 8, 64, 64, alpha);
-        ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, hatSize, hatSize, 40f, 8f, 8, 8, 64, 64, alpha);
+        int hatOff = (hatSize - baseSize) / 2;
+        ColoredTextureRenderer.drawWithAlpha(g, tex, x - hatOff, y - hatOff, hatSize, hatSize, 40f, 8f, 8, 8, 64, 64, alpha);
         //#else
         //$$ Identifier tex = skin.texture();
         //$$ ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, baseSize, baseSize, 8f, 8f, 8, 8, 64, 64, alpha);
-        //$$ ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, hatSize, hatSize, 40f, 8f, 8, 8, 64, 64, alpha);
+        //$$ int hatOff = (hatSize - baseSize) / 2;
+        //$$ ColoredTextureRenderer.drawWithAlpha(g, tex, x - hatOff, y - hatOff, hatSize, hatSize, 40f, 8f, 8, 8, 64, 64, alpha);
         //#endif
     }
 
