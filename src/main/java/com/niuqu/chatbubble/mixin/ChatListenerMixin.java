@@ -458,6 +458,36 @@ public class ChatListenerMixin {
         //$$ Text paramName = params.name();
         //$$ senderName = paramName != null ? paramName : senderName;
         //#else
+        // 沿用旧分支：有些版本/服务器的 SignedMessage content 本身就是完整聊天行
+        // （例如 "<玩家名> 内容" 或 "<称号玩家名> 内容"），先从 raw 中拆出显示名与正文。
+        String pattern = "<" + name + "> ";
+        int idx = rawStr.indexOf(pattern);
+        int contentStart = idx >= 0 ? idx + pattern.length() : -1;
+        int prefixEnd = idx;
+        if (contentStart < 0) {
+            int i2 = rawStr.indexOf(name + "> ");
+            if (i2 > 0) {
+                int open = rawStr.lastIndexOf('<', i2);
+                if (open >= 0 && rawStr.indexOf('>', open) == i2 + name.length()) {
+                    contentStart = i2 + name.length() + 2;
+                    prefixEnd = open;
+                }
+            }
+        }
+        if (contentStart >= 0) {
+            String cleanContent = rawStr.substring(contentStart);
+            Text displayName = extractDecoratedName(raw, cleanContent, name,
+                com.niuqu.chatbubble.Txt.literal((rawStr.substring(0, prefixEnd) + name).trim()));
+            Text contentComp = ChatMessageStore.sliceStyled(raw, contentStart, rawStr.length());
+            var player = MinecraftClient.getInstance().player;
+            if (player != null && senderId != null && senderId.equals(player.getUuid())) {
+                ChatMessageStore.cacheOwnDecoratedName(displayName);
+            }
+            ChatMessageStore.debugLog("[e33chat] PlayerChat(raw line) | raw='" + rawStr + "' | sender='" + displayName.getString() + "' | content='" + contentComp.getString() + "' | isWhisper=" + isWhisper);
+            ChatMessageStore.setPendingMeta(new SenderMeta(senderId, displayName, contentComp, false, name, isWhisper, whisperPartner));
+            return;
+        }
+
         if (isWhisper) {
             playerContent = com.niuqu.chatbubble.Txt.literal(MessagePresentation.extractWhisperContent(rawStr, name));
             // 沿用旧分支：私聊从最终装饰行里提取发送者显示名，出站回显则用自己的可显示名兜底。

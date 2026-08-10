@@ -117,6 +117,7 @@ public class ChatBubbleScreen extends Screen {
     private static String savedInput = "";
     //#if MC >= 12004
     private static final java.util.Map<UUID, SkinTextures> skinCache = new java.util.HashMap<>();
+    private static final java.util.Map<String, SkinTextures> skinNameCache = new java.util.HashMap<>();
     //#endif
     private String historyBuffer = "";
     private int historyPos = -1;
@@ -2261,6 +2262,12 @@ public class ChatBubbleScreen extends Screen {
 
     private static final UUID NIL_UUID = new UUID(0, 0);
 
+    private static String skinNameKey(String name) {
+        if (name == null) return null;
+        String key = name.replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
+        return key.isEmpty() ? null : key;
+    }
+
     //#if MC >= 12004
     private void drawPlayerHead(Object g, SkinTextures skin, int x, int y, int baseSize, int hatSize) {
         drawPlayerHead(g, skin, x, y, baseSize, hatSize, 1f);
@@ -2285,11 +2292,15 @@ public class ChatBubbleScreen extends Screen {
         // Online players: read PlayerInfo fresh every frame — caching the first result
         // (default Steve/Alex while async download is in progress) would freeze the head
         // forever even after the real skin loaded. CSL intercepts the underlying lookup.
+        // 读取到在线皮肤后仍写入常驻缓存；后续在线帧会继续刷新缓存，玩家离线/重进时复用上一次头像。
         if (client.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             PlayerListEntry info = client.getNetworkHandler().getPlayerListEntry(uuid);
             if (info != null) {
                 SkinTextures textures = info.getSkinTextures();
-                if (textures != null) return textures;
+                if (textures != null) {
+                    rememberSkin(uuid, name, textures);
+                    return textures;
+                }
             }
         }
         // Offline player / history mention: route through SkinProvider with a name-bearing
@@ -2298,9 +2309,21 @@ public class ChatBubbleScreen extends Screen {
             SkinTextures cached = skinCache.get(uuid);
             if (cached != null) return cached;
         }
+        String nameKey = skinNameKey(name);
+        if (nameKey != null) {
+            SkinTextures cachedByName = skinNameCache.get(nameKey);
+            if (cachedByName != null) return cachedByName;
+        }
         SkinTextures resolved = resolveSkin(uuid, name);
-        if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, resolved);
+        rememberSkin(uuid, name, resolved);
         return resolved;
+    }
+
+    private void rememberSkin(UUID uuid, String name, SkinTextures skin) {
+        if (skin == null) return;
+        if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, skin);
+        String nameKey = skinNameKey(name);
+        if (nameKey != null) skinNameCache.put(nameKey, skin);
     }
 
     private SkinTextures resolveSkin(UUID uuid, String name) {
@@ -2325,6 +2348,7 @@ public class ChatBubbleScreen extends Screen {
     // Legacy skin rendering for MC < 1.20.4: uses Identifier + drawTexture
     // instead of PlayerSkinDrawer/SkinTextures which were added in 1.20.4.
     private static final java.util.Map<UUID, Identifier> legacySkinCache = new java.util.HashMap<>();
+    private static final java.util.Map<String, Identifier> legacySkinNameCache = new java.util.HashMap<>();
 
     private void drawPlayerHead(Object g, Identifier skinTex, int x, int y, int size) {
         drawPlayerHead(g, skinTex, x, y, size, 1f);
@@ -2345,7 +2369,10 @@ public class ChatBubbleScreen extends Screen {
             if (info != null) {
                 // getSkinTexture() returns Identifier directly in all MC < 1.20.4
                 Identifier tex = info.getSkinTexture();
-                if (tex != null) return tex;
+                if (tex != null) {
+                    rememberLegacySkin(uuid, name, tex);
+                    return tex;
+                }
             }
         }
         // Offline player: check cache, then fall back to default skin
@@ -2353,9 +2380,21 @@ public class ChatBubbleScreen extends Screen {
             Identifier cached = legacySkinCache.get(uuid);
             if (cached != null) return cached;
         }
+        String nameKey = skinNameKey(name);
+        if (nameKey != null) {
+            Identifier cachedByName = legacySkinNameCache.get(nameKey);
+            if (cachedByName != null) return cachedByName;
+        }
         Identifier fallback = DefaultSkinHelper.getTexture();
-        if (uuid != null && !uuid.equals(NIL_UUID)) legacySkinCache.put(uuid, fallback);
+        rememberLegacySkin(uuid, name, fallback);
         return fallback;
+    }
+
+    private void rememberLegacySkin(UUID uuid, String name, Identifier skinTex) {
+        if (skinTex == null) return;
+        if (uuid != null && !uuid.equals(NIL_UUID)) legacySkinCache.put(uuid, skinTex);
+        String nameKey = skinNameKey(name);
+        if (nameKey != null) legacySkinNameCache.put(nameKey, skinTex);
     }
     //#endif
 

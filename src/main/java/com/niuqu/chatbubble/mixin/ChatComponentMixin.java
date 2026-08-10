@@ -328,8 +328,14 @@ public class ChatComponentMixin {
         // fully rendered final component — covers servers whose chat-type
         // params.name() returned null or the bare name, but the chat-type
         // decoration added the prefix in the rendered output.
-        if (!meta.isSystem() && meta.rawPlayerName() != null && !meta.rawPlayerName().isEmpty()
-                && meta.senderName().getString().equals(meta.rawPlayerName())
+        String rawPlayerName = meta.rawPlayerName();
+        String currentSenderName = meta.senderName().getString();
+        String strippedSenderName = currentSenderName.replaceAll("§.", "").trim();
+        boolean senderStillBare = rawPlayerName != null && !rawPlayerName.isEmpty()
+            && (currentSenderName.equals(rawPlayerName)
+                || strippedSenderName.equals(rawPlayerName)
+                || strippedSenderName.equals("<" + rawPlayerName + ">"));
+        if (!meta.isSystem() && senderStillBare
                 && finalStr.contains(rawStr) && !rawStr.isEmpty()) {
             Text decorated = ChatMessageStore.extractDecoratedName(
                 finalComponent, rawStr, meta.rawPlayerName(), meta.senderName());
