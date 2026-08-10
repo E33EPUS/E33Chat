@@ -910,9 +910,8 @@ public class ChatMessageStore {
 
     private static Text ownDecoratedName;
 
-    // Best available self name: tab list > decorated name seen in chat > bare name.
-    // Vanilla servers send no tab-list display name, so the chat cache is the
-    // reliable source for the outgoing whisper repost.
+    // 自己的最佳显示名：Tab 显示名 > 聊天中缓存到的装饰名 > 队伍前后缀/颜色 > 裸名。
+    // 旧分支会在没有 Tab 显示名和聊天缓存时，继续从 scoreboard team 取称号/颜色兜底。
     public static Text ownDisplayName() {
         var player = net.minecraft.client.MinecraftClient.getInstance().player;
         if (player != null && player.networkHandler != null) {
@@ -922,6 +921,27 @@ public class ChatMessageStore {
             }
         }
         if (ownDecoratedName != null) return ownDecoratedName;
+        //#if MC >= 12100
+        //#if MC < 26000
+        if (player != null && player.getScoreboardTeam() != null) {
+            var team = player.getScoreboardTeam();
+            Text pfx = team.getPrefix();
+            Text sfx = team.getSuffix();
+            Formatting col = team.getColor();
+            boolean hasPfx = pfx != null && !pfx.getString().isEmpty();
+            boolean hasSfx = sfx != null && !sfx.getString().isEmpty();
+            if (hasPfx || hasSfx || col != null) {
+                MutableText name = com.niuqu.chatbubble.Txt.literal(player.getName().getString());
+                if (col != null) name = name.formatted(col);
+                MutableText out = com.niuqu.chatbubble.Txt.empty();
+                if (hasPfx) out.append(pfx);
+                out.append(name);
+                if (hasSfx) out.append(sfx);
+                return out;
+            }
+        }
+        //#endif
+        //#endif
         return player != null ? player.getName() : com.niuqu.chatbubble.Txt.literal("?");
     }
 

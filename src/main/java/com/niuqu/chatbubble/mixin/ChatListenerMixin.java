@@ -432,6 +432,7 @@ public class ChatListenerMixin {
         //$$ String name = gameProfile.getName();
         //#endif
         boolean isWhisper = false;
+        boolean isOutgoing = false;
         String whisperPartner = null;
         //#if MC >= 12005
         //#if MC >= 26000
@@ -441,14 +442,39 @@ public class ChatListenerMixin {
         //#endif
             isWhisper = true;
             whisperPartner = name;
+        //#if MC >= 26000
+        //$$ } else if (params.chatType().is(ChatType.MSG_COMMAND_OUTGOING)) {
+        //#else
+        } else if (params.type().matchesKey(MessageType.MSG_COMMAND_OUTGOING)) {
+        //#endif
+            isWhisper = true;
+            isOutgoing = true;
+            whisperPartner = params.targetName().map(Text::getString).orElse(null);
         }
         //#endif
-        // Use the chat-type display name (carries server-side prefix/title
-        // decorations like "[VIP]Steve") instead of the bare GameProfile name.
-        Text paramName = params.name();
-        Text nameText = paramName != null ? paramName : com.niuqu.chatbubble.Txt.literal(name);
-        ChatMessageStore.debugLog("[e33chat] onChatMessage | name=" + name + " | display='" + nameText.getString() + "' | content='" + rawStr + "' | isWhisper=" + isWhisper);
-        ChatMessageStore.setPendingMeta(new SenderMeta(senderId, nameText, raw, false, name, isWhisper, whisperPartner));
+        Text playerContent = raw;
+        Text senderName = com.niuqu.chatbubble.Txt.literal(name);
+        //#if MC >= 26000
+        //$$ Text paramName = params.name();
+        //$$ senderName = paramName != null ? paramName : senderName;
+        //#else
+        if (isWhisper) {
+            playerContent = com.niuqu.chatbubble.Txt.literal(MessagePresentation.extractWhisperContent(rawStr, name));
+            // 沿用旧分支：私聊从最终装饰行里提取发送者显示名，出站回显则用自己的可显示名兜底。
+            Text fallback = isOutgoing ? ChatMessageStore.ownDisplayName() : senderName;
+            senderName = ChatMessageStore.extractWhisperDisplayName(params.applyChatDecoration(raw), fallback);
+        } else {
+            // 沿用旧分支：不要只取 params.name()，从聊天装饰后的完整行中截出“称号 + 玩家名”。
+            Text fullLine = params.applyChatDecoration(raw);
+            senderName = extractDecoratedName(fullLine, rawStr, name, senderName);
+        }
+        //#endif
+        var player = MinecraftClient.getInstance().player;
+        if (player != null && senderId != null && senderId.equals(player.getUuid())) {
+            ChatMessageStore.cacheOwnDecoratedName(senderName);
+        }
+        ChatMessageStore.debugLog("[e33chat] PlayerChat | raw='" + rawStr + "' | sender='" + senderName.getString() + "' | content='" + playerContent.getString() + "' | isWhisper=" + isWhisper);
+        ChatMessageStore.setPendingMeta(new SenderMeta(senderId, senderName, playerContent, false, name, isWhisper, whisperPartner));
     }
 
     //#if MC >= 11902
@@ -484,7 +510,12 @@ public class ChatListenerMixin {
                 disContent = com.niuqu.chatbubble.Txt.literal(extractWhisperContent(msgStr, params.name().getString()));
                 disSender = ChatMessageStore.extractWhisperDisplayName(content, disSender);
             } else {
-                disSender = extractDecoratedName(content, msgStr, params.name().getString(), disSender);
+                //#if MC >= 26000
+                //$$ // 26.x 没有 applyChatDecoration，保留 params.name() 作为发送者显示名。
+                //#else
+                Text fullLine = params.applyChatDecoration(content);
+                disSender = extractDecoratedName(fullLine, msgStr, params.name().getString(), disSender);
+                //#endif
             }
             ChatMessageStore.debugLog("[e33chat] Disguised | raw='" + msgStr + "' | whisper=" + isWhisper + " | partner=" + whisperPartner + " | sender='" + disSender.getString() + "' | content='" + disContent.getString() + "'");
             ChatMessageStore.setPendingMeta(new SenderMeta(
