@@ -575,10 +575,18 @@ public class ChatListenerMixin {
                     }).findFirst().orElse(null);
                 UUID uid = info != null ?
                     //#if MC >= 12109
-                    info.getProfile().id() : new UUID(0, 0);
+                    info.getProfile().id() : ChatMessageStore.findSeenUuid(pl.playerName());
                     //#else
-                    //$$ info.getProfile().getId() : new UUID(0, 0);
+                    //$$ info.getProfile().getId() : ChatMessageStore.findSeenUuid(pl.playerName());
                     //#endif
+                if (uid == null) uid = new UUID(0, 0);
+                String profileName = info != null ?
+                    //#if MC >= 12109
+                    info.getProfile().name() : pl.playerName();
+                    //#else
+                    //$$ info.getProfile().getName() : pl.playerName();
+                    //#endif
+                ChatMessageStore.rememberPlayer(uid, profileName, pl.playerName());
                 int nameIdx = pl.nameStart();
                 int cStart = pl.contentStart();
                 Text displayName = extractDecoratedName(content, pl.content(), pl.playerName(),
@@ -587,13 +595,7 @@ public class ChatListenerMixin {
                 ChatMessageStore.debugLog("[e33chat] Disguised(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
                 ChatMessageStore.setPendingMeta(new SenderMeta(
                     uid, displayName, contentComp, false,
-                    info != null ?
-                    //#if MC >= 12109
-                    info.getProfile().name() : pl.playerName(),
-                    //#else
-                    //$$ info.getProfile().getName() : pl.playerName(),
-                    //#endif
-                    false, null));
+                    profileName, false, null));
                 return;
             }
         }
@@ -686,10 +688,20 @@ public class ChatListenerMixin {
                     }).findFirst().orElse(null);
                 UUID uid = info != null ?
                     //#if MC >= 12109
-                    info.getProfile().id() : new UUID(0, 0);
+                    info.getProfile().id() : ChatMessageStore.findSeenUuid(pl.playerName());
                     //#else
-                    //$$ info.getProfile().getId() : new UUID(0, 0);
+                    //$$ info.getProfile().getId() : ChatMessageStore.findSeenUuid(pl.playerName());
                     //#endif
+                if (uid == null) uid = new UUID(0, 0);
+                String profileName = info != null ?
+                    //#if MC >= 12109
+                    info.getProfile().name() : pl.playerName();
+                    //#else
+                    //$$ info.getProfile().getName() : pl.playerName();
+                    //#endif
+                // Remember player even when not online — ensures findSeenProfileName()
+                // can canonicalize prefixed display names for avatar cache lookup
+                ChatMessageStore.rememberPlayer(uid, profileName, pl.playerName());
                 int nameIdx = pl.nameStart();
                 int cStart = pl.contentStart();
                 if (MessagePresentation.isWhitespaceOnlyGap(text, nameIdx + pl.playerName().length(), cStart)) {
@@ -701,13 +713,7 @@ public class ChatListenerMixin {
                     ChatMessageStore.debugLog("[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
                     ChatMessageStore.setPendingMeta(new SenderMeta(
                         uid, displayName, contentComp, false,
-                        info != null ?
-                        //#if MC >= 12109
-                        info.getProfile().name() : pl.playerName(),
-                        //#else
-                        //$$ info.getProfile().getName() : pl.playerName(),
-                        //#endif
-                        false, null));
+                        profileName, false, null));
                 }
                 return;
             }

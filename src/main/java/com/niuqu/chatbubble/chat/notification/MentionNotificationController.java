@@ -60,11 +60,13 @@ public class MentionNotificationController {
         }
 
         if ((!isOwn || selfNotify) && cfg.mentionBannerEnabled()) {
-            enqueueDeduped(meta.senderUUID(), meta.senderName(), content, messageIndex, type);
+            enqueueDeduped(meta.senderUUID(), meta.senderName(), meta.rawPlayerName(),
+                content, messageIndex, type);
         }
     }
 
-    public void onWhisperReceived(UUID senderUUID, Text senderName, Text content, int messageIndex) {
+    public void onWhisperReceived(UUID senderUUID, Text senderName, String rawPlayerName,
+                                  Text content, int messageIndex) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null) return;
 
@@ -89,7 +91,8 @@ public class MentionNotificationController {
         }
 
         if ((!isOwn || selfNotify) && cfg.mentionWhisperBanner()) {
-            enqueueDeduped(senderUUID, senderName, content, messageIndex, NotificationType.WHISPER);
+            enqueueDeduped(senderUUID, senderName, rawPlayerName, content, messageIndex,
+                NotificationType.WHISPER);
         }
     }
 
@@ -99,11 +102,11 @@ public class MentionNotificationController {
         if (MinecraftClient.getInstance().player == null) return;
         var cfg = ChatBubbleClientSetup.config();
         if (cfg == null || !cfg.systemBannerEnabled()) return;
-        enqueueDeduped(new UUID(0, 0), com.niuqu.chatbubble.Txt.empty(), content, messageIndex,
-            NotificationType.SYSTEM);
+        enqueueDeduped(new UUID(0, 0), com.niuqu.chatbubble.Txt.empty(), null,
+            content, messageIndex, NotificationType.SYSTEM);
     }
 
-    private void enqueueDeduped(UUID uuid, Text name, Text content, int index,
+    private void enqueueDeduped(UUID uuid, Text name, String rawPlayerName, Text content, int index,
                                  NotificationType type) {
         String fp = uuid + "\0" + content.getString();
         long now = System.currentTimeMillis();
@@ -114,7 +117,7 @@ public class MentionNotificationController {
             return;
         }
         recentFingerprints.put(fp, now);
-        MentionNotificationBanner.INSTANCE.enqueue(uuid, name, content, index, type);
+        MentionNotificationBanner.INSTANCE.enqueue(uuid, name, rawPlayerName, content, index, type);
         ChatMessageStore.debugLog(() -> "[e33chat] Banner enqueued | queueSize="
             + MentionNotificationBanner.INSTANCE.pendingCount());
     }

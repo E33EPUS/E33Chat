@@ -2264,7 +2264,9 @@ public class ChatBubbleScreen extends Screen {
 
     private static String skinNameKey(String name) {
         if (name == null) return null;
-        String key = name.replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
+        String canonical = ChatMessageStore.findSeenProfileName(name);
+        String key = (canonical != null && !canonical.isEmpty() ? canonical : name)
+            .replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
         return key.isEmpty() ? null : key;
     }
 
@@ -2289,6 +2291,8 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private SkinTextures getSkin(UUID uuid, String name) {
+        String canonicalName = ChatMessageStore.findSeenProfileName(name);
+        if (canonicalName == null || canonicalName.isEmpty()) canonicalName = name;
         // Online players: read PlayerInfo fresh every frame — caching the first result
         // (default Steve/Alex while async download is in progress) would freeze the head
         // forever even after the real skin loaded. CSL intercepts the underlying lookup.
@@ -2298,7 +2302,13 @@ public class ChatBubbleScreen extends Screen {
             if (info != null) {
                 SkinTextures textures = info.getSkinTextures();
                 if (textures != null) {
-                    rememberSkin(uuid, name, textures);
+                    //#if MC >= 12109
+                    String profileName = info.getProfile().name();
+                    //#else
+                    //$$ String profileName = info.getProfile().getName();
+                    //#endif
+                    rememberSkin(uuid, profileName, textures);
+                    rememberSkin(uuid, canonicalName, textures);
                     return textures;
                 }
             }
@@ -2309,13 +2319,13 @@ public class ChatBubbleScreen extends Screen {
             SkinTextures cached = skinCache.get(uuid);
             if (cached != null) return cached;
         }
-        String nameKey = skinNameKey(name);
+        String nameKey = skinNameKey(canonicalName);
         if (nameKey != null) {
             SkinTextures cachedByName = skinNameCache.get(nameKey);
             if (cachedByName != null) return cachedByName;
         }
-        SkinTextures resolved = resolveSkin(uuid, name);
-        rememberSkin(uuid, name, resolved);
+        SkinTextures resolved = resolveSkin(uuid, canonicalName);
+        rememberSkin(uuid, canonicalName, resolved);
         return resolved;
     }
 
@@ -2363,6 +2373,8 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private Identifier getSkinIdentifier(UUID uuid, String name) {
+        String canonicalName = ChatMessageStore.findSeenProfileName(name);
+        if (canonicalName == null || canonicalName.isEmpty()) canonicalName = name;
         // Online players: read fresh every frame so async skin downloads appear
         if (client.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             PlayerListEntry info = client.getNetworkHandler().getPlayerListEntry(uuid);
@@ -2370,7 +2382,13 @@ public class ChatBubbleScreen extends Screen {
                 // getSkinTexture() returns Identifier directly in all MC < 1.20.4
                 Identifier tex = info.getSkinTexture();
                 if (tex != null) {
-                    rememberLegacySkin(uuid, name, tex);
+                    //#if MC >= 12109
+                    String profileName = info.getProfile().name();
+                    //#else
+                    //$$ String profileName = info.getProfile().getName();
+                    //#endif
+                    rememberLegacySkin(uuid, profileName, tex);
+                    rememberLegacySkin(uuid, canonicalName, tex);
                     return tex;
                 }
             }
@@ -2380,13 +2398,13 @@ public class ChatBubbleScreen extends Screen {
             Identifier cached = legacySkinCache.get(uuid);
             if (cached != null) return cached;
         }
-        String nameKey = skinNameKey(name);
+        String nameKey = skinNameKey(canonicalName);
         if (nameKey != null) {
             Identifier cachedByName = legacySkinNameCache.get(nameKey);
             if (cachedByName != null) return cachedByName;
         }
         Identifier fallback = DefaultSkinHelper.getTexture();
-        rememberLegacySkin(uuid, name, fallback);
+        rememberLegacySkin(uuid, canonicalName, fallback);
         return fallback;
     }
 

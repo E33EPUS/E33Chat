@@ -61,7 +61,7 @@ public class MentionNotificationBanner {
 
     private MentionNotificationBanner() {}
 
-    public void enqueue(UUID senderUUID, Text senderName, Text content,
+    public void enqueue(UUID senderUUID, Text senderName, String rawPlayerName, Text content,
                         int messageIndex, NotificationType type) {
         MinecraftClient mc = MinecraftClient.getInstance();
 
@@ -113,7 +113,7 @@ public class MentionNotificationBanner {
         int bannerH = hasAvatar ? BANNER_H
             : mc.textRenderer.fontHeight * msgLines.size() + 10;
 
-        queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex,
+        queue.addLast(new PendingBanner(senderUUID, senderName, rawPlayerName, content, messageIndex,
             type, hasAvatar, nameSeq, msgLines, textW, bannerW, bannerH));
     }
 
@@ -216,11 +216,13 @@ public class MentionNotificationBanner {
         int nameColor, msgColor;
         if (current.hasAvatar) {
             int avatarY = y + (bannerH - AVATAR_HAT) / 2;
+            String skinName = (current.rawPlayerName != null && !current.rawPlayerName.isEmpty())
+                ? current.rawPlayerName : current.senderName.getString();
             //#if MC >= 12004
-            SkinTextures skin = getSkin(current.senderUUID, current.senderName.getString());
+            SkinTextures skin = getSkin(current.senderUUID, skinName);
             drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT, alpha);
             //#else
-            //$$ Identifier skinTex = getSkinIdentifier(current.senderUUID, current.senderName.getString());
+            //$$ Identifier skinTex = getSkinIdentifier(current.senderUUID, skinName);
             //$$ drawPlayerHead(g, skinTex, x + AVATAR_X, avatarY, AVATAR, alpha);
             //#endif
 
@@ -260,18 +262,28 @@ public class MentionNotificationBanner {
     //#if MC >= 12004
     private static String skinNameKey(String name) {
         if (name == null) return null;
-        String key = name.replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
+        String canonical = ChatMessageStore.findSeenProfileName(name);
+        String key = (canonical != null && !canonical.isEmpty() ? canonical : name)
+            .replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
         return key.isEmpty() ? null : key;
     }
 
     private SkinTextures getSkin(UUID uuid, String name) {
+        String canonicalName = ChatMessageStore.findSeenProfileName(name);
+        if (canonicalName == null || canonicalName.isEmpty()) canonicalName = name;
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             var info = mc.getNetworkHandler().getPlayerListEntry(uuid);
             if (info != null) {
                 SkinTextures textures = info.getSkinTextures();
                 if (textures != null) {
-                    rememberSkin(uuid, name, textures);
+                    //#if MC >= 12109
+                    String profileName = info.getProfile().name();
+                    //#else
+                    //$$ String profileName = info.getProfile().getName();
+                    //#endif
+                    rememberSkin(uuid, profileName, textures);
+                    rememberSkin(uuid, canonicalName, textures);
                     return textures;
                 }
             }
@@ -280,7 +292,7 @@ public class MentionNotificationBanner {
             SkinTextures cached = skinCache.get(uuid);
             if (cached != null) return cached;
         }
-        String nameKey = skinNameKey(name);
+        String nameKey = skinNameKey(canonicalName);
         if (nameKey != null) {
             SkinTextures cachedByName = skinNameCache.get(nameKey);
             if (cachedByName != null) return cachedByName;
@@ -288,19 +300,19 @@ public class MentionNotificationBanner {
         if (uuid != null && !uuid.equals(NIL_UUID)) {
             //#if MC >= 12109
             SkinTextures skin = mc.getSkinProvider().supplySkinTextures(
-                new GameProfile(uuid, name != null ? name : ""), false).get();
+                new GameProfile(uuid, canonicalName != null ? canonicalName : ""), false).get();
             //#else
             //$$ SkinTextures skin = mc.getSkinProvider().getSkinTextures(
-            //$$     new GameProfile(uuid, name != null ? name : ""));
+            //$$     new GameProfile(uuid, canonicalName != null ? canonicalName : ""));
             //#endif
             if (skin != null) {
-                rememberSkin(uuid, name, skin);
+                rememberSkin(uuid, canonicalName, skin);
                 return skin;
             }
         }
         //#if MC >= 12109
         return DefaultSkinHelper.getSkinTextures(
-            new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : ""));
+            new GameProfile(uuid != null ? uuid : NIL_UUID, canonicalName != null ? canonicalName : ""));
         //#else
         //$$ return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID);
         //#endif
@@ -330,18 +342,22 @@ public class MentionNotificationBanner {
     // instead of PlayerSkinDrawer/SkinTextures which were added in 1.20.4.
     //$$ private static String skinNameKey(String name) {
     //$$     if (name == null) return null;
-    //$$     String key = name.replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
+    //$$     String canonical = ChatMessageStore.findSeenProfileName(name);
+    //$$     String key = (canonical != null && !canonical.isEmpty() ? canonical : name)
+    //$$         .replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
     //$$     return key.isEmpty() ? null : key;
     //$$ }
     //$$
     //$$ private Identifier getSkinIdentifier(UUID uuid, String name) {
+    //$$     String canonicalName = ChatMessageStore.findSeenProfileName(name);
+    //$$     if (canonicalName == null || canonicalName.isEmpty()) canonicalName = name;
     //$$     MinecraftClient mc = MinecraftClient.getInstance();
     //$$     if (mc.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
     //$$         PlayerListEntry info = mc.getNetworkHandler().getPlayerListEntry(uuid);
     //$$         if (info != null) {
     //$$             Identifier tex = info.getSkinTexture();
     //$$             if (tex != null) {
-    //$$                 rememberLegacySkin(uuid, name, tex);
+    //$$                 rememberLegacySkin(uuid, canonicalName, tex);
     //$$                 return tex;
     //$$             }
     //$$         }
@@ -350,13 +366,13 @@ public class MentionNotificationBanner {
     //$$         Identifier cached = legacySkinCache.get(uuid);
     //$$         if (cached != null) return cached;
     //$$     }
-    //$$     String nameKey = skinNameKey(name);
+    //$$     String nameKey = skinNameKey(canonicalName);
     //$$     if (nameKey != null) {
     //$$         Identifier cachedByName = legacySkinNameCache.get(nameKey);
     //$$         if (cachedByName != null) return cachedByName;
     //$$     }
     //$$     Identifier fallback = DefaultSkinHelper.getTexture();
-    //$$     rememberLegacySkin(uuid, name, fallback);
+    //$$     rememberLegacySkin(uuid, canonicalName, fallback);
     //$$     return fallback;
     //$$ }
     //$$
@@ -399,7 +415,7 @@ public class MentionNotificationBanner {
 
     private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }
 
-    private record PendingBanner(UUID senderUUID, Text senderName, Text content,
+    private record PendingBanner(UUID senderUUID, Text senderName, String rawPlayerName, Text content,
                                   int messageIndex, NotificationType type, boolean hasAvatar,
                                   OrderedText nameSeq, List<OrderedText> msgLines,
                                   int textW, int bannerW, int bannerH) {}

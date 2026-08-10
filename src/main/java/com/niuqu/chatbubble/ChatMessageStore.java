@@ -167,12 +167,31 @@ public class ChatMessageStore {
         return null;
     }
 
+    public static String findSeenProfileName(String name) {
+        if (name == null || name.isEmpty()) return null;
+        String stripped = name.replaceAll("§.", "");
+        for (SeenPlayer sp : seenPlayers.values()) {
+            if (matchesSeenName(name, stripped, sp.profileName())
+                || matchesSeenName(name, stripped, sp.displayName())) {
+                return sp.profileName();
+            }
+        }
+        return null;
+    }
+
     private static boolean matchesSeenName(String raw, String stripped, String stored) {
         if (stored == null || stored.isEmpty()) return false;
         if (raw.equals(stored)) return true;
         if (!stripped.isEmpty() && stripped.equals(stored)) return true;
         String storedStripped = stored.replaceAll("§.", "");
-        return raw.equals(storedStripped) || (!stripped.isEmpty() && stripped.equals(storedStripped));
+        if (raw.equals(storedStripped) || (!stripped.isEmpty() && stripped.equals(storedStripped))) {
+            return true;
+        }
+        // Decorated/prefixed names such as "[称号]Steve" should still resolve to
+        // the real profile name for persistent avatar cache lookup.
+        return storedStripped.length() >= 3
+            && ((!stripped.isEmpty() && stripped.contains(storedStripped))
+                || raw.contains(storedStripped));
     }
 
     // player? Online candidates + self + seen players. Mirrors the mixin's gate.
@@ -580,7 +599,7 @@ public class ChatMessageStore {
             && ChatBubbleClientSetup.config().mentionWhisperBanner()
             && (!localSend || ChatBubbleClientSetup.config().ownWhisperNotify())) {
             MentionNotificationController.INSTANCE.onWhisperReceived(
-                senderUUID, senderName, content, messages.size());
+                senderUUID, senderName, rawPlayerName, content, messages.size());
         }
 
         // System messages (deaths/joins/broadcasts) pop the same banner as
