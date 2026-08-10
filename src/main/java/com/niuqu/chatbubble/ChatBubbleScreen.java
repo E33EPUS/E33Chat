@@ -1007,7 +1007,6 @@ public class ChatBubbleScreen extends Screen {
 	                    }
 	                    if (clickEvent instanceof ClickEvent.RunCommand cmd) {
 	                        String command = cmd.command();
-	                        if (command.startsWith("/")) command = command.substring(1);
                         GuiCompat.sendCommand(client.player.networkHandler, command); return true;
 	                    }
 	                    if (clickEvent instanceof ClickEvent.CopyToClipboard ctc) {
@@ -2450,7 +2449,7 @@ public class ChatBubbleScreen extends Screen {
         }
 
         if (text.startsWith("/"))
-            GuiCompat.sendCommand(client.player.networkHandler, text.substring(1));
+            GuiCompat.sendCommand(client.player.networkHandler, text);
         else
             GuiCompat.sendChat(client.player.networkHandler, text);
         client.inGameHud.getChatHud().addToMessageHistory(text);
