@@ -27,6 +27,21 @@ class WhisperFormatsTest {
         assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon("Steve says hello"));
     }
 
+    // ---- tpa 请求误判回归（2.3.8）----
+
+    @Test void tpaRequestIsNotWhisper() {
+        // "wants to teleport to you" 含裸 "to you"，但不是私聊——tpa 请求对接收方是系统消息
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon(
+            "[Essentials] melankol427 wants to teleport to you.  [Yes]  [No]"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon(
+            "[Essentials] Steve is trying to teleport to you"));
+        assertFalse(MessagePresentation.hasWhisperKeywordBeforeColon(
+            "[Essentials] Bob has requested to teleport to you"));
+        // 真私聊仍识别：whisper 词覆盖 "whispers to you"，PM 词表覆盖 "PM you"
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve whispers to you: hi"));
+        assertTrue(MessagePresentation.hasWhisperKeywordBeforeColon("Steve PM you: hi"));
+    }
+
     // ---- plugin whisper keywords (2.2.8 audit G1) ----
 
     @Test void pluginKeywordBeforeColonIsWhisper() {

@@ -5,14 +5,12 @@ import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RenderHelper;
 import com.niuqu.chatbubble.RoundRectRenderer;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import net.minecraft.client.MinecraftClient;
 //#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
 //#else
 //$$ import net.minecraft.client.util.math.MatrixStack;
-//#endif
-//#if MC >= 12004
-import net.minecraft.client.gui.PlayerSkinDrawer;
 //#endif
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.util.DefaultSkinHelper;
@@ -218,10 +216,10 @@ public class MentionNotificationBanner {
             int avatarY = y + (bannerH - AVATAR_HAT) / 2;
             //#if MC >= 12004
             SkinTextures skin = getSkin(current.senderUUID, current.senderName.getString());
-            drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT);
+            drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT, alpha);
             //#else
             //$$ Identifier skinTex = getSkinIdentifier(current.senderUUID, current.senderName.getString());
-            //$$ drawPlayerHead(g, skinTex, x + AVATAR_X, avatarY, AVATAR);
+            //$$ drawPlayerHead(g, skinTex, x + AVATAR_X, avatarY, AVATAR, alpha);
             //#endif
 
             int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
@@ -291,9 +289,16 @@ public class MentionNotificationBanner {
     }
 
     private void drawPlayerHead(Object g, SkinTextures skin, int x, int y,
-                             int baseSize, int hatSize) {
-        if (skin == null) return;
-        PlayerSkinDrawer.draw((DrawContext) g, skin, x, y, baseSize);
+                             int baseSize, int hatSize, float alpha) {
+        if (skin == null || alpha <= 0.003f) return;
+        //#if MC >= 12109
+        Identifier tex = skin.body().texturePath();
+        //#else
+        //$$ Identifier tex = skin.texture();
+        //#endif
+        ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64, alpha);
+        int hatOff = (hatSize - baseSize) / 2;
+        ColoredTextureRenderer.drawWithAlpha(g, tex, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64, alpha);
     }
     //#else
     // Legacy skin rendering for MC < 1.20.4: uses Identifier + drawTexture
@@ -316,10 +321,10 @@ public class MentionNotificationBanner {
     //$$     return fallback;
     //$$ }
     //$$
-    //$$ private void drawPlayerHead(Object g, Identifier skinTex, int x, int y, int size) {
-    //$$     if (skinTex == null) return;
-    //$$     RenderHelper.drawTexture(g, skinTex, x, y, size, size, 8f, 8f, 8, 8, 64, 64);
-    //$$     RenderHelper.drawTexture(g, skinTex, x, y, size, size, 40f, 8f, 8, 8, 64, 64);
+    //$$ private void drawPlayerHead(Object g, Identifier skinTex, int x, int y, int size, float alpha) {
+    //$$     if (skinTex == null || alpha <= 0.003f) return;
+    //$$     ColoredTextureRenderer.drawWithAlpha(g, skinTex, x, y, size, size, 8f, 8f, 8, 8, 64, 64, alpha);
+    //$$     ColoredTextureRenderer.drawWithAlpha(g, skinTex, x, y, size, size, 40f, 8f, 8, 8, 64, 64, alpha);
     //$$ }
     //#endif
 

@@ -217,8 +217,10 @@ abstract class PreprocessTask extends DefaultTask {
             line = line.replaceAll("\\.mouse\\b", ".mouseHandler")
             line = line.replaceAll("\\.keyboard\\b", ".keyboardHandler")
             line = line.replaceAll("\\bchatKey\\b", "keyChat")
-            // 26.2: Minecraft.screen field moved to Gui.screen() method
-            line = line.replaceAll("\\.screen\\b", ".gui.screen()")
+            // 26.2: Minecraft.screen field moved to Gui.screen() method.
+            // Keep this scoped to real Minecraft instance field accesses; a broad
+            // ".screen" replacement corrupts string keys such as "e33chat.screen.title".
+            line = line.replaceAll("\\b(MinecraftClient\\.getInstance\\(\\)|Minecraft\\.getInstance\\(\\)|minecraft|mc|this\\.minecraft)\\.screen\\b", "\$1.gui.screen()")
         }
 
         // Step 4: Method name replacements (after field mapping so context patterns work)

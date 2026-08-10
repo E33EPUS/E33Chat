@@ -2,6 +2,7 @@ package com.niuqu.chatbubble;
 
 import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import net.minecraft.client.font.TextRenderer;
 //#if MC >= 12109
 import net.minecraft.client.gui.Click;
@@ -30,8 +31,9 @@ public class ChatQuickChatPanel {
     public void render(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
-            TextFieldWidget input) {
+            TextFieldWidget input, float alpha) {
         if (!visible) return;
+        int a255 = (int) (255 * alpha);
         var phrases = ChatBubbleClientSetup.config().quickChatPhrases();
         int visiblePhrases = Math.min(phrases.size(), MAX_VISIBLE);
         int listH = visiblePhrases * ROW_H;
@@ -41,9 +43,9 @@ public class ChatQuickChatPanel {
         int px = panelX + panelW / 2 - W / 2;
         int py = barTop - panelH - 4;
 
-        RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.CONTENT_BG),
-            px, py, 0f, 0f, W, panelH, 1, 1);
-        drawBorder(g, px, py, W, panelH, c.divider());
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTENT_BG),
+            px, py, W, panelH, alpha);
+        drawBorder(g, px, py, W, panelH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         int totalPhrases = phrases.size();
         int phraseAreaRight = px + W - 4;
@@ -55,13 +57,13 @@ public class ChatQuickChatPanel {
             int trackTop = py + 4;
             int trackBottom = py + 4 + listH;
             int trackRgb = c.scrollbar() & 0x00FFFFFF;
-            RenderHelper.fill(g, trackX, trackTop, trackX + 3, trackBottom, (0x30 << 24) | trackRgb);
+            RenderHelper.fill(g, trackX, trackTop, trackX + 3, trackBottom, ((int) (0x30 * alpha) << 24) | trackRgb);
             int thumbH = Math.max(6, listH * MAX_VISIBLE / totalPhrases);
             int maxScrollOff = totalPhrases - MAX_VISIBLE;
             int travelRange = listH - thumbH;
             int thumbY = trackTop + (maxScrollOff > 0 ? scrollOffset * travelRange / maxScrollOff : 0);
             int thumbRgb = c.scrollbarHover() & 0x00FFFFFF;
-            RenderHelper.fill(g, trackX, thumbY, trackX + 3, thumbY + thumbH, (0x70 << 24) | thumbRgb);
+            RenderHelper.fill(g, trackX, thumbY, trackX + 3, thumbY + thumbH, ((int) (0x70 * alpha) << 24) | thumbRgb);
         }
 
         int listY = py + 4;
@@ -73,28 +75,28 @@ public class ChatQuickChatPanel {
             String display = font.trimToWidth(phrase, textMaxW);
             boolean hover = mouseX >= px + 4 && mouseX <= hoverRight
                 && mouseY >= rowY && mouseY <= rowY + ROW_H;
-            if (hover) RenderHelper.fill(g, px + 4, rowY, hoverRight, rowY + ROW_H, c.iconHover());
-            RenderHelper.drawText(g, font, display, px + 6, rowY + 2, c.textPrimary(), false);
+            if (hover) RenderHelper.fill(g, px + 4, rowY, hoverRight, rowY + ROW_H, ChatBubbleTheme.alphaBlend(c.iconHover(), a255));
+            RenderHelper.drawText(g, font, display, px + 6, rowY + 2, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
             int delX = hoverRight - 13;
             int delY = rowY + 1;
             boolean hoverDel = mouseX >= delX && mouseX <= delX + 12 && mouseY >= delY && mouseY <= delY + 12;
-            RenderHelper.fill(g, delX, delY, delX + 12, delY + 12, hoverDel ? c.closeHoverBg() : c.closeBg());
-            RenderHelper.drawText(g, font, "\u2715", delX + 6 - font.getWidth("\u2715") / 2, delY + 2, c.closeText(), false);
+            RenderHelper.fill(g, delX, delY, delX + 12, delY + 12, ChatBubbleTheme.alphaBlend(hoverDel ? c.closeHoverBg() : c.closeBg(), a255));
+            RenderHelper.drawText(g, font, "\u2715", delX + 6 - font.getWidth("\u2715") / 2, delY + 2, ChatBubbleTheme.alphaBlend(c.closeText(), a255), false);
         }
 
         int inputY = py + 4 + listH + separatorH + 4;
         int inputX = px + 4;
         int inputW = W - 10;
         int inputH = 14;
-        RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.INPUT_BG),
-            inputX, inputY, 0f, 0f, inputW, inputH, 1, 1);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.INPUT_BG),
+            inputX, inputY, inputW, inputH, alpha);
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + inputH;
         if (hoverInput || input.isFocused())
-            drawBorder(g, inputX, inputY, inputW, inputH, c.textMuted());
+            drawBorder(g, inputX, inputY, inputW, inputH, ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
         if (input.getText().isEmpty() && !input.isFocused())
             RenderHelper.drawText(g, font, com.niuqu.chatbubble.Txt.translatable("e33chat.quick_chat.placeholder").getString(),
-                inputX + 2, inputY + 3, c.textMuted(), false);
+                inputX + 2, inputY + 3, ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
 
         input.setX(inputX + 2);
         input.setWidth(inputW - 4);

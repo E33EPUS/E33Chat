@@ -1,5 +1,6 @@
 package com.niuqu.chatbubble;
 
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.font.TextRenderer;
@@ -23,16 +24,17 @@ public class ChatSettingsMenu {
     public void render(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
-            Function<String, Identifier> iconTex) {
+            Function<String, Identifier> iconTex, float alpha) {
         if (!visible) return;
+        int a255 = (int) (255 * alpha);
         int gearX = panelX + 4;
         int menuH = COUNT * ROW_H + 4;
         int px = gearX;
         int py = barTop - menuH - 4;
 
-        RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.CONTENT_BG),
-            px, py, 0f, 0f, W, menuH, 1, 1);
-        drawBorder(g, px, py, W, menuH, c.divider());
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTENT_BG),
+            px, py, W, menuH, alpha);
+        drawBorder(g, px, py, W, menuH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         Identifier[] icons = {
             iconTex.apply("search"), iconTex.apply("quick_chat"),
@@ -49,11 +51,11 @@ public class ChatSettingsMenu {
             int ry = py + 2 + i * ROW_H;
             boolean hover = mouseX >= px && mouseX <= px + W
                 && mouseY >= ry && mouseY <= ry + ROW_H;
-            if (hover) RenderHelper.fill(g, px + 1, ry, px + W - 1, ry + ROW_H, c.iconHover());
-            ChatBubbleScreen.drawTextureIcon(g, icons[i], px + 3, ry + 2, 14);
+            if (hover) RenderHelper.fill(g, px + 1, ry, px + W - 1, ry + ROW_H, ChatBubbleTheme.alphaBlend(c.iconHover(), a255));
+            ChatBubbleScreen.drawTextureIconAlpha(g, icons[i], px + 3, ry + 2, 14, alpha);
             int maxTextW = W - 22;
             String label = font.trimToWidth(labels[i], maxTextW);
-            RenderHelper.drawText(g, font, label, px + 20, ry + 4, c.textPrimary(), false);
+            RenderHelper.drawText(g, font, label, px + 20, ry + 4, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
     }
 

@@ -132,6 +132,8 @@ public class ChatBubbleScreen extends Screen {
     private TextFieldWidget quickChatInput;
     private static final int QUICK_CHAT_W = 140;
     private static boolean sidebarOpen;
+    // Popup open animation timestamps (opening only; closing stays instant)
+    private long settingsAnimStart, emojiAnimStart, quickAnimStart, searchAnimStart;
     private String whisperPartner;
     private int sidebarScrollOffset;
     private int sidebarMaxScroll;
@@ -212,9 +214,9 @@ public class ChatBubbleScreen extends Screen {
         panelW = Math.max(100, Math.min(physicalW / Math.max(1, guiScale), width));
         if (sidebarOpen) {
             panelX = SIDEBAR_W;
-            sidebarTargetOpen = true;
-            sidebarAnimating = true;
-            sidebarAnimStart = Util.getMeasuringTimeMs();
+            sidebarAnimating = false; // sidebar is already in place; the panel's
+            // own open animation (by style) handles its entrance — don't let the
+            // sidebar state machine re-drive panelX (slides the whole panel)
         } else {
             panelX = 0;
             sidebarAnimating = false;
@@ -263,7 +265,7 @@ public class ChatBubbleScreen extends Screen {
         sidebarSearchBox.setVisible(sidebarOpen);
         sidebarSearchBox.setChangedListener(s -> sidebarScrollOffset = 0);
         sidebarSearchBox.setFocusUnlocked(true);
-        if (sidebarOpen) sidebarSearchBox.setX(2 - SIDEBAR_W);
+        if (sidebarOpen) sidebarSearchBox.setX(2);
         GuiCompat.addDrawableChild(this, sidebarSearchBox);
 
         quickChatInput = new TextFieldWidget(textRenderer, 0, 0, QUICK_CHAT_W - 8, 12, com.niuqu.chatbubble.Txt.translatable("e33chat.menu.quick_chat"));
@@ -322,12 +324,16 @@ public class ChatBubbleScreen extends Screen {
 
     private float getSidebarAnimProgress() {
         if (!ChatBubbleClientSetup.config().animationEnabled()) return sidebarOpen ? 1f : 0f;
-        // Independent sidebar toggle while chat is already open
+        AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle());
         if (sidebarAnimating) {
-            float progress = Animation.progress(sidebarAnimStart, ANIM_MS, false);
+            long elapsed = Util.getMeasuringTimeMs() - sidebarAnimStart;
+            float t = MathHelper.clamp((float) elapsed / ANIM_MS, 0f, 1f);
+            float progress = Animation.styleCurve(AnimationStyle.SLIDE, t);
             return sidebarTargetOpen ? progress : 1.0f - progress;
         }
-        return sidebarOpen ? 1f : 0f;
+        if (style == AnimationStyle.FADE || style == AnimationStyle.NONE) return sidebarOpen ? 1f : 0f;
+        if (!sidebarOpen) return 0f;
+        return getAnimProgress();
     }
 
     private int getSidebarScreenX() {
@@ -485,6 +491,10 @@ public class ChatBubbleScreen extends Screen {
         }
     }
 
+    private void renderSidebar(Object g, int mouseX, int mouseY, float alpha) {
+        renderSidebar(g, mouseX, mouseY);
+    }
+
     private void insertMention(String name) {
         String text = input.getText();
         int atIdx = text.lastIndexOf('@');
@@ -588,7 +598,44 @@ public class ChatBubbleScreen extends Screen {
 
     private float getAnimProgress() {
         if (!ChatBubbleClientSetup.config().animationEnabled()) return 1.0f;
-        return Animation.progress(animStart, ANIM_MS, closing);
+        AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle());
+        if (style == AnimationStyle.NONE) return 1.0f;
+        long elapsed = Util.getMeasuringTimeMs() - animStart;
+        float t = MathHelper.clamp((float) elapsed / ANIM_MS, 0f, 1f);
+        if (closing) return 1.0f - (t * t);
+        return Animation.styleCurve(style, t);
+    }
+
+    private void renderPopupWithAnim(Object g, long startMs, java.util.function.Function<Float, Runnable> renderer) {
+        float alpha = 1f;
+        float t = 1f;
+        AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().popupAnimStyle());
+        if (ChatBubbleClientSetup.config().animationEnabled() && style != AnimationStyle.NONE) {
+            t = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - startMs) / 150f, 0f, 1f);
+            alpha = Animation.styleCurve(style, t);
+        }
+        Runnable render = renderer.apply(alpha);
+        if (t >= 1f || style == AnimationStyle.NONE) { render.run(); return; }
+        //#if MC >= 12000
+        if (style == AnimationStyle.ZOOM) {
+            RenderHelper.pushMatrix(g);
+            float s = 0.85f + 0.15f * Animation.easeOutBack(alpha);
+            RenderHelper.translate(g, width / 2f, height / 2f, 0);
+            RenderHelper.scale(g, s, s, 1f);
+            RenderHelper.translate(g, -width / 2f, -height / 2f, 0);
+            render.run();
+            RenderHelper.popMatrix(g);
+        } else if (style == AnimationStyle.SLIDE) {
+            RenderHelper.pushMatrix(g);
+            RenderHelper.translate(g, 0, (1f - alpha) * 10f, 0);
+            render.run();
+            RenderHelper.popMatrix(g);
+        } else {
+            render.run();
+        }
+        //#else
+        //$$ render.run();
+        //#endif
     }
 
     @Override
@@ -1053,7 +1100,9 @@ public class ChatBubbleScreen extends Screen {
         if (mx >= gearX && mx <= gearX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
             if (emojiPanel.visible) emojiPanel.visible = false;
             if (searchPanel.visible) closeSearchPanel();
-            settingsMenu.visible = !settingsMenu.visible;
+            boolean opening = !settingsMenu.visible;
+            settingsMenu.visible = opening;
+            if (opening) settingsAnimStart = Util.getMeasuringTimeMs();
             return true;
         }
         int sendX = panelX + panelW - PAD - ICON_S + 2;
@@ -1061,7 +1110,9 @@ public class ChatBubbleScreen extends Screen {
         if (mx >= emojiX && mx <= emojiX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
             if (settingsMenu.visible) settingsMenu.visible = false;
             if (searchPanel.visible) closeSearchPanel();
-            emojiPanel.visible = !emojiPanel.visible;
+            boolean opening = !emojiPanel.visible;
+            emojiPanel.visible = opening;
+            if (opening) emojiAnimStart = Util.getMeasuringTimeMs();
             showMentions = false;
             if (emojiPanel.visible) emojiPanel.scroll = 0;
             return true;
@@ -1148,7 +1199,11 @@ public class ChatBubbleScreen extends Screen {
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
-        int panelOffset = currentPanelOffset();
+        AnimationStyle pstyle = AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle());
+        int panelOffset = (pstyle == AnimationStyle.SLIDE) ? currentPanelOffset() : 0;
+        boolean zoom = (pstyle == AnimationStyle.ZOOM) && anim < 1f;
+        float panelScale = 1f;
+        if (zoom) panelScale = 0.8f + 0.2f * Animation.easeOutBack(anim);
 
         //#if MC >= 12106
         RenderHelper.pushMatrix(g);
@@ -1160,19 +1215,23 @@ public class ChatBubbleScreen extends Screen {
         //#else
         //$$ RenderHelper.translate(g, panelOffset, 0, 0);
         //#endif
+        if (zoom) {
+            float cx = panelX + panelW / 2f;
+            RenderHelper.translate(g, cx, height / 2f, 0);
+            RenderHelper.scale(g, panelScale, panelScale, 1f);
+            RenderHelper.translate(g, -cx, -height / 2f, 0);
+        }
 
         float panelOpacity = ChatBubbleClientSetup.config().panelOpacity() / 100f * anim;
-        // When sidebar is synced to main animation, extend panel bg to
-        // sidebar's right edge so there's no gap between them.
-        int fillLeft = (!sidebarAnimating && sidebarOpen)
+        int fillLeft = (!sidebarAnimating && sidebarOpen && pstyle == AnimationStyle.SLIDE)
             ? (int)(anim * SIDEBAR_W) : panelX;
-        if (ChatBubbleClientSetup.config().blurEnabled() && panelOpacity < 0.999f) {
+        if (ChatBubbleClientSetup.config().blurEnabled() && panelOpacity < 0.999f && !zoom) {
             BlurRenderer.blurPanel(g, fillLeft, 0, panelX + panelW - fillLeft, height);
         }
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
 
-        renderTitleBar(g, mouseX, mouseY);
+        renderTitleBar(g, mouseX, mouseY, panelOpacity);
         renderMessages(g, mouseX, mouseY);
         Style hovered = getHoveredStyle(mouseX, mouseY);
         if (hovered != null && hovered.getHoverEvent() != null) {
@@ -1193,13 +1252,13 @@ public class ChatBubbleScreen extends Screen {
         renderContextMenu(g, mouseX, mouseY);
         renderAvatarContextMenu(g, mouseX, mouseY);
         renderToast(g);
-        settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex);
-        emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD);
-        quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
-        searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx);
+        renderPopupWithAnim(g, settingsAnimStart, a -> () -> settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex, a));
+        renderPopupWithAnim(g, emojiAnimStart, a -> () -> emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD, a));
+        renderPopupWithAnim(g, quickAnimStart, a -> () -> quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput, a));
+        renderPopupWithAnim(g, searchAnimStart, a -> () -> searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx, a));
         if (quickChatPanel.visible && quickChatInput != null) quickChatInput.render(g, mouseX, mouseY, delta);
         if (searchPanel.visible && searchInput != null) searchInput.render(g, mouseX, mouseY, delta);
-        renderBottomBar(g, mouseX, mouseY);
+        renderBottomBar(g, mouseX, mouseY, panelOpacity);
         renderMentionPopup(g, mouseX, mouseY);
 
         RenderHelper.enableScissor(g, panelX, 0, panelX + panelW, height);
@@ -1220,15 +1279,22 @@ public class ChatBubbleScreen extends Screen {
             //#else
             //$$ RenderHelper.pushMatrix(g);
             //#endif
-            int sidebarOffset = closing
-	                ? (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W)
-	                : getSidebarScreenX();
-	            //#if MC >= 12106
-	            RenderHelper.translate(g, sidebarOffset, 0);
-	            //#else
-	            //$$ RenderHelper.translate(g, sidebarOffset, 0, 0);
-	            //#endif
-            renderSidebar(g, mouseX - sidebarOffset, mouseY);
+            if (zoom) {
+                float cx = panelX + panelW / 2f;
+                RenderHelper.translate(g, cx, height / 2f, 0);
+                RenderHelper.scale(g, panelScale, panelScale, 1f);
+                RenderHelper.translate(g, -cx, -height / 2f, 0);
+            }
+            boolean fadeSidebar = !sidebarAnimating && (pstyle == AnimationStyle.FADE || zoom);
+            int sidebarOffset = (closing && !fadeSidebar)
+		                ? (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W)
+		                : (fadeSidebar ? 0 : getSidebarScreenX());
+		            //#if MC >= 12106
+            RenderHelper.translate(g, sidebarOffset, 0);
+            //#else
+            //$$ RenderHelper.translate(g, sidebarOffset, 0, 0);
+            //#endif
+            renderSidebar(g, mouseX - sidebarOffset, mouseY, fadeSidebar ? getAnimProgress() : 1f);
             //#if MC >= 12106
             RenderHelper.popMatrix(g);
             //#else
@@ -1286,6 +1352,10 @@ public class ChatBubbleScreen extends Screen {
         int closeBg = hoverClose ? c().closeHoverBg() : c().closeBg();
         RenderHelper.fill(g, closeX, closeY, closeX + 12, closeY + 12, closeBg);
         RenderHelper.drawText(g, textRenderer, "✕", closeX + 6 - textRenderer.getWidth("✕") / 2, closeY + 2, c().closeText(), false);
+    }
+
+    private void renderTitleBar(Object g, int mouseX, int mouseY, float alpha) {
+        renderTitleBar(g, mouseX, mouseY);
     }
 
     private boolean isMouseOverHamburger(double mx, double my) {
@@ -1481,6 +1551,8 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private int currentPanelOffset() {
+        if (AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle()) != AnimationStyle.SLIDE)
+            return 0;
         float anim = getAnimProgress();
         int moveDist;
         if (sidebarOpen) {
@@ -1900,6 +1972,7 @@ public class ChatBubbleScreen extends Screen {
                 if (quickChatPanel.visible) { quickChatPanel.visible = false; quickChatInput.setVisible(false); }
                 if (emojiPanel.visible) emojiPanel.visible = false;
                 searchPanel.visible = true;
+                searchAnimStart = Util.getMeasuringTimeMs();
                 searchInput.setText("");
                 searchMatches.clear(); searchMatchIdx = -1; searchHighlightIndex = -1;
                 setFocused(searchInput);
@@ -1908,6 +1981,7 @@ public class ChatBubbleScreen extends Screen {
                 if (searchPanel.visible) closeSearchPanel();
                 if (emojiPanel.visible) emojiPanel.visible = false;
                 quickChatPanel.visible = true;
+                quickAnimStart = Util.getMeasuringTimeMs();
                 quickChatPanel.scrollOffset = 0;
                 quickChatInput.setText("");
                 setFocused(input);
@@ -1981,6 +2055,10 @@ public class ChatBubbleScreen extends Screen {
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverSend) RenderHelper.fill(g, sendX - 1, iconY - 1, sendX + ICON_S + 1, iconY + ICON_S + 1, c().iconHover());
         drawTextureIcon(g, iconTex("send"), sendX, iconY, ICON_S);
+    }
+
+    private void renderBottomBar(Object g, int mouseX, int mouseY, float alpha) {
+        renderBottomBar(g, mouseX, mouseY);
     }
 
     static void loadIconTextures() {
@@ -2161,11 +2239,24 @@ public class ChatBubbleScreen extends Screen {
             loadIconTextures();
         }
         if (size < 16) {
-            // 图标纹理约定 16x16（内容居中，四周 1px 透明边，内容占 14x14）。采样内容区
-            // (偏移1,1) 完整 14x14 绘制——窗口取 size 会切掉内容右/下 2px（copy 右页被切）。
             RenderHelper.drawTexture(g, tex, x, y, size, size, 1.0F, 1.0F, 14, 14, 16, 16);
         } else {
             RenderHelper.drawTexture(g, tex, x, y, 0, 0, size, size, size, size);
+        }
+    }
+
+    static void drawTextureIconAlpha(Object g, Identifier tex, int x, int y, int size, float alpha) {
+        if (alpha <= 0.003f) return;
+        var tm = MinecraftClient.getInstance().getTextureManager();
+        try {
+            tm.getTexture(tex);
+        } catch (Exception e) {
+            loadIconTextures();
+        }
+        if (size < 16) {
+            ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 1.0F, 1.0F, 14, 14, 16, 16, alpha);
+        } else {
+            ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 0f, 0f, size, size, size, size, alpha);
         }
     }
 
@@ -2173,8 +2264,20 @@ public class ChatBubbleScreen extends Screen {
 
     //#if MC >= 12004
     private void drawPlayerHead(Object g, SkinTextures skin, int x, int y, int baseSize, int hatSize) {
-        if (skin == null) return;
-        PlayerSkinDrawer.draw((DrawContext) g, skin, x, y, baseSize);
+        drawPlayerHead(g, skin, x, y, baseSize, hatSize, 1f);
+    }
+
+    private void drawPlayerHead(Object g, SkinTextures skin, int x, int y, int baseSize, int hatSize, float alpha) {
+        if (skin == null || alpha <= 0.003f) return;
+        //#if MC >= 12109
+        Identifier tex = skin.body().texturePath();
+        ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, baseSize, baseSize, 8f, 8f, 8, 8, 64, 64, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, hatSize, hatSize, 40f, 8f, 8, 8, 64, 64, alpha);
+        //#else
+        //$$ Identifier tex = skin.texture();
+        //$$ ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, baseSize, baseSize, 8f, 8f, 8, 8, 64, 64, alpha);
+        //$$ ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, hatSize, hatSize, 40f, 8f, 8, 8, 64, 64, alpha);
+        //#endif
     }
 
     private SkinTextures getSkin(UUID uuid, String name) {
@@ -2223,11 +2326,15 @@ public class ChatBubbleScreen extends Screen {
     private static final java.util.Map<UUID, Identifier> legacySkinCache = new java.util.HashMap<>();
 
     private void drawPlayerHead(Object g, Identifier skinTex, int x, int y, int size) {
-        if (skinTex == null) return;
+        drawPlayerHead(g, skinTex, x, y, size, 1f);
+    }
+
+    private void drawPlayerHead(Object g, Identifier skinTex, int x, int y, int size, float alpha) {
+        if (skinTex == null || alpha <= 0.003f) return;
         // Face: 8x8 region at UV (8,8) in the 64x64 skin texture
-        RenderHelper.drawTexture(g, skinTex, x, y, size, size, 8f, 8f, 8, 8, 64, 64);
+        ColoredTextureRenderer.drawWithAlpha(g, skinTex, x, y, size, size, 8f, 8f, 8, 8, 64, 64, alpha);
         // Hat overlay: 8x8 region at UV (40,8) in the 64x64 skin texture
-        RenderHelper.drawTexture(g, skinTex, x, y, size, size, 40f, 8f, 8, 8, 64, 64);
+        ColoredTextureRenderer.drawWithAlpha(g, skinTex, x, y, size, size, 40f, 8f, 8, 8, 64, 64, alpha);
     }
 
     private Identifier getSkinIdentifier(UUID uuid, String name) {

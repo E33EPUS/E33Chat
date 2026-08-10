@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.3.9
+
+**同步 & 多版本兼容（2.3.9）**
+- **同步上游 v2.3.7-v2.3.8**：多风格 UI 动画（滑入/淡入/缩放）、消息进场动画三样式（QQ 滑入/淡入/缩放）、侧边栏缩放原位动画与始终滑动开关、面板背景在淡入/缩放下保持原位、侧边栏与消息头像通过颜色通道淡入、浮动 UI 元素跟随面板淡入、横幅头像淡入
+- **tpa 请求误判修复**：裸 `"to you"` 不再算私聊关键词，Essentials 风格 tpa 请求不再被误判为私聊
+- **自 whispers 横幅修复**：启用 own-whisper notify 时，自己发送的 /msg 也触发横幅
+- **多版本兼容增强**：ColoredTextureRenderer 降级为 RenderHelper 跨版本纹理渲染；RoundRectRenderer 增加 SDF 着色器不可用时的像素级抗锯齿回退；ChatListenerMixin 适配 1.21.9+ GameProfile accessor 变更；26.2 映射修复避免字符串常量被误替换
+- **新增强提示开关**（`strongHintEnabled`）：默认开启
+
+## v2.3.8
+
+**修复（2.3.8）**
+- **tpa 请求被误判为私聊（三端）**：whisper 检测词表里的裸 `"to you"` 太宽松，Essentials 风格的 `"wants to teleport to you"` 会被误判成私聊，导致 `[Essentials]` 前缀被剥离、`[Yes]/[No]` 按钮样式丢失，并可能触发私聊横幅。现在裸 `"to you"` 不再算私聊关键词，真实私聊仍由 `whisper` / `悄悄` / `对你说` 和 PM 词表覆盖；tpa 请求会按系统消息保留原样显示，相关 echo 抑制误判也同步消除。
+
+**Fixes (2.3.8)**
+- tpa requests are no longer misread as private messages: the bare `"to you"` keyword was too broad and matched Essentials-style `"wants to teleport to you"` requests, stripping the `[Essentials]` prefix, breaking `[Yes]/[No]` styling and potentially firing whisper UI. Bare `"to you"` is no longer a whisper keyword; real whispers remain covered by `whisper` / `悄悄` / `对你说` and the PM word list, and the related echo-suppression false positive is gone.
+
 ## v2.3.6
 
 **修复**
