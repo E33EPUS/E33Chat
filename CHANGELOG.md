@@ -1,6 +1,17 @@
 # Changelog
 
+## v2.3.9
+
+**修复（2.3.9）**
+- **聊天记录纯文本问题（三端）**：历史记录此前存为纯文本 TSV（v2.2.3 起为可读日志而有意降级）——重进存档后聊天记录只剩文本，颜色/点击事件/悬停提示/下划线全部丢失，头像也无法按玩家解析。现在历史改为 JSONL 完整组件：`senderJson`/`contentJson` 用原版组件序列化保存（颜色/click/hover 完整保留），并新增 `uuid` 列持久化发送者 UUID——重进存档后离线玩家头像按 UUID 正确解析（在线玩家走 Tab，离线走正版皮肤服务）。旧格式（纯文本行/旧 JSON/旧 JSONL）自动兼容读取
+- **离线玩家头像默认脸问题（三端）**：历史消息重载后发送者 UUID 丢失时头像回落为 Steve/Alex。现在头像查询新增按名字的常驻缓存：在线见过的玩家即使离线（UUID 查不到/盗版服）也能复用其真实皮肤；结合 UUID 持久化，正版离线玩家直接经皮肤服务解析
+
+**Fixes (2.3.9)**
+- Chat history lost all styling (all three platforms): history was stored as plain-text TSV (deliberately downgraded in v2.2.3 for human-readable logs), so after re-entering a world the history showed bare text — colors, click events, hover tooltips and underlines were gone, and avatars couldn't resolve to the real player. History is now JSONL with full components: `senderJson`/`contentJson` are serialized with the vanilla component codec (colors/click/hover fully preserved), plus a new `uuid` column persisting the sender UUID — after re-entering, offline players' avatars resolve correctly by UUID (online via the tab list, offline via the skin service). Old formats (plain-text lines / legacy JSON / legacy JSONL) still load automatically
+- Offline players showed Steve/Alex avatars (all three platforms): reloaded history without a sender UUID fell back to the default skin. Avatar lookup now has a name-keyed persistent cache: players you've seen online keep their real skin even offline (UUID lookup failure / cracked servers), and with UUID persistence, offline players on online-mode servers resolve straight from the skin service
+
 ## v2.3.8
+
 
 **修复（2.3.8）**
 - **tpa 请求被误判为私聊（三端）**：whisper 检测词表里的裸 "to you" 太宽松——"wants to teleport to you"（Essentials 系 tpa 请求）恰好含 "to you"，被误判成私聊：`[Essentials]` 前缀被剥、渲染成私聊玩家气泡、触发私聊横幅、`[Yes]/[No]` 按钮样式丢失。现在裸 "to you" 不再算私聊词（真私聊由 whisper/悄悄/对你说/PM 词表覆盖），tpa 请求正确显示为系统消息；echo 抑制误判（对方请求刚好在 /msg 某人之后到达，被当成自己回显吞掉）同步消除
