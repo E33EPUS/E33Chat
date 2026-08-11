@@ -155,8 +155,14 @@ public class BlurRenderer {
             GL30.glViewport(vp[0], vp[1], vp[2], vp[3]);
             if (scissor) GL30.glEnable(GL30.GL_SCISSOR_TEST);
         } catch (Throwable t) {
+            //#if MC >= 26000
+            //$$ // 26.x: the GL fallback overlay looks like an extra world shadow
+            //$$ // behind the chat panel. If framebuffer blur fails, skip the
+            //$$ // fallback and let the normal configurable panel opacity draw.
+            //#else
             // Fallback to overlay if GL operations fail
             overlayFallback(g, guiX, guiY, guiW, guiH);
+            //#endif
         }
         //#else
         //$$ overlayFallback(g, x, y, w, h);

@@ -40,6 +40,10 @@ public class ChatComponentMixin {
     private String lastRepostText;
     private long lastRepostTime;
 
+    // 26.x: ChatComponent.addMessage takes (Component, MessageSignature, GuiMessageSource, GuiMessageTag).
+    // GuiMessageTag is the chat-report trust indicator (chatNotSecure/chatModified/system);
+    // GuiMessageSource categorizes the message for the Social Interactions report screen.
+    // @Shadow inherits remap=false from the class-level @Mixin(remap=false).
     //#if MC >= 26000
     //$$ @Shadow
     //$$ private void addMessage(net.minecraft.network.chat.Component message,
@@ -216,8 +220,15 @@ public class ChatComponentMixin {
         lastRepostTime = nowMs;
         ChatMessageStore.debugLog(() -> "[e33chat] Repost to vanilla | '" + repostStr + "' | quoting=" + quoting);
         e33chat$reposting = true;
+        // 26.x: repost with chatNotSecure() tag + PLAYER source instead of nulls.
+        // chatNotSecure() marks the message as unreportable (no signature) in the
+        // chat trust indicator, matching the behavior of older versions where the
+        // 1-arg addMessage(Text) internally passes null signature + system indicator.
+        // PLAYER source ensures the message is categorized correctly in the report UI.
         //#if MC >= 26000
-        //$$ addMessage(reformatted, null, null, null);
+        //$$ addMessage(reformatted, null,
+        //$$     net.minecraft.client.multiplayer.chat.GuiMessageSource.PLAYER,
+        //$$     net.minecraft.client.multiplayer.chat.GuiMessageTag.chatNotSecure());
         //#else
         ((ChatHud) (Object) this).addMessage(reformatted);
         //#endif
