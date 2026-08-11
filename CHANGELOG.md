@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.4.0
+
+**修复（2.4.0）**
+- **聊天框淡入淡出仅背景生效**：面板动画 alpha 现在覆盖所有 UI 元素（标题栏、消息气泡、侧边栏、输入框），不再只有背景纹理淡入淡出。MC >= 1.21.2 通过 `alphaMultiplier` 颜色参数通道实现，MC < 1.21.2 通过 `RenderSystem.setShaderColor` 全局 shader 透明度实现。
+- **消息入场动画不生效**：新增 SLIDE / FADE / ZOOM 三种消息入场动画（由 `messageAnimStyle` 配置控制），每条新消息在 `MSG_ANIM_MS`(200ms) 内从动画起点过渡到正常状态。SLIDE 从对应方向滑入，FADE 透明度渐显，ZOOM 从 0.85 倍缩放弹性放大。
+- **横幅图层在聊天框下面**：MC >= 1.21.6 使用 `createNewRootLayer()` 创建新的渲染层，确保通知横幅始终渲染在聊天面板内容之上。26.x Mojang 映射通过预处理器的 `createNewRootLayer → nextStratum` 映射处理。
+
+**Fixes (2.4.0)**
+- Panel fade animation now covers all UI elements (title bar, message bubbles, sidebar, text input), not just the background texture. MC >= 1.21.2 uses `alphaMultiplier` color-parameter channel; MC < 1.21.2 uses `RenderSystem.setShaderColor` global shader alpha.
+- Message entrance animations now work: SLIDE / FADE / ZOOM styles (controlled by `messageAnimStyle` config) animate each new message over 200ms from its animation start point. SLIDE slides from the appropriate direction, FADE fades in opacity, ZOOM scales from 0.85x with elastic overshoot.
+- Banner layer order fixed: MC >= 1.21.6 uses `createNewRootLayer()` to create a new render layer, ensuring the notification banner always renders above the chat panel content. 26.x Mojang mappings handled via preprocessor `createNewRootLayer → nextStratum` mapping.
+
 ## v2.3.9
 
 **修复（2.3.9）**

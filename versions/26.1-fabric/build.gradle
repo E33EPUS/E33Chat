@@ -226,6 +226,7 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("\\bdrawTexture\\b", "blit")
         line = line.replaceAll("\\bdrawTooltip\\b", "setTooltipForNextFrame")
         line = line.replaceAll("\\bgetMatrices\\b", "pose")
+        line = line.replaceAll("\\bcreateNewRootLayer\\b", "nextStratum")
         line = line.replaceAll("\\bmatchesKey\\b", "matches")
         line = line.replaceAll("\\bgetBoundKeyLocalizedText\\b", "getTranslatedKeyMessage")
         line = line.replaceAll("\\bsendChatMessage\\b", "sendChat")

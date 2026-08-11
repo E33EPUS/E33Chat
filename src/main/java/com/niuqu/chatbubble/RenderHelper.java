@@ -23,7 +23,28 @@ import net.minecraft.util.Identifier;
 public final class RenderHelper {
     private RenderHelper() {}
 
+    // --- Alpha multiplier for cross-version fade animations ---
+    // MC >= 1.21.2: applied through color parameters (setShaderColor removed)
+    // MC <  1.21.2: not used (ChatBubbleScreen uses RenderSystem.setShaderColor instead)
+    private static float alphaMultiplier = 1f;
+
+    public static void setAlphaMultiplier(float alpha) {
+        alphaMultiplier = Math.max(0f, Math.min(1f, alpha));
+    }
+
+    public static float getAlphaMultiplier() { return alphaMultiplier; }
+
+    public static void resetAlphaMultiplier() { alphaMultiplier = 1f; }
+
+    private static int applyAlpha(int color) {
+        if (alphaMultiplier >= 0.999f) return color;
+        int a = (color >>> 24) & 0xFF;
+        a = (int) (a * alphaMultiplier);
+        return (a << 24) | (color & 0x00FFFFFF);
+    }
+
     public static void drawText(Object ctx, TextRenderer tr, Text text, int x, int y, int color, boolean shadow) {
+        color = applyAlpha(color);
         //#if MC >= 12000
         ((DrawContext) ctx).drawText(tr, text, x, y, color, shadow);
         //#else
@@ -36,6 +57,7 @@ public final class RenderHelper {
     }
 
     public static void drawText(Object ctx, TextRenderer tr, String text, int x, int y, int color, boolean shadow) {
+        color = applyAlpha(color);
         //#if MC >= 12000
         ((DrawContext) ctx).drawText(tr, text, x, y, color, shadow);
         //#else
@@ -48,6 +70,7 @@ public final class RenderHelper {
     }
 
     public static void drawText(Object ctx, TextRenderer tr, OrderedText text, int x, int y, int color, boolean shadow) {
+        color = applyAlpha(color);
         //#if MC >= 12000
         ((DrawContext) ctx).drawText(tr, text, x, y, color, shadow);
         //#else
@@ -60,6 +83,7 @@ public final class RenderHelper {
     }
 
     public static void fill(Object ctx, int x1, int y1, int x2, int y2, int color) {
+        color = applyAlpha(color);
         //#if MC >= 12000
         ((DrawContext) ctx).fill(x1, y1, x2, y2, color);
         //#else
@@ -68,6 +92,8 @@ public final class RenderHelper {
     }
 
     public static void fillGradient(Object ctx, int x1, int y1, int x2, int y2, int c1, int c2) {
+        c1 = applyAlpha(c1);
+        c2 = applyAlpha(c2);
         //#if MC >= 12000
         ((DrawContext) ctx).fillGradient(x1, y1, x2, y2, c1, c2);
         //#else
@@ -78,7 +104,12 @@ public final class RenderHelper {
     public static void drawTexture(Object ctx, Identifier texture, int x, int y, float u, float v,
                                    int width, int height, int textureWidth, int textureHeight) {
         //#if MC >= 12000
-        DrawHelper.drawTexture((DrawContext) ctx, texture, x, y, u, v, width, height, textureWidth, textureHeight);
+        //#if MC >= 12102
+        // MC >= 1.21.2: use color overload so alphaMultiplier takes effect
+        DrawHelper.drawTexture((DrawContext) ctx, texture, x, y, u, v, width, height, textureWidth, textureHeight, applyAlpha(0xFFFFFFFF));
+        //#else
+        //$$ DrawHelper.drawTexture((DrawContext) ctx, texture, x, y, u, v, width, height, textureWidth, textureHeight);
+        //#endif
         //#else
         //$$ bindTexture(texture);
         //$$ DrawableHelper.drawTexture((MatrixStack) ctx, x, y, (int) u, (int) v, width, height, textureWidth, textureHeight);
@@ -87,6 +118,7 @@ public final class RenderHelper {
 
     public static void drawTexture(Object ctx, Identifier texture, int x, int y, float u, float v,
                                    int width, int height, int textureWidth, int textureHeight, int color) {
+        color = applyAlpha(color);
         //#if MC >= 12000
         DrawHelper.drawTexture((DrawContext) ctx, texture, x, y, u, v, width, height, textureWidth, textureHeight, color);
         //#else
@@ -100,7 +132,12 @@ public final class RenderHelper {
                                    float u, float v, int regionWidth, int regionHeight,
                                    int textureWidth, int textureHeight) {
         //#if MC >= 12000
-        DrawHelper.drawTexture((DrawContext) ctx, texture, x, y, width, height, u, v, regionWidth, regionHeight, textureWidth, textureHeight);
+        //#if MC >= 12102
+        // MC >= 1.21.2: use color overload so alphaMultiplier takes effect
+        DrawHelper.drawTexture((DrawContext) ctx, texture, x, y, width, height, u, v, regionWidth, regionHeight, textureWidth, textureHeight, applyAlpha(0xFFFFFFFF));
+        //#else
+        //$$ DrawHelper.drawTexture((DrawContext) ctx, texture, x, y, width, height, u, v, regionWidth, regionHeight, textureWidth, textureHeight);
+        //#endif
         //#else
         //$$ bindTexture(texture);
         //$$ DrawableHelper.drawTexture((MatrixStack) ctx, x, y, width, height, u, v, regionWidth, regionHeight, textureWidth, textureHeight);
@@ -110,6 +147,7 @@ public final class RenderHelper {
     public static void drawTexture(Object ctx, Identifier texture, int x, int y, int width, int height,
                                    float u, float v, int regionWidth, int regionHeight,
                                    int textureWidth, int textureHeight, int color) {
+        color = applyAlpha(color);
         //#if MC >= 12000
         DrawHelper.drawTexture((DrawContext) ctx, texture, x, y, width, height, u, v, regionWidth, regionHeight, textureWidth, textureHeight, color);
         //#else

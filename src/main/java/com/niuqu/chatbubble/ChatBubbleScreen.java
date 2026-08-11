@@ -1,6 +1,7 @@
 package com.niuqu.chatbubble;
 
 import com.mojang.authlib.GameProfile;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
@@ -36,6 +37,7 @@ import net.minecraft.entity.player.SkinTextures;
 //$$ import net.minecraft.client.util.SkinTextures;
 //#endif
 //#endif
+import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
 import net.minecraft.text.*;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Language;
@@ -188,6 +190,9 @@ public class ChatBubbleScreen extends Screen {
     private long animStart;
     private boolean closing;
     private static final int ANIM_MS = 150;
+    private static final int MSG_ANIM_MS = 200;
+    private float currentPanelAlpha = 1f;
+    private final java.util.Map<Integer, Long> messageAnimStart = new java.util.HashMap<>();
     private static final int NOTIF_H = 14;
     private int newMessageCount;
     private boolean hasNewMentionOrQuote;
@@ -1223,6 +1228,7 @@ public class ChatBubbleScreen extends Screen {
         }
 
         float panelOpacity = ChatBubbleClientSetup.config().panelOpacity() / 100f * anim;
+        currentPanelAlpha = anim;
         int fillLeft = (!sidebarAnimating && sidebarOpen && pstyle == AnimationStyle.SLIDE)
             ? (int)(anim * SIDEBAR_W) : panelX;
         if (ChatBubbleClientSetup.config().blurEnabled() && panelOpacity < 0.999f && !zoom) {
@@ -1230,6 +1236,23 @@ public class ChatBubbleScreen extends Screen {
         }
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
+
+        // Apply panel animation alpha to all content elements (not just background)
+        if (anim < 0.999f) {
+            //#if MC >= 12102
+            // MC >= 1.21.2: alpha through color parameters (setShaderColor removed)
+            RenderHelper.setAlphaMultiplier(anim);
+            //#else
+            //#if MC >= 12000
+            //$$ ((DrawContext) g).draw();
+            //#endif
+            //#if MC >= 11700
+            //$$ RenderSystem.setShaderColor(1f, 1f, 1f, anim);
+            //#else
+            //$$ RenderSystem.color4f(1f, 1f, 1f, anim);
+            //#endif
+            //#endif
+        }
 
         renderTitleBar(g, mouseX, mouseY, panelOpacity);
         renderMessages(g, mouseX, mouseY);
@@ -1266,6 +1289,10 @@ public class ChatBubbleScreen extends Screen {
         if (commandSuggestions != null) commandSuggestions.render(g, mouseX, mouseY);
         //#endif
         RenderHelper.disableScissor(g);
+
+        // Note: panel animation alpha is NOT reset here — it must stay active
+        // through sidebar + super.render() so those elements also fade.
+        // Reset happens after super.render(), before the banner.
 
         //#if MC >= 12106
         RenderHelper.popMatrix(g);
@@ -1321,7 +1348,43 @@ public class ChatBubbleScreen extends Screen {
         //$$ RenderHelper.popMatrix(g);
         //#endif
 
-        // Notification banner is rendered by ChatBubbleHudOverlay at z=300
+        // Flush and reset panel animation alpha (after sidebar + super.render)
+        if (currentPanelAlpha < 0.999f) {
+            //#if MC >= 12102
+            // MC >= 1.21.2: alpha through color parameters (setShaderColor removed)
+            RenderHelper.resetAlphaMultiplier();
+            //#else
+            //#if MC >= 12000
+            //$$ ((DrawContext) g).draw();
+            //#endif
+            //#if MC >= 11700
+            //$$ RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+            //#else
+            //$$ RenderSystem.color4f(1f, 1f, 1f, 1f);
+            //#endif
+            //#endif
+        }
+
+        // Render notification banner on top of the chat screen
+        //#if MC >= 26000
+        MentionNotificationBanner.INSTANCE.tick();
+        //#endif
+        //#if MC >= 12106
+        // MC >= 1.21.6: use createNewRootLayer to ensure banner renders above panel content
+        // (the new pipeline sorts by render layer, not submission order)
+        ((DrawContext) g).createNewRootLayer();
+        RenderHelper.pushMatrix(g);
+        RenderHelper.translate(g, 0, 0);
+        //#else
+        //$$ RenderHelper.pushMatrix(g);
+        //$$ RenderHelper.translate(g, 0.0F, 0.0F, 300.0F);
+        //#endif
+        MentionNotificationBanner.INSTANCE.render(g, width, height);
+        //#if MC >= 12106
+        RenderHelper.popMatrix(g);
+        //#else
+        //$$ RenderHelper.popMatrix(g);
+        //#endif
     }
 
     private void renderTitleBar(Object g, int mouseX, int mouseY) {
@@ -1581,6 +1644,102 @@ public class ChatBubbleScreen extends Screen {
     }
 
     private void renderBubble(Object g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY) {
+        // Message entrance animation
+        AnimationStyle msgStyle = AnimationStyle.parse(ChatBubbleClientSetup.config().messageAnimStyle());
+        float msgAlpha = 1f;
+        int msgSlideX = 0;
+        float msgScale = 1f;
+
+        if (ChatBubbleClientSetup.config().animationEnabled() && msgStyle != AnimationStyle.NONE) {
+            long firstSeen = messageAnimStart.computeIfAbsent(index,
+                k -> Util.getMeasuringTimeMs());
+            long elapsed = Util.getMeasuringTimeMs() - firstSeen;
+            if (elapsed < MSG_ANIM_MS) {
+                float t = MathHelper.clamp((float) elapsed / MSG_ANIM_MS, 0f, 1f);
+                msgAlpha = Animation.styleCurve(msgStyle, t);
+                if (msgStyle == AnimationStyle.SLIDE) {
+                    msgSlideX = msg.isOwn()
+                        ? (int)((1f - msgAlpha) * 24)
+                        : -(int)((1f - msgAlpha) * 24);
+                }
+                if (msgStyle == AnimationStyle.ZOOM) {
+                    msgScale = 0.85f + 0.15f * Animation.easeOutBack(msgAlpha);
+                }
+            }
+        }
+
+        float effectiveAlpha = msgAlpha * currentPanelAlpha;
+        boolean needsShaderAlpha = effectiveAlpha < 0.999f;
+
+        if (needsShaderAlpha) {
+            //#if MC >= 12102
+            // MC >= 1.21.2: alpha through color parameters (setShaderColor removed)
+            RenderHelper.setAlphaMultiplier(effectiveAlpha);
+            //#else
+            //#if MC >= 12000
+            //$$ ((DrawContext) g).draw();
+            //#endif
+            //#if MC >= 11700
+            //$$ RenderSystem.setShaderColor(1f, 1f, 1f, effectiveAlpha);
+            //#else
+            //$$ RenderSystem.color4f(1f, 1f, 1f, effectiveAlpha);
+            //#endif
+            //#endif
+        }
+
+        boolean useTransform = msgSlideX != 0 || msgScale != 1f;
+        if (useTransform) {
+            //#if MC >= 12106
+            RenderHelper.pushMatrix(g);
+            //#else
+            //$$ RenderHelper.pushMatrix(g);
+            //#endif
+            if (msgScale != 1f) {
+                float cx = panelX + panelW / 2f;
+                RenderHelper.translate(g, cx, baseY, 0);
+                RenderHelper.scale(g, msgScale, msgScale, 1f);
+                RenderHelper.translate(g, -cx, -baseY, 0);
+            }
+            if (msgSlideX != 0) {
+                //#if MC >= 12106
+                RenderHelper.translate(g, msgSlideX, 0);
+                //#else
+                //$$ RenderHelper.translate(g, msgSlideX, 0, 0);
+                //#endif
+            }
+        }
+
+        renderBubbleInner(g, msg, index, baseY, mouseX, mouseY);
+
+        if (useTransform) {
+            //#if MC >= 12106
+            RenderHelper.popMatrix(g);
+            //#else
+            //$$ RenderHelper.popMatrix(g);
+            //#endif
+        }
+
+        if (needsShaderAlpha) {
+            //#if MC >= 12102
+            // MC >= 1.21.2: restore panel-level alpha (or full if panel not animating)
+            float restoreAlpha = currentPanelAlpha < 0.999f ? currentPanelAlpha : 1f;
+            RenderHelper.setAlphaMultiplier(restoreAlpha);
+            //#else
+            //#if MC >= 12000
+            //$$ ((DrawContext) g).draw();
+            //#endif
+            //$$ // Restore panel-level alpha (or full if panel not animating)
+            //$$ float restoreAlpha = currentPanelAlpha < 0.999f ? currentPanelAlpha : 1f;
+            //#if MC >= 11700
+            //$$ RenderSystem.setShaderColor(1f, 1f, 1f, restoreAlpha);
+            //#else
+            //$$ RenderSystem.color4f(1f, 1f, 1f, restoreAlpha);
+            //#endif
+            //#endif
+        }
+    }
+
+    private void renderBubbleInner(Object g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY) {
         if (msg.isSystem()) {
             List<OrderedText> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
             int yy = baseY + 2;
