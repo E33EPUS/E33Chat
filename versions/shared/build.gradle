@@ -11,7 +11,6 @@ buildscript {
     }
     dependencies {
         classpath("net.fabricmc:fabric-loom:${project.loom_version}")
-        classpath("com.github.Fallen-Breath:preprocessor:4c38783")
     }
 }
 
@@ -26,7 +25,6 @@ buildscript.configurations.classpath.each { f ->
 
 apply plugin: "java"
 apply plugin: "fabric-loom"
-apply plugin: "com.replaymod.preprocess"
 apply plugin: "maven-publish"
 
 // 从 root gradle.properties 设置 group 和 version
@@ -38,11 +36,7 @@ println "Building: ${project.name} (MC ${project.minecraft_version}) - loom ${pr
 def targetJavaVersion = (project.findProperty('java_version') ?: '21') as Integer
 def modmenuVersion = project.findProperty('modmenu_version') ?: '11.0.3'
 
-// 设置预处理器 MC 版本变量
 final int mcVersion = project.mcVersion
-preprocess {
-    vars.put("MC", mcVersion)
-}
 
 // 输出文件名
 base.archivesName = project.archives_base_name

@@ -1,4 +1,4 @@
-// v1_21_11 专用构建脚本 - 使用 Loom 1.13.3 + 预处理器
+// v1_21_11 专用构建脚本 - 使用 Loom 1.13.3 + 自定义预处理任务
 
 buildscript {
     repositories {
@@ -9,15 +9,13 @@ buildscript {
     }
     dependencies {
         classpath("net.fabricmc:fabric-loom:${project.loom_version}")
-        classpath("com.github.Fallen-Breath:preprocessor:4c38783")
     }
 }
 
-println "Building: ${project.name} (MC ${project.minecraft_version}) - loom ${project.loom_version} (with preprocessor)"
+println "Building: ${project.name} (MC ${project.minecraft_version}) - loom ${project.loom_version} (with custom preprocessor)"
 
 apply plugin: "java"
 apply plugin: "fabric-loom"
-apply plugin: "com.replaymod.preprocess"
 apply plugin: "maven-publish"
 
 group = rootProject.maven_group
@@ -26,9 +24,6 @@ version = rootProject.mod_version
 base.archivesName = project.archives_base_name
 
 final int mcVersion = project.mcVersion
-preprocess {
-    vars.put("MC", mcVersion)
-}
 
 repositories {
     mavenCentral()
