@@ -1947,6 +1947,23 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private static final UUID NIL_UUID = new UUID(0, 0);
+    // Name-keyed skin cache: an offline player seen in chat history keeps the
+    // real head when the UUID lookup fails (cracked servers, uuid dropped in
+    // old history files). Key is the §-stripped lowercase name.
+    private static final java.util.Map<String, Identifier> skinNameCache = new java.util.HashMap<>();
+
+    private static String skinNameKey(String name) {
+        if (name == null) return null;
+        String key = name.replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
+        return key.isEmpty() ? null : key;
+    }
+
+    private void rememberSkin(UUID uuid, String name, Identifier tex) {
+        if (tex == null) return;
+        if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, tex);
+        String key = skinNameKey(name);
+        if (key != null) skinNameCache.put(key, tex);
+    }
 
     private void drawPlayerHead(DrawContext g, Identifier skin, int x, int y, int baseSize, int hatSize, float alpha) {
         if (alpha <= 0.003f) return;
@@ -1961,7 +1978,11 @@ public class ChatBubbleScreen extends ChatScreen {
         // forever even after the real skin loaded. CSL intercepts the underlying lookup.
         if (client.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             PlayerListEntry info = client.getNetworkHandler().getPlayerListEntry(uuid);
-            if (info != null) return info.getSkinTextures().texture();
+            if (info != null) {
+                Identifier tex = info.getSkinTextures().texture();
+                rememberSkin(uuid, name, tex);
+                return tex;
+            }
         }
         // Offline player / history mention: route through SkinProvider with a name-bearing
         // GameProfile so CSL can match offline names to imported skins. Cache this result.
@@ -1969,8 +1990,13 @@ public class ChatBubbleScreen extends ChatScreen {
             Identifier cached = skinCache.get(uuid);
             if (cached != null) return cached;
         }
+        String nameKey = skinNameKey(name);
+        if (nameKey != null) {
+            Identifier cachedByName = skinNameCache.get(nameKey);
+            if (cachedByName != null) return cachedByName;
+        }
         Identifier resolved = resolveSkin(uuid, name);
-        if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, resolved);
+        rememberSkin(uuid, name, resolved);
         return resolved;
     }
 
