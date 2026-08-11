@@ -19,12 +19,12 @@ jobs:
         with:
           java-version: '25'
           distribution: 'microsoft'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
       - name: show build environment
         run: |
           java -version
           ./gradlew --version
-      - name: make gradle wrapper executable
-        run: chmod +x ./gradlew
       - name: build
         run: ./gradlew clean build --stacktrace --no-daemon
       - name: capture build artifacts
