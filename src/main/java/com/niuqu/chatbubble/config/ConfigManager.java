@@ -65,7 +65,8 @@ public final class ConfigManager {
             c.panelAnimStyle() != null ? c.panelAnimStyle() : d.panelAnimStyle(),
             c.bannerAnimStyle() != null ? c.bannerAnimStyle() : d.bannerAnimStyle(),
             c.popupAnimStyle() != null ? c.popupAnimStyle() : d.popupAnimStyle(),
-            c.messageAnimStyle() != null ? c.messageAnimStyle() : d.messageAnimStyle());
+            c.messageAnimStyle() != null ? c.messageAnimStyle() : d.messageAnimStyle(),
+            c.imageRenderEnabled() != null ? c.imageRenderEnabled() : d.imageRenderEnabled());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {
