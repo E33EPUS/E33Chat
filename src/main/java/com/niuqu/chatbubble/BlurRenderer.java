@@ -93,6 +93,10 @@ public class BlurRenderer {
      */
     public static void blurPanel(Object g, int x, int y, int w, int h) {
         if (w <= 0 || h <= 0) return;
+        int guiX = x;
+        int guiY = y;
+        int guiW = w;
+        int guiH = h;
 
         //#if MC >= 11700
         var mc = MinecraftClient.getInstance();
@@ -152,7 +156,7 @@ public class BlurRenderer {
             if (scissor) GL30.glEnable(GL30.GL_SCISSOR_TEST);
         } catch (Throwable t) {
             // Fallback to overlay if GL operations fail
-            overlayFallback(g, x, y, w, h);
+            overlayFallback(g, guiX, guiY, guiW, guiH);
         }
         //#else
         //$$ overlayFallback(g, x, y, w, h);
