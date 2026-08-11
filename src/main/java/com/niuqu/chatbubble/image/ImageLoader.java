@@ -114,13 +114,14 @@ public final class ImageLoader {
                     decoded.image().close();
                     return;
                 }
+                // NOTE: getTexture(id) returns the MISSING texture (black/purple)
+                // for unregistered ids — never null — so it can't guard registration.
+                // Re-register unconditionally (destroy first to avoid leaking the
+                // previous NativeImageBackedTexture on cache eviction + reload).
                 Identifier id = Identifier.of("e33chat", "img/" + hash(url));
                 TextureManager tm = MinecraftClient.getInstance().getTextureManager();
-                if (tm.getTexture(id) == null) {
-                    tm.registerTexture(id, new NativeImageBackedTexture(decoded.image()));
-                } else {
-                    decoded.image().close();
-                }
+                tm.destroyTexture(id);
+                tm.registerTexture(id, new NativeImageBackedTexture(decoded.image()));
                 entry.markLoaded(id, decoded.image());
             });
         } catch (InterruptedException e) {
