@@ -472,7 +472,7 @@ abstract class PreprocessTask extends DefaultTask {
 def preprocessTask = tasks.register("preprocessJava", PreprocessTask) {
     srcDir = sharedSrcDir
     outDir = preprocessedDir
-    targetMcVersion = project.mcVersion
+    targetMcVersion = project.mcVersion.toString().toInteger()
 }
 
 sourceSets {

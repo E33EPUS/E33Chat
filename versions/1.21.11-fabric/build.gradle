@@ -23,7 +23,7 @@ version = rootProject.mod_version
 
 base.archivesName = project.archives_base_name
 
-final int mcVersion = project.mcVersion
+final int mcVersion = project.mcVersion.toString().toInteger()
 
 repositories {
     mavenCentral()
@@ -149,7 +149,7 @@ abstract class PreprocessTask extends DefaultTask {
 def preprocessTask = tasks.register('preprocessJava', PreprocessTask) {
     srcDir = sharedSrcDir
     outDir = preprocessedDir
-    targetMcVersion = project.mcVersion
+    targetMcVersion = mcVersion
 }
 
 sourceSets {

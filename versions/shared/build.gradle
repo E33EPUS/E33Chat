@@ -27,7 +27,7 @@ println "Building: ${project.name} (MC ${project.minecraft_version}) - loom ${pr
 def targetJavaVersion = (project.findProperty('java_version') ?: '21') as Integer
 def modmenuVersion = project.findProperty('modmenu_version') ?: '11.0.3'
 
-final int mcVersion = project.mcVersion
+final int mcVersion = project.mcVersion.toString().toInteger()
 
 // 输出文件名
 base.archivesName = project.archives_base_name
@@ -168,7 +168,7 @@ abstract class PreprocessTask extends DefaultTask {
 def preprocessTask = tasks.register('preprocessJava', PreprocessTask) {
     srcDir = sharedSrcDir
     outDir = preprocessedDir
-    targetMcVersion = project.mcVersion
+    targetMcVersion = mcVersion
 }
 
 sourceSets {

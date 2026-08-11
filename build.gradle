@@ -1,60 +1,66 @@
-// Root project - 预处理版本链配置 (MasaGadget 风格)
+// Root project - 普通构建使用各版本 build.gradle 中的自定义预处理任务。
+// ReplayMod preprocessor 只在显式传入 -PenableReplayPreprocess=true 时加载，
+// 避免它的 mapping-io 版本和较新的 Fabric Loom 版本在 CI 配置阶段冲突。
 
-plugins {
-    id "com.replaymod.preprocess" version "4c38783"
-}
-
-preprocess {
-    strictExtraMappings = false
-    mainProjectFile = "versions/mainProject"
-
-    def v1_16_5  = createNode('1.16.5-fabric',  1_16_05, '')
-    def v1_18_2  = createNode('1.18.2-fabric',  1_18_02, '')
-    def v1_19_2  = createNode('1.19.2-fabric',  1_19_02, '')
-    def v1_19_3  = createNode('1.19.3-fabric',  1_19_03, '')
-    def v1_19_4  = createNode('1.19.4-fabric',  1_19_04, '')
-    def v1_20_1  = createNode('1.20.1-fabric',  1_20_01, '')
-    def v1_20_4  = createNode('1.20.4-fabric',  1_20_04, '')
-    def v1_20_6  = createNode('1.20.6-fabric',  1_20_06, '')
-    def v1_21_1  = createNode('1.21.1-fabric',  1_21_01, '')
-    def v1_21_2  = createNode('1.21.2-fabric',  1_21_02, '')
-    def v1_21_3  = createNode('1.21.3-fabric',  1_21_03, '')
-    def v1_21_4  = createNode('1.21.4-fabric',  1_21_04, '')
-    def v1_21_5  = createNode('1.21.5-fabric',  1_21_05, '')
-    def v1_21_6  = createNode('1.21.6-fabric',  1_21_06, '')
-    def v1_21_7  = createNode('1.21.7-fabric',  1_21_07, '')
-    def v1_21_8  = createNode('1.21.8-fabric',  1_21_08, '')
-    def v1_21_9  = createNode('1.21.9-fabric',  1_21_09, '')
-    def v1_21_10 = createNode('1.21.10-fabric', 1_21_10, '')
-    def v1_21_11 = createNode('1.21.11-fabric', 1_21_11, '')
-    def v26_1    = createNode('26.1-fabric',    26_01_00, '')
-    def v26_2    = createNode('26.2-fabric',    26_02_00, '')
-
-    v1_16_5.link(v1_18_2, null)
-    v1_18_2.link(v1_19_2, null)
-    v1_19_2.link(v1_19_3, null)
-    v1_19_3.link(v1_19_4, null)
-    v1_19_4.link(v1_20_1, null)
-    v1_20_1.link(v1_20_4, null)
-    v1_20_4.link(v1_20_6, null)
-    v1_20_6.link(v1_21_1, null)
-    v1_21_1.link(v1_21_2, null)
-    v1_21_2.link(v1_21_3, null)
-    v1_21_3.link(v1_21_4, null)
-    v1_21_4.link(v1_21_5, null)
-    v1_21_5.link(v1_21_6, null)
-    v1_21_6.link(v1_21_7, null)
-    v1_21_7.link(v1_21_8, null)
-    v1_21_8.link(v1_21_9, null)
-    v1_21_9.link(v1_21_10, null)
-    v1_21_10.link(v1_21_11, null)
-    v1_21_11.link(v26_1, null)
-    v26_1.link(v26_2, null)
-
-    for (final def node in getNodes()) {
-        def versionProject = findProject(node.project)
-        if (versionProject != null) {
-            versionProject.ext.mcVersion = node.mcVersion
+if ((findProperty("enableReplayPreprocess") ?: "false").toString().toBoolean()) {
+    buildscript {
+        repositories {
+            maven { url = "https://jitpack.io" }
+            mavenCentral()
+            gradlePluginPortal()
         }
+        dependencies {
+            classpath "com.github.Fallen-Breath:preprocessor:4c38783"
+        }
+    }
+
+    apply plugin: "com.replaymod.preprocess"
+
+    preprocess {
+        strictExtraMappings = false
+        mainProjectFile = "versions/mainProject"
+
+        def v1_16_5  = createNode('1.16.5-fabric',  1_16_05, '')
+        def v1_18_2  = createNode('1.18.2-fabric',  1_18_02, '')
+        def v1_19_2  = createNode('1.19.2-fabric',  1_19_02, '')
+        def v1_19_3  = createNode('1.19.3-fabric',  1_19_03, '')
+        def v1_19_4  = createNode('1.19.4-fabric',  1_19_04, '')
+        def v1_20_1  = createNode('1.20.1-fabric',  1_20_01, '')
+        def v1_20_4  = createNode('1.20.4-fabric',  1_20_04, '')
+        def v1_20_6  = createNode('1.20.6-fabric',  1_20_06, '')
+        def v1_21_1  = createNode('1.21.1-fabric',  1_21_01, '')
+        def v1_21_2  = createNode('1.21.2-fabric',  1_21_02, '')
+        def v1_21_3  = createNode('1.21.3-fabric',  1_21_03, '')
+        def v1_21_4  = createNode('1.21.4-fabric',  1_21_04, '')
+        def v1_21_5  = createNode('1.21.5-fabric',  1_21_05, '')
+        def v1_21_6  = createNode('1.21.6-fabric',  1_21_06, '')
+        def v1_21_7  = createNode('1.21.7-fabric',  1_21_07, '')
+        def v1_21_8  = createNode('1.21.8-fabric',  1_21_08, '')
+        def v1_21_9  = createNode('1.21.9-fabric',  1_21_09, '')
+        def v1_21_10 = createNode('1.21.10-fabric', 1_21_10, '')
+        def v1_21_11 = createNode('1.21.11-fabric', 1_21_11, '')
+        def v26_1    = createNode('26.1-fabric',    26_01_00, '')
+        def v26_2    = createNode('26.2-fabric',    26_02_00, '')
+
+        v1_16_5.link(v1_18_2, null)
+        v1_18_2.link(v1_19_2, null)
+        v1_19_2.link(v1_19_3, null)
+        v1_19_3.link(v1_19_4, null)
+        v1_19_4.link(v1_20_1, null)
+        v1_20_1.link(v1_20_4, null)
+        v1_20_4.link(v1_20_6, null)
+        v1_20_6.link(v1_21_1, null)
+        v1_21_1.link(v1_21_2, null)
+        v1_21_2.link(v1_21_3, null)
+        v1_21_3.link(v1_21_4, null)
+        v1_21_4.link(v1_21_5, null)
+        v1_21_5.link(v1_21_6, null)
+        v1_21_6.link(v1_21_7, null)
+        v1_21_7.link(v1_21_8, null)
+        v1_21_8.link(v1_21_9, null)
+        v1_21_9.link(v1_21_10, null)
+        v1_21_10.link(v1_21_11, null)
+        v1_21_11.link(v26_1, null)
+        v26_1.link(v26_2, null)
     }
 }
