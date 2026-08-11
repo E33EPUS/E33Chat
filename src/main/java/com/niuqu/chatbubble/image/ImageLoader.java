@@ -32,7 +32,10 @@ public final class ImageLoader {
         .build();
 
     private static final int MAX_RECEIVE_BYTES = 16 * 1024 * 1024;
-    private static final long REQUEST_TIMEOUT_SECONDS = 20;
+    // Direct fetches can be slow (TLS handshake + multi-hundred-KB bodies took
+    // ~12s in the user's environment); keep the budget generous so a slow-but-
+    // working link lands in LOADED, not FAILED.
+    private static final long REQUEST_TIMEOUT_SECONDS = 30;
     private static volatile boolean enabled = true;
 
     /** Incremented on every state flip; consumers (chat layout) use it to drop caches. */
@@ -90,24 +93,31 @@ public final class ImageLoader {
     }
 
     private static void fetchAndDecode(String url, ImageEntry entry) {
+        long t0 = System.currentTimeMillis();
         try {
             HttpResponse<byte[]> resp = CLIENT.send(
                 HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS)).build(),
                 HttpResponse.BodyHandlers.ofByteArray());
+            long t1 = System.currentTimeMillis();
             if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
                 entry.markFailed("http " + resp.statusCode());
+                LOGGER.info("[e33chat] image fetch {} -> HTTP {} ({}ms)", url, resp.statusCode(), t1 - t0);
                 return;
             }
             byte[] body = resp.body();
             if (body == null || body.length == 0 || body.length > MAX_RECEIVE_BYTES) {
                 entry.markFailed("empty or too large");
+                LOGGER.info("[e33chat] image fetch {} -> bad body {} bytes ({}ms)", url, body == null ? 0 : body.length, t1 - t0);
                 return;
             }
             RasterImageDecoder.DecodedImage decoded = RasterImageDecoder.decode(body);
             if (decoded == null) {
                 entry.markFailed("unsupported format");
+                LOGGER.info("[e33chat] image fetch {} -> decode failed ({} bytes, {}ms)", url, body.length, t1 - t0);
                 return;
             }
+            LOGGER.info("[e33chat] image fetch {} -> {}x{} ({} bytes, {}ms)",
+                url, decoded.width(), decoded.height(), body.length, t1 - t0);
             // Upload on the render thread, then flip state.
             MinecraftClient.getInstance().execute(() -> {
                 if (entry.state() != ImageEntry.State.LOADING) {
@@ -128,7 +138,8 @@ public final class ImageLoader {
             Thread.currentThread().interrupt();
             entry.markFailed("interrupted");
         } catch (Throwable t) {
-            LOGGER.debug("[e33chat] image fetch failed for {}: {}", url, t.toString());
+            long t1 = System.currentTimeMillis();
+            LOGGER.info("[e33chat] image fetch {} -> exception ({}ms): {}", url, t1 - t0, t.toString());
             entry.markFailed(String.valueOf(t));
         }
     }
