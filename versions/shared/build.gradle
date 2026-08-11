@@ -73,7 +73,8 @@ processResources {
 
 java {
     // 预处理器模式下 sourcesJar 重映射会失败，由主项目单独构建 sourcesJar
-    toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    // CI 统一使用 Java 25 运行 Gradle；旧版本通过 options.release 保持目标字节码，
+    // 避免 fresh runner 额外寻找 Java 17/21 toolchain 导致构建失败。
 }
 
 // 预处理器子项目禁用 sourcesJar 重映射（预处理指令导致 remapper 崩溃）
