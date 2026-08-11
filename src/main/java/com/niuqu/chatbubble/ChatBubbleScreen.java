@@ -1687,6 +1687,23 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private static final UUID NIL_UUID = new UUID(0, 0);
+    // Name-keyed skin cache: an offline player seen in chat history keeps the
+    // real head when the UUID lookup fails (cracked servers, uuid dropped in
+    // old history files). Key is the §-stripped lowercase name.
+    private static final java.util.Map<String, ResourceLocation> skinNameCache = new HashMap<>();
+
+    private static String skinNameKey(String name) {
+        if (name == null) return null;
+        String key = name.replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
+        return key.isEmpty() ? null : key;
+    }
+
+    private void rememberSkin(UUID uuid, String name, ResourceLocation tex) {
+        if (tex == null) return;
+        if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, tex);
+        String key = skinNameKey(name);
+        if (key != null) skinNameCache.put(key, tex);
+    }
 
     private void drawPlayerHead(GuiGraphics g, ResourceLocation skin, int x, int y, int baseSize, int hatSize) {
         RenderSystem.enableBlend();
@@ -1705,7 +1722,11 @@ public class ChatBubbleScreen extends ChatScreen {
         // CSL intercepts the underlying SkinManager lookup, so CSL skins flow through too.
         if (minecraft.getConnection() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             PlayerInfo info = minecraft.getConnection().getPlayerInfo(uuid);
-            if (info != null) return info.getSkin().texture();
+            if (info != null) {
+                ResourceLocation tex = info.getSkin().texture();
+                rememberSkin(uuid, name, tex);
+                return tex;
+            }
         }
         // Not in the tab list (offline player / history mention): route through the
         // SkinManager with a GameProfile carrying the name. CSL keys off the name, so
@@ -1716,8 +1737,13 @@ public class ChatBubbleScreen extends ChatScreen {
             ResourceLocation cached = skinCache.get(uuid);
             if (cached != null) return cached;
         }
+        String nameKey = skinNameKey(name);
+        if (nameKey != null) {
+            ResourceLocation cachedByName = skinNameCache.get(nameKey);
+            if (cachedByName != null) return cachedByName;
+        }
         ResourceLocation resolved = resolveSkin(uuid, name);
-        if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, resolved);
+        rememberSkin(uuid, name, resolved);
         return resolved;
     }
 

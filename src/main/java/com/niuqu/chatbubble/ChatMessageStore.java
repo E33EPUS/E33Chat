@@ -961,23 +961,32 @@ public class ChatMessageStore {
 
     static String toLine(ChatMessage msg) {
         if (isSensitiveCommand(msg.content().getString())) return null;
-        String time = java.time.LocalDateTime.ofInstant(
-            java.time.Instant.ofEpochMilli(msg.time()), java.time.ZoneId.systemDefault())
-            .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        String flags = (msg.isOwn() ? "M" : "") + (msg.isSystem() ? "S" : "") + (msg.whisper() ? "W" : "");
-        StringBuilder sb = new StringBuilder(time)
-            .append('\t').append(escapeField(msg.senderName().getString()))
-            .append('\t').append(escapeField(msg.content().getString()))
-            .append('\t').append(flags);
-        // Optional trailing columns, present only when the message has the data:
-        // whisper partner, reply sender, reply content — keeps ordinary lines short
-        if (msg.whisper() && msg.whisperPartner() != null)
-            sb.append('\t').append(escapeField(msg.whisperPartner()));
-        if (msg.replyContent() != null) {
-            sb.append('\t').append(msg.replySender() != null ? escapeField(msg.replySender()) : "");
-            sb.append('\t').append(escapeField(msg.replyContent()));
+        // JSONL, one message per line. senderJson/contentJson are full styled
+        // components (colors, click/hover events survive the reload) and uuid
+        // lets avatars resolve for offline players after re-joining.
+        java.util.Map<String, Object> obj = new java.util.LinkedHashMap<>();
+        obj.put("time", msg.time());
+        obj.put("uuid", msg.senderUUID() != null ? msg.senderUUID().toString() : "");
+        String senderJson = null, contentJson = null;
+        try {
+            senderJson = net.minecraft.network.chat.Component.Serializer.toJson(msg.senderName(), registries());
+            contentJson = net.minecraft.network.chat.Component.Serializer.toJson(msg.content(), registries());
+        } catch (Throwable ignored) {
+            // Component codecs unavailable (headless test env / broken registries):
+            // fall back to plain-text fields; styled fields are omitted.
         }
-        return sb.toString();
+        if (senderJson != null) obj.put("senderJson", senderJson);
+        else obj.put("sender", msg.senderName().getString());
+        if (contentJson != null) obj.put("contentJson", contentJson);
+        else obj.put("content", msg.content().getString());
+        obj.put("own", msg.isOwn());
+        obj.put("system", msg.isSystem());
+        if (msg.replyContent() != null) obj.put("replyContent", msg.replyContent());
+        if (msg.replySender() != null) obj.put("replySender", msg.replySender());
+        if (msg.rawPlayerName() != null) obj.put("rawPlayerName", msg.rawPlayerName());
+        if (msg.whisper()) obj.put("whisper", true);
+        if (msg.whisperPartner() != null) obj.put("whisperPartner", msg.whisperPartner());
+        return GSON.toJson(obj);
     }
 
     static ChatMessage fromLine(String line) {
