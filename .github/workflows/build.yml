@@ -26,12 +26,21 @@ jobs:
           java -version
           ./gradlew --version
       - name: build
-        run: ./gradlew clean build --stacktrace --no-daemon
+        shell: bash
+        run: |
+          ./gradlew clean build --stacktrace --no-daemon 2>&1 | tee gradle-build.log
+          exit ${PIPESTATUS[0]}
       - name: capture build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Artifacts
           path: versions/*/build/libs/*.jar
+      - name: capture gradle build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gradle build log
+          path: gradle-build.log
       - name: capture gradle reports
         if: always()
         uses: actions/upload-artifact@v4
