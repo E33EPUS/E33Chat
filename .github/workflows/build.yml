@@ -30,6 +30,19 @@ jobs:
         run: |
           ./gradlew clean build --stacktrace --no-daemon 2>&1 | tee gradle-build.log
           exit ${PIPESTATUS[0]}
+      - name: summarize gradle failure
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f gradle-build.log ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          log = Path("gradle-build.log").read_text(errors="replace").splitlines()
+          tail = "\n".join(log[-120:])
+          tail = tail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print(f"::error title=Gradle build failed::{tail}")
+          PY
+          fi
       - name: capture build artifacts
         uses: actions/upload-artifact@v4
         with:
