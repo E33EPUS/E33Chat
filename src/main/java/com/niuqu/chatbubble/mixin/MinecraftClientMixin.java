@@ -7,7 +7,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.SleepingChatScreen;
-//#if MC >= 26200
+//#if MC >= 260200
 //$$ import net.minecraft.client.gui.Gui;
 //#endif
 import org.spongepowered.asm.mixin.Mixin;
@@ -15,14 +15,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.lang.reflect.Field;
-//#if MC >= 26200
+//#if MC >= 260200
 //$$ @Mixin(value = Gui.class, remap = false)
 //#else
 @Mixin(MinecraftClient.class)
 //#endif
 public class MinecraftClientMixin {
     // 26.2: setScreen moved from Minecraft to Gui class; target Gui with remap=false
-    //#if MC >= 26200
+    //#if MC >= 260200
     //$$ @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true, remap = false)
     //#else
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
