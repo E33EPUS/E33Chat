@@ -259,6 +259,30 @@ public class MentionNotificationBanner {
         return current != null ? current.messageIndex : -1;
     }
 
+    private PlayerListEntry findOnlineSkinEntry(String name) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (name == null || name.isEmpty() || mc.getNetworkHandler() == null) return null;
+        String stripped = name.replaceAll("§.", "").trim();
+        for (PlayerListEntry info : mc.getNetworkHandler().getPlayerList()) {
+            //#if MC >= 12109
+            String profile = info.getProfile().name();
+            //#else
+            //$$ String profile = info.getProfile().getName();
+            //#endif
+            if (matchesSkinName(name, stripped, profile)) return info;
+            Text tab = info.getDisplayName();
+            if (tab != null && matchesSkinName(name, stripped, tab.getString())) return info;
+        }
+        return null;
+    }
+
+    private static boolean matchesSkinName(String raw, String stripped, String candidate) {
+        if (candidate == null || candidate.isEmpty()) return false;
+        String c = candidate.replaceAll("§.", "").trim();
+        return raw.equals(candidate) || stripped.equals(c)
+            || (c.length() >= 3 && (stripped.contains(c) || raw.contains(candidate)));
+    }
+
     //#if MC >= 12004
     private static String skinNameKey(String name) {
         if (name == null) return null;
@@ -286,6 +310,23 @@ public class MentionNotificationBanner {
                     rememberSkin(uuid, canonicalName, textures);
                     return textures;
                 }
+            }
+        }
+        PlayerListEntry onlineByName = findOnlineSkinEntry(canonicalName);
+        if (onlineByName != null) {
+            SkinTextures textures = onlineByName.getSkinTextures();
+            if (textures != null) {
+                //#if MC >= 12109
+                UUID onlineUuid = onlineByName.getProfile().id();
+                String profileName = onlineByName.getProfile().name();
+                //#else
+                //$$ UUID onlineUuid = onlineByName.getProfile().getId();
+                //$$ String profileName = onlineByName.getProfile().getName();
+                //#endif
+                rememberSkin(onlineUuid, profileName, textures);
+                rememberSkin(onlineUuid, canonicalName, textures);
+                ChatMessageStore.rememberPlayer(onlineUuid, profileName, canonicalName);
+                return textures;
             }
         }
         if (uuid != null && !uuid.equals(NIL_UUID)) {
@@ -360,6 +401,18 @@ public class MentionNotificationBanner {
     //$$                 rememberLegacySkin(uuid, canonicalName, tex);
     //$$                 return tex;
     //$$             }
+    //$$         }
+    //$$     }
+    //$$     PlayerListEntry onlineByName = findOnlineSkinEntry(canonicalName);
+    //$$     if (onlineByName != null) {
+    //$$         Identifier tex = onlineByName.getSkinTexture();
+    //$$         if (tex != null) {
+    //$$             UUID onlineUuid = onlineByName.getProfile().getId();
+    //$$             String profileName = onlineByName.getProfile().getName();
+    //$$             rememberLegacySkin(onlineUuid, profileName, tex);
+    //$$             rememberLegacySkin(onlineUuid, canonicalName, tex);
+    //$$             ChatMessageStore.rememberPlayer(onlineUuid, profileName, canonicalName);
+    //$$             return tex;
     //$$         }
     //$$     }
     //$$     if (uuid != null && !uuid.equals(NIL_UUID)) {

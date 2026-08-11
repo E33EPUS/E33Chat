@@ -96,7 +96,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             } else if (client.getServer() != null) {
                 key = "SP:" + client.getServer().getSaveProperties().getLevelName();
             } else if (client.getCurrentServerEntry() != null) {
-                key = "MP:" + client.getCurrentServerEntry().name;
+                key = "MP:" + client.getCurrentServerEntry().name + "@" + client.getCurrentServerEntry().address;
             } else {
                 key = "world";
             }

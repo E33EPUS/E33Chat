@@ -2262,6 +2262,29 @@ public class ChatBubbleScreen extends Screen {
 
     private static final UUID NIL_UUID = new UUID(0, 0);
 
+    private PlayerListEntry findOnlineSkinEntry(String name) {
+        if (name == null || name.isEmpty() || client.getNetworkHandler() == null) return null;
+        String stripped = name.replaceAll("§.", "").trim();
+        for (PlayerListEntry info : client.getNetworkHandler().getPlayerList()) {
+            //#if MC >= 12109
+            String profile = info.getProfile().name();
+            //#else
+            //$$ String profile = info.getProfile().getName();
+            //#endif
+            if (matchesSkinName(name, stripped, profile)) return info;
+            Text tab = info.getDisplayName();
+            if (tab != null && matchesSkinName(name, stripped, tab.getString())) return info;
+        }
+        return null;
+    }
+
+    private static boolean matchesSkinName(String raw, String stripped, String candidate) {
+        if (candidate == null || candidate.isEmpty()) return false;
+        String c = candidate.replaceAll("§.", "").trim();
+        return raw.equals(candidate) || stripped.equals(c)
+            || (c.length() >= 3 && (stripped.contains(c) || raw.contains(candidate)));
+    }
+
     private static String skinNameKey(String name) {
         if (name == null) return null;
         String canonical = ChatMessageStore.findSeenProfileName(name);
@@ -2311,6 +2334,23 @@ public class ChatBubbleScreen extends Screen {
                     rememberSkin(uuid, canonicalName, textures);
                     return textures;
                 }
+            }
+        }
+        PlayerListEntry onlineByName = findOnlineSkinEntry(canonicalName);
+        if (onlineByName != null) {
+            SkinTextures textures = onlineByName.getSkinTextures();
+            if (textures != null) {
+                //#if MC >= 12109
+                UUID onlineUuid = onlineByName.getProfile().id();
+                String profileName = onlineByName.getProfile().name();
+                //#else
+                //$$ UUID onlineUuid = onlineByName.getProfile().getId();
+                //$$ String profileName = onlineByName.getProfile().getName();
+                //#endif
+                rememberSkin(onlineUuid, profileName, textures);
+                rememberSkin(onlineUuid, canonicalName, textures);
+                ChatMessageStore.rememberPlayer(onlineUuid, profileName, canonicalName);
+                return textures;
             }
         }
         // Offline player / history mention: route through SkinProvider with a name-bearing
@@ -2391,6 +2431,23 @@ public class ChatBubbleScreen extends Screen {
                     rememberLegacySkin(uuid, canonicalName, tex);
                     return tex;
                 }
+            }
+        }
+        PlayerListEntry onlineByName = findOnlineSkinEntry(canonicalName);
+        if (onlineByName != null) {
+            Identifier tex = onlineByName.getSkinTexture();
+            if (tex != null) {
+                //#if MC >= 12109
+                UUID onlineUuid = onlineByName.getProfile().id();
+                String profileName = onlineByName.getProfile().name();
+                //#else
+                //$$ UUID onlineUuid = onlineByName.getProfile().getId();
+                //$$ String profileName = onlineByName.getProfile().getName();
+                //#endif
+                rememberLegacySkin(onlineUuid, profileName, tex);
+                rememberLegacySkin(onlineUuid, canonicalName, tex);
+                ChatMessageStore.rememberPlayer(onlineUuid, profileName, canonicalName);
+                return tex;
             }
         }
         // Offline player: check cache, then fall back to default skin

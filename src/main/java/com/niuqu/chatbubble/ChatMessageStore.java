@@ -1104,12 +1104,11 @@ public class ChatMessageStore {
             .append('\t').append(flags);
         // Optional trailing columns, present only when the message has the data:
         // whisper partner, reply sender, reply content — keeps ordinary lines short
-        if (msg.whisper() && msg.whisperPartner() != null)
-            sb.append('\t').append(escapeField(msg.whisperPartner()));
-        if (msg.replyContent() != null) {
-            sb.append('\t').append(msg.replySender() != null ? escapeField(msg.replySender()) : "");
-            sb.append('\t').append(escapeField(msg.replyContent()));
-        }
+        sb.append('\t').append(msg.whisper() && msg.whisperPartner() != null ? escapeField(msg.whisperPartner()) : "");
+        sb.append('\t').append(msg.replyContent() != null && msg.replySender() != null ? escapeField(msg.replySender()) : "");
+        sb.append('\t').append(msg.replyContent() != null ? escapeField(msg.replyContent()) : "");
+        sb.append('\t').append(msg.senderUUID() != null ? msg.senderUUID().toString() : "");
+        sb.append('\t').append(msg.rawPlayerName() != null ? escapeField(msg.rawPlayerName()) : "");
         return sb.toString();
     }
 
@@ -1134,14 +1133,19 @@ public class ChatMessageStore {
         if (whisper && parts.length > 4) partner = unescapeField(parts[4]);
         if (parts.length > 5) replySender = unescapeField(parts[5]);
         if (parts.length > 6) replyContent = unescapeField(parts[6]);
+        UUID uuid = new UUID(0, 0);
+        if (parts.length > 7 && !parts[7].isEmpty()) {
+            try { uuid = UUID.fromString(parts[7]); } catch (Exception ignored) {}
+        }
+        String rawPlayerName = parts.length > 8 ? unescapeField(parts[8]) : null;
         return new ChatMessage(
-            new UUID(0, 0),
+            uuid,
             parseStyledText(unescapeField(parts[1])),
             ChatImageCompat.convert(parseStyledText(content)),
             millis,
             flags.contains("M"),
             flags.contains("S"),
-            replyContent, replySender, "", 1, null,
+            replyContent, replySender, "", 1, rawPlayerName,
             whisper, partner
         );
     }

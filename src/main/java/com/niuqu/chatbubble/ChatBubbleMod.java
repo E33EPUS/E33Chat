@@ -37,6 +37,7 @@ public class ChatBubbleMod implements ModInitializer {
 
     private static final Map<UUID, QuotePending> pendingQuotes = new HashMap<>();
     private static final Deque<HistoryPayload.HistoryEntry> historyBuffer = new ArrayDeque<>();
+    private static String serverWorldKey;
 
     // Server-side settings (loaded per-world from <world>/serverconfig/e33chat-server.json)
     private static boolean historyEnabled;
@@ -134,6 +135,8 @@ public class ChatBubbleMod implements ModInitializer {
             String messageHash = quote != null ? quote.messageHash() : String.valueOf(rawText.hashCode());
             String quoteSender = quote != null ? quote.quotedSenderName() : "";
             String quoteContent = quote != null ? quote.quotedContent() : "";
+            updateServerWorld(server);
+            String senderDisplay = playerDisplayName(sender);
 
             if (quote != null || !mentions.isEmpty()) {
                 ChatMetaPayload meta = new ChatMetaPayload(
@@ -146,7 +149,7 @@ public class ChatBubbleMod implements ModInitializer {
             }
 
             addToHistory(new HistoryPayload.HistoryEntry(
-                sender.getUuid(), sender.getName().getString(), rawText,
+                sender.getUuid(), senderDisplay, rawText,
                 System.currentTimeMillis(), false,
                 quote != null ? quote.quotedContent() : null,
                 quote != null ? quote.quotedSenderName() : null));
@@ -154,6 +157,7 @@ public class ChatBubbleMod implements ModInitializer {
         //#endif
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            updateServerWorld(server);
             // Load server config from <world>/serverconfig/ on first join (matching
             // NeoForge's per-world ModConfig.Type.SERVER convention)
             if (!configLoaded) {
@@ -221,6 +225,44 @@ public class ChatBubbleMod implements ModInitializer {
         historyBuffer.addLast(entry);
         while (historyBuffer.size() > HISTORY_MAX)
             historyBuffer.removeFirst();
+    }
+
+    private static void updateServerWorld(net.minecraft.server.MinecraftServer server) {
+        if (server == null) return;
+        String key = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT).toAbsolutePath().normalize().toString();
+        if (key.equals(serverWorldKey)) return;
+        serverWorldKey = key;
+        historyBuffer.clear();
+        pendingQuotes.clear();
+        configLoaded = false;
+    }
+
+    private static String playerDisplayName(ServerPlayerEntity player) {
+        String id = player.getName().getString();
+        String lpPrefix = luckPermsPrefix(player.getUuid());
+        if (lpPrefix != null && !Formatting.strip(lpPrefix).isBlank()) {
+            return lpPrefix + id;
+        }
+        String display = player.getDisplayName() != null ? player.getDisplayName().getString() : null;
+        if (display != null && !display.isBlank() && !display.equals(id)) return display;
+        return id;
+    }
+
+    private static String luckPermsPrefix(UUID uuid) {
+        try {
+            Class<?> provider = Class.forName("net.luckperms.api.LuckPermsProvider");
+            Object api = provider.getMethod("get").invoke(null);
+            Object userManager = api.getClass().getMethod("getUserManager").invoke(api);
+            Object user = userManager.getClass().getMethod("getUser", UUID.class).invoke(userManager, uuid);
+            if (user == null) return null;
+            Object cachedData = user.getClass().getMethod("getCachedData").invoke(user);
+            Object metaData = cachedData.getClass().getMethod("getMetaData").invoke(cachedData);
+            Object prefix = metaData.getClass().getMethod("getPrefix").invoke(metaData);
+            if (!(prefix instanceof String s) || s.isBlank()) return null;
+            return s.replace('&', '§');
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private static List<String> extractMentions(String text, int playerCount) {

@@ -50,6 +50,17 @@ public class ChatListenerMixin {
         if (tab != null) addNameVariants(out, tab.getString().trim());
         return out.toArray(new String[0]);
     }
+
+    private static Text tabDisplayName(PlayerListEntry info, String profileName, Text fallback) {
+        if (info != null && info.getDisplayName() != null) {
+            String tab = info.getDisplayName().getString();
+            if (tab != null && !tab.replaceAll("§.", "").trim().equals(profileName)) {
+                return info.getDisplayName();
+            }
+        }
+        return fallback != null ? fallback : com.niuqu.chatbubble.Txt.literal(profileName != null ? profileName : "");
+    }
+
     private static void addNameVariants(Set<String> out, String name) {
         if (name == null || name.isEmpty()) return;
         out.add(name);
@@ -122,9 +133,10 @@ public class ChatListenerMixin {
 	                profile = displayName;
 	                uuid = seenUuid != null ? seenUuid : new UUID(0, 0);
 	            }
-	            ChatMessageStore.rememberPlayer(uuid, profile, displayName);
+            Text displayText = tabDisplayName(info, profile, name);
+	            ChatMessageStore.rememberPlayer(uuid, profile, displayText.getString());
 	            ChatMessageStore.debugLog("[e33chat] Key(whisper in) | name=" + profile + " | content='" + content.getString() + "'");
-            ChatMessageStore.setPendingMeta(new SenderMeta(uuid, name, content, false, profile, true, profile));
+            ChatMessageStore.setPendingMeta(new SenderMeta(uuid, displayText, content, false, profile, true, profile));
             return true;
         }
         if (key.equals("commands.message.display.outgoing")) {
@@ -139,9 +151,10 @@ public class ChatListenerMixin {
                 String partner = argAsComponent(args[0]).getString().replaceAll("§.", "").trim();
                 Text content = argAsComponent(args[1]);
                 String own = player.getName().getString();
+                Text ownName = ChatMessageStore.ownDisplayName();
                 ChatMessageStore.debugLog("[e33chat] Key(whisper out) | partner=" + partner + " | content='" + content.getString() + "'");
                 ChatMessageStore.setPendingMeta(new SenderMeta(player.getUuid(),
-                    com.niuqu.chatbubble.Txt.literal(own), content, false, own, true, partner));
+                    ownName, content, false, own, true, partner));
                 return true;
             }
             return false;
@@ -173,9 +186,10 @@ public class ChatListenerMixin {
 	                profile = displayName;
 	                uuid = seenUuid != null ? seenUuid : new UUID(0, 0);
 	            }
-	            ChatMessageStore.rememberPlayer(uuid, profile, displayName);
+            Text displayText = tabDisplayName(info, profile, name);
+	            ChatMessageStore.rememberPlayer(uuid, profile, displayText.getString());
 	            ChatMessageStore.debugLog("[e33chat] Key(chat) | name=" + profile + " | display='" + name.getString() + "' | content='" + contentStr + "'");
-            ChatMessageStore.setPendingMeta(new SenderMeta(uuid, name, content, false, profile, false, null));
+            ChatMessageStore.setPendingMeta(new SenderMeta(uuid, displayText, content, false, profile, false, null));
             return true;
         }
         if (isVanillaBroadcast(message)) {
@@ -262,7 +276,8 @@ public class ChatListenerMixin {
             if (senderUuid == null) return null;
             profileName = tellName[0];
         }
-        ChatMessageStore.rememberPlayer(senderUuid, profileName, tellName[0]);
+        Text tabName = tabDisplayName(sender, profileName, com.niuqu.chatbubble.Txt.literal(profileName));
+        ChatMessageStore.rememberPlayer(senderUuid, profileName, tabName.getString());
         if (sender != null) {
             String clicked = clickedText[0].replaceAll("§.", "").trim();
             boolean clickedIsName = false;
@@ -280,7 +295,8 @@ public class ChatListenerMixin {
             else break;
         }
         if (contentStart >= text.length()) return null;
-        Text displayName = cleanNameArea(message, 0, b, tellName[0], com.niuqu.chatbubble.Txt.literal(profileName));
+        Text displayName = tabDisplayName(sender, profileName,
+            cleanNameArea(message, 0, b, tellName[0], com.niuqu.chatbubble.Txt.literal(profileName)));
         Text content = ChatMessageStore.sliceStyled(message, contentStart, text.length());
         ChatMessageStore.debugLog("[e33chat] System(tell click) | text='" + text + "' | name=" + profileName + " | display='" + displayName.getString() + "' | content='" + content.getString() + "'");
         return new SenderMeta(senderUuid, displayName, content, false, profileName, false, null);
@@ -317,8 +333,9 @@ public class ChatListenerMixin {
 	                        //#else
 	                        //$$ UUID senderId = info.getProfile().getId();
 	                        //#endif
+                        Text displayName = tabDisplayName(info, profile, com.niuqu.chatbubble.Txt.literal(cand));
                         ChatMessageStore.debugLog("[e33chat] System(" + logTag + ") | text='" + clean + "' | name=" + cand + " | content='" + content + "'");
-                        return new SenderMeta(senderId, com.niuqu.chatbubble.Txt.literal(cand),
+                        return new SenderMeta(senderId, displayName,
                             com.niuqu.chatbubble.Txt.literal(content), false, profile, true, profile);
                     }
                 }
@@ -392,7 +409,8 @@ public class ChatListenerMixin {
             ChatMessageStore.debugLog(() -> "[e33chat] System(template own line) | text='" + text + "'");
             return null;
         }
-        Text nameComp = templateSlice(message, text, tpl.nameStart(), tpl.nameEnd());
+        Text nameComp = tabDisplayName(info, rawName,
+            templateSlice(message, text, tpl.nameStart(), tpl.nameEnd()));
         Text contentComp = templateSlice(message, text, tpl.contentStart(), tpl.contentEnd());
         boolean whisper = tpl.whisper();
         String partner = whisper ? tpl.sender() : null;
@@ -478,6 +496,7 @@ public class ChatListenerMixin {
             String cleanContent = rawStr.substring(contentStart);
             Text displayName = extractDecoratedName(raw, cleanContent, name,
                 com.niuqu.chatbubble.Txt.literal((rawStr.substring(0, prefixEnd) + name).trim()));
+            displayName = tabDisplayName(findOnlinePlayer(name), name, displayName);
             Text contentComp = ChatMessageStore.sliceStyled(raw, contentStart, rawStr.length());
             var player = MinecraftClient.getInstance().player;
             if (player != null && senderId != null && senderId.equals(player.getUuid())) {
@@ -493,10 +512,12 @@ public class ChatListenerMixin {
             // 沿用旧分支：私聊从最终装饰行里提取发送者显示名，出站回显则用自己的可显示名兜底。
             Text fallback = isOutgoing ? ChatMessageStore.ownDisplayName() : senderName;
             senderName = ChatMessageStore.extractWhisperDisplayName(params.applyChatDecoration(raw), fallback);
+            senderName = tabDisplayName(findOnlinePlayer(name), name, senderName);
         } else {
             // 沿用旧分支：不要只取 params.name()，从聊天装饰后的完整行中截出“称号 + 玩家名”。
             Text fullLine = params.applyChatDecoration(raw);
             senderName = extractDecoratedName(fullLine, rawStr, name, senderName);
+            senderName = tabDisplayName(findOnlinePlayer(name), name, senderName);
         }
         //#endif
         var player = MinecraftClient.getInstance().player;
@@ -536,15 +557,18 @@ public class ChatListenerMixin {
         if (hasSender) {
             Text disContent = content;
             Text disSender = params.name();
+            PlayerListEntry disInfo = findOnlinePlayer(params.name().getString());
             if (isWhisper) {
                 disContent = com.niuqu.chatbubble.Txt.literal(extractWhisperContent(msgStr, params.name().getString()));
                 disSender = ChatMessageStore.extractWhisperDisplayName(content, disSender);
+                disSender = tabDisplayName(disInfo, params.name().getString(), disSender);
             } else {
                 //#if MC >= 26000
                 //$$ // 26.x 没有 applyChatDecoration，保留 params.name() 作为发送者显示名。
                 //#else
                 Text fullLine = params.applyChatDecoration(content);
                 disSender = extractDecoratedName(fullLine, msgStr, params.name().getString(), disSender);
+                disSender = tabDisplayName(disInfo, params.name().getString(), disSender);
                 //#endif
             }
             ChatMessageStore.debugLog("[e33chat] Disguised | raw='" + msgStr + "' | whisper=" + isWhisper + " | partner=" + whisperPartner + " | sender='" + disSender.getString() + "' | content='" + disContent.getString() + "'");
@@ -586,11 +610,13 @@ public class ChatListenerMixin {
                     //#else
                     //$$ info.getProfile().getName() : pl.playerName();
                     //#endif
-                ChatMessageStore.rememberPlayer(uid, profileName, pl.playerName());
+                Text tabName = tabDisplayName(info, profileName, com.niuqu.chatbubble.Txt.literal(pl.playerName()));
+                ChatMessageStore.rememberPlayer(uid, profileName, tabName.getString());
                 int nameIdx = pl.nameStart();
                 int cStart = pl.contentStart();
                 Text displayName = extractDecoratedName(content, pl.content(), pl.playerName(),
                     com.niuqu.chatbubble.Txt.literal((msgStr.substring(0, nameIdx) + pl.playerName()).trim()));
+                displayName = tabDisplayName(info, profileName, displayName);
                 Text contentComp = ChatMessageStore.sliceStyled(content, cStart, msgStr.length());
                 ChatMessageStore.debugLog("[e33chat] Disguised(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
                 ChatMessageStore.setPendingMeta(new SenderMeta(
@@ -701,7 +727,8 @@ public class ChatListenerMixin {
                     //#endif
                 // Remember player even when not online — ensures findSeenProfileName()
                 // can canonicalize prefixed display names for avatar cache lookup
-                ChatMessageStore.rememberPlayer(uid, profileName, pl.playerName());
+                Text tabName = tabDisplayName(info, profileName, com.niuqu.chatbubble.Txt.literal(pl.playerName()));
+                ChatMessageStore.rememberPlayer(uid, profileName, tabName.getString());
                 int nameIdx = pl.nameStart();
                 int cStart = pl.contentStart();
                 if (MessagePresentation.isWhitespaceOnlyGap(text, nameIdx + pl.playerName().length(), cStart)) {
@@ -709,6 +736,7 @@ public class ChatListenerMixin {
                 } else {
                     Text displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
                         com.niuqu.chatbubble.Txt.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
+                    displayName = tabDisplayName(info, profileName, displayName);
                     Text contentComp = ChatMessageStore.sliceStyled(message, cStart, text.length());
                     ChatMessageStore.debugLog("[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
                     ChatMessageStore.setPendingMeta(new SenderMeta(

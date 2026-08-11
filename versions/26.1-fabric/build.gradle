@@ -258,9 +258,12 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("\\bFormatting\\.strip\\b", "ChatFormatting.stripFormatting")
         // ClientPacketListener methods
         line = line.replaceAll("\\bgetPlayerListEntry\\b", "getPlayerInfo")
+        line = line.replaceAll("getConnection\\(\\)\\.getPlayerList\\b", "getConnection().getOnlinePlayers")
         line = line.replaceAll("\\bconnection\\.getPlayerList\\b", "connection.getOnlinePlayers")
         line = line.replaceAll("\\bconn\\.getPlayerList\\b", "conn.getOnlinePlayers")
         line = line.replaceAll("\\bsendPacket\\b", "send")
+        // ServerData fields
+        line = line.replaceAll("\\.address\\b", ".ip")
         // SoundEvents field names (Mojang removes ENTITY_/BLOCK_ prefixes)
         line = line.replaceAll("\\bENTITY_EXPERIENCE_ORB_PICKUP\\b", "EXPERIENCE_ORB_PICKUP")
         line = line.replaceAll("\\bBLOCK_NOTE_BLOCK_CHIME\\b", "NOTE_BLOCK_CHIME")
