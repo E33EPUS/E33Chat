@@ -53,7 +53,7 @@ public class ChatComponentMixin {
     //$$ private void onRender(DrawContext context,
     //$$     net.minecraft.client.font.TextRenderer font,
     //$$     int tickDelta, int mouseX, int mouseY,
-    //$$     Object displayMode, boolean focused, CallbackInfo ci) {
+    //$$     net.minecraft.client.gui.components.ChatComponent.DisplayMode displayMode, boolean focused, CallbackInfo ci) {
     //$$     e33chat$shifted = false;
     //$$     if (ChatBubbleClientSetup.config().enabled()) {
     //$$         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
@@ -70,7 +70,7 @@ public class ChatComponentMixin {
     //$$ private void onRenderReturn(DrawContext context,
     //$$     net.minecraft.client.font.TextRenderer font,
     //$$     int tickDelta, int mouseX, int mouseY,
-    //$$     Object displayMode, boolean focused, CallbackInfo ci) {
+    //$$     net.minecraft.client.gui.components.ChatComponent.DisplayMode displayMode, boolean focused, CallbackInfo ci) {
     //$$     if (e33chat$shifted) {
     //$$         RenderHelper.popMatrix(context);
     //$$     }
