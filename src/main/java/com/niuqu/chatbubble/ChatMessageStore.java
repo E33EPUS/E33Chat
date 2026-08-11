@@ -1064,7 +1064,7 @@ public class ChatMessageStore {
         }
     }
 
-    // ---- Plain-text history lines: date-time \t sender \t content \t flags ----
+    // ---- JSONL history lines: full styled sender/content + uuid ----
     // Open in any text editor and it reads like a log. Plain text only — colors
     // and click/hover data are dropped; the decorated prefix still shows as literal
     // text (e.g. "[称号]E33EPUS"). Flags: M=own, S=system, W=whisper (combinable,
@@ -1094,22 +1094,23 @@ public class ChatMessageStore {
 
     static String toLine(ChatMessage msg) {
         if (isSensitiveCommand(msg.content().getString())) return null;
-        String time = java.time.LocalDateTime.ofInstant(
-            java.time.Instant.ofEpochMilli(msg.time()), java.time.ZoneId.systemDefault())
-            .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        String flags = (msg.isOwn() ? "M" : "") + (msg.isSystem() ? "S" : "") + (msg.whisper() ? "W" : "");
-        StringBuilder sb = new StringBuilder(time)
-            .append('\t').append(escapeField(msg.senderName().getString()))
-            .append('\t').append(escapeField(msg.content().getString()))
-            .append('\t').append(flags);
-        // Optional trailing columns, present only when the message has the data:
-        // whisper partner, reply sender, reply content — keeps ordinary lines short
-        sb.append('\t').append(msg.whisper() && msg.whisperPartner() != null ? escapeField(msg.whisperPartner()) : "");
-        sb.append('\t').append(msg.replyContent() != null && msg.replySender() != null ? escapeField(msg.replySender()) : "");
-        sb.append('\t').append(msg.replyContent() != null ? escapeField(msg.replyContent()) : "");
-        sb.append('\t').append(msg.senderUUID() != null ? msg.senderUUID().toString() : "");
-        sb.append('\t').append(msg.rawPlayerName() != null ? escapeField(msg.rawPlayerName()) : "");
-        return sb.toString();
+        Map<String, Object> obj = new LinkedHashMap<>();
+        obj.put("time", msg.time());
+        obj.put("uuid", msg.senderUUID() != null ? msg.senderUUID().toString() : "");
+        String senderJson = componentToJson(msg.senderName());
+        String contentJson = componentToJson(msg.content());
+        if (senderJson != null) obj.put("senderJson", senderJson);
+        else obj.put("sender", msg.senderName().getString());
+        if (contentJson != null) obj.put("contentJson", contentJson);
+        else obj.put("content", msg.content().getString());
+        obj.put("own", msg.isOwn());
+        obj.put("system", msg.isSystem());
+        if (msg.replyContent() != null) obj.put("replyContent", msg.replyContent());
+        if (msg.replySender() != null) obj.put("replySender", msg.replySender());
+        if (msg.rawPlayerName() != null) obj.put("rawPlayerName", msg.rawPlayerName());
+        if (msg.whisper()) obj.put("whisper", true);
+        if (msg.whisperPartner() != null) obj.put("whisperPartner", msg.whisperPartner());
+        return GSON.toJson(obj);
     }
 
     static ChatMessage fromLine(String line) {
@@ -1186,12 +1187,34 @@ public class ChatMessageStore {
     private static Text componentFrom(Map<String, Object> obj, String jsonKey, String textKey) {
         String json = (String) obj.get(jsonKey);
         if (json != null) {
-            //#if MC >= 12004
-            try { return TextCodecs.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(json)).result().orElse(null); } catch (Exception ignored) {}
-            //#endif
+            Text decoded = componentFromJson(json);
+            if (decoded != null) return decoded;
         }
         String text = (String) obj.get(textKey);
         return text != null ? parseStyledText(text) : null;
+    }
+
+    private static String componentToJson(Text text) {
+        if (text == null) return null;
+        //#if MC >= 12004
+        try {
+            return TextCodecs.CODEC.encodeStart(JsonOps.INSTANCE, text)
+                .result().map(Object::toString).orElse(null);
+        } catch (Throwable ignored) {}
+        //#else
+        //$$ try { return Text.Serializer.toJson(text); } catch (Throwable ignored) {}
+        //#endif
+        return null;
+    }
+
+    private static Text componentFromJson(String json) {
+        if (json == null) return null;
+        //#if MC >= 12004
+        try { return TextCodecs.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(json)).result().orElse(null); } catch (Throwable ignored) {}
+        //#else
+        //$$ try { return Text.Serializer.fromJson(json); } catch (Throwable ignored) {}
+        //#endif
+        return null;
     }
 
     private static String escapeField(String s) {
@@ -1272,17 +1295,11 @@ public class ChatMessageStore {
                     Text senderName = null;
                     String snJson = (String) obj.get("senderNameJson");
                     if (snJson != null) {
-                        //#if MC >= 12004
-                        try { senderName = TextCodecs.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(snJson)).result().orElse(null); } catch (Exception ignored2) {}
-                        //#endif
+                        senderName = componentFromJson(snJson);
                     }
                     if (senderName == null) senderName = com.niuqu.chatbubble.Txt.literal((String) obj.get("senderName"));
                     String contentJson = (String) obj.get("content");
-                    //#if MC >= 12004
-                    Text content = contentJson != null ? TextCodecs.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(contentJson)).result().orElse(null) : null;
-                    //#else
-                    //$$ Text content = contentJson != null ? com.niuqu.chatbubble.Txt.literal(contentJson) : null;
-                    //#endif
+                    Text content = contentJson != null ? componentFromJson(contentJson) : null;
                     if (content == null) content = com.niuqu.chatbubble.Txt.literal("");
                     if (content.getString().isBlank()) continue;
                     LocalTime t = LocalTime.parse((String) obj.get("time"), DateTimeFormatter.ISO_LOCAL_TIME);

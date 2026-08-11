@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.3.9
+
+**修复（2.3.9）**
+- **聊天记录纯文本问题**：历史记录改为 JSONL 保存，写入 `senderJson` / `contentJson` 组件 JSON 和发送者 `uuid`，重新进入存档后尽量保留颜色、点击事件、悬停提示等样式，并能按 UUID 解析离线玩家头像；旧 TSV、旧 JSON、旧 JSONL 会继续兼容读取。
+- **离线玩家头像默认脸问题**：头像缓存支持按玩家名兜底，历史消息重载后即使 UUID 查不到，也能复用在线时见过的真实皮肤。
+
+**Fixes (2.3.9)**
+- Chat history now saves as JSONL with `senderJson` / `contentJson` component JSON plus sender `uuid`, preserving styles where the target Minecraft version exposes component codecs and resolving offline avatars by UUID. Old TSV / legacy JSON / legacy JSONL history still loads.
+- Avatar lookup keeps a name-keyed fallback cache, so reloaded history can reuse real skins for players seen online even when UUID lookup fails.
+
 ## v2.3.8
 
 **修复（2.3.8）**
