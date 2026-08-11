@@ -14,15 +14,6 @@ buildscript {
     }
 }
 
-
-
-println "Buildscript classpath:"
-buildscript.configurations.classpath.each { f ->
-    if (f.name.contains("mapping-io") || f.name.contains("fabric-loom")) {
-        println "  ${f.name}"
-    }
-}
-
 apply plugin: "java"
 apply plugin: "fabric-loom"
 apply plugin: "maven-publish"

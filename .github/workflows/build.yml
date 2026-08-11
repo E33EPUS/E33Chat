@@ -28,8 +28,27 @@ jobs:
       - name: build
         shell: bash
         run: |
-          ./gradlew clean build --stacktrace --no-daemon 2>&1 | tee gradle-build.log
-          exit ${PIPESTATUS[0]}
+          set -o pipefail
+          : > gradle-build.log
+          python3 - <<'PY' > ci-versions.txt
+          import json
+          from pathlib import Path
+          versions = json.loads(Path("settings.json").read_text())["versions"]
+          for version in versions:
+              print(version)
+          PY
+
+          while IFS= read -r version; do
+            echo "::group::Build ${version}" | tee -a gradle-build.log
+            ./gradlew --configure-on-demand ":${version}:clean" ":${version}:build" --stacktrace --no-daemon 2>&1 | tee "gradle-${version}.log"
+            status=${PIPESTATUS[0]}
+            cat "gradle-${version}.log" >> gradle-build.log
+            echo "::endgroup::" | tee -a gradle-build.log
+            if [ "${status}" -ne 0 ]; then
+              echo "::error title=Gradle build failed::Version ${version} failed"
+              exit "${status}"
+            fi
+          done < ci-versions.txt
       - name: summarize gradle failure
         if: failure()
         shell: bash
@@ -42,8 +61,25 @@ jobs:
               text = "\n".join(lines)
               text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
               print(f"::error title={title}::{text}")
-          annotate("Gradle build failed - head", log[:120])
-          annotate("Gradle build failed - tail", log[-120:])
+          failure_markers = (
+              "FAILURE:",
+              "* What went wrong:",
+              "Caused by:",
+              "Exception",
+              "Could not",
+              "failed",
+              "FAILED",
+          )
+          important = []
+          for i, line in enumerate(log):
+              if any(marker in line for marker in failure_markers):
+                  start = max(0, i - 6)
+                  end = min(len(log), i + 18)
+                  important.extend(log[start:end])
+                  important.append("")
+          if important:
+              annotate("Gradle build failed - important lines", important[-180:])
+          annotate("Gradle build failed - tail", log[-180:])
           PY
           fi
       - name: capture build artifacts
