@@ -19,12 +19,24 @@ jobs:
         with:
           java-version: '25'
           distribution: 'microsoft'
+      - name: show build environment
+        run: |
+          java -version
+          ./gradlew --version
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
       - name: build
-        run: ./gradlew build --stacktrace
+        run: ./gradlew clean build --stacktrace --no-daemon
       - name: capture build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Artifacts
           path: versions/*/build/libs/*.jar
+      - name: capture gradle reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gradle reports
+          path: |
+            build/reports/**
+            versions/*/build/reports/**
