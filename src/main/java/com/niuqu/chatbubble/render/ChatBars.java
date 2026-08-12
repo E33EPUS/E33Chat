@@ -20,8 +20,12 @@ public final class ChatBars {
                                        ChatBubbleTheme.Colors c,
                                        int panelX, int panelW,
                                        String title, String time,
-                                       ResourceLocation menuIcon, float alpha) {
+                                       ResourceLocation menuIcon, float alpha, float contentAlpha) {
         int a255 = (int) (255 * alpha);
+        // Content (icons/text) follows only the open/close animation; panelOpacity
+        // must not tint it (2.3.7 regression: permanent 80% opacity made icons
+        // lighter than their PNG colour on light themes).
+        int c255 = (int) (255 * contentAlpha);
         int ty = 0;
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, panelW, ChatLayout.TITLE_H, alpha);
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + ChatLayout.TITLE_H, panelW, 1, alpha);
@@ -31,17 +35,17 @@ public final class ChatBars {
         boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S
             && mouseY >= menuY && mouseY <= menuY + ICON_S;
         if (hoverMenu) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, ICON_S + 2, ICON_S + 2, alpha);
-        drawIcon(g, menuIcon, menuX, menuY, ICON_S, alpha);
+        drawIcon(g, menuIcon, menuX, menuY, ICON_S, contentAlpha);
 
         int titleW = font.width(title);
         int titleX = UiLayout.centerX(panelX, panelW, titleW);
         int titleTextY = ty + (ChatLayout.TITLE_H - font.lineHeight) / 2;
-        g.drawString(font, Component.literal(title), titleX, titleTextY, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+        g.drawString(font, Component.literal(title), titleX, titleTextY, ChatBubbleTheme.alphaBlend(c.textPrimary(), c255), false);
 
         int timeW = font.width(time);
         g.drawString(font, Component.literal(time),
             panelX + panelW - ChatLayout.PAD - 20 - timeW,
-            ty + (ChatLayout.TITLE_H - font.lineHeight) / 2, ChatBubbleTheme.alphaBlend(c.timeColor(), a255), false);
+            ty + (ChatLayout.TITLE_H - font.lineHeight) / 2, ChatBubbleTheme.alphaBlend(c.timeColor(), c255), false);
 
         int closeX = panelX + panelW - 18;
         int closeY = ty + 6;
@@ -50,7 +54,7 @@ public final class ChatBars {
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
             closeX, closeY, 12, 12, alpha);
         g.drawString(font, Component.literal("✕"), closeX + 6 - font.width("✕") / 2,
-            closeY + 2, ChatBubbleTheme.alphaBlend(c.closeText(), a255), false);
+            closeY + 2, ChatBubbleTheme.alphaBlend(c.closeText(), c255), false);
     }
 
     public static void renderBottomBar(GuiGraphics g, Font font, int mouseX, int mouseY,
@@ -60,7 +64,7 @@ public final class ChatBars {
                                         boolean emojiPanelVisible,
                                         ResourceLocation settingsIcon,
                                         ResourceLocation emojiIcon,
-                                        ResourceLocation sendIcon, float alpha) {
+                                        ResourceLocation sendIcon, float alpha, float contentAlpha) {
         int a255 = (int) (255 * alpha);
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.BOTTOM_BAR), panelX, barTop, panelW, screenH - barTop, alpha);
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), panelX, barTop, panelW, 1, alpha);
@@ -85,18 +89,18 @@ public final class ChatBars {
         boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverGear) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, alpha);
-        drawIcon(g, settingsIcon, gearX, iconY, ICON_S, alpha);
+        drawIcon(g, settingsIcon, gearX, iconY, ICON_S, contentAlpha);
 
         boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverEmoji || emojiPanelVisible)
             com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, alpha);
-        drawIcon(g, emojiIcon, emojiX, iconY, ICON_S, alpha);
+        drawIcon(g, emojiIcon, emojiX, iconY, ICON_S, contentAlpha);
 
         boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverSend) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, alpha);
-        drawIcon(g, sendIcon, sendX, iconY, ICON_S, alpha);
+        drawIcon(g, sendIcon, sendX, iconY, ICON_S, contentAlpha);
     }
 
     private static void drawIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size, float alpha) {
