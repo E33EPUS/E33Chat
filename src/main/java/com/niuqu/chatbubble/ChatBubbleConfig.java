@@ -17,6 +17,10 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue ANTI_SPAM;
     public static final ModConfigSpec.BooleanValue CHAT_HISTORY_ENABLED;
     public static final ModConfigSpec.BooleanValue RECEIVE_IMAGES;
+    public static final ModConfigSpec.ConfigValue<String> UPLOAD_URL;
+    public static final ModConfigSpec.ConfigValue<String> UPLOAD_FIELD;
+    public static final ModConfigSpec.ConfigValue<String> UPLOAD_EXTRA;
+    public static final ModConfigSpec.ConfigValue<String> UPLOAD_RESPONSE;
     public static final ModConfigSpec.IntValue HISTORY_RETENTION_DAYS;
     public static final ModConfigSpec.IntValue TIME_SEPARATOR_MINUTES;
     public static final ModConfigSpec.ConfigValue<String> OWN_BUBBLE_COLOR;
@@ -125,6 +129,23 @@ public class ChatBubbleConfig {
             .comment("Render inline images from [[CICode]]/[[ChatUpgrade]] bracket codes in bubbles. Off renders the code as plain [Image] text and never downloads")
             .translation("e33chat.config.receive_images")
             .define("receive_images", true);
+
+        UPLOAD_URL = builder
+            .comment("Image upload host (blank = Litterbox default). Custom hosts need multipart POST")
+            .translation("e33chat.config.upload_url")
+            .define("upload_url", "");
+        UPLOAD_FIELD = builder
+            .comment("Multipart file field name (blank = fileToUpload)")
+            .translation("e33chat.config.upload_field")
+            .define("upload_field", "");
+        UPLOAD_EXTRA = builder
+            .comment("Extra form fields, comma-separated key=value (blank = time=72h)")
+            .translation("e33chat.config.upload_extra")
+            .define("upload_extra", "");
+        UPLOAD_RESPONSE = builder
+            .comment("Upload response mode: text (body is the URL) or json:<field> (blank = text)")
+            .translation("e33chat.config.upload_response")
+            .define("upload_response", "");
 
         HISTORY_RETENTION_DAYS = builder
             .comment("Delete history files older than this many days on world join (0 = keep forever)")

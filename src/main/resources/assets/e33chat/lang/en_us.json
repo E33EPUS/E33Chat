@@ -227,5 +227,11 @@
   "e33chat.image.ratelimited": "Too many images, rate limited",
   "e33chat.image.placeholder": "[Image]",
   "e33chat.config.receive_images": "Receive images",
-  "e33chat.config.receive_images.desc": "When off, image codes in chat history render as plain [Image] text and nothing is downloaded"
+  "e33chat.config.receive_images.desc": "When off, image codes in chat history render as plain [Image] text and nothing is downloaded",
+  "e33chat.config.upload_url": "Upload host URL",
+  "e33chat.config.upload_url.desc": "Blank = default host (litterbox.catbox.moe, 72h expiry). Custom hosts need multipart POST: file field defaults to fileToUpload, extra fields to time=72h, response to plain-text URL (override uploadField/uploadExtra/uploadResponse in the config file)",
+  "e33chat.upload.button": "Upload image",
+  "e33chat.upload.tooltip": "Pick a local image, upload it and insert into the message (Ctrl+V also works with an image in the clipboard)",
+  "e33chat.upload.failed": "Upload failed",
+  "e33chat.upload.wait": "Image uploading, wait a moment…"
 }

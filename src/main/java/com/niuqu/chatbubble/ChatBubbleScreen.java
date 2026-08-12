@@ -25,6 +25,9 @@ import com.niuqu.chatbubble.packets.QuoteSyncPayload;
 import com.niuqu.chatbubble.render.ChatBars;
 import com.niuqu.chatbubble.render.ChatContextMenus;
 import com.niuqu.chatbubble.render.ChatLayout;
+import com.niuqu.chatbubble.image.ImageLoader;
+import com.niuqu.chatbubble.image.ImageUploader;
+import com.niuqu.chatbubble.image.LocalImageSource;
 import com.niuqu.chatbubble.render.ChatMessageRenderer;
 import com.niuqu.chatbubble.render.ChatScrollbar;
 import com.niuqu.chatbubble.render.ChatSidebar;
@@ -162,6 +165,8 @@ public class ChatBubbleScreen extends ChatScreen {
 
     // Copy toast
     private int copyToastTicks;
+    private boolean uploading = false;
+    private int uploadToastTicks = 0;
 
     // Animations
     private long animStart;
@@ -913,7 +918,13 @@ public class ChatBubbleScreen extends ChatScreen {
                     return true;
                 }
                 if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.OPEN_URL) {
-                    handleComponentClicked(style);
+                    // Local file:// links (e.g. legacy chatimage messages) are not
+                    // browser URLs; opening them throws URISyntaxException. Only
+                    // hand http(s) to the vanilla handler.
+                    String clickUrl = click.getValue();
+                    if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
+                        handleComponentClicked(style);
+                    }
                     return true;
                 }
                 handleComponentClicked(style);
@@ -982,12 +993,90 @@ public class ChatBubbleScreen extends ChatScreen {
             if (emojiPanel.visible) emojiPanel.scroll = 0;
             return true;
         }
+
         // Send icon (right)
         if (mx >= sendX && mx <= sendX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
             sendMessage();
             return true;
         }
         return false;
+    }
+
+
+    // ---- Local image upload (2.3.11) ----
+
+    /** OS file drag onto the window (vanilla drop hook): upload the first image dropped. */
+    @Override
+    public void onFilesDrop(java.util.List<java.nio.file.Path> paths) {
+        if (uploading) return;
+        for (java.nio.file.Path p : paths) {
+            String l = p.getFileName().toString().toLowerCase();
+            if (l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg")
+                    || l.endsWith(".gif") || l.endsWith(".bmp") || l.endsWith(".webp")) {
+                upload(p.toFile());
+                // The OS drop can steal window focus; give it back to the chat input
+                // so typing keeps working right after a drag.
+                minecraft.execute(() -> setFocused(input));
+                return;
+            }
+        }
+    }
+
+    private void startUploadFromClipboard() {
+        if (uploading) return;
+        LocalImageSource.PreparedImage prep;
+        try {
+            prep = LocalImageSource.fromClipboard();
+        } catch (Throwable t) {
+            prep = null;
+        }
+        if (prep == null) return; // no image in clipboard — let vanilla paste text
+        final LocalImageSource.PreparedImage fprep = prep;
+        uploading = true;
+        com.niuqu.chatbubble.image.ImageLoader.executor().execute(() -> finishUpload(fprep, "clipboard"));
+    }
+
+    private void upload(java.io.File f) {
+        uploading = true;
+        com.niuqu.chatbubble.image.ImageLoader.executor().execute(() -> {
+            LocalImageSource.PreparedImage prep = LocalImageSource.fromFile(f);
+            if (prep == null) {
+                minecraft.execute(() -> { uploading = false; uploadToastTicks = 60; });
+                return;
+            }
+            finishUpload(prep, f.getName());
+        });
+    }
+
+    private void finishUpload(LocalImageSource.PreparedImage prep, String srcName) {
+        String serverUrl = com.niuqu.chatbubble.image.MediaClient.serverEnabled()
+            ? com.niuqu.chatbubble.image.MediaClient.upload(prep.bytes(), "image/png")
+            : null;
+        // Server hosting unavailable (not installed / disabled / failed) — fall back to third-party
+        final String url = serverUrl != null
+            ? serverUrl
+            : com.niuqu.chatbubble.image.ImageUploader.upload(prep.bytes(), prep.fileName(),
+                ChatBubbleConfig.UPLOAD_URL.get(), ChatBubbleConfig.UPLOAD_FIELD.get(),
+                ChatBubbleConfig.UPLOAD_EXTRA.get(), ChatBubbleConfig.UPLOAD_RESPONSE.get());
+        com.mojang.logging.LogUtils.getLogger().info("[e33chat] upload {} -> {}", srcName, url == null ? "FAILED" : url);
+        minecraft.execute(() -> {
+            uploading = false;
+            if (url == null) {
+                uploadToastTicks = 60;
+                return;
+            }
+            String code = "[[CICode,url=" + url + "]]";
+            String cur = input.getValue();
+            if (cur.contains("[[CICode,url=file://")) {
+                // Replace the local file:// CICode (chatimage drag/paste) with
+                // the real upload URL instead of appending a second link.
+                cur = cur.replaceFirst("\\[\\[CICode,url=file://[^]]*]]", code);
+            } else {
+                cur = cur.isEmpty() ? code : cur + " " + code;
+            }
+            input.setValue(cur);
+            input.setCursorPosition(input.getValue().length());
+        });
     }
 
     private void handleContextClick(int mx, int my) {
@@ -1582,7 +1671,20 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void renderToast(GuiGraphics g) {
-        if (copyToastTicks <= 0) return;
+        if (copyToastTicks <= 0 && uploadToastTicks <= 0) return;
+        if (uploadToastTicks > 0) {
+            uploadToastTicks--;
+            if (uploadToastTicks <= 0) return;
+            int alpha = Animation.fadeInOut(uploadToastTicks, 5, 20, 5);
+            int color = (alpha << 24) | 0x00FF5555;
+            String text = Component.translatable("e33chat.upload.failed").getString();
+            int tw = font.width(text);
+            int tx = UiLayout.centerX(panelX, panelW, tw);
+            int ty = msgBottom - 24;
+            g.fill(tx - 4, ty - 2, tx + tw + 4, ty + font.lineHeight + 2, (alpha << 24) | 0x000000);
+            g.drawString(font, text, tx, ty, color, false);
+            return;
+        }
         int alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
         int color = (alpha << 24) | (c().toastText() & 0x00FFFFFF);
         String text = Component.translatable("e33chat.toast.copied").getString();
@@ -1661,6 +1763,10 @@ public class ChatBubbleScreen extends ChatScreen {
         ChatBars.renderBottomBar(g, font, mouseX, mouseY, c(), panelX, panelW, barTop, height,
             inputX, inputY, input.getWidth(), input.isFocused(), emojiPanel.visible,
             iconTex("settings"), iconTex("emoji"), iconTex("send"), panelAlpha, getAnimProgress());
+
+        int iconY2 = barTop + (BAR_H - ICON_S) / 2;
+        int sendX2 = panelX + panelW - ChatLayout.PAD - ICON_S + 2;
+        int emojiX2 = sendX2 - ICON_S - 6;
     }
 
     static void drawTextureIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size) {
@@ -1842,9 +1948,33 @@ public class ChatBubbleScreen extends ChatScreen {
             || (c >= 'K' && c <= 'O');
     }
 
+    /** Extracts the local path from [[CICode,url=file:///...]] (chatimage appends Windows backslash paths). */
+    private static String extractLocalPath(String cicode) {
+        int start = cicode.indexOf("url=file:///");
+        if (start < 0) return null;
+        start += "url=file:///".length();
+        int end = cicode.indexOf("]]", start);
+        if (end < 0) end = cicode.length();
+        String path = cicode.substring(start, end);
+        // file:///C:\... → C:\... (drop the leading slash before the drive letter)
+        if (path.startsWith("/") && path.length() > 1 && path.charAt(1) == ':') return path.substring(1);
+        return path;
+    }
+
     private void sendMessage() {
         String raw = input.getValue().trim();
         if (raw.isEmpty()) return;
+        if (raw.contains("[[CICode,url=file://")) {
+            // A local file:// CICode (chatimage's drag/paste handler inserts
+            // these) is a local-only broken link. Kick off our own upload and
+            // block the send until it replaces the link.
+            if (!uploading) {
+                String localPath = extractLocalPath(raw);
+                if (localPath != null) upload(new java.io.File(localPath));
+            }
+            minecraft.player.sendSystemMessage(Component.translatable("e33chat.upload.wait"));
+            return;
+        }
         // Send the text UNCHANGED (raw '&', never '§'): vanilla servers reject '§' in
         // player chat and kick, so converting client-side is a dead end. Server color
         // plugins (Essentials etc.) translate '&' for everyone; on plain servers others

@@ -5,6 +5,11 @@ import com.niuqu.chatbubble.packets.ClientServerConfigGui;
 import com.niuqu.chatbubble.packets.ConfigSyncPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncV2Payload;
 import com.niuqu.chatbubble.packets.HistoryPayload;
+import com.niuqu.chatbubble.packets.MediaCapPayload;
+import com.niuqu.chatbubble.packets.MediaRequestPayload;
+import com.niuqu.chatbubble.packets.MediaResponsePayload;
+import com.niuqu.chatbubble.packets.MediaUploadAckPayload;
+import com.niuqu.chatbubble.packets.MediaUploadPayload;
 import com.niuqu.chatbubble.packets.QuoteSyncPayload;
 import com.niuqu.chatbubble.packets.ServerConfigSavePayload;
 import com.niuqu.chatbubble.packets.ServerConfigScreenPayload;
@@ -35,5 +40,28 @@ public class NetworkHandler {
                 }
             });
         registrar.playToServer(ServerConfigSavePayload.TYPE, ServerConfigSavePayload.STREAM_CODEC, ServerConfigSavePayload::handleServer);
+        registrar.playToServer(MediaUploadPayload.TYPE, MediaUploadPayload.STREAM_CODEC, MediaUploadPayload::handleServer);
+        registrar.playToServer(MediaRequestPayload.TYPE, MediaRequestPayload.STREAM_CODEC, MediaRequestPayload::handleServer);
+        // Client-only handlers must not load on a dedicated server: use dist-guarded
+        // lambdas (MediaClient references the client). See the ServerConfigScreenPayload
+        // comment above for why a method reference would trip RuntimeDistCleaner.
+        registrar.playToClient(MediaUploadAckPayload.TYPE, MediaUploadAckPayload.STREAM_CODEC,
+            (payload, ctx) -> {
+                if (net.neoforged.fml.loading.FMLEnvironment.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
+                    com.niuqu.chatbubble.image.MediaClient.handleAck(payload, ctx);
+                }
+            });
+        registrar.playToClient(MediaResponsePayload.TYPE, MediaResponsePayload.STREAM_CODEC,
+            (payload, ctx) -> {
+                if (net.neoforged.fml.loading.FMLEnvironment.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
+                    com.niuqu.chatbubble.image.MediaClient.handleResponse(payload, ctx);
+                }
+            });
+        registrar.playToClient(MediaCapPayload.TYPE, MediaCapPayload.STREAM_CODEC,
+            (payload, ctx) -> {
+                if (net.neoforged.fml.loading.FMLEnvironment.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
+                    MediaCapPayload.handleClient(payload, ctx);
+                }
+            });
     }
 }

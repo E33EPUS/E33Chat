@@ -6,6 +6,8 @@ import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.UiLayout;
 import com.niuqu.chatbubble.image.BracketCodec;
+import com.niuqu.chatbubble.image.EmoteCatalog;
+import com.niuqu.chatbubble.image.EmoteCodec;
 import com.niuqu.chatbubble.image.ImageEntry;
 import com.niuqu.chatbubble.image.ImageLoader;
 import net.minecraft.client.gui.Font;
@@ -35,7 +37,6 @@ public final class ChatMessageRenderer {
     private static final int IMAGE_MAX_W = 320;
     private static final int IMAGE_MAX_H = 180;
     private static final int IMAGE_PLACEHOLDER_H = 56;
-    private static final int IMAGE_CARD_PAD = 4;
     private static final Map<String, ImageEntry.State> lastLoggedImgState = new java.util.HashMap<>();
 
     private ChatMessageRenderer() {}
@@ -73,14 +74,13 @@ public final class ChatMessageRenderer {
 
     /** Card height in bubble px for one image ref (state-dependent). */
     public static int imageCardHeight(String url, int cardW) {
-        int maxW = Math.max(16, cardW - IMAGE_CARD_PAD * 2);
         ImageEntry entry = ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.width() > 0) {
-            int w = Math.min(maxW, entry.width());
+            int w = Math.min(cardW, entry.width());
             int h = Math.min(IMAGE_MAX_H, Math.max(1, entry.height() * w / entry.width()));
-            return IMAGE_CARD_PAD * 2 + h;
+            return h;
         }
-        return IMAGE_CARD_PAD * 2 + IMAGE_PLACEHOLDER_H;
+        return IMAGE_PLACEHOLDER_H;
     }
 
     /** Draws one card per image ref below the bubble text. */
@@ -91,17 +91,16 @@ public final class ChatMessageRenderer {
         int yy = y;
         for (var ref : images) {
             int cardH = imageCardHeight(ref.url(), cardW);
-            RoundRectRenderer.fill(g, x, yy, x + cardW, yy + cardH, 4,
-                ChatBubbleTheme.alphaBlend(0x22000000, (int) (255 * alpha)));
             ImageEntry entry = ImageLoader.getOrLoad(ref.url());
             logImageRenderState(ref.url(), entry);
             if (entry != null && entry.state() == ImageEntry.State.LOADED
                     && entry.textureId() != null && entry.width() > 0 && entry.height() > 0) {
-                int maxW = Math.max(16, cardW - IMAGE_CARD_PAD * 2);
-                int w = Math.min(maxW, entry.width());
+                int w = Math.min(cardW, entry.width());
                 int h = Math.min(IMAGE_MAX_H, entry.height() * w / entry.width());
                 int dx = x + (cardW - w) / 2;
                 int dy = yy + (cardH - h) / 2;
+                // Image draws directly on the bubble (no card bg/padding — the
+                // 0x22 black backdrop read as a dark border on light bubbles).
                 // blit has no color tint; the 250ms enter animation simply
                 // doesn't fade the image itself (acceptable).
                 g.blit(entry.textureId(), dx, dy, w, h, 0, 0,
@@ -189,6 +188,7 @@ public final class ChatMessageRenderer {
     }
 
     public static List<FormattedCharSequence> wrapContent(Component c, Font font, int width) {
+        c = EmoteCodec.process(c);
         List<Component> paras = new ArrayList<>();
         MutableComponent[] cur = {Component.empty()};
         c.visit((style, text) -> {
@@ -229,7 +229,8 @@ public final class ChatMessageRenderer {
                                              Style fallback,
                                              List<ClickableSpan> clickableSpans) {
         List<Style> styles = new ArrayList<>();
-        line.accept((i, st, cp) -> { styles.add(st); return true; });
+        List<Character> chars = new ArrayList<>();
+        line.accept((i, st, cp) -> { styles.add(st); chars.add((char) cp); return true; });
 
         int beforeCount = clickableSpans.size();
         int runStart = -1;
@@ -285,6 +286,22 @@ public final class ChatMessageRenderer {
             sink.accept(i, (i < styleLen ? hasClickEvent[i] : st.getClickEvent() != null)
                 && !st.isUnderlined() ? st.withUnderlined(true) : st, cp));
         g.drawString(font, decorated, x, y, color, false);
+
+        // Inline emotes: the placeholder (full-width space) is already drawn;
+        // paint the emote texture over it, positioned by per-char width sums.
+        int emoteX = x;
+        for (int i = 0; i < chars.size(); i++) {
+            char c = chars.get(i);
+            if (EmoteCodec.isPlaceholder(c)) {
+                String token = EmoteCodec.tokenOf(styles.get(i));
+                ResourceLocation tex = token != null ? EmoteCatalog.resolve(token) : null;
+                if (tex != null) {
+                    int size = font.lineHeight;
+                    g.blit(tex, emoteX, y + (font.lineHeight - size) / 2, size, size, 0, 0, 16, 16, 16, 16);
+                }
+            }
+            emoteX += font.width(String.valueOf(c));
+        }
     }
 
     public static void renderTimeSeparator(GuiGraphics g, Font font, long timeMillis, int y,

@@ -93,6 +93,10 @@ public class ChatServerListener {
         PacketDistributor.sendToPlayer(player,
             new ConfigSyncPayload(ChatServerConfig.USE_TPA.get()));
         PacketDistributor.sendToPlayer(player, buildConfigV2());
+        // Separate capability type: old clients drop unknown payloads, so
+        // mediaEnabled never desyncs mixed client/server versions.
+        PacketDistributor.sendToPlayer(player,
+            new com.niuqu.chatbubble.packets.MediaCapPayload(ChatServerConfig.MEDIA_ENABLED.get()));
 
         if (!ChatServerConfig.HISTORY_ENABLED.get()) return;
         if (historyBuffer.isEmpty()) return;
@@ -103,6 +107,25 @@ public class ChatServerListener {
     /** Broadcast the full server config (templates included) to every player. */
     public static void broadcastServerConfig() {
         PacketDistributor.sendToAllPlayers(buildConfigV2());
+    }
+
+    private static volatile com.niuqu.chatbubble.server.DiskMediaStore mediaStore;
+
+    /** Lazily-created media store under the server config directory. */
+    public static com.niuqu.chatbubble.server.DiskMediaStore mediaStore() {
+        com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
+        if (s == null) {
+            synchronized (ChatServerListener.class) {
+                s = mediaStore;
+                if (s == null) {
+                    s = new com.niuqu.chatbubble.server.DiskMediaStore(
+                        net.neoforged.fml.loading.FMLLoader.getGamePath()
+                            .resolve("config").resolve("e33chat-media"));
+                    mediaStore = s;
+                }
+            }
+        }
+        return s;
     }
 
     private static ConfigSyncV2Payload buildConfigV2() {
