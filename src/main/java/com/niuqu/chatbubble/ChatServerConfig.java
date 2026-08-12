@@ -11,6 +11,7 @@ public class ChatServerConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CHAT_TEMPLATES;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> WHISPER_TEMPLATES;
     public static final ForgeConfigSpec.BooleanValue TEMPLATE_DEBUG;
+    public static final ForgeConfigSpec.BooleanValue MEDIA_ENABLED;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -33,6 +34,10 @@ public class ChatServerConfig {
         TEMPLATE_DEBUG = builder
             .comment("Log failed template matches and parse diagnostics to the client chat log")
             .define("template_debug", false);
+        MEDIA_ENABLED = builder
+            .comment("Host chat image uploads on the server (e33chat://media/<id>, permanent) instead of the third-party host",
+                "When false, clients fall back to the configured third-party host")
+            .define("media_enabled", true);
         SERVER_CONFIG = builder.build();
     }
 }

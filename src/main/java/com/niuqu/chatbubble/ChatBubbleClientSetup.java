@@ -2,6 +2,7 @@ package com.niuqu.chatbubble;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import com.niuqu.chatbubble.image.EmoteCatalog;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.PreparableReloadListener;

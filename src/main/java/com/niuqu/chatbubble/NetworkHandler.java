@@ -64,5 +64,35 @@ public class NetworkHandler {
             .decoder(ServerConfigSavePacket::decode)
             .consumerMainThread(ServerConfigSavePacket::handle)
             .add();
+
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.MediaUploadPacket.class, 7)
+            .encoder(com.niuqu.chatbubble.packets.MediaUploadPacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.MediaUploadPacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.MediaUploadPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.MediaRequestPacket.class, 8)
+            .encoder(com.niuqu.chatbubble.packets.MediaRequestPacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.MediaRequestPacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.MediaRequestPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.MediaCapPacket.class, 9)
+            .encoder(com.niuqu.chatbubble.packets.MediaCapPacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.MediaCapPacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.MediaCapPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.MediaUploadAckPacket.class, 10)
+            .encoder(com.niuqu.chatbubble.packets.MediaUploadAckPacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.MediaUploadAckPacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.MediaUploadAckPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.MediaResponsePacket.class, 11)
+            .encoder(com.niuqu.chatbubble.packets.MediaResponsePacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.MediaResponsePacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.MediaResponsePacket::handle)
+            .add();
     }
 }

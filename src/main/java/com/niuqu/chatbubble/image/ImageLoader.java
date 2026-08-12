@@ -56,6 +56,12 @@ public final class ImageLoader {
         .followRedirects(HttpClient.Redirect.NORMAL)
         .build();
 
+    /** Shared HTTP client (also used by ImageUploader). */
+    public static HttpClient client() { return CLIENT; }
+
+    /** Shared worker pool (also used by ImageUploader). */
+    public static java.util.concurrent.ExecutorService executor() { return EXEC; }
+
     private static final int MAX_RECEIVE_BYTES = 16 * 1024 * 1024;
     // Direct fetches can be slow (TLS handshake + multi-hundred-KB bodies took
     // ~12s in the user's environment); keep the budget generous so a slow-but-
@@ -152,6 +158,12 @@ public final class ImageLoader {
     public static boolean isUsableUrl(String url) {
         if (url == null || url.isBlank()) return false;
         String lower = url.toLowerCase();
+        if (lower.startsWith("e33chat://")) {
+            // Server-hosted media: e33chat://media/<32-hex id>
+            return lower.startsWith("e33chat://media/")
+                && com.niuqu.chatbubble.server.DiskMediaStore.isValidMediaId(
+                    url.substring("e33chat://media/".length()));
+        }
         if (!lower.startsWith("http://") && !lower.startsWith("https://")) return false;
         try {
             URI uri = new URI(url);
@@ -241,20 +253,34 @@ public final class ImageLoader {
     private static void fetchAndDecode(String url, ImageEntry entry) {
         long t0 = System.currentTimeMillis();
         try {
-            HttpResponse<byte[]> resp = CLIENT.send(
-                HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS)).build(),
-                HttpResponse.BodyHandlers.ofByteArray());
-            long t1 = System.currentTimeMillis();
-            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
-                entry.markFailed("http " + resp.statusCode());
-                LOGGER.info("[e33chat] image fetch {} -> HTTP {} ({}ms)", url, resp.statusCode(), t1 - t0);
-                return;
-            }
-            byte[] body = resp.body();
-            if (body == null || body.length == 0 || body.length > MAX_RECEIVE_BYTES) {
-                entry.markFailed("empty or too large");
-                LOGGER.info("[e33chat] image fetch {} -> bad body {} bytes ({}ms)", url, body == null ? 0 : body.length, t1 - t0);
-                return;
+            byte[] body;
+            long t1;
+            if (url.startsWith("e33chat://")) {
+                body = com.niuqu.chatbubble.image.MediaClient.fetch(
+                    url.substring("e33chat://media/".length()));
+                t1 = System.currentTimeMillis();
+                if (body == null) {
+                    entry.markFailed("server media fetch failed");
+                    LOGGER.info("[e33chat] image fetch {} -> server media fetch failed ({}ms)",
+                        url, t1 - t0);
+                    return;
+                }
+            } else {
+                HttpResponse<byte[]> resp = CLIENT.send(
+                    HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS)).build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+                t1 = System.currentTimeMillis();
+                if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                    entry.markFailed("http " + resp.statusCode());
+                    LOGGER.info("[e33chat] image fetch {} -> HTTP {} ({}ms)", url, resp.statusCode(), t1 - t0);
+                    return;
+                }
+                body = resp.body();
+                if (body == null || body.length == 0 || body.length > MAX_RECEIVE_BYTES) {
+                    entry.markFailed("empty or too large");
+                    LOGGER.info("[e33chat] image fetch {} -> bad body {} bytes ({}ms)", url, body == null ? 0 : body.length, t1 - t0);
+                    return;
+                }
             }
             RasterImageDecoder.DecodedImage decoded = RasterImageDecoder.decode(body);
             if (decoded == null) {

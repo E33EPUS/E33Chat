@@ -243,6 +243,14 @@ public class ChatBubbleConfigScreen extends Screen {
         advanced.add(new Opt("e33chat.config.chat_history", y -> mkBoolButton(y, ChatBubbleConfig.CHAT_HISTORY_ENABLED), null));
         advanced.add(new Opt("e33chat.config.history_retention", y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.HISTORY_RETENTION_DAYS.get()), 0, 365, 3, ChatBubbleConfig.HISTORY_RETENTION_DAYS::set), null));
         advanced.add(new Opt("e33chat.config.preserve_input", y -> mkBoolButton(y, ChatBubbleConfig.PRESERVE_INPUT), null));
+        advanced.add(Opt.header("e33chat.config.section.upload"));
+        advanced.add(new Opt("e33chat.config.upload_url", y -> {
+            EditBox box = new EditBox(font, inputX, y, INPUT_W, 20, Component.literal(""));
+            box.setValue(ChatBubbleConfig.UPLOAD_URL.get());
+            box.setMaxLength(512);
+            box.setResponder(v -> ChatBubbleConfig.UPLOAD_URL.set(v));
+            return box;
+        }, null));
         advanced.add(Opt.header("e33chat.config.section.debug"));
         advanced.add(new Opt("e33chat.config.debug_log", y -> mkBoolButton(y, ChatBubbleConfig.DEBUG_LOG), null));
         advanced.add(new Opt("e33chat.config.own_mention_notify", y -> mkBoolButton(y, ChatBubbleConfig.OWN_MENTION_NOTIFY), null));
@@ -271,6 +279,10 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE));
         tracked.add(track(ChatBubbleConfig.ANTI_SPAM));
         tracked.add(track(ChatBubbleConfig.RECEIVE_IMAGES));
+        tracked.add(track(ChatBubbleConfig.UPLOAD_URL));
+        tracked.add(track(ChatBubbleConfig.UPLOAD_FIELD));
+        tracked.add(track(ChatBubbleConfig.UPLOAD_EXTRA));
+        tracked.add(track(ChatBubbleConfig.UPLOAD_RESPONSE));
         tracked.add(track(ChatBubbleConfig.CHAT_HISTORY_ENABLED));
         tracked.add(track(ChatBubbleConfig.HISTORY_RETENTION_DAYS));
         tracked.add(track(ChatBubbleConfig.TIME_SEPARATOR_MINUTES));

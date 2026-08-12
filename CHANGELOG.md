@@ -1,5 +1,111 @@
 # Changelog
 
+## v2.3.16
+
+**修复（2.3.16）**
+- **拖拽图片不再插入 file:// 死链接**：chatimage 等 mod 会把拖入的本地图片插成 `[[CICode,url=file:///C:\...]]`（本地专用、带反斜杠的非法 URI，别人看不到）。现在：e33chat 上传完成后自动把输入框里的 file:// 链接替换成真实 URL；若发送时 file:// 还在（上传未完成），阻止发送并提示「图片上传中，稍候再发」（同时自动开始上传）
+- **修复点击 file:// 图片消息抛异常**：点击历史 file:// 图片会触发系统打开非法 URI（URISyntaxException 刷日志），现在只对 http(s) 链接响应点击
+
+**Fixes (2.3.16)**
+- Dragging an image no longer leaves a dead `file://` link in the input: mods like chatimage insert `[[CICode,url=file:///C:\...]]` (local-only, backslash URI). e33chat now replaces that link with the real upload URL once the upload finishes; if you press Enter before that, the send is blocked with a "wait" hint (and the upload is started automatically)
+- Fixed clicking file:// image messages throwing URISyntaxException; only http(s) links respond to clicks now
+
+## v2.3.15
+# Changelog
+
+## v2.3.15
+
+**修复（2.3.15）**
+- **修复本地图片上传一直失败**：Litterbox 需要 `reqtype=fileupload` 参数，旧版本漏了导致 HTTP 412（图从来传不上去）；旧配置文件自动注入修复
+- **修复拖拽图片后输入框键盘失效**：拖放会抢走窗口焦点，现在自动把焦点还给聊天输入框
+
+**Fixes (2.3.15)**
+- Fixed local image upload failing with HTTP 412: Litterbox requires `reqtype=fileupload`, which was missing; legacy configs get it injected automatically
+- Fixed keyboard input dying after dragging an image: the OS drop steals window focus; it is now handed back to the chat input
+
+## v2.3.14
+# Changelog
+
+## v2.3.14
+
+**改动（2.3.14）**
+- 移除输入框左侧的 `+` 上传按钮（不再需要点按钮选图）
+- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp/webp，取第一个图片）；Ctrl+V 粘贴上传保留
+
+**Changes (2.3.14)**
+- Removed the `+` upload button next to the chat input
+- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp/webp, first image wins); Ctrl+V paste upload kept
+
+## v2.3.13
+
+
+## v2.3.13
+
+**新功能（2.3.13）**
+- **服务端媒体直传**：当服务器也装了 e33chat 时，聊天图片上传直接存到服务器（`config/e33chat-media/`，`e33chat://media/<id>` 链接，永久不过期），不再受第三方图床 72h 过期限制；服务器没装/未开启时自动回退原图床，无感
+- 服务器配置 `serverconfig/e33chat-server.json` 的 `media_enabled`（默认 true）控制开关；单文件上限 8MB、总配额 512MB；媒体 ID 为随机 UUID，防遍历
+- 接收端无感：老链接（第三方图床 URL）照常显示；服务端直传图片也走同一渲染管线（防刷屏/缓存/缩放）
+
+**New (2.3.13)**
+- **Server-side media hosting**: when the server runs e33chat too, chat image uploads are stored on the server (`config/e33chat-media/`, `e33chat://media/<id>` links, permanent) instead of the third-party host's 72h expiry; falls back to the old host automatically when the server lacks/disabled it
+- Toggle via `media_enabled` in `serverconfig/e33chat-server.json` (default true); 8 MB per file, 512 MB total quota; random UUID media IDs prevent URL guessing
+- Receiving is unchanged: legacy third-party URLs still render; server-hosted images flow through the same pipeline (anti-flood/cache/scale)
+
+## v2.3.12
+
+## v2.3.12
+
+**新功能（2.3.12）**
+- **行内表情（三端）**：聊天消息里的 `[:token]` 现在渲染为行内小表情图片（如 `[:happy]` `[:love]` `[:laugh]`）。内置 12 个代码生成的像素表情（happy/sad/angry/love/thumb/ok/cry/laugh/wow/sleep/cool/fire），零外部依赖；也可在 `config/e33chat-emote.json` 自定义 token→图片 URL（如 `{"kusa": "https://..."}`），自定义表情走图片加载管线（含防刷屏/缓存）。未注册的 token 原样显示为文本
+- 表情跟随消息样式（颜色/下划线保留），发送侧零改动（直接输入 `[:happy]` 即可）
+
+**New (2.3.12)**
+- **Inline emotes (all platforms)**: `[:token]` codes render as inline emote images (`[:happy]` `[:love]` `[:laugh]` …). 12 built-in code-generated pixel emotes (happy/sad/angry/love/thumb/ok/cry/laugh/wow/sleep/cool/fire) with zero external dependencies; custom tokens go in `config/e33chat-emote.json` as token→image URL (e.g. `{"kusa": "https://..."}`) and load through the shared image pipeline (anti-flood/cache included). Unknown tokens stay as literal text
+- Emotes follow message styling (colors/underline preserved); sending needs no changes — just type `[:happy]`
+
+## v2.3.11
+
+**新功能（2.3.11）**
+- **本地图片上传**：聊天输入框旁的上传按钮 / Ctrl+V 粘贴 / **直接拖图片进窗口**，自动缩放到 ≤2048 边长并重新编码，上传到图床（默认 Litterbox，可配置），插入 `[[CICode,url=...]]` 发送；上传失败有提示，不会插入死链接
+- **行内表情**：`[:token]` 渲染为行内小表情。内置 12 个代码生成的像素表情（happy/sad/angry/love/thumb/ok/cry/laugh/wow/sleep/cool/fire），零外部依赖；可在 `config/e33chat-emote.json` 自定义 token→图片 URL（走共享图片管线，含防刷屏/缓存）。未知 token 原样显示为文本；表情跟随消息样式
+- **服务端媒体直传**：当服务器也装了 e33chat 时，聊天图片直接存到服务器（`e33chat://media/<id>`，永久不过期），不再受第三方图床 72h 过期限制；服务器没装/未开启时自动回退图床，无感。服务端配置 `media_enabled`（默认 true）控制；单文件上限 8MB、总配额 512MB、随机 UUID 媒体 ID 防遍历；能力探测走独立协议类型，新旧客户端/服务端混用不炸
+- **图片渲染升级**（继承 2.3.10 管线）：无卡片背景/边框，图片直接绘制在气泡上，上边缘与文本齐平，图间 2px 间隙
+
+**修复（2.3.11）**
+- 修复 Litterbox 上传 HTTP 412（缺 `reqtype=fileupload`，旧配置自动注入）
+- 修复拖拽图片后输入框键盘失效（OS 拖放抢焦点，自动归还）
+- 修复 chatimage 等 mod 在拖拽/粘贴时插入的本地 `file://` 死链：e33chat 上传完成后自动替换为真实 URL；file:// 未替换时按回车会阻止发送并提示「图片上传中」，同时自动开始上传
+- 修复点击 file:// 图片消息抛 URISyntaxException（仅 http(s) 链接响应点击）
+
+**New (2.3.11)**
+- **Local image upload**: upload button / Ctrl+V paste / **drag & drop onto the window**, auto-scaled to ≤2048px and re-encoded, uploaded to a host (default Litterbox, configurable), inserted as `[[CICode,url=...]]`; failures show a hint and never insert dead links
+- **Inline emotes**: `[:token]` renders as inline emote images. 12 built-in code-generated pixel emotes (happy/sad/angry/love/thumb/ok/cry/laugh/wow/sleep/cool/fire), zero external dependencies; custom tokens go in `config/e33chat-emote.json` as token→image URL (shared image pipeline, anti-flood/cache included). Unknown tokens stay literal; emotes follow message styling
+- **Server-side media hosting**: when the server also runs e33chat, chat images are stored on the server (`e33chat://media/<id>`, permanent) instead of the third-party host's 72h expiry; falls back to the host automatically when the server lacks/disabled it. Toggle `media_enabled` (default true); 8MB/file, 512MB quota, random UUID media IDs; capability detection uses a separate protocol type so mixed client/server versions never desync
+- **Image rendering upgrade** (on the 2.3.10 pipeline): no card background/border, drawn directly on the bubble, top edge flush with text, 2px gap between images
+
+**Fixes (2.3.11)**
+- Fixed Litterbox upload HTTP 412 (missing `reqtype=fileupload`; legacy configs get it injected)
+- Fixed chat input keyboard dying after dragging an image (OS drop steals focus; now returned)
+- Fixed dead `file://` links inserted by mods like chatimage on drag/paste: e33chat replaces them with the real upload URL once done; pressing Enter before the replacement blocks the send with a "wait" hint and auto-starts the upload
+- Fixed clicking file:// image messages throwing URISyntaxException (only http(s) links respond to clicks)
+
+## v2.3.10
+## v2.3.10
+# Changelog
+
+## v2.3.14
+
+**改动（2.3.14）**
+- 移除输入框左侧的 `+` 上传按钮（不再需要点按钮选图）
+- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp/webp，取第一个图片）；Ctrl+V 粘贴上传保留
+
+**Changes (2.3.14)**
+- Removed the `+` upload button next to the chat input
+- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp/webp, first image wins); Ctrl+V paste upload kept
+
+## v2.3.13
+
+
 ## v2.3.10
 
 **新功能（2.3.10）**
@@ -22,6 +128,19 @@
 
 ## v2.3.9
 # Changelog
+
+## v2.3.14
+
+**改动（2.3.14）**
+- 移除输入框左侧的 `+` 上传按钮（不再需要点按钮选图）
+- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp/webp，取第一个图片）；Ctrl+V 粘贴上传保留
+
+**Changes (2.3.14)**
+- Removed the `+` upload button next to the chat input
+- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp/webp, first image wins); Ctrl+V paste upload kept
+
+## v2.3.13
+
 
 ## v2.3.9
 

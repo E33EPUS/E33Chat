@@ -83,6 +83,25 @@ public class ChatServerListener {
         NetworkHandler.CHANNEL.send(PacketDistributor.ALL.noArg(), meta);
     }
 
+    private static volatile com.niuqu.chatbubble.server.DiskMediaStore mediaStore;
+
+    /** Lazily-created media store under the game config directory. */
+    public static com.niuqu.chatbubble.server.DiskMediaStore mediaStore() {
+        com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
+        if (s == null) {
+            synchronized (ChatServerListener.class) {
+                s = mediaStore;
+                if (s == null) {
+                    s = new com.niuqu.chatbubble.server.DiskMediaStore(
+                        net.minecraftforge.fml.loading.FMLLoader.getGamePath()
+                            .resolve("config").resolve("e33chat-media"));
+                    mediaStore = s;
+                }
+            }
+        }
+        return s;
+    }
+
     // Current server config snapshot for sync packets. Both ids are sent so old
     // clients (which only know id 3) still receive use_tpa without desyncing.
     public static void broadcastServerConfig() {
@@ -96,6 +115,8 @@ public class ChatServerListener {
                     new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
                     new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get()),
                     ChatServerConfig.TEMPLATE_DEBUG.get()));
+            NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> p),
+                new com.niuqu.chatbubble.packets.MediaCapPacket(ChatServerConfig.MEDIA_ENABLED.get()));
         }
     }
 
@@ -113,6 +134,11 @@ public class ChatServerListener {
                 new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
                 new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get()),
                 ChatServerConfig.TEMPLATE_DEBUG.get()));
+        // Separate capability id: old clients drop unknown ids harmlessly, so
+        // mediaEnabled never desyncs mixed client/server versions.
+        NetworkHandler.CHANNEL.send(
+            PacketDistributor.PLAYER.with(() -> player),
+            new com.niuqu.chatbubble.packets.MediaCapPacket(ChatServerConfig.MEDIA_ENABLED.get()));
 
         if (!ChatServerConfig.HISTORY_ENABLED.get()) return;
         if (historyBuffer.isEmpty()) return;
