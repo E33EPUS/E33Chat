@@ -65,10 +65,10 @@ public final class ImageLoader {
     public static java.util.concurrent.ExecutorService executor() { return EXEC; }
 
     private static final int MAX_RECEIVE_BYTES = 16 * 1024 * 1024;
-    // Direct fetches can be slow (TLS handshake + multi-hundred-KB bodies took
-    // ~12s in the user's environment); keep the budget generous so a slow-but-
-    // working link lands in LOADED, not FAILED.
-    private static final long REQUEST_TIMEOUT_SECONDS = 30;
+    // Direct fetches can be very slow in the user's network (TLS handshake +
+    // multi-hundred-KB bodies measured 30-45s); the budget must be generous so
+    // a slow-but-working link lands in LOADED, not FAILED.
+    private static final long REQUEST_TIMEOUT_SECONDS = 60;
 
     // Anti-flood knobs (grilled with the user, 2026-08-12)
     static final int RATE_LIMIT_PER_WINDOW = 4;
@@ -78,7 +78,9 @@ public final class ImageLoader {
     static final int CARD_W = 320;
     static final int CARD_H = 180;
 
-    private static final long FAILED_RETRY_MS = 10_000;
+    // Dead links (bad URLs, 404s) used to retry every 10s, spamming the log and
+    // stealing anti-flood download slots from real images; 2 minutes is plenty.
+    private static final long FAILED_RETRY_MS = 120_000;
     private static final Deque<Long> RECENT_STARTS = new ArrayDeque<>();
     private static volatile boolean enabled = true;
 
@@ -244,10 +246,13 @@ public final class ImageLoader {
 
     private static void launchFetch(String url, ImageEntry entry) {
         CompletableFuture.runAsync(() -> fetchAndDecode(url, entry), EXEC)
-            .orTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .orTimeout(REQUEST_TIMEOUT_SECONDS + 5, TimeUnit.SECONDS)
             .exceptionally(t -> {
-                entry.markFailed(String.valueOf(t));
-                LOGGER.info("[e33chat] image fetch {} -> timeout after {}s", url, REQUEST_TIMEOUT_SECONDS);
+                // The request-level timeout (HttpRequest.timeout) is what marks
+                // the entry FAILED; this future safety net must NOT flip state,
+                // otherwise a slow-but-finished download is discarded.
+                LOGGER.info("[e33chat] image fetch {} -> future timeout after {}s (download may still finish)",
+                    url, REQUEST_TIMEOUT_SECONDS + 5);
                 return null;
             });
     }
