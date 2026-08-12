@@ -1,6 +1,5 @@
 package com.niuqu.chatbubble;
 
-import com.niuqu.chatbubble.image.EmoteCatalog;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
@@ -40,7 +39,6 @@ public class ChatBubbleClientSetup {
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {
-        EmoteCatalog.loadCustom(net.neoforged.fml.loading.FMLLoader.getGamePath().resolve("config"));
         ChatBubbleMod.LOGGER.info("E33Chat client setup done");
     }
 }
