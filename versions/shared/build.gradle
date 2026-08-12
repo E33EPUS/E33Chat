@@ -1,5 +1,6 @@
 // 共享构建脚本 - 所有版本子项目共用 (MasaGadget 风格)
 // 版本特定配置在各自 gradle.properties 中定义
+// 26.x 版本自动启用 Yarn→Mojang 映射转换
 
 // 使用 buildscript + apply plugin 方式支持动态 Loom 版本
 buildscript {
@@ -28,6 +29,8 @@ def targetJavaVersion = (project.findProperty('java_version') ?: '21') as Intege
 def modmenuVersion = project.findProperty('modmenu_version') ?: '11.0.3'
 
 final int mcVersion = project.mcVersion.toString().toInteger()
+// MC 26.x 取消了混淆，使用 Mojang 官方名称，无需 Yarn mappings
+def isMinecraft26x = mcVersion >= 26000
 
 // 输出文件名
 base.archivesName = project.archives_base_name
@@ -40,10 +43,21 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.minecraft_version}+build.${project.yarn_build}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-    modCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
+    if (isMinecraft26x) {
+        // 26.x: MC 取消混淆，使用空映射文件（含 official 命名空间）满足 Loom 要求
+        mappings loom.layered {
+            mappings file("${rootProject.projectDir}/versions/shared/empty-mappings.tiny")
+        }
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+        modCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
+    } else {
+        // 1.16.5 ~ 1.21.11: 使用 Yarn mappings + modImplementation
+        mappings "net.fabricmc:yarn:${project.minecraft_version}+build.${project.yarn_build}:v2"
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+        modCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
+    }
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
@@ -63,7 +77,8 @@ java {
 }
 
 // 预处理器子项目禁用 sourcesJar 重映射（预处理指令导致 remapper 崩溃）
-tasks.named('remapSourcesJar').configure {
+// 26.x 无 mappings 时 remapSourcesJar 可能不存在，使用 matching 安全跳过
+tasks.matching { it.name == 'remapSourcesJar' }.configureEach {
     enabled = false
 }
 
@@ -92,6 +107,7 @@ def isMainProject = project.name == mainProjectName
 
 // 生成预处理代码的任务：按当前子项目 mcVersion 处理 //#if / //#else / //#endif，
 // 并在选中旧版本分支时把 //$$ 代码行恢复为真实 Java 代码。
+// MC 26.x 额外执行 Yarn→Mojang 名称映射转换。
 abstract class PreprocessTask extends DefaultTask {
     @InputDirectory
     @PathSensitive(PathSensitivity.RELATIVE)
@@ -134,8 +150,27 @@ abstract class PreprocessTask extends DefaultTask {
                         if (!s) { active = false; break }
                     }
                     if (active) {
-                        outLines.add(uncommentPreprocessLine(line))
+                        String processed = uncommentPreprocessLine(line)
+                        if (targetMcVersion >= 26000) {
+                            processed = applyMojangMapping(processed, targetMcVersion)
+                        }
+                        outLines.add(processed)
                     }
+                }
+                // 26.x: 注入额外 import（类移动到了不同的包）
+                if (targetMcVersion >= 26000) {
+                    def extraImports = [
+                        "import net.minecraft.util.FormattedCharSequence;",
+                        "import net.minecraft.network.chat.contents.TranslatableContents;"
+                    ]
+                    def insertIdx = 0
+                    for (int i = 0; i < outLines.size(); i++) {
+                        if (outLines[i].startsWith("package ")) {
+                            insertIdx = i + 1
+                            break
+                        }
+                    }
+                    outLines.addAll(insertIdx, extraImports)
                 }
                 outFile.write(outLines.join('\n'), 'UTF-8')
             }
@@ -162,6 +197,295 @@ abstract class PreprocessTask extends DefaultTask {
             }
         }
         return true
+    }
+
+    // Yarn→Mojang 26.x 名称映射 (MC 26.x 取消混淆，使用 Mojang 官方名称)
+    static String applyMojangMapping(String line, int targetMcVersion) {
+        boolean is26_2 = targetMcVersion >= 260200
+
+        // Step 1: FQN-specific mappings (must come before package replacements)
+        line = line.replaceAll("net\\.minecraft\\.util\\.Identifier\\b", "net.minecraft.resources.Identifier")
+        line = line.replaceAll("net\\.minecraft\\.util\\.Formatting\\b", "net.minecraft.ChatFormatting")
+        line = line.replaceAll("net\\.minecraft\\.util\\.Language\\b", "net.minecraft.locale.Language")
+        line = line.replaceAll("net\\.minecraft\\.util\\.Rect2i\\b", "net.minecraft.client.renderer.Rect2i")
+        line = line.replaceAll("net\\.minecraft\\.client\\.util\\.math\\.Rect2i\\b", "net.minecraft.client.renderer.Rect2i")
+        line = line.replaceAll("net\\.minecraft\\.text\\.OrderedText\\b", "net.minecraft.util.FormattedCharSequence")
+        line = line.replaceAll("net\\.minecraft\\.text\\.TextCodecs\\b", "net.minecraft.network.chat.ComponentSerialization")
+        line = line.replaceAll("net\\.minecraft\\.text\\.TranslatableTextContent\\b", "net.minecraft.network.chat.contents.TranslatableContents")
+        line = line.replaceAll("net\\.minecraft\\.screen\\.ScreenTexts\\b", "net.minecraft.network.chat.CommonComponents")
+        line = line.replaceAll("net\\.minecraft\\.registry\\.entry\\.RegistryEntry\\b", "net.minecraft.core.Holder")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.DrawContext\\b", "net.minecraft.client.gui.GuiGraphicsExtractor")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.Click\\b", "net.minecraft.client.input.MouseButtonEvent")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.Element\\b", "net.minecraft.client.gui.components.events.GuiEventListener")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.PlayerSkinDrawer\\b", "net.minecraft.client.gui.components.PlayerFaceExtractor")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.screen\\.ChatInputSuggestor\\b", "net.minecraft.client.gui.components.CommandSuggestions")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.screen\\.SleepingChatScreen\\b", "net.minecraft.client.gui.screens.InBedChatScreen")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.hud\\.ChatHud\\b", "net.minecraft.client.gui.components.ChatComponent")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.hud\\.MessageIndicator\\b", "net.minecraft.client.gui.components.MessageIndicator")
+        line = line.replaceAll("net\\.minecraft\\.client\\.texture\\.NativeImage\\b", "com.mojang.blaze3d.platform.NativeImage")
+        line = line.replaceAll("net\\.minecraft\\.client\\.sound\\.PositionedSoundInstance\\b", "net.minecraft.client.resources.sounds.SimpleSoundInstance")
+        line = line.replaceAll("net\\.minecraft\\.client\\.util\\.DefaultSkinHelper\\b", "net.minecraft.client.resources.DefaultPlayerSkin")
+        line = line.replaceAll("net\\.minecraft\\.client\\.input\\.MouseInput\\b", "net.minecraft.client.input.MouseButtonInfo")
+        line = line.replaceAll("net\\.minecraft\\.entity\\.player\\.SkinTextures\\b", "net.minecraft.world.entity.player.PlayerSkin")
+        line = line.replaceAll("net\\.minecraft\\.network\\.packet\\.CustomPayload\\b", "net.minecraft.network.protocol.common.custom.CustomPacketPayload")
+        line = line.replaceAll("net\\.minecraft\\.network\\.message\\.MessageType\\b", "net.minecraft.network.chat.ChatType")
+        line = line.replaceAll("net\\.minecraft\\.network\\.message\\.SignedMessage\\b", "net.minecraft.network.chat.PlayerChatMessage")
+        line = line.replaceAll("net\\.minecraft\\.network\\.message\\.MessageSignatureData\\b", "net.minecraft.network.chat.MessageSignature")
+        line = line.replaceAll("net\\.minecraft\\.resource\\.ResourceType\\b", "net.minecraft.server.packs.PackType")
+        line = line.replaceAll("net\\.minecraft\\.server\\.command\\.ServerCommandSource\\b", "net.minecraft.commands.CommandSourceStack")
+        line = line.replaceAll("net\\.minecraft\\.server\\.command\\.CommandManager\\b", "net.minecraft.commands.Commands")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.Drawable\\b", "net.minecraft.client.gui.components.Renderable")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.Selectable\\b", "net.minecraft.client.gui.narration.NarratableEntry")
+        line = line.replaceAll("net\\.minecraft\\.client\\.multiplayer\\.message\\b", "net.minecraft.client.multiplayer.chat")
+        line = line.replaceAll("net\\.minecraft\\.util\\.WorldSavePath\\b", "net.minecraft.world.level.storage.LevelResource")
+        line = line.replaceAll("net\\.minecraft\\.client\\.network\\.message\\b", "net.minecraft.client.multiplayer.chat")
+
+        // Step 2: Package name replacements (longest first to avoid partial matches)
+        line = line.replace("net.minecraft.network.packet.c2s.play", "net.minecraft.network.protocol.game")
+        line = line.replace("net.minecraft.network.packet.c2s", "net.minecraft.network.protocol")
+        line = line.replace("net.minecraft.network.packet.s2c", "net.minecraft.network.protocol")
+        line = line.replace("net.minecraft.network.packet", "net.minecraft.network.protocol.common")
+        line = line.replace("net.minecraft.network.message", "net.minecraft.network.chat")
+        line = line.replace("net.minecraft.client.gui.widget", "net.minecraft.client.gui.components")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.screen\\b", "net.minecraft.client.gui.screens")
+        line = line.replace("net.minecraft.client.gui.hud", "net.minecraft.client.gui.components")
+        line = line.replace("net.minecraft.entity.player", "net.minecraft.world.entity.player")
+        line = line.replace("net.minecraft.server.network", "net.minecraft.server.level")
+        line = line.replaceAll("net\\.minecraft\\.server\\.command\\b", "net.minecraft.server.commands")
+        line = line.replaceAll("net\\.minecraft\\.client\\.render\\b", "net.minecraft.client.renderer")
+        line = line.replace("net.minecraft.client.texture", "net.minecraft.client.renderer.texture")
+        line = line.replace("net.minecraft.client.network", "net.minecraft.client.multiplayer")
+        line = line.replaceAll("net\\.minecraft\\.client\\.sound\\b", "net.minecraft.client.sounds")
+        line = line.replace("net.minecraft.client.gl", "net.minecraft.client.renderer")
+        line = line.replace("net.minecraft.client.font", "net.minecraft.client.gui")
+        line = line.replace("net.minecraft.client.util.math", "net.minecraft.util")
+        line = line.replace("net.minecraft.client.util", "net.minecraft.client")
+        line = line.replace("net.minecraft.util.math", "net.minecraft.util")
+        line = line.replace("net.minecraft.resource.", "net.minecraft.server.packs.resources.")
+        line = line.replaceAll("net\\.minecraft\\.command\\b", "net.minecraft.commands")
+        line = line.replace("net.minecraft.entity", "net.minecraft.world.entity")
+        line = line.replaceAll("net\\.minecraft\\.sound\\b", "net.minecraft.sounds")
+        line = line.replace("net.minecraft.block", "net.minecraft.world.level.block")
+        line = line.replace("net.minecraft.item", "net.minecraft.world.item")
+        line = line.replace("net.minecraft.text", "net.minecraft.network.chat")
+        line = line.replace("net.minecraft.registry", "net.minecraft.core")
+
+        // Step 3: Field name replacements (BEFORE method names so we can use context patterns)
+        // Skip on import/package lines to avoid corrupting package paths
+        if (!line.trim().startsWith("import ") && !line.trim().startsWith("package ")) {
+            line = line.replaceAll("\\btextRenderer\\b", "font")
+            line = line.replaceAll("\\bcurrentScreen\\b", "screen")
+            line = line.replaceAll("\\brunDirectory\\b", "gameDirectory")
+            line = line.replaceAll("\\bnetworkHandler\\b", "connection")
+            line = line.replaceAll("\\bgetWorld\\b", "getLevel")
+            line = line.replaceAll("(?<!net\\.minecraft)\\.world\\b", ".level")
+            line = line.replaceAll("\\bthis\\.client\\b", "this.minecraft")
+            line = line.replaceAll("(?<![.\\-])\\bclient\\b(?!\\()", "minecraft")
+            line = line.replaceAll("\\.mouse\\b", ".mouseHandler")
+            line = line.replaceAll("\\.keyboard\\b", ".keyboardHandler")
+            line = line.replaceAll("\\bchatKey\\b", "keyChat")
+            // 26.2: Minecraft.screen 字段迁移到 Gui.screen() 方法
+            if (is26_2) {
+                line = line.replaceAll("\\b(MinecraftClient\\.getInstance\\(\\)|Minecraft\\.getInstance\\(\\)|minecraft|mc|this\\.minecraft)\\.screen\\b", "\$1.gui.screen()")
+            }
+        }
+
+        // Step 4: Method name replacements (after field mapping so context patterns work)
+        line = line.replaceAll("\\bdrawText\\b", "text")
+        line = line.replaceAll("\\bdrawCenteredText\\b", "centeredText")
+        line = line.replaceAll("\\bdrawTexture\\b", "blit")
+        line = line.replaceAll("\\bdrawTooltip\\b", "setTooltipForNextFrame")
+        line = line.replaceAll("\\bgetMatrices\\b", "pose")
+        line = line.replaceAll("\\bcreateNewRootLayer\\b", "nextStratum")
+        line = line.replaceAll("\\bmatchesKey\\b", "matches")
+        line = line.replaceAll("\\bgetBoundKeyLocalizedText\\b", "getTranslatedKeyMessage")
+        line = line.replaceAll("\\bsendChatMessage\\b", "sendChat")
+        line = line.replaceAll("\\bsendChatCommand\\b", "sendCommand")
+        line = line.replaceAll("\\bdimensions\\b", "bounds")
+        line = line.replaceAll("\\bwrapLines\\b", "split")
+        line = line.replaceAll("\\bfontHeight\\b", "lineHeight")
+        line = line.replaceAll("\\bgetSkinTextures\\b", "getSkin")
+        line = line.replaceAll("\\bgetSkinProvider\\b", "getSkinManager")
+        line = line.replaceAll("\\bsupplySkinTextures\\b", "createLookup")
+        line = line.replaceAll("\\bfont\\.getWidth\\b", "font.width")
+        line = line.replaceAll("\\bfont\\.trimToWidth\\b", "font.plainSubstrByWidth")
+        line = line.replaceAll("\\bminecraft\\.getServer\\b", "minecraft.getSingleplayerServer")
+        line = line.replaceAll("\\bgetMeasuringTimeMs\\b", "getMillis")
+        line = line.replaceAll("\\bgetNetworkHandler\\b", "getConnection")
+        line = line.replaceAll("\\bgetCurrentServerEntry\\b", "getCurrentServer")
+        line = line.replaceAll("\\bgetScaledWidth\\b", "getGuiScaledWidth")
+        line = line.replaceAll("\\bgetScaledHeight\\b", "getGuiScaledHeight")
+        line = line.replaceAll("\\bgetHandle\\b", "getWindow")
+        line = line.replaceAll("\\bgetUuid\\b", "getUUID")
+        line = line.replaceAll("\\bgetSaveProperties\\b", "getWorldData")
+        line = line.replaceAll("\\bsetText\\b", "setValue")
+        line = line.replaceAll("\\bsetChangedListener\\b", "setResponder")
+        line = line.replaceAll("\\bfillStyle\\b", "setStyle")
+        line = line.replaceAll("\\bFormatting\\.strip\\b", "ChatFormatting.stripFormatting")
+        line = line.replaceAll("\\bgetPlayerListEntry\\b", "getPlayerInfo")
+        line = line.replaceAll("getConnection\\(\\)\\.getPlayerList\\b", "getConnection().getOnlinePlayers")
+        line = line.replaceAll("\\bconnection\\.getPlayerList\\b", "connection.getOnlinePlayers")
+        line = line.replaceAll("\\bconn\\.getPlayerList\\b", "conn.getOnlinePlayers")
+        line = line.replaceAll("\\bsendPacket\\b", "send")
+        line = line.replaceAll("\\.address\\b", ".ip")
+        line = line.replaceAll("\\bENTITY_EXPERIENCE_ORB_PICKUP\\b", "EXPERIENCE_ORB_PICKUP")
+        line = line.replaceAll("\\bBLOCK_NOTE_BLOCK_CHIME\\b", "NOTE_BLOCK_CHIME")
+        line = line.replaceAll("\\breadString\\b", "readUtf")
+        line = line.replaceAll("\\bwriteString\\b", "writeUtf")
+        line = line.replaceAll("\\bgetId\\b", "type")
+        line = line.replaceAll("\\bsetDrawsBackground\\b", "setBordered")
+        line = line.replaceAll("\\bsetEditableColor\\b", "setTextColor")
+        line = line.replaceAll("\\bsetFocusUnlocked\\b", "setCanLoseFocus")
+        line = line.replaceAll("\\bsetCursorToEnd\\b", "moveCursorToEnd")
+        line = line.replaceAll("\\bgetText\\b", "getValue")
+        line = line.replaceAll("\\bformatted\\b", "withStyle")
+        line = line.replaceAll("\\bgetEntityWorld\\b", "level")
+        line = line.replaceAll("getPlayerManager\\(\\)\\.getPlayerList\\(\\)", "getPlayerList().getPlayers()")
+        line = line.replaceAll("\\bgetPlayerManager\\b", "getPlayerList")
+        line = line.replaceAll("\\binGameHud\\b", "gui")
+        line = line.replaceAll("\\basOrderedText\\b", "getVisualOrderText")
+        line = line.replaceAll("\\bgetChatHud\\b", "getChat")
+        // 26.2: Gui.getChat() 迁移到 Hud.getChat()
+        if (is26_2) {
+            line = line.replaceAll("\\.gui\\.getChat\\(\\)", ".gui.hud.getChat()")
+            // 26.2: Minecraft.setScreen() 迁移到 Gui.setScreen()
+            line = line.replaceAll("minecraft\\.setScreen\\(", "minecraft.gui.setScreen(")
+        }
+        line = line.replaceAll("\\bwithUnderline\\b", "withUnderlined")
+        line = line.replaceAll("\\btuple\\b", "of")
+        line = line.replaceAll("\\bregisterTexture\\b", "register")
+        // 26.x: setColorArgb → setPixelRGBA → setPixelABGR (两步转换)
+        line = line.replaceAll("\\bsetColorArgb\\b", "setPixelRGBA")
+        line = line.replaceAll("\\bgetSavePath\\b", "getWorldPath")
+        line = line.replaceAll("getPlayerList\\(\\)\\.getOnlinePlayers", "getPlayerList().getPlayers")
+        line = line.replaceAll("\\bgetContent\\b", "getContents")
+        line = line.replaceAll("mouseHandler\\.getX\\(\\)", "mouseHandler.xpos()")
+        line = line.replaceAll("mouseHandler\\.getY\\(\\)", "mouseHandler.ypos()")
+        line = line.replaceAll("\\bgetScaleFactor\\b", "getGuiScale")
+        line = line.replaceAll("\\.getWindow\\(\\)\\.getWindow\\(\\)", ".getWindow().handle()")
+        line = line.replaceAll("\\bgetOperatingSystem\\b", "getPlatform")
+        // 26.x: Util.OS.open() → openUri() (方法重命名，适用于所有 26.x)
+        line = line.replaceAll("getPlatform\\(\\)\\.open\\(", "getPlatform().openUri(")
+        line = line.replaceAll("\\.write\\(", ".insertText(")
+        line = line.replaceAll("\\bsetWindowActive\\b", "setAllowSuggestions")
+        line = line.replaceAll("\\brefresh\\b", "updateCommandInfo")
+        line = line.replaceAll("\\bIdentifier\\.of\\b", "Identifier.fromNamespaceAndPath")
+        line = line.replaceAll("\\bhasPermissions\\b", "hasPermission")
+        line = line.replaceAll("\\bsendMessage\\b", "sendSystemMessage")
+        line = line.replaceAll("\\bgetDisplayName\\b", "getTabListDisplayName")
+        line = line.replaceAll("\\bsetUneditableColor\\b", "setTextColorUneditable")
+        line = line.replaceAll("\\bshouldPause\\b", "isPauseScreen")
+        line = line.replaceAll("\\brenderBackground\\b", "extractBackground")
+        line = line.replaceAll("\\bpublic void close\\(\\)", "public void onClose()")
+        line = line.replaceAll("\\bdrawHoverEvent\\b", "setTooltipForNextFrame")
+        line = line.replaceAll("\\bonChatMessage\\b", "handlePlayerChatMessage")
+        line = line.replaceAll("\\bonProfilelessMessage\\b", "handleDisguisedChatMessage")
+        line = line.replaceAll("\\bonGameMessage\\b", "handleSystemMessage")
+        line = line.replaceAll("\\bplayC2S\\b", "serverboundPlay")
+        line = line.replaceAll("\\bplayS2C\\b", "clientboundPlay")
+        line = line.replaceAll("\\bBLOCK_NOTE_BLOCK_CHIME\\b", "NOTE_BLOCK_CHIME")
+        line = line.replaceAll("\\bBLOCK_NOTE_BLOCK_PLING\\b", "NOTE_BLOCK_PLING")
+        // Widget render → extractRenderState (26.x rendering refactor)
+        line = line.replaceAll("super\\.render\\(", "super.extractRenderState(")
+        line = line.replaceAll("(\\b\\w+)\\.render\\(g,", "\$1.extractRenderState(g,")
+        // Undo render→extractRenderState for custom render methods (not Renderable interface)
+        line = line.replaceAll("INSTANCE\\.extractRenderState\\(g,", "INSTANCE.render(g,")
+        line = line.replaceAll("searchPanel\\.extractRenderState\\(", "searchPanel.render(")
+        line = line.replaceAll("settingsMenu\\.extractRenderState\\(", "settingsMenu.render(")
+        line = line.replaceAll("emojiPanel\\.extractRenderState\\(", "emojiPanel.render(")
+        line = line.replaceAll("quickChatPanel\\.extractRenderState\\(", "quickChatPanel.render(")
+        // ChatComponent methods
+        line = line.replaceAll("\\bgetMessageHistory\\b", "getRecentChat")
+        line = line.replaceAll("\\baddToMessageHistory\\b", "addRecentChat")
+        line = line.replaceAll("getChat\\(\\)\\.reset\\(\\)", "getChat().clearMessages(true)")
+        // CommandSourceStack methods
+        line = line.replaceAll("\\bsendError\\b", "sendFailure")
+        line = line.replaceAll("\\bsendFeedback\\b", "sendSuccess")
+        // PlayerSkinDrawer.draw → PlayerFaceExtractor.extractRenderState
+        line = line.replaceAll("PlayerSkinDrawer\\.draw\\b", "PlayerFaceExtractor.extractRenderState")
+        // Undo .write(→.insertText( for java.io.Writer
+        line = line.replaceAll("([wW]riter)\\.insertText\\(", "\$1.write(")
+        // Style.withFormatting → applyFormat
+        line = line.replaceAll("\\bwithFormatting\\b", "applyFormat")
+        // Resource.getInputStream → open
+        line = line.replaceAll("\\bgetInputStream\\b", "open")
+        // ChatType.Bound.type() → chatType()
+        line = line.replaceAll("\\bparams\\.type\\(\\)", "params.chatType()")
+        // setPixelRGBA → setPixelABGR (NativeImage ARGB→ABGR format change)
+        line = line.replaceAll("\\bsetPixelRGBA\\b", "setPixelABGR")
+
+        // Step 5: Class name replacements (word-boundary regex, longest names first)
+        line = line.replaceAll("\\bNativeImageBackedTexture\\b", "DynamicTexture")
+        line = line.replaceAll("\\bServerPlayerEntity\\b", "ServerPlayer")
+        line = line.replaceAll("\\bPlayerEntity\\b", "Player")
+        line = line.replaceAll("\\bPlayerListEntry\\b", "PlayerInfo")
+        line = line.replaceAll("\\bClientPlayNetworkHandler\\b", "ClientPacketListener")
+        line = line.replaceAll("\\bPositionedSoundInstance\\b", "SimpleSoundInstance")
+        line = line.replaceAll("\\bPacketByteBuf\\b", "FriendlyByteBuf")
+        line = line.replaceAll("\\bPacketCodec\\b", "StreamCodec")
+        line = line.replaceAll("\\bMinecraftClient\\b", "Minecraft")
+        line = line.replaceAll("\\bMathHelper\\b", "Mth")
+        line = line.replaceAll("\\bDrawContext\\b", "GuiGraphicsExtractor")
+        line = line.replaceAll("\\bButtonWidget\\b", "Button")
+        line = line.replaceAll("\\bTextFieldWidget\\b", "EditBox")
+        line = line.replaceAll("\\bClickableWidget\\b", "AbstractWidget")
+        line = line.replaceAll("\\bSliderWidget\\b", "AbstractSliderButton")
+        line = line.replaceAll("\\bMutableText\\b", "MutableComponent")
+        line = line.replaceAll("\\bOrderedText\\b", "FormattedCharSequence")
+        line = line.replaceAll("\\bTextCodecs\\b", "ComponentSerialization")
+        line = line.replaceAll("\\bTranslatableTextContent\\b", "TranslatableContents")
+        line = line.replaceAll("\\bTextRenderer\\b", "Font")
+        line = line.replaceAll("\\bFormatting\\b", "ChatFormatting")
+        line = line.replaceAll("\\bDefaultSkinHelper\\b", "DefaultPlayerSkin")
+        line = line.replaceAll("\\bPlayerSkinDrawer\\b", "PlayerFaceExtractor")
+        line = line.replaceAll("\\bSkinTextures\\b", "PlayerSkin")
+        line = line.replaceAll("\\bServerCommandSource\\b", "CommandSourceStack")
+        line = line.replaceAll("\\bChatHud\\b", "ChatComponent")
+        line = line.replaceAll("\\bChatInputSuggestor\\b", "CommandSuggestions")
+        line = line.replaceAll("\\bSuggestionWindow\\b", "SuggestionsList")
+        line = line.replaceAll("\\bMessageHandler\\b", "ChatListener")
+        line = line.replaceAll("\\bSleepingChatScreen\\b", "InBedChatScreen")
+        line = line.replaceAll("\\bCommandManager\\b", "Commands")
+        line = line.replaceAll("\\bMessageType\\b", "ChatType")
+        line = line.replaceAll("\\bSignedMessage\\b", "PlayerChatMessage")
+        line = line.replaceAll("\\bMessageSignatureData\\b", "MessageSignature")
+        line = line.replaceAll("\\bClientCommandC2SPacket\\b", "ServerboundClientCommandPacket")
+        line = line.replaceAll("\\bRegistryEntryList\\b", "HolderSet")
+        line = line.replaceAll("\\bRegistryEntry\\b", "Holder")
+        line = line.replaceAll("\\bKeyBinding\\b", "KeyMapping")
+        line = line.replaceAll("\\bKeyInput\\b", "KeyEvent")
+        line = line.replaceAll("\\bMouseInput\\b", "MouseButtonInfo")
+        line = line.replaceAll("\\bStringVisitable\\b", "FormattedText")
+        line = line.replaceAll("\\bWorldSavePath\\b", "LevelResource")
+        line = line.replaceAll("\\bMatrixStack\\b", "PoseStack")
+        line = line.replaceAll("\\bVertexConsumerProvider\\b", "MultiBufferSource")
+        line = line.replaceAll("\\bImmediateRender\\b", "MultiBufferSource.BufferSource")
+        line = line.replaceAll("\\bCustomPayload\\b", "CustomPacketPayload")
+        line = line.replaceAll("\\bScreenTexts\\b", "CommonComponents")
+        line = line.replaceAll("\\bPressAction\\b", "OnPress")
+        line = line.replaceAll("\\bResourceType\\b", "PackType")
+        line = line.replaceAll("\\bElement\\b", "GuiEventListener")
+        line = line.replaceAll("\\bDrawable\\b", "Renderable")
+        line = line.replaceAll("\\bSelectable\\b", "NarratableEntry")
+        line = line.replaceAll("\\bClick\\b", "MouseButtonEvent")
+        // Standalone Text must come last (after all *Text and Text* names)
+        line = line.replaceAll("\\bText\\b", "Component")
+
+        // Step 5b: Post-class-name method mappings (need Mojang class names from Step 5)
+        line = line.replaceAll("FormattedText\\.plain\\b", "FormattedText.of")
+        line = line.replaceAll("DefaultPlayerSkin\\.getSkin\\b", "DefaultPlayerSkin.get")
+        line = line.replaceAll("CommonComponents\\.DONE\\b", "CommonComponents.GUI_DONE")
+        line = line.replaceAll("CommonComponents\\.ON\\b", "CommonComponents.OPTION_ON")
+        line = line.replaceAll("CommonComponents\\.OFF\\b", "CommonComponents.OPTION_OFF")
+
+        // Step 6: Registry static reference + inner class mappings
+        line = line.replaceAll("\\bRegistry\\.", "BuiltInRegistries.")
+        line = line.replaceAll("CustomPacketPayload\\.Id\\b", "CustomPacketPayload.Type")
+        line = line.replaceAll("\\bId<", "Type<")
+        line = line.replaceAll("ChatType\\.Parameters\\b", "ChatType.Bound")
+        line = line.replaceAll("ServerboundClientCommandPacket\\.Mode\\b", "ServerboundClientCommandPacket.Action")
+
+        return line
     }
 }
 
@@ -214,8 +538,6 @@ tasks.withType(Test).configureEach {
 tasks.matching { it.name == 'preprocessCode' || it.name == 'preprocessResources' }.configureEach {
     enabled = false
 }
-
-
 
 publishing {
     publications {
