@@ -1178,7 +1178,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
         float panelAlpha = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * getAnimProgress();
         ChatBars.renderTitleBar(g, font, mouseX, mouseY, c(), panelX, panelW,
-            getDisplayTitle(), LocalTime.now().format(TIME_FMT), iconTex("menu"), panelAlpha);
+            getDisplayTitle(), LocalTime.now().format(TIME_FMT), iconTex("menu"), panelAlpha, getAnimProgress());
     }
 
     private boolean isMouseOverHamburger(double mx, double my) {
@@ -1660,7 +1660,7 @@ public class ChatBubbleScreen extends ChatScreen {
         float panelAlpha = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * getAnimProgress();
         ChatBars.renderBottomBar(g, font, mouseX, mouseY, c(), panelX, panelW, barTop, height,
             inputX, inputY, input.getWidth(), input.isFocused(), emojiPanel.visible,
-            iconTex("settings"), iconTex("emoji"), iconTex("send"), panelAlpha);
+            iconTex("settings"), iconTex("emoji"), iconTex("send"), panelAlpha, getAnimProgress());
     }
 
     static void drawTextureIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size) {
