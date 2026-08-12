@@ -26,8 +26,21 @@ import org.slf4j.Logger;
 public final class ImageLoader {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Map<String, ImageEntry> CACHE = new ConcurrentHashMap<>();
+    // Dedicated daemon pool: ForkJoinPool.commonPool is shared with the whole
+    // mod ecosystem and frequently starved/blocked by other mods, which left
+    // fetches stuck in LOADING forever. Two threads is plenty for chat images.
+    private static final java.util.concurrent.ExecutorService EXEC =
+        java.util.concurrent.Executors.newFixedThreadPool(2, r -> {
+            Thread t = new Thread(r, "e33chat-image");
+            t.setDaemon(true);
+            return t;
+        });
+    // HTTP/1.1: the JDK's default HTTP/2 path is much slower against some
+    // servers (measured 11.7s vs curl's 3.6s on the same image); plain HTTP/1.1
+    // matches curl behaviour.
     private static final HttpClient CLIENT = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(10))
+        .version(HttpClient.Version.HTTP_1_1)
+        .connectTimeout(Duration.ofSeconds(8))
         .followRedirects(HttpClient.Redirect.NORMAL)
         .build();
 
@@ -83,10 +96,11 @@ public final class ImageLoader {
             entry.markFailed("bad url");
             return entry;
         }
-        CompletableFuture.runAsync(() -> fetchAndDecode(url, entry))
+        CompletableFuture.runAsync(() -> fetchAndDecode(url, entry), EXEC)
             .orTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .exceptionally(t -> {
                 entry.markFailed(String.valueOf(t));
+                LOGGER.info("[e33chat] image fetch {} -> timeout after {}s", url, REQUEST_TIMEOUT_SECONDS);
                 return null;
             });
         return entry;
