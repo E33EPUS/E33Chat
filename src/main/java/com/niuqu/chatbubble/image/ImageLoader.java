@@ -74,8 +74,24 @@ public final class ImageLoader {
     /** Main entry: returns the entry, kicking off the load if unseen. */
     public static ImageEntry getOrLoad(String url) {
         if (!enabled) return null;
-        return CACHE.computeIfAbsent(url, ImageLoader::startLoad);
+        ImageEntry entry = CACHE.get(url);
+        if (entry == null) {
+            entry = CACHE.computeIfAbsent(url, ImageLoader::startLoad);
+        } else if (entry.state() == ImageEntry.State.FAILED
+                && System.currentTimeMillis() - entry.failedAtMillis() > FAILED_RETRY_MS) {
+            // Transient failures (DNS hiccup, slow server) should not poison the
+            // cache forever — retry after a quiet period. Replacing the entry
+            // atomically keeps concurrent renders from seeing a half-built one.
+            ImageEntry fresh = new ImageEntry(url);
+            if (CACHE.replace(url, entry, fresh)) {
+                startLoadInto(url, fresh);
+                entry = fresh;
+            }
+        }
+        return entry;
     }
+
+    private static final long FAILED_RETRY_MS = 10_000;
 
     /** Headless-friendly: parse + validate the URL without touching MC. */
     public static boolean isUsableUrl(String url) {
@@ -92,9 +108,14 @@ public final class ImageLoader {
 
     private static ImageEntry startLoad(String url) {
         ImageEntry entry = new ImageEntry(url);
+        startLoadInto(url, entry);
+        return entry;
+    }
+
+    private static void startLoadInto(String url, ImageEntry entry) {
         if (!isUsableUrl(url)) {
             entry.markFailed("bad url");
-            return entry;
+            return;
         }
         CompletableFuture.runAsync(() -> fetchAndDecode(url, entry), EXEC)
             .orTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -103,7 +124,6 @@ public final class ImageLoader {
                 LOGGER.info("[e33chat] image fetch {} -> timeout after {}s", url, REQUEST_TIMEOUT_SECONDS);
                 return null;
             });
-        return entry;
     }
 
     private static void fetchAndDecode(String url, ImageEntry entry) {
@@ -136,17 +156,24 @@ public final class ImageLoader {
             MinecraftClient.getInstance().execute(() -> {
                 if (entry.state() != ImageEntry.State.LOADING) {
                     decoded.image().close();
+                    LOGGER.info("[e33chat] image upload SKIPPED (state {}) for {}", entry.state(), url);
                     return;
                 }
                 // NOTE: getTexture(id) returns the MISSING texture (black/purple)
                 // for unregistered ids — never null — so it can't guard registration.
                 // Re-register unconditionally (destroy first to avoid leaking the
                 // previous NativeImageBackedTexture on cache eviction + reload).
-                Identifier id = Identifier.of("e33chat", "img/" + hash(url));
-                TextureManager tm = MinecraftClient.getInstance().getTextureManager();
-                tm.destroyTexture(id);
-                tm.registerTexture(id, new NativeImageBackedTexture(decoded.image()));
-                entry.markLoaded(id, decoded.image());
+                try {
+                    Identifier id = Identifier.of("e33chat", "img/" + hash(url));
+                    TextureManager tm = MinecraftClient.getInstance().getTextureManager();
+                    tm.destroyTexture(id);
+                    tm.registerTexture(id, new NativeImageBackedTexture(decoded.image()));
+                    entry.markLoaded(id, decoded.image());
+                    LOGGER.info("[e33chat] image upload OK {} -> {}x{} @ {}", url, entry.width(), entry.height(), id);
+                } catch (Throwable t) {
+                    entry.markFailed("upload: " + t);
+                    LOGGER.info("[e33chat] image upload FAILED {}: {}", url, t.toString());
+                }
             });
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

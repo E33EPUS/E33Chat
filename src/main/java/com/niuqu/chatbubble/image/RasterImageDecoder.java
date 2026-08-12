@@ -31,12 +31,13 @@ public final class RasterImageDecoder {
         if (bytes == null || bytes.length == 0) return null;
         try {
             // PNG fast path (NativeImage.read is PNG-only, no decompression bomb risk here
-            // because NativeImage.read applies its own size checks).
+            // because NativeImage.read applies its own size checks). NOTE: no
+            // try-with-resources — the returned image must stay alive until the
+            // render thread hands it to NativeImageBackedTexture.
             if (bytes.length > 8 && (bytes[0] & 0xFF) == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G') {
-                try (NativeImage img = NativeImage.read(new ByteArrayInputStream(bytes))) {
-                    if (img == null) return null;
-                    return new DecodedImage(img, img.getWidth(), img.getHeight());
-                }
+                NativeImage img = NativeImage.read(new ByteArrayInputStream(bytes));
+                if (img == null) return null;
+                return new DecodedImage(img, img.getWidth(), img.getHeight());
             }
             // Header probe for the rest — getWidth/getHeight only reads the header.
             try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {

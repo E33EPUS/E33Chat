@@ -16,6 +16,7 @@ public final class ImageEntry {
     private volatile int width;
     private volatile int height;
     private volatile String failure;
+    private volatile long failedAtMillis;
 
     ImageEntry(String url) {
         this.url = url;
@@ -27,6 +28,7 @@ public final class ImageEntry {
     public int width() { return width; }
     public int height() { return height; }
     public String failure() { return failure; }
+    public long failedAtMillis() { return failedAtMillis; }
 
     synchronized void markLoaded(Identifier id, NativeImage img) {
         this.textureId = id;
@@ -39,6 +41,7 @@ public final class ImageEntry {
     synchronized void markFailed(String reason) {
         this.failure = reason;
         this.state = State.FAILED;
+        this.failedAtMillis = System.currentTimeMillis();
         ImageLoader.VERSION.incrementAndGet();
     }
 }

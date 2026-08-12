@@ -1612,6 +1612,7 @@ public class ChatBubbleScreen extends ChatScreen {
             RoundRectRenderer.fill(g, x, yy, x + cardW, yy + cardH, 4,
                 ChatBubbleTheme.alphaBlend(0x22000000, (int) (255 * alpha)));
             ImageEntry entry = ImageLoader.getOrLoad(ref.url());
+            logImageRenderState(ref.url(), entry);
             if (entry != null && entry.state() == ImageEntry.State.LOADED
                     && entry.textureId() != null && entry.width() > 0 && entry.height() > 0) {
                 int w = Math.min(IMAGE_MAX_W, entry.width());
@@ -1640,6 +1641,18 @@ public class ChatBubbleScreen extends ChatScreen {
             clickableSpans.add(new ClickableSpan(x, yy, cardW, cardH, st));
             yy += cardH + 2;
         }
+    }
+
+    // Per-URL state-change logging (probe): prints once per state transition,
+    // not every frame.
+    private static final Map<String, ImageEntry.State> lastLoggedImgState = new java.util.HashMap<>();
+
+    private void logImageRenderState(String url, ImageEntry entry) {
+        ImageEntry.State st = entry == null ? null : entry.state();
+        if (lastLoggedImgState.get(url) == st) return;
+        lastLoggedImgState.put(url, st);
+        com.mojang.logging.LogUtils.getLogger().info(
+            "[e33chat] image render {} -> {}", url, st);
     }
 
     private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color) {
