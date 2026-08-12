@@ -72,12 +72,15 @@ public final class RasterImageDecoder {
         int w = bi.getWidth();
         int h = bi.getHeight();
         NativeImage out = new NativeImage(NativeImage.Format.RGBA, w, h, false);
-        // Direct pixel copy; getRGB gives 0xAARRGGBB, setColor wants the same
-        // big-endian ARGB (alpha at the biggest bits).
+        // Direct pixel copy. AWT getRGB gives 0xAARRGGBB (big-endian ARGB);
+        // NativeImage memory is ABGR32 (byte order B,G,R,A — see FastColor.ABGR32
+        // usage in blendPixel), so R and B must swap before the store or JPEG/GIF
+        // images render with red and blue exchanged.
         int[] argb = bi.getRGB(0, 0, w, h, null, 0, w);
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
-                out.setColor(x, y, argb[y * w + x]);
+                int c = argb[y * w + x];
+                out.setColor(x, y, (c & 0xFF00FF00) | ((c & 0x00FF0000) >> 16) | ((c & 0x000000FF) << 16));
             }
         }
         return out;
