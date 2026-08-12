@@ -66,7 +66,11 @@ public final class ConfigManager {
             c.bannerAnimStyle() != null ? c.bannerAnimStyle() : d.bannerAnimStyle(),
             c.popupAnimStyle() != null ? c.popupAnimStyle() : d.popupAnimStyle(),
             c.messageAnimStyle() != null ? c.messageAnimStyle() : d.messageAnimStyle(),
-            c.imageRenderEnabled() != null ? c.imageRenderEnabled() : d.imageRenderEnabled());
+            c.imageRenderEnabled() != null ? c.imageRenderEnabled() : d.imageRenderEnabled(),
+            // receiveImages is the user-facing switch; legacy imageRenderEnabled
+            // (2.3.10 early builds) migrates into it when the new key is absent.
+            c.receiveImages() != null ? c.receiveImages()
+                : (c.imageRenderEnabled() != null ? c.imageRenderEnabled() : d.receiveImages()));
     }
 
     public static void save(Path path, ChatBubbleConfig config) {

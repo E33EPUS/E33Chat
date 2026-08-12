@@ -224,5 +224,6 @@
   "e33chat.server.preview.desc": "Type any message to preview parsing instantly — shows the matched name and content.",
   "e33chat.image.loading": "Loading…",
   "e33chat.image.failed": "Image failed to load",
-  "e33chat.image.ratelimited": "Too many images, rate limited"
+  "e33chat.image.ratelimited": "Too many images, rate limited",
+  "e33chat.image.placeholder": "[Image]"
 }

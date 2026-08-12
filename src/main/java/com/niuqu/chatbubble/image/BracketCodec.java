@@ -101,6 +101,35 @@ public final class BracketCodec {
         return new ParseResult(out, refs);
     }
 
+    /**
+     * Replaces every bracket image code with a plain-text placeholder
+     * ("[图片]"/"[Image]") while keeping the surrounding styles. Used when
+     * image receiving is disabled — no download is ever triggered.
+     */
+    public static Text toPlaceholderText(Text text) {
+        if (text == null) return null;
+        Matcher m = BRACKET.matcher(text.getString());
+        if (!m.find()) return text;
+        MutableText out = Text.empty();
+        Text placeholder = Text.translatable("e33chat.image.placeholder");
+        text.visit((style, part) -> {
+            int partStart = 0;
+            Matcher local = BRACKET.matcher(part);
+            while (local.find()) {
+                if (local.start() > partStart) {
+                    out.append(Text.literal(part.substring(partStart, local.start())).fillStyle(style));
+                }
+                out.append(placeholder.copy().fillStyle(style));
+                partStart = local.end();
+            }
+            if (partStart < part.length()) {
+                out.append(Text.literal(part.substring(partStart)).fillStyle(style));
+            }
+            return Optional.empty();
+        }, Style.EMPTY);
+        return out;
+    }
+
     private static ImageRef parseAttrs(String attrs, String tag) {
         String url = null;
         String name = null;

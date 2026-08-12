@@ -105,6 +105,25 @@ class BracketCodecTest {
     }
 
     @Test
+    void toPlaceholderReplacesCodes() {
+        Text input = Text.literal("hi [[CICode,url=https://a.com/x.png]] there");
+        Text out = BracketCodec.toPlaceholderText(input);
+        String s = out.getString();
+        // headless: the translatable placeholder renders as its key; in-game it
+        // is "[图片]"/"[Image]". Either way the code itself must be gone.
+        assertFalse(s.contains("CICode"), s);
+        assertFalse(s.contains("https://"), s);
+        assertTrue(s.contains("hi"), s);
+        assertTrue(s.contains("there"), s);
+    }
+
+    @Test
+    void toPlaceholderKeepsPlainTextUnchanged() {
+        Text input = Text.literal("just text");
+        assertSame(input, BracketCodec.toPlaceholderText(input));
+    }
+
+    @Test
     void usableUrlChecks() {
         assertTrue(ImageLoader.isUsableUrl("https://a.com/x.png"));
         assertTrue(ImageLoader.isUsableUrl("http://localhost:8080/x.png"));

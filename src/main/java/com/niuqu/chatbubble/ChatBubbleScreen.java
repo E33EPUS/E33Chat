@@ -1463,8 +1463,11 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private BracketCodec.ParseResult parseImages(ChatMessageStore.ChatMessage msg) {
-        if (!ChatBubbleClientSetup.config().imageRenderEnabled()) {
-            return new BracketCodec.ParseResult(msg.content(), java.util.List.of());
+        if (!ChatBubbleClientSetup.config().receiveImages()) {
+            // Receiving disabled: bracket codes render as a plain-text
+            // placeholder, never downloaded (the flood limiter stays untouched).
+            return new BracketCodec.ParseResult(
+                BracketCodec.toPlaceholderText(msg.content()), java.util.List.of());
         }
         BracketCodec.ParseResult cached = imageParseCache.get(msg);
         if (cached != null) return cached;
