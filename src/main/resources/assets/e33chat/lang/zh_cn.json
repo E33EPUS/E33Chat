@@ -223,5 +223,6 @@
   "e33chat.server.gen.desc": "粘贴一条真实聊天消息点生成——模板自动推断（消息里须含在线/见过的玩家名）。",
   "e33chat.server.preview.desc": "输入任意消息即时预览解析结果——显示匹配到的名字和内容。",
   "e33chat.image.loading": "下载中…",
-  "e33chat.image.failed": "图片加载失败"
+  "e33chat.image.failed": "图片加载失败",
+  "e33chat.image.ratelimited": "图片过于频繁，已限流"
 }

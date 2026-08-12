@@ -6,6 +6,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -19,13 +22,24 @@ import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 
 /**
- * URL → memory cache → async HTTP fetch → decode (worker thread) → texture
- * upload (render thread). Entries are keyed by the raw URL; failed entries
- * are evicted so the next reference retries.
+ * URL → memory cache → async HTTP fetch → decode → scale → texture upload.
+ *
+ * Anti-flood guards (a chat message is an attacker-controlled download trigger):
+ *  - sliding window: at most RATE_LIMIT_PER_WINDOW new downloads per window;
+ *    excess URLs queue (QUEUE_CAP) and are drained by {@link #tick()} when a
+ *    slot frees up; beyond the queue cap the entry fails with "rate limited"
+ *    (rendered with a distinct label).
+ *  - cache cap: finished entries are LRU-evicted past CACHE_CAP, destroying
+ *    their GPU textures.
+ *  - decode is always scaled down to CARD_W x CARD_H before upload, so a
+ *    hostile 16MB image costs ~230KB of GPU memory.
  */
 public final class ImageLoader {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Map<String, ImageEntry> CACHE = new ConcurrentHashMap<>();
+    private static final Deque<String> LRU = new ArrayDeque<>();
+    private static final Deque<ImageEntry> PENDING = new ArrayDeque<>();
+
     // Dedicated daemon pool: ForkJoinPool.commonPool is shared with the whole
     // mod ecosystem and frequently starved/blocked by other mods, which left
     // fetches stuck in LOADING forever. Two threads is plenty for chat images.
@@ -49,6 +63,17 @@ public final class ImageLoader {
     // ~12s in the user's environment); keep the budget generous so a slow-but-
     // working link lands in LOADED, not FAILED.
     private static final long REQUEST_TIMEOUT_SECONDS = 30;
+
+    // Anti-flood knobs (grilled with the user, 2026-08-12)
+    static final int RATE_LIMIT_PER_WINDOW = 4;
+    static final long RATE_WINDOW_MS = 10_000;
+    static final int QUEUE_CAP = 32;
+    static final int CACHE_CAP = 64;
+    static final int CARD_W = 320;
+    static final int CARD_H = 180;
+
+    private static final long FAILED_RETRY_MS = 10_000;
+    private static final Deque<Long> RECENT_STARTS = new ArrayDeque<>();
     private static volatile boolean enabled = true;
 
     /** Incremented on every state flip; consumers (chat layout) use it to drop caches. */
@@ -67,6 +92,8 @@ public final class ImageLoader {
                     tm.destroyTexture(Identifier.of("e33chat", "img/" + hash(u)));
                 }
                 CACHE.clear();
+                LRU.clear();
+                PENDING.clear();
             });
         }
     }
@@ -88,10 +115,40 @@ public final class ImageLoader {
                 entry = fresh;
             }
         }
+        touchLru(url);
         return entry;
     }
 
-    private static final long FAILED_RETRY_MS = 10_000;
+    private static void touchLru(String url) {
+        synchronized (LRU) {
+            LRU.remove(url);
+            LRU.addLast(url);
+        }
+        evictIfNeeded();
+    }
+
+    /** Drops the oldest finished entries past CACHE_CAP, destroying textures. */
+    private static void evictIfNeeded() {
+        synchronized (LRU) {
+            if (LRU.size() <= CACHE_CAP) return;
+            Iterator<String> it = LRU.iterator();
+            while (it.hasNext() && LRU.size() > CACHE_CAP) {
+                String url = it.next();
+                ImageEntry e = CACHE.get(url);
+                // Never evict in-flight entries (their upload callback would leak).
+                if (e == null || e.state() == ImageEntry.State.LOADING) continue;
+                it.remove();
+                CACHE.remove(url, e);
+                if (e.state() == ImageEntry.State.LOADED && e.textureId() != null) {
+                    Identifier id = e.textureId();
+                    MinecraftClient.getInstance().execute(() -> {
+                        MinecraftClient.getInstance().getTextureManager().destroyTexture(id);
+                    });
+                }
+                VERSION.incrementAndGet();
+            }
+        }
+    }
 
     /** Headless-friendly: parse + validate the URL without touching MC. */
     public static boolean isUsableUrl(String url) {
@@ -106,6 +163,17 @@ public final class ImageLoader {
         }
     }
 
+    /** Pure size math for scaling (unit-testable). */
+    public static int[] scaledSize(int w, int h) {
+        if (w <= 0 || h <= 0) return new int[]{1, 1};
+        if (w <= CARD_W && h <= CARD_H) return new int[]{w, h};
+        double scale = Math.min((double) CARD_W / w, (double) CARD_H / h);
+        return new int[]{
+            Math.max(1, (int) (w * scale)),
+            Math.max(1, (int) (h * scale))
+        };
+    }
+
     private static ImageEntry startLoad(String url) {
         ImageEntry entry = new ImageEntry(url);
         startLoadInto(url, entry);
@@ -117,6 +185,52 @@ public final class ImageLoader {
             entry.markFailed("bad url");
             return;
         }
+        if (tryAcquireSlot()) {
+            launchFetch(url, entry);
+        } else {
+            synchronized (PENDING) {
+                if (PENDING.size() < QUEUE_CAP) {
+                    PENDING.addLast(entry);
+                    // entry stays LOADING; tick() drains when a slot frees
+                } else {
+                    entry.markFailed("rate limited");
+                }
+            }
+        }
+    }
+
+    private static boolean tryAcquireSlot() {
+        long now = System.currentTimeMillis();
+        synchronized (RECENT_STARTS) {
+            while (!RECENT_STARTS.isEmpty() && now - RECENT_STARTS.peekFirst() > RATE_WINDOW_MS) {
+                RECENT_STARTS.removeFirst();
+            }
+            if (RECENT_STARTS.size() >= RATE_LIMIT_PER_WINDOW) return false;
+            RECENT_STARTS.addLast(now);
+            return true;
+        }
+    }
+
+    /** Called every client tick; starts queued fetches as slots free up. */
+    public static void tick() {
+        if (!enabled) return;
+        while (true) {
+            ImageEntry next;
+            synchronized (PENDING) {
+                if (PENDING.isEmpty()) return;
+                next = PENDING.peekFirst();
+            }
+            if (next.state() != ImageEntry.State.LOADING) {
+                synchronized (PENDING) { PENDING.removeFirst(); }
+                continue;
+            }
+            if (!tryAcquireSlot()) return;
+            synchronized (PENDING) { PENDING.removeFirst(); }
+            launchFetch(next.url(), next);
+        }
+    }
+
+    private static void launchFetch(String url, ImageEntry entry) {
         CompletableFuture.runAsync(() -> fetchAndDecode(url, entry), EXEC)
             .orTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .exceptionally(t -> {
@@ -150,12 +264,33 @@ public final class ImageLoader {
                 LOGGER.info("[e33chat] image fetch {} -> decode failed ({} bytes, {}ms)", url, body.length, t1 - t0);
                 return;
             }
+            // Scale down before upload: a hostile full-size image costs ~230KB
+            // of GPU memory instead of up to 9MB+, and renders identical at
+            // card size (the original can be re-downloaded if a full-size
+            // viewer is ever added).
+            int[] sc = scaledSize(decoded.width(), decoded.height());
+            if (sc[0] != decoded.width() || sc[1] != decoded.height()) {
+                NativeImage scaled = new NativeImage(NativeImage.Format.RGBA, sc[0], sc[1], false);
+                try {
+                    decoded.image().resizeSubRectTo(0, 0, decoded.width(), decoded.height(), scaled);
+                } catch (Throwable t) {
+                    scaled.close();
+                    decoded.image().close();
+                    entry.markFailed("scale: " + t);
+                    LOGGER.info("[e33chat] image fetch {} -> scale failed: {}", url, t.toString());
+                    return;
+                }
+                decoded.image().close();
+                decoded = new RasterImageDecoder.DecodedImage(scaled, sc[0], sc[1]);
+            }
             LOGGER.info("[e33chat] image fetch {} -> {}x{} ({} bytes, {}ms)",
                 url, decoded.width(), decoded.height(), body.length, t1 - t0);
+
+            final RasterImageDecoder.DecodedImage uploadImage = decoded;
             // Upload on the render thread, then flip state.
             MinecraftClient.getInstance().execute(() -> {
                 if (entry.state() != ImageEntry.State.LOADING) {
-                    decoded.image().close();
+                    uploadImage.image().close();
                     LOGGER.info("[e33chat] image upload SKIPPED (state {}) for {}", entry.state(), url);
                     return;
                 }
@@ -167,8 +302,8 @@ public final class ImageLoader {
                     Identifier id = Identifier.of("e33chat", "img/" + hash(url));
                     TextureManager tm = MinecraftClient.getInstance().getTextureManager();
                     tm.destroyTexture(id);
-                    tm.registerTexture(id, new NativeImageBackedTexture(decoded.image()));
-                    entry.markLoaded(id, decoded.image());
+                    tm.registerTexture(id, new NativeImageBackedTexture(uploadImage.image()));
+                    entry.markLoaded(id, uploadImage.image());
                     LOGGER.info("[e33chat] image upload OK {} -> {}x{} @ {}", url, entry.width(), entry.height(), id);
                 } catch (Throwable t) {
                     entry.markFailed("upload: " + t);
@@ -191,5 +326,11 @@ public final class ImageLoader {
 
     /** Package-private hooks for unit tests. */
     static Map<String, ImageEntry> cache() { return CACHE; }
-    static void clearCacheForTest() { CACHE.clear(); }
+    static void clearCacheForTest() {
+        CACHE.clear();
+        synchronized (LRU) { LRU.clear(); }
+        synchronized (PENDING) { PENDING.clear(); }
+        synchronized (RECENT_STARTS) { RECENT_STARTS.clear(); }
+    }
+    static boolean tryAcquireSlotForTest() { return tryAcquireSlot(); }
 }

@@ -1627,7 +1627,8 @@ public class ChatBubbleScreen extends ChatScreen {
                 g.drawTexture(entry.textureId(), dx, dy, w, h, 0, 0,
                     entry.width(), entry.height(), entry.width(), entry.height());
             } else if (entry != null && entry.state() == ImageEntry.State.FAILED) {
-                String txt = Text.translatable("e33chat.image.failed").getString();
+                boolean limited = entry.failure() != null && entry.failure().contains("rate limited");
+                String txt = Text.translatable(limited ? "e33chat.image.ratelimited" : "e33chat.image.failed").getString();
                 g.drawText(textRenderer, txt, x + (cardW - textRenderer.getWidth(txt)) / 2,
                     yy + (cardH - textRenderer.fontHeight) / 2,
                     ChatBubbleTheme.alphaBlend(0xFFFF5555, (int) (255 * alpha)), false);
