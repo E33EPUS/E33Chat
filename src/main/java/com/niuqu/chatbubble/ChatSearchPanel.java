@@ -1,14 +1,7 @@
 package com.niuqu.chatbubble;
 
-import com.niuqu.chatbubble.texture.UiElement;
-import com.niuqu.chatbubble.texture.UiTextureManager;
-import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import net.minecraft.client.font.TextRenderer;
-//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
-//#else
-//$$ import net.minecraft.client.util.math.MatrixStack;
-//#endif
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
@@ -20,14 +13,12 @@ public class ChatSearchPanel {
     static final int INPUT_H = 14;
     static final int HIGHLIGHT = 0xFFFFFF55;
 
+    boolean visible;
+
     // 弹层 x 夹在聊天面板内且不超屏幕左右（与表情面板同一模式）——6x 时
     // panelW 收缩到 ~166 < 180，固定居中会溢出屏幕左边
     static int clampX(int px, int pw, int panelX, int panelW) {
-        //#if MC >= 12111
         int screenW = net.minecraft.client.MinecraftClient.getInstance().getWindow().getScaledWidth();
-        //#else
-        //$$ int screenW = net.minecraft.client.MinecraftClient.getInstance().getWindow().getScaledWidth();
-        //#endif
         int max = Math.min(panelX + panelW - pw - 2, screenW - pw - 2);
         return net.minecraft.util.math.MathHelper.clamp(px, Math.min(panelX + 2, max), max);
     }
@@ -37,9 +28,7 @@ public class ChatSearchPanel {
         return Math.max(100, Math.min(PANEL_W, panelWidth - 4));
     }
 
-    boolean visible;
-
-    public void render(Object g, int mouseX, int mouseY,
+    public void render(DrawContext g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
             TextFieldWidget searchInput,
@@ -50,9 +39,10 @@ public class ChatSearchPanel {
         int px = clampX(panelX + panelW / 2 - w / 2, w, panelX, panelW);
         int py = barTop - PANEL_H - 4;
 
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTENT_BG),
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, py, w, PANEL_H, alpha);
-        drawBorder(g, px, py, w, PANEL_H, ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        g.drawBorder(px, py, w, PANEL_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         int inputX = px + 4;
         int inputY = py + 4;
@@ -62,37 +52,37 @@ public class ChatSearchPanel {
         int counterW = 0;
         if (!searchInput.getText().isEmpty()) {
             if (searchMatches.isEmpty())
-                counter = com.niuqu.chatbubble.Txt.translatable("e33chat.search.no_match").getString();
+                counter = Text.translatable("e33chat.search.no_match").getString();
             else
                 counter = (searchMatchIdx + 1) + "/" + searchMatches.size();
             counterW = font.getWidth(counter) + 6;
         }
 
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.INPUT_BG),
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
             inputX, inputY, inputW, INPUT_H, alpha);
 
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + INPUT_H;
         if (hoverInput || searchInput.isFocused())
-            drawBorder(g, inputX, inputY, inputW, INPUT_H, ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
+            g.drawBorder(inputX, inputY, inputW, INPUT_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
 
         if (!counter.isEmpty()) {
-            RenderHelper.drawText(g, font, counter, inputX + inputW - counterW, inputY + 3,
-                ChatBubbleTheme.alphaBlend(searchMatches.isEmpty() ? c.textMuted() : c.textSecondary(), a255), false);
+            int cc = searchMatches.isEmpty() ? c.textMuted() : c.textSecondary();
+            g.drawText(font, counter, inputX + inputW - counterW, inputY + 3,
+                com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(cc, a255), false);
         }
 
         int editW = inputW - 4 - counterW;
         searchInput.setX(inputX + 2);
         searchInput.setWidth(editW - 4);
-        GuiCompat.setWidgetY(searchInput, inputY + 3);
-        //#if MC >= 12004
+        searchInput.setY(inputY + 3);
         searchInput.setHeight(INPUT_H - 2);
-        //#endif
         searchInput.setVisible(true);
 
         if (searchInput.getText().isEmpty()) {
-            String ph = com.niuqu.chatbubble.Txt.translatable("e33chat.search.placeholder").getString();
-            RenderHelper.drawText(g, font, ph, inputX + 2, inputY + 3, ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
+            String ph = Text.translatable("e33chat.search.placeholder").getString();
+            g.drawText(font, ph, inputX + 2, inputY + 3, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
         }
     }
 
@@ -102,12 +92,5 @@ public class ChatSearchPanel {
         int sx = clampX(panelX + panelW / 2 - w / 2, w, panelX, panelW);
         int sy = barTop - PANEL_H - 4;
         return mx >= sx && mx <= sx + w && my >= sy && my <= sy + PANEL_H;
-    }
-
-    private static void drawBorder(Object g, int x, int y, int w, int h, int color) {
-        RenderHelper.fill(g, x, y, x + w, y + 1, color);
-        RenderHelper.fill(g, x, y + h - 1, x + w, y + h, color);
-        RenderHelper.fill(g, x, y + 1, x + 1, y + h - 1, color);
-        RenderHelper.fill(g, x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 }

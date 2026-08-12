@@ -1,39 +1,43 @@
 package com.niuqu.chatbubble.config;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.niuqu.chatbubble.E33Log;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+
 public final class ConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private ConfigManager() {}
+
     public static ChatBubbleConfig load(Path path) {
         if (Files.exists(path)) {
             try (Reader r = new InputStreamReader(Files.newInputStream(path), StandardCharsets.UTF_8)) {
                 ChatBubbleConfig loaded = GSON.fromJson(r, ChatBubbleConfig.class);
                 if (loaded != null) {
                     var merged = mergeWithDefaults(loaded);
-                    E33Log.info("[e33chat] Loaded config | soundPublic=" + merged.soundPublic() + " | soundSystem=" + merged.soundSystem());
+                    LoggerFactory.getLogger("e33chat").info("[e33chat] Loaded config | soundPublic=" + merged.soundPublic() + " | soundSystem=" + merged.soundSystem());
                     return merged;
                 }
             } catch (Exception e) {
-                E33Log.warn("[e33chat] Failed to load config, using defaults", e);
+                LoggerFactory.getLogger("e33chat").warn("[e33chat] Failed to load config, using defaults", e);
             }
         }
         ChatBubbleConfig def = ChatBubbleConfig.defaults();
         save(path, def);
-        E33Log.info("[e33chat] Created default config | soundPublic=" + def.soundPublic() + " | soundSystem=" + def.soundSystem());
+        LoggerFactory.getLogger("e33chat").info("[e33chat] Created default config | soundPublic=" + def.soundPublic() + " | soundSystem=" + def.soundSystem());
         return def;
     }
+
     private static ChatBubbleConfig mergeWithDefaults(ChatBubbleConfig c) {
         ChatBubbleConfig d = ChatBubbleConfig.defaults();
         return new ChatBubbleConfig(
             c.enabled(), c.theme() != null ? c.theme() : d.theme(),
             c.redDotEnabled(), c.hideChatIcon(), c.animationEnabled(),
-            c.strongHintEnabled(), c.systemChatAsBubble(),
-            c.systemBannerEnabled(),
+            c.systemChatAsBubble(),
             c.antiSpam(), c.chatHistoryEnabled(),
             c.historyRetentionDays(), c.timeSeparatorMinutes(),
             c.panelWidth(), c.bubbleCornerRadius(),
@@ -47,6 +51,7 @@ public final class ConfigManager {
             c.blockedPlayers() != null ? c.blockedPlayers() : d.blockedPlayers(),
             c.quickChatPhrases() != null ? c.quickChatPhrases() : d.quickChatPhrases(),
             c.mentionBannerEnabled(),
+            c.systemBannerEnabled(),
             c.mentionBannerDuration() > 0 ? c.mentionBannerDuration() : d.mentionBannerDuration(),
             c.mentionSoundEnabled(),
             c.mentionRequireAt(),
@@ -60,8 +65,18 @@ public final class ConfigManager {
             c.panelAnimStyle() != null ? c.panelAnimStyle() : d.panelAnimStyle(),
             c.bannerAnimStyle() != null ? c.bannerAnimStyle() : d.bannerAnimStyle(),
             c.popupAnimStyle() != null ? c.popupAnimStyle() : d.popupAnimStyle(),
-            c.messageAnimStyle() != null ? c.messageAnimStyle() : d.messageAnimStyle());
+            c.messageAnimStyle() != null ? c.messageAnimStyle() : d.messageAnimStyle(),
+            c.imageRenderEnabled() != null ? c.imageRenderEnabled() : d.imageRenderEnabled(),
+            // receiveImages is the user-facing switch; legacy imageRenderEnabled
+            // (2.3.10 early builds) migrates into it when the new key is absent.
+            c.receiveImages() != null ? c.receiveImages()
+                : (c.imageRenderEnabled() != null ? c.imageRenderEnabled() : d.receiveImages()),
+            c.uploadUrl() != null ? c.uploadUrl() : d.uploadUrl(),
+            c.uploadField() != null ? c.uploadField() : d.uploadField(),
+            c.uploadExtra() != null ? c.uploadExtra() : d.uploadExtra(),
+            c.uploadResponse() != null ? c.uploadResponse() : d.uploadResponse());
     }
+
     public static void save(Path path, ChatBubbleConfig config) {
         try {
             Files.createDirectories(path.getParent());
@@ -69,7 +84,7 @@ public final class ConfigManager {
                 GSON.toJson(config, w);
             }
         } catch (Exception e) {
-            E33Log.warn("[e33chat] Failed to save config", e);
+            LoggerFactory.getLogger("e33chat").warn("[e33chat] Failed to save config", e);
         }
     }
 }

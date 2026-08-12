@@ -2,10 +2,13 @@ package com.niuqu.chatbubble;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.config.ConfigManager;
+import com.niuqu.chatbubble.image.EmoteCatalog;
+import com.niuqu.chatbubble.image.ImageLoader;
 import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
 import com.niuqu.chatbubble.network.HistoryPayload;
+import com.niuqu.chatbubble.network.MediaCapPayload;
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -28,26 +31,26 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
     private static ChatBubbleConfig config = ChatBubbleConfig.defaults();
     private static Path configPath;
     private static boolean leftWasDown;
-    private static boolean texturesLoaded;
 
     public static ChatBubbleConfig config() { return config; }
 
     public static void saveConfig(ChatBubbleConfig newConfig) {
         config = newConfig;
-        E33Log.info("[e33chat] Saving config | soundPublic=" + newConfig.soundPublic() + " | soundSystem=" + newConfig.soundSystem());
+        com.mojang.logging.LogUtils.getLogger().info("[e33chat] Saving config | soundPublic=" + newConfig.soundPublic() + " | soundSystem=" + newConfig.soundSystem());
         ConfigManager.save(configPath, config);
     }
 
     @Override
     public void onInitializeClient() {
         configPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat-client.json");
+        EmoteCatalog.loadCustom(MinecraftClient.getInstance().runDirectory.toPath().resolve("config"));
         // v2.3.x renamed the file from e33chat.json to e33chat-client.json (aligns with
         // Forge/Neo); migrate an existing old file so users keep their settings
         Path legacyPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat.json");
         if (!Files.exists(configPath) && Files.exists(legacyPath)) {
             config = ConfigManager.load(legacyPath);
             ConfigManager.save(configPath, config);
-            E33Log.info("[e33chat] Migrated config from config/e33chat.json to config/e33chat-client.json");
+            com.mojang.logging.LogUtils.getLogger().info("[e33chat] Migrated config from config/e33chat.json to config/e33chat-client.json");
         } else {
             config = ConfigManager.load(configPath);
         }
@@ -69,10 +72,15 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         });
         // Server-config GUI: opened on the client only (server never loads the Screen)
         ClientPlayNetworking.registerGlobalReceiver(ServerConfigScreenPayload.ID, (payload, context) -> {
-            context.client().execute(() -> GuiCompat.setScreen(MinecraftClient.getInstance(), new ServerConfigScreen(
+            context.client().execute(() -> MinecraftClient.getInstance().setScreen(new ServerConfigScreen(
                 MinecraftClient.getInstance().currentScreen,
                 payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
                 payload.chatTemplates(), payload.whisperTemplates())));
+        });
+
+        com.niuqu.chatbubble.image.MediaClient.registerReceivers();
+        ClientPlayNetworking.registerGlobalReceiver(MediaCapPayload.ID, (payload, context) -> {
+            context.client().execute(() -> MediaCapPayload.handle(payload));
         });
         //#endif
 
@@ -84,10 +92,8 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         //#endif
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!texturesLoaded) {
-                texturesLoaded = true;
-                com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
-            }
+            ImageLoader.tick();
+            // 纹理全部走 drawTexture(Identifier) 懒加载（getTexture 自动 new ResourceTexture），F3+T 重载后自动重读资源包新 PNG
             if (!config.enabled()) return;
 
             String key;
@@ -96,15 +102,12 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             } else if (client.getServer() != null) {
                 key = "SP:" + client.getServer().getSaveProperties().getLevelName();
             } else if (client.getCurrentServerEntry() != null) {
-                key = "MP:" + client.getCurrentServerEntry().name + "@" + client.getCurrentServerEntry().address;
+                key = "MP:" + client.getCurrentServerEntry().name;
             } else {
                 key = "world";
             }
             ChatMessageStore.setCurrentWorld(key);
             ChatMessageStore.maybeAutoSave();
-            //#if MC >= 12111
-            ChatMessageStore.tickStrongHint();
-            //#endif
 
             if (client.currentScreen == null) {
                 boolean leftDown = org.lwjgl.glfw.GLFW.glfwGetMouseButton(
@@ -113,7 +116,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                     double mx = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
                     double my = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
                     if (ChatBubbleHudOverlay.isMouseOverIcon(mx, my)) {
-                        GuiCompat.setScreen(client, new ChatBubbleScreen(""));
+                        client.setScreen(new ChatBubbleScreen(""));
                     }
                 }
                 leftWasDown = leftDown;
@@ -125,9 +128,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         //#if MC < 26000
         ScreenEvents.BEFORE_INIT.register((client, screen, width, height) ->
             ScreenEvents.afterRender(screen).register((scr, g, mouseX, mouseY, delta) -> {
-                //#if MC >= 12111
-                if (config.enabled()) ChatBubbleHudOverlay.renderStrongHint(g);
-                //#endif
+                if (config.enabled()) ChatBubbleHudOverlay.renderBannerForScreen(g);
             })
         );
         //#endif
@@ -136,7 +137,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             new SimpleSynchronousResourceReloadListener() {
                 @Override
                 public Identifier getFabricId() {
-                    return GuiCompat.id(ChatBubbleMod.MOD_ID, "shader_reload");
+                    return Identifier.of(ChatBubbleMod.MOD_ID, "shader_reload");
                 }
                 @Override
                 //#if MC >= 26000
@@ -145,7 +146,6 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                 public void reload(ResourceManager manager) {
                 //#endif
                     RoundRectRenderer.resetShader();
-                    com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
                 }
             }
         );

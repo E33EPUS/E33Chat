@@ -1,13 +1,17 @@
 package com.niuqu.chatbubble.config;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+
 public final class ServerConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private ServerConfigManager() {}
+
     public static ServerConfig load(Path path) {
         if (Files.exists(path)) {
             try (Reader r = new InputStreamReader(Files.newInputStream(path), StandardCharsets.UTF_8)) {
@@ -21,6 +25,7 @@ public final class ServerConfigManager {
         save(path, def);
         return def;
     }
+
     public static void save(Path path, ServerConfig config) {
         try {
             Files.createDirectories(path.getParent());

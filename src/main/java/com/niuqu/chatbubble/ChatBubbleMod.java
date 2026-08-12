@@ -6,11 +6,20 @@ import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
 import com.niuqu.chatbubble.network.HistoryPayload;
+import com.niuqu.chatbubble.network.MediaRequestPayload;
+import com.niuqu.chatbubble.network.MediaResponsePayload;
+import com.niuqu.chatbubble.network.MediaUploadAckPayload;
+import com.niuqu.chatbubble.network.MediaUploadPayload;
+import com.niuqu.chatbubble.network.MediaCapPayload;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.network.ServerConfigSavePayload;
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
-import com.mojang.brigadier.ParseResults;
+import com.niuqu.chatbubble.server.DiskMediaStore;
 import net.fabricmc.api.ModInitializer;
+import com.mojang.brigadier.ParseResults;
+//#if MC >= 12000
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+//#endif
 //#if MC >= 11900
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 //#endif
@@ -21,6 +30,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 import java.util.*;
@@ -37,17 +47,36 @@ public class ChatBubbleMod implements ModInitializer {
 
     private static final Map<UUID, QuotePending> pendingQuotes = new HashMap<>();
     private static final Deque<HistoryPayload.HistoryEntry> historyBuffer = new ArrayDeque<>();
-    private static String serverWorldKey;
 
     // Server-side settings (loaded per-world from <world>/serverconfig/e33chat-server.json)
     private static boolean historyEnabled;
     private static boolean useTpa;
     private static boolean templateDebug;
+    private static boolean mediaEnabled;
     private static List<String> chatTemplates = List.of();
     private static List<String> whisperTemplates = List.of();
     private static boolean configLoaded;
+    private static volatile com.niuqu.chatbubble.server.DiskMediaStore mediaStore;
+
+    /** Lazily-created per-world media store (next to the server config). */
+    private static com.niuqu.chatbubble.server.DiskMediaStore mediaStore(net.minecraft.server.MinecraftServer server) {
+        com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
+        if (s == null) {
+            synchronized (ChatBubbleMod.class) {
+                s = mediaStore;
+                if (s == null) {
+                    s = new com.niuqu.chatbubble.server.DiskMediaStore(
+                        server.getSavePath(net.minecraft.util.WorldSavePath.ROOT)
+                            .resolve("serverconfig").resolve("e33chat-media"));
+                    mediaStore = s;
+                }
+            }
+        }
+        return s;
+    }
 
     private record QuotePending(String quotedSenderName, String quotedContent, String messageHash, long time) {}
+
     // A quote that never made it into a sent message (e.g. an anti-spam plugin blocked
     // it) must not tag a later unrelated message — expire after 10s (parity with Forge)
     private static QuotePending takeQuote(UUID playerUUID) {
@@ -66,6 +95,60 @@ public class ChatBubbleMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(ConfigSyncV2Payload.ID, ConfigSyncV2Payload.CODEC);
         PayloadTypeRegistry.playS2C().register(ServerConfigScreenPayload.ID, ServerConfigScreenPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(ServerConfigSavePayload.ID, ServerConfigSavePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaUploadPayload.ID, MediaUploadPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaRequestPayload.ID, MediaRequestPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaUploadAckPayload.ID, MediaUploadAckPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaResponsePayload.ID, MediaResponsePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaCapPayload.ID, MediaCapPayload.CODEC);
+
+        ServerPlayNetworking.registerGlobalReceiver(MediaUploadPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> {
+                if (!mediaEnabled) {
+                    ServerPlayNetworking.send(player,
+                        new MediaUploadAckPayload(payload.uploadId(), null, "disabled"));
+                    return;
+                }
+                DiskMediaStore store = mediaStore(context.server());
+                String result = payload.index() == 0
+                    ? store.beginUpload(payload.uploadId(), player.getName().getString(),
+                        payload.totalChunks(), payload.totalBytes(), payload.contentType())
+                    : store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                if (result == null) return; // upload still in progress
+                store.discardUpload(payload.uploadId());
+                if (DiskMediaStore.isValidMediaId(result)) {
+                    ServerPlayNetworking.send(player,
+                        new MediaUploadAckPayload(payload.uploadId(), result, null));
+                } else {
+                    ServerPlayNetworking.send(player,
+                        new MediaUploadAckPayload(payload.uploadId(), null, result));
+                }
+            });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(MediaRequestPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> {
+                String id = payload.mediaId();
+                DiskMediaStore store = mediaStore(context.server());
+                long size = store.sizeOf(id);
+                if (size < 0) {
+                    ServerPlayNetworking.send(player,
+                        new MediaResponsePayload(id, 0, 1, new byte[0]));
+                    return;
+                }
+                int total = DiskMediaStore.totalChunksFor(size);
+                for (int i = 0; i < total; i++) {
+                    byte[] chunk = store.readChunk(id, i, total);
+                    if (chunk == null) {
+                        ServerPlayNetworking.send(player,
+                            new MediaResponsePayload(id, 0, 1, new byte[0]));
+                        return;
+                    }
+                    ServerPlayNetworking.send(player, new MediaResponsePayload(id, i, total, chunk));
+                }
+            });
+        });
 
         ServerPlayNetworking.registerGlobalReceiver(QuoteSyncPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -85,17 +168,17 @@ public class ChatBubbleMod implements ModInitializer {
                 //$$ if (!player.permissions().hasPermission(new net.minecraft.server.permissions.Permission.HasCommandLevel(net.minecraft.server.permissions.PermissionLevel.GAMEMASTERS))) {
                 //#else
                 //#if MC >= 12111
-                if (!player.getPermissions().hasPermission(
-                    new net.minecraft.command.permission.Permission.Level(net.minecraft.command.permission.PermissionLevel.GAMEMASTERS))) {
+                //$$ if (!player.getPermissions().hasPermission(
+                //$$     new net.minecraft.command.permission.Permission.Level(net.minecraft.command.permission.PermissionLevel.GAMEMASTERS))) {
                 //#else
-                //$$ if (!player.hasPermissionLevel(2)) {
+                if (!player.hasPermissionLevel(2)) {
                 //#endif
                 //#endif
                     //#if MC >= 26000
-                    //$$ player.sendSystemMessage(com.niuqu.chatbubble.Txt.translatable("e33chat.server.op_required")
+                    //$$ player.sendSystemMessage(Text.translatable("e33chat.server.op_required")
                     //$$     .formatted(Formatting.RED));
                     //#else
-                    player.sendMessage(com.niuqu.chatbubble.Txt.translatable("e33chat.server.op_required")
+                    player.sendMessage(Text.translatable("e33chat.server.op_required")
                         .formatted(Formatting.RED), false);
                     //#endif
                     return;
@@ -122,10 +205,10 @@ public class ChatBubbleMod implements ModInitializer {
             //#if MC < 12109
             //$$ var server = sender.getWorld().getServer();
             //#else
-            var server = sender.getEntityWorld().getServer();
+            //$$ var server = sender.getEntityWorld().getServer();
             //#endif
             //#else
-            var server = sender.getEntityWorld().getServer();
+            var server = sender.getServer();
             //#endif
             int playerCount = server != null
                 ? server.getPlayerManager().getPlayerList().size() : 1;
@@ -135,12 +218,11 @@ public class ChatBubbleMod implements ModInitializer {
             String messageHash = quote != null ? quote.messageHash() : String.valueOf(rawText.hashCode());
             String quoteSender = quote != null ? quote.quotedSenderName() : "";
             String quoteContent = quote != null ? quote.quotedContent() : "";
-            updateServerWorld(server);
-            String senderDisplay = playerDisplayName(sender);
 
             if (quote != null || !mentions.isEmpty()) {
                 ChatMetaPayload meta = new ChatMetaPayload(
-                    sender.getUuid(), sender.getName().getString(), messageHash, quoteSender, quoteContent, mentions);
+                    sender.getUuid(), sender.getName().getString(), messageHash,
+                    quoteSender, quoteContent, mentions);
                 //#if MC >= 12005
                 for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
                     ServerPlayNetworking.send(p, meta);
@@ -149,7 +231,7 @@ public class ChatBubbleMod implements ModInitializer {
             }
 
             addToHistory(new HistoryPayload.HistoryEntry(
-                sender.getUuid(), senderDisplay, rawText,
+                sender.getUuid(), sender.getName().getString(), rawText,
                 System.currentTimeMillis(), false,
                 quote != null ? quote.quotedContent() : null,
                 quote != null ? quote.quotedSenderName() : null));
@@ -157,7 +239,6 @@ public class ChatBubbleMod implements ModInitializer {
         //#endif
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            updateServerWorld(server);
             // Load server config from <world>/serverconfig/ on first join (matching
             // NeoForge's per-world ModConfig.Type.SERVER convention)
             if (!configLoaded) {
@@ -173,6 +254,10 @@ public class ChatBubbleMod implements ModInitializer {
             ServerPlayNetworking.send(handler.player,
                 new ConfigSyncPayload(useTpa));
             ServerPlayNetworking.send(handler.player, buildConfigV2());
+            // Separate capability type: old clients drop unknown payloads, so
+            // mediaEnabled never desyncs mixed client/server versions.
+            ServerPlayNetworking.send(handler.player,
+                new MediaCapPayload(mediaEnabled));
 
             if (!historyEnabled) return;
             if (historyBuffer.isEmpty()) return;
@@ -187,10 +272,35 @@ public class ChatBubbleMod implements ModInitializer {
         //#endif
     }
 
+    // Called from CommandManagerMixin.execute (parity with Forge ChatServerListener.onCommand):
+    // /msg /tell /w /whisper carry a quote the client synced (QuoteSyncPayload); consume it
+    // here and broadcast the quote meta, because vanilla private messages never hit
+    // ServerMessageEvents.CHAT_MESSAGE
+    public static void consumePrivateMessageQuote(ParseResults<ServerCommandSource> parseResults, String command) {
+        String[] parts = command.split(" ");
+        if (parts.length < 3) return;
+        String label = parts[0];
+        if (label.startsWith("/")) label = label.substring(1);
+        if (!label.equals("msg") && !label.equals("tell") && !label.equals("w") && !label.equals("whisper")) return;
+        ServerCommandSource source = parseResults.getContext().getSource();
+        ServerPlayerEntity sender = source.getPlayer();
+        if (sender == null) return;
+        QuotePending quote = takeQuote(sender.getUuid());
+        if (quote == null) return;
+        //#if MC >= 12005
+        ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), sender.getName().getString(),
+            quote.messageHash(), quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
+        for (ServerPlayerEntity p : source.getServer().getPlayerManager().getPlayerList()) {
+            ServerPlayNetworking.send(p, meta);
+        }
+        //#endif
+    }
+
     private static void loadConfig(ServerConfig config) {
         useTpa = config.use_tpa;
         historyEnabled = config.history_enabled;
         templateDebug = config.template_debug;
+        mediaEnabled = config.media_enabled;
         chatTemplates = config.chat_templates != null ? config.chat_templates : List.of();
         whisperTemplates = config.whisper_templates != null ? config.whisper_templates : List.of();
     }
@@ -227,76 +337,11 @@ public class ChatBubbleMod implements ModInitializer {
             historyBuffer.removeFirst();
     }
 
-    private static void updateServerWorld(net.minecraft.server.MinecraftServer server) {
-        if (server == null) return;
-        String key = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT).toAbsolutePath().normalize().toString();
-        if (key.equals(serverWorldKey)) return;
-        serverWorldKey = key;
-        historyBuffer.clear();
-        pendingQuotes.clear();
-        configLoaded = false;
-    }
-
-    private static String playerDisplayName(ServerPlayerEntity player) {
-        String id = player.getName().getString();
-        String lpPrefix = luckPermsPrefix(player.getUuid());
-        if (lpPrefix != null && !Formatting.strip(lpPrefix).isBlank()) {
-            return lpPrefix + id;
-        }
-        String display = player.getDisplayName() != null ? player.getDisplayName().getString() : null;
-        if (display != null && !display.isBlank() && !display.equals(id)) return display;
-        return id;
-    }
-
-    private static String luckPermsPrefix(UUID uuid) {
-        try {
-            Class<?> provider = Class.forName("net.luckperms.api.LuckPermsProvider");
-            Object api = provider.getMethod("get").invoke(null);
-            Object userManager = api.getClass().getMethod("getUserManager").invoke(api);
-            Object user = userManager.getClass().getMethod("getUser", UUID.class).invoke(userManager, uuid);
-            if (user == null) return null;
-            Object cachedData = user.getClass().getMethod("getCachedData").invoke(user);
-            Object metaData = cachedData.getClass().getMethod("getMetaData").invoke(cachedData);
-            Object prefix = metaData.getClass().getMethod("getPrefix").invoke(metaData);
-            if (!(prefix instanceof String s) || s.isBlank()) return null;
-            return s.replace('&', '§');
-        } catch (Throwable ignored) {
-            return null;
-        }
-    }
-
     private static List<String> extractMentions(String text, int playerCount) {
         if (playerCount <= 1) return Collections.emptyList();
         List<String> mentions = new ArrayList<>();
         Matcher m = MENTION_PATTERN.matcher(text);
         while (m.find()) mentions.add(m.group(1));
         return mentions;
-    }
-
-    // Fabric API has no command-execution event, so /msg /tell /w /whisper quotes
-    // would never be consumed server-side. Called by CommandManagerMixin before
-    // dispatch — if the command is a private message and the sender has a pending
-    // quote, broadcast the ChatMeta to all players so the recipient's client tags it.
-    public static void consumePrivateMessageQuote(ParseResults<ServerCommandSource> parseResults, String command) {
-        try {
-            String[] parts = command.split(" ");
-            if (parts.length < 3) return;
-            String label = parts[0];
-            if (label.startsWith("/")) label = label.substring(1);
-            if (!label.equals("msg") && !label.equals("tell") && !label.equals("w") && !label.equals("whisper")) return;
-            ServerCommandSource source = parseResults.getContext().getSource();
-            ServerPlayerEntity sender = source.getPlayer();
-            if (sender == null) return;
-            QuotePending quote = takeQuote(sender.getUuid());
-            if (quote == null) return;
-            //#if MC >= 12005
-            ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), sender.getName().getString(),
-                quote.messageHash(), quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
-            for (ServerPlayerEntity p : source.getServer().getPlayerManager().getPlayerList()) {
-                ServerPlayNetworking.send(p, meta);
-            }
-            //#endif
-        } catch (Exception ignored) {
-        }
     }
 }

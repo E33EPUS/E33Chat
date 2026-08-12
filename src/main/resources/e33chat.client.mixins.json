@@ -6,9 +6,6 @@
   "client": [
     "ChatComponentMixin",
     "ChatInputSuggestorMixin",
-    "ChatInputSuggestorAccessor",
-    "SuggestionWindowAccessor",
-    "ScreenAccessor",
     "ChatListenerMixin",
     "MinecraftClientMixin"
   ]

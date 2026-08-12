@@ -1,26 +1,18 @@
 package com.niuqu.chatbubble.chat.notification;
 
 import com.mojang.authlib.GameProfile;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.niuqu.chatbubble.Animation;
+import com.niuqu.chatbubble.AnimationStyle;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatMessageStore;
-import com.niuqu.chatbubble.RenderHelper;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import net.minecraft.client.MinecraftClient;
-//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
-//#else
-//$$ import net.minecraft.client.util.math.MatrixStack;
-//#endif
-import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.util.DefaultSkinHelper;
-//#if MC >= 12004
-//#if MC >= 12109
-import net.minecraft.entity.player.SkinTextures;
-//#else
-//$$ import net.minecraft.client.util.SkinTextures;
-//#endif
-//#endif
+import net.minecraft.client.util.SkinTextures;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -38,11 +30,11 @@ public class MentionNotificationBanner {
     private static final int AVATAR_HAT = 26;
     private static final int AVATAR_X = 8;
     private static final int TEXT_X = AVATAR_X + AVATAR + 6;
-    private static final int TEXT_X_PLAIN = 8;
+    private static final int TEXT_X_PLAIN = 8;   // no-avatar banners (system) start text flush left
+    private static final int MAX_TEXT_W = 170;   // fixed content-area width cap for every banner
     private static final int BANNER_H = 36;
     private static final int MAX_MSG_LINES = 2;
     private static final int SHADOW_OFF = 2;
-    private static final int MAX_TEXT_W = 200;
     private static final UUID NIL_UUID = new UUID(0, 0);
 
     private final Deque<PendingBanner> queue = new ArrayDeque<>();
@@ -51,27 +43,21 @@ public class MentionNotificationBanner {
     private long stateStartMs;
     private long visibleDurationMs;
 
-    //#if MC >= 12004
-    private static final Map<UUID, SkinTextures> skinCache = new HashMap<>();
-    private static final Map<String, SkinTextures> skinNameCache = new HashMap<>();
-    //#else
-    //$$ private static final Map<UUID, Identifier> legacySkinCache = new HashMap<>();
-    //$$ private static final Map<String, Identifier> legacySkinNameCache = new HashMap<>();
-    //#endif
+    private static final Map<UUID, Identifier> skinCache = new HashMap<>();
 
     private MentionNotificationBanner() {}
 
-    public void enqueue(UUID senderUUID, Text senderName, String rawPlayerName, Text content,
+    public void enqueue(UUID senderUUID, Text senderName, Text content,
                         int messageIndex, NotificationType type) {
         MinecraftClient mc = MinecraftClient.getInstance();
 
         String prefix = switch (type) {
-            case MENTION -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.mention").getString();
-            case QUOTE -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.quote").getString();
-            case WHISPER -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.whisper").getString();
-            case SYSTEM -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.system").getString();
+            case MENTION -> Text.translatable("e33chat.banner.mention").getString();
+            case QUOTE -> Text.translatable("e33chat.banner.quote").getString();
+            case WHISPER -> Text.translatable("e33chat.banner.whisper").getString();
+            case SYSTEM -> Text.translatable("e33chat.banner.system").getString();
         };
-        Text labeledName = com.niuqu.chatbubble.Txt.literal(prefix).append(senderName);
+        Text labeledName = Text.literal(prefix).append(senderName);
 
         // System banners carry no sender — plain text, no avatar, flush text start.
         // [系统] 标签与第一行内容同行，内容宽度预算扣掉标签宽，避免同行溢出横幅
@@ -88,7 +74,7 @@ public class MentionNotificationBanner {
         } else if (nameLines.size() > 1) {
             String plainName = mc.textRenderer.trimToWidth(
                 labeledName.getString(), maxTextW - dotsW) + "...";
-            nameSeq = mc.textRenderer.wrapLines(com.niuqu.chatbubble.Txt.literal(plainName), maxTextW).get(0);
+            nameSeq = mc.textRenderer.wrapLines(Text.literal(plainName), maxTextW).get(0);
         } else {
             nameSeq = nameLines.get(0);
         }
@@ -113,7 +99,7 @@ public class MentionNotificationBanner {
         int bannerH = hasAvatar ? BANNER_H
             : mc.textRenderer.fontHeight * msgLines.size() + 10;
 
-        queue.addLast(new PendingBanner(senderUUID, senderName, rawPlayerName, content, messageIndex,
+        queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex,
             type, hasAvatar, nameSeq, msgLines, textW, bannerW, bannerH));
     }
 
@@ -164,7 +150,7 @@ public class MentionNotificationBanner {
         }
     }
 
-    public void render(Object g, int screenW, int screenH) {
+    public void render(DrawContext g, int screenW, int screenH) {
         if (current == null || state == BannerState.HIDDEN) return;
         if (!ChatBubbleClientSetup.config().mentionBannerEnabled()) return;
 
@@ -177,24 +163,36 @@ public class MentionNotificationBanner {
                 ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_MS)
                 : 1f;
 
+        AnimationStyle bstyle = AnimationStyle.parse(ChatBubbleClientSetup.config().bannerAnimStyle());
         float slide;
-        if (state == BannerState.SLIDING_DOWN) {
-            float c = 1.70158f;
-            slide = 1f + c * (float) Math.pow(raw - 1, 3) + c * (float) Math.pow(raw - 1, 2);
-        } else if (state == BannerState.SLIDING_UP) {
-            slide = raw * raw;
-        } else {
+        float alpha;
+        float bscale = 1f;
+        if (bstyle == AnimationStyle.NONE) {
             slide = 1f;
+            alpha = 1f;
+        } else if (bstyle == AnimationStyle.FADE) {
+            slide = 1f;
+            alpha = state == BannerState.SLIDING_UP ? raw : Animation.easeOutQuad(raw);
+        } else if (bstyle == AnimationStyle.ZOOM) {
+            slide = 1f;
+            alpha = state == BannerState.SLIDING_UP ? raw : Animation.easeOutQuad(raw);
+            if (state == BannerState.SLIDING_DOWN) bscale = 0.8f + 0.2f * Animation.easeOutBack(raw);
+            else if (state == BannerState.SLIDING_UP) bscale = 0.8f + 0.2f * raw;
+        } else {
+            // SLIDE (default): slide from the top with overshoot, fade in early
+            if (state == BannerState.SLIDING_DOWN) {
+                float c = 1.70158f;
+                slide = 1f + c * (float) Math.pow(raw - 1, 3) + c * (float) Math.pow(raw - 1, 2);
+            } else if (state == BannerState.SLIDING_UP) {
+                slide = raw * raw;
+            } else {
+                slide = 1f;
+            }
+            float fadeRaw = Math.min(1f, raw / 0.6f);
+            alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
         }
 
-        float fadeRaw = Math.min(1f, raw / 0.6f);
-        float alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
-
-        var theme = com.niuqu.chatbubble.ChatBubbleTheme.valueOf(
-            ChatBubbleClientSetup.config().theme().toUpperCase()).colors();
-        int bg = theme.bannerBg();
-        int cornerRadius = ChatBubbleClientSetup.config().bannerCornerRadius();
-
+        // Avatar (only for real senders; system banners stay plain text)
         OrderedText nameSeq = current.nameSeq;
         List<OrderedText> msgLines = current.msgLines;
         int textW = current.textW;
@@ -203,11 +201,24 @@ public class MentionNotificationBanner {
         int x = (screenW - bannerW) / 2 + ChatBubbleClientSetup.config().bannerOffsetX();
         int y = (int) ((-bannerH) + slide * bannerH) + ChatBubbleClientSetup.config().bannerOffsetY();
 
+        if (bscale != 1f) {
+            g.getMatrices().push();
+            g.getMatrices().translate(x + bannerW / 2f, y + bannerH / 2f, 0);
+            g.getMatrices().scale(bscale, bscale, 1f);
+            g.getMatrices().translate(-(x + bannerW / 2f), -(y + bannerH / 2f), 0);
+        }
+
+        var theme = com.niuqu.chatbubble.ChatBubbleTheme.valueOf(
+            ChatBubbleClientSetup.config().theme().toUpperCase()).colors();
+        int bg = theme.bannerBg();
+        int cornerRadius = ChatBubbleClientSetup.config().bannerCornerRadius();
+
         int shadowAlpha = (int) (0x30 * alpha);
         int shadowColor = (shadowAlpha << 24);
         RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
             x + bannerW + SHADOW_OFF, y + bannerH + SHADOW_OFF, cornerRadius, shadowColor);
 
+        // Background：SDF 圆角（与阴影同 shader，半径配置实时生效；不可被资源包覆盖）
         int bgAlpha = (int) ((bg >>> 24) * alpha);
         RoundRectRenderer.fill(g, x, y, x + bannerW, y + bannerH, cornerRadius,
             (bgAlpha << 24) | (bg & 0x00FFFFFF));
@@ -216,29 +227,24 @@ public class MentionNotificationBanner {
         int nameColor, msgColor;
         if (current.hasAvatar) {
             int avatarY = y + (bannerH - AVATAR_HAT) / 2;
-            String skinName = (current.rawPlayerName != null && !current.rawPlayerName.isEmpty())
-                ? current.rawPlayerName : current.senderName.getString();
-            //#if MC >= 12004
-            SkinTextures skin = getSkin(current.senderUUID, skinName);
+            Identifier skin = getSkin(current.senderUUID, current.senderName.getString());
             drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT, alpha);
-            //#else
-            //$$ Identifier skinTex = getSkinIdentifier(current.senderUUID, skinName);
-            //$$ drawPlayerHead(g, skinTex, x + AVATAR_X, avatarY, AVATAR, alpha);
-            //#endif
 
+            // Name (prefix already baked into nameSeq in enqueue)
+            int nameY = y + 6;
             int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
             nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
-            RenderHelper.drawText(g, mc.textRenderer, nameSeq, textX, y + 6, nameColor, false);
+            g.drawText(mc.textRenderer, nameSeq, textX, nameY, nameColor, false);
 
+            // Message lines
             int msgAlpha = (int) ((theme.textSecondary() >>> 24) * alpha);
             msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
-            int msgY = y + 6 + mc.textRenderer.fontHeight + 2;
+            int msgY = nameY + mc.textRenderer.fontHeight + 2;
             for (int i = 0; i < msgLines.size(); i++)
-                RenderHelper.drawText(g, mc.textRenderer, msgLines.get(i), textX,
+                g.drawText(mc.textRenderer, msgLines.get(i), textX,
                     msgY + i * mc.textRenderer.fontHeight, msgColor, false);
         } else {
-            // Plain-text banner: [系统] label sits on the same line as the first
-            // content line, extra lines wrap below; block vertically centered
+            // Plain-text banner: [系统] label + content vertically centered, single row
             int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
             nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
             int msgAlpha = (int) ((theme.textSecondary() >>> 24) * alpha);
@@ -246,229 +252,74 @@ public class MentionNotificationBanner {
             int lineH = mc.textRenderer.fontHeight;
             int totalH = lineH * msgLines.size();
             int textY = y + (bannerH - totalH) / 2;
-            RenderHelper.drawText(g, mc.textRenderer, nameSeq, textX, textY, nameColor, false);
+            g.drawText(mc.textRenderer, nameSeq, textX, textY, nameColor, false);
             int contentX = textX + mc.textRenderer.getWidth(nameSeq);
-            RenderHelper.drawText(g, mc.textRenderer, msgLines.get(0), contentX, textY, msgColor, false);
+            g.drawText(mc.textRenderer, msgLines.get(0), contentX, textY, msgColor, false);
             for (int i = 1; i < msgLines.size(); i++)
-                RenderHelper.drawText(g, mc.textRenderer, msgLines.get(i), textX,
+                g.drawText(mc.textRenderer, msgLines.get(i), textX,
                     textY + i * lineH, msgColor, false);
         }
+
+        if (bscale != 1f) g.getMatrices().pop();
     }
 
     public int currentMessageIndex() {
         return current != null ? current.messageIndex : -1;
     }
 
-    private PlayerListEntry findOnlineSkinEntry(String name) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (name == null || name.isEmpty() || mc.getNetworkHandler() == null) return null;
-        String stripped = name.replaceAll("§.", "").trim();
-        for (PlayerListEntry info : mc.getNetworkHandler().getPlayerList()) {
-            //#if MC >= 12109
-            String profile = info.getProfile().name();
-            //#else
-            //$$ String profile = info.getProfile().getName();
-            //#endif
-            if (matchesSkinName(name, stripped, profile)) return info;
-            Text tab = info.getDisplayName();
-            if (tab != null && matchesSkinName(name, stripped, tab.getString())) return info;
-        }
-        return null;
-    }
-
-    private static boolean matchesSkinName(String raw, String stripped, String candidate) {
-        if (candidate == null || candidate.isEmpty()) return false;
-        String c = candidate.replaceAll("§.", "").trim();
-        return raw.equals(candidate) || stripped.equals(c)
-            || (c.length() >= 3 && (stripped.contains(c) || raw.contains(candidate)));
-    }
-
-    //#if MC >= 12004
-    private static String skinNameKey(String name) {
-        if (name == null) return null;
-        String canonical = ChatMessageStore.findSeenProfileName(name);
-        String key = (canonical != null && !canonical.isEmpty() ? canonical : name)
-            .replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
-        return key.isEmpty() ? null : key;
-    }
-
-    private SkinTextures getSkin(UUID uuid, String name) {
-        String canonicalName = ChatMessageStore.findSeenProfileName(name);
-        if (canonicalName == null || canonicalName.isEmpty()) canonicalName = name;
+    private Identifier getSkin(UUID uuid, String name) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             var info = mc.getNetworkHandler().getPlayerListEntry(uuid);
-            if (info != null) {
-                SkinTextures textures = info.getSkinTextures();
-                if (textures != null) {
-                    //#if MC >= 12109
-                    String profileName = info.getProfile().name();
-                    //#else
-                    //$$ String profileName = info.getProfile().getName();
-                    //#endif
-                    rememberSkin(uuid, profileName, textures);
-                    rememberSkin(uuid, canonicalName, textures);
-                    return textures;
-                }
-            }
-        }
-        PlayerListEntry onlineByName = findOnlineSkinEntry(canonicalName);
-        if (onlineByName != null) {
-            SkinTextures textures = onlineByName.getSkinTextures();
-            if (textures != null) {
-                //#if MC >= 12109
-                UUID onlineUuid = onlineByName.getProfile().id();
-                String profileName = onlineByName.getProfile().name();
-                //#else
-                //$$ UUID onlineUuid = onlineByName.getProfile().getId();
-                //$$ String profileName = onlineByName.getProfile().getName();
-                //#endif
-                rememberSkin(onlineUuid, profileName, textures);
-                rememberSkin(onlineUuid, canonicalName, textures);
-                ChatMessageStore.rememberPlayer(onlineUuid, profileName, canonicalName);
-                return textures;
-            }
+            if (info != null) return info.getSkinTextures().texture();
         }
         if (uuid != null && !uuid.equals(NIL_UUID)) {
-            SkinTextures cached = skinCache.get(uuid);
+            Identifier cached = skinCache.get(uuid);
             if (cached != null) return cached;
-        }
-        String nameKey = skinNameKey(canonicalName);
-        if (nameKey != null) {
-            SkinTextures cachedByName = skinNameCache.get(nameKey);
-            if (cachedByName != null) return cachedByName;
-        }
-        if (uuid != null && !uuid.equals(NIL_UUID)) {
-            //#if MC >= 12109
-            SkinTextures skin = mc.getSkinProvider().supplySkinTextures(
-                new GameProfile(uuid, canonicalName != null ? canonicalName : ""), false).get();
-            //#else
-            //$$ SkinTextures skin = mc.getSkinProvider().getSkinTextures(
-            //$$     new GameProfile(uuid, canonicalName != null ? canonicalName : ""));
-            //#endif
-            if (skin != null) {
-                rememberSkin(uuid, canonicalName, skin);
-                return skin;
+            SkinTextures skin = mc.getSkinProvider().getSkinTextures(
+                new GameProfile(uuid, name != null ? name : ""));
+            if (skin != null && skin.texture() != null) {
+                skinCache.put(uuid, skin.texture());
+                return skin.texture();
             }
         }
-        //#if MC >= 12109
-        return DefaultSkinHelper.getSkinTextures(
-            new GameProfile(uuid != null ? uuid : NIL_UUID, canonicalName != null ? canonicalName : ""));
-        //#else
-        //$$ return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID);
-        //#endif
+        return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID).texture();
     }
 
-    private void rememberSkin(UUID uuid, String name, SkinTextures skin) {
-        if (skin == null) return;
-        if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, skin);
-        String nameKey = skinNameKey(name);
-        if (nameKey != null) skinNameCache.put(nameKey, skin);
-    }
-
-    private void drawPlayerHead(Object g, SkinTextures skin, int x, int y,
-                             int baseSize, int hatSize, float alpha) {
-        if (skin == null || alpha <= 0.003f) return;
-        //#if MC >= 12109
-        Identifier tex = skin.body().texturePath();
-        //#else
-        //$$ Identifier tex = skin.texture();
-        //#endif
-        ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64, alpha);
+    private void drawPlayerHead(DrawContext g, Identifier skin, int x, int y,
+                                 int baseSize, int hatSize, float alpha) {
+        if (alpha <= 0.003f) return;
+        ColoredTextureRenderer.drawWithAlpha(g, skin, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64, alpha);
         int hatOff = (hatSize - baseSize) / 2;
-        ColoredTextureRenderer.drawWithAlpha(g, tex, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64, alpha);
     }
-    //#else
-    // Legacy skin rendering for MC < 1.20.4: uses Identifier + drawTexture
-    // instead of PlayerSkinDrawer/SkinTextures which were added in 1.20.4.
-    //$$ private static String skinNameKey(String name) {
-    //$$     if (name == null) return null;
-    //$$     String canonical = ChatMessageStore.findSeenProfileName(name);
-    //$$     String key = (canonical != null && !canonical.isEmpty() ? canonical : name)
-    //$$         .replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
-    //$$     return key.isEmpty() ? null : key;
-    //$$ }
-    //$$
-    //$$ private Identifier getSkinIdentifier(UUID uuid, String name) {
-    //$$     String canonicalName = ChatMessageStore.findSeenProfileName(name);
-    //$$     if (canonicalName == null || canonicalName.isEmpty()) canonicalName = name;
-    //$$     MinecraftClient mc = MinecraftClient.getInstance();
-    //$$     if (mc.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
-    //$$         PlayerListEntry info = mc.getNetworkHandler().getPlayerListEntry(uuid);
-    //$$         if (info != null) {
-    //$$             Identifier tex = info.getSkinTexture();
-    //$$             if (tex != null) {
-    //$$                 rememberLegacySkin(uuid, canonicalName, tex);
-    //$$                 return tex;
-    //$$             }
-    //$$         }
-    //$$     }
-    //$$     PlayerListEntry onlineByName = findOnlineSkinEntry(canonicalName);
-    //$$     if (onlineByName != null) {
-    //$$         Identifier tex = onlineByName.getSkinTexture();
-    //$$         if (tex != null) {
-    //$$             UUID onlineUuid = onlineByName.getProfile().getId();
-    //$$             String profileName = onlineByName.getProfile().getName();
-    //$$             rememberLegacySkin(onlineUuid, profileName, tex);
-    //$$             rememberLegacySkin(onlineUuid, canonicalName, tex);
-    //$$             ChatMessageStore.rememberPlayer(onlineUuid, profileName, canonicalName);
-    //$$             return tex;
-    //$$         }
-    //$$     }
-    //$$     if (uuid != null && !uuid.equals(NIL_UUID)) {
-    //$$         Identifier cached = legacySkinCache.get(uuid);
-    //$$         if (cached != null) return cached;
-    //$$     }
-    //$$     String nameKey = skinNameKey(canonicalName);
-    //$$     if (nameKey != null) {
-    //$$         Identifier cachedByName = legacySkinNameCache.get(nameKey);
-    //$$         if (cachedByName != null) return cachedByName;
-    //$$     }
-    //$$     Identifier fallback = DefaultSkinHelper.getTexture();
-    //$$     rememberLegacySkin(uuid, canonicalName, fallback);
-    //$$     return fallback;
-    //$$ }
-    //$$
-    //$$ private void rememberLegacySkin(UUID uuid, String name, Identifier skinTex) {
-    //$$     if (skinTex == null) return;
-    //$$     if (uuid != null && !uuid.equals(NIL_UUID)) legacySkinCache.put(uuid, skinTex);
-    //$$     String nameKey = skinNameKey(name);
-    //$$     if (nameKey != null) legacySkinNameCache.put(nameKey, skinTex);
-    //$$ }
-    //$$
-    //$$ private void drawPlayerHead(Object g, Identifier skinTex, int x, int y, int size, float alpha) {
-    //$$     if (skinTex == null || alpha <= 0.003f) return;
-    //$$     ColoredTextureRenderer.drawWithAlpha(g, skinTex, x, y, size, size, 8f, 8f, 8, 8, 64, 64, alpha);
-    //$$     ColoredTextureRenderer.drawWithAlpha(g, skinTex, x, y, size, size, 40f, 8f, 8, 8, 64, 64, alpha);
-    //$$ }
-    //#endif
 
-    // Width-limit a component run by run, keeping each run's style (colors of
+    // Width-limit a text run by run, keeping each run's style (colors of
     // multi-colored system lines survive truncation), then append the ellipsis.
     private static Text truncateStyled(Text src, int maxWidth,
-                                        net.minecraft.client.font.TextRenderer font, String suffix) {
+                                       net.minecraft.client.font.TextRenderer font, String suffix) {
         int budget = maxWidth - font.getWidth(suffix);
-        net.minecraft.text.MutableText out = com.niuqu.chatbubble.Txt.empty();
+        MutableText out = Text.empty();
         int[] used = {0};
         src.visit((style, text) -> {
             if (used[0] >= budget) return java.util.Optional.<Object>empty();
             int w = font.getWidth(text);
             if (used[0] + w <= budget) {
-                out.append(com.niuqu.chatbubble.Txt.literal(text).fillStyle(style));
+                out.append(Text.literal(text).fillStyle(style));
                 used[0] += w;
             } else {
                 String sub = font.trimToWidth(text, budget - used[0]);
-                out.append(com.niuqu.chatbubble.Txt.literal(sub).fillStyle(style));
+                out.append(Text.literal(sub).fillStyle(style));
                 used[0] = budget;
             }
             return java.util.Optional.<Object>empty();
         }, net.minecraft.text.Style.EMPTY);
-        return out.append(com.niuqu.chatbubble.Txt.literal(suffix));
+        return out.append(Text.literal(suffix));
     }
 
     private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }
 
-    private record PendingBanner(UUID senderUUID, Text senderName, String rawPlayerName, Text content,
+    private record PendingBanner(UUID senderUUID, Text senderName, Text content,
                                   int messageIndex, NotificationType type, boolean hasAvatar,
                                   OrderedText nameSeq, List<OrderedText> msgLines,
                                   int textW, int bannerW, int bannerH) {}

@@ -15,7 +15,7 @@ public class BedScreen extends Screen {
     private static Screen screenBeforeSleep;
 
     public BedScreen() {
-        super(com.niuqu.chatbubble.Txt.translatable("multiplayer.stopSleeping"));
+        super(Text.translatable("multiplayer.stopSleeping"));
     }
 
     public static void setScreenBeforeSleep(Screen screen) {
@@ -24,8 +24,8 @@ public class BedScreen extends Screen {
 
     @Override
     protected void init() {
-        GuiCompat.addDrawableChild(this, GuiCompat.button(com.niuqu.chatbubble.Txt.translatable("multiplayer.stopSleeping"), b -> sendWakeUp(),
-            width / 2 - 100, height - 40, 200, 20));
+        addDrawableChild(ButtonWidget.builder(Text.translatable("multiplayer.stopSleeping"), b -> sendWakeUp())
+            .dimensions(width / 2 - 100, height - 40, 200, 20).build());
     }
 
     //#if MC >= 12004
@@ -52,9 +52,9 @@ public class BedScreen extends Screen {
     @Override
     public void tick() {
         if (client == null || client.player == null || !client.player.isSleeping()) {
-            GuiCompat.setScreen(client, null);
+            client.setScreen(null);
             if (screenBeforeSleep instanceof ChatBubbleScreen) {
-                GuiCompat.setScreen(client, screenBeforeSleep);
+                client.setScreen(screenBeforeSleep);
             }
             screenBeforeSleep = null;
         }
@@ -67,24 +67,24 @@ public class BedScreen extends Screen {
         int scanCode = key.scancode();
         int modifiers = key.modifiers();
     //#else
-    //$$ public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
     //#endif
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
             sendWakeUp();
             return true;
         }
         //#if MC >= 12109
-        if (GuiCompat.matchesChatKey(client, keyCode, scanCode)) {
+        if (client.options.chatKey.matchesKey(new net.minecraft.client.input.KeyInput(keyCode, scanCode, 0))) {
         //#else
-        //$$ if (GuiCompat.matchesChatKey(client, keyCode, scanCode)) {
+        if (client.options.chatKey.matchesKey(keyCode, scanCode)) {
         //#endif
-            GuiCompat.setScreen(client, new ChatBubbleScreen(""));
+            client.setScreen(new ChatBubbleScreen(""));
             return true;
         }
         //#if MC >= 12109
         return super.keyPressed(key);
         //#else
-        //$$ return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(keyCode, scanCode, modifiers);
         //#endif
     }
 
@@ -103,9 +103,9 @@ public class BedScreen extends Screen {
     private void sendWakeUp() {
         if (client != null && client.player != null) {
             //#if MC >= 26000
-            //$$ minecraft.player.connection.send(
+            //$$ client.player.connection.send(
             //$$     new net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket(
-            //$$         minecraft.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.STOP_SLEEPING));
+            //$$         client.player, net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.STOP_SLEEPING));
             //#else
             client.player.networkHandler.sendPacket(
                 new ClientCommandC2SPacket(client.player, ClientCommandC2SPacket.Mode.STOP_SLEEPING));

@@ -7,19 +7,13 @@ import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
-//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
-//#else
-//$$ import net.minecraft.client.util.math.MatrixStack;
-//#endif
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-//#if MC >= 12109
-import net.minecraft.client.gui.Click;
-//#endif
+import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
@@ -127,7 +121,7 @@ public class ServerConfigScreen extends Screen {
 
     public ServerConfigScreen(Screen lastScreen, boolean useTpa, boolean history, boolean debug,
                               List<String> chat, List<String> whisper) {
-        super(com.niuqu.chatbubble.Txt.translatable("e33chat.server.title"));
+        super(Text.translatable("e33chat.server.title"));
         this.lastScreen = lastScreen;
         initUseTpa = useTpa;
         initHistory = history;
@@ -173,12 +167,12 @@ public class ServerConfigScreen extends Screen {
 
     // ===== 行构建：widgets 必须注册为 renderable，否则不渲染也不响应点击 =====
     private <T extends net.minecraft.client.gui.widget.ClickableWidget> T reg(T w) {
-        return GuiCompat.addDrawableChild(this, w);
+        return addDrawableChild(w);
     }
 
     private Row row(Text label, List<Element> widgets, String extraText, String tooltipKey) {
         for (Element w : widgets) {
-            if (w instanceof net.minecraft.client.gui.widget.ClickableWidget cw) GuiCompat.addDrawableChild(this, cw);
+            if (w instanceof net.minecraft.client.gui.widget.ClickableWidget cw) addDrawableChild(cw);
         }
         return new Row(label, widgets, extraText, ROW_H, tooltipKey, false);
     }
@@ -195,14 +189,14 @@ public class ServerConfigScreen extends Screen {
         rows.clear();
         switch (selectedCat) {
             case 0 -> {
-                rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.use_tpa"),
+                rows.add(row(Text.translatable("e33chat.server.use_tpa"),
                     List.of(mkToggle(() -> useTpaV, nv -> useTpaV = nv)), null, "e33chat.server.use_tpa"));
-                rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.history"),
+                rows.add(row(Text.translatable("e33chat.server.history"),
                     List.of(mkToggle(() -> historyV, nv -> historyV = nv)), null, "e33chat.server.history"));
             }
             case 1 -> buildTemplateRows(chatV, true);
             case 2 -> buildTemplateRows(whisperV, false);
-            case 3 -> rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.template_debug"),
+            case 3 -> rows.add(row(Text.translatable("e33chat.server.template_debug"),
                 List.of(mkToggle(() -> debugV, nv -> debugV = nv)), null, "e33chat.server.template_debug"));
             case 4 -> buildTutorialRows();
         }
@@ -212,7 +206,7 @@ public class ServerConfigScreen extends Screen {
         // 模板行：标签(左) + [编辑框][✕](右对齐到控件右缘线 previewX-8，与其他行控件右缘对齐)
         for (int i = 0; i < list.size(); i++) {
             int idx = i;
-            Text label = com.niuqu.chatbubble.Txt.translatable("e33chat.server.template_n", i + 1);
+            Text label = Text.translatable("e33chat.server.template_n", i + 1);
             TextFieldWidget box = mkBox(previewX() - 8 - TEMPLATE_INPUT_W - 24, TEMPLATE_INPUT_W);
             box.setText(list.get(idx));
             box.setChangedListener(s -> {
@@ -222,40 +216,40 @@ public class ServerConfigScreen extends Screen {
                 if (r.template() == null) boxErrors.put(box, r.error());
                 else boxErrors.remove(box);
             });
-            ButtonWidget rm = GuiCompat.button(com.niuqu.chatbubble.Txt.literal("✕"), b -> { list.remove(idx); rebuild(); },
-                previewX() - 8 - 20, 0, 20, 20);
+            ButtonWidget rm = ButtonWidget.builder(Text.literal("✕"), b -> { list.remove(idx); rebuild(); })
+                .dimensions(previewX() - 8 - 20, 0, 20, 20).build();
             rows.add(new Row(label, List.of(reg(rm), reg(box)), null, ROW_H,
                 "e33chat.server.template_n", false));
         }
         // 操作行：添加 / 从消息生成 各 90px，从右往右对齐到控件右缘线
-        ButtonWidget add = GuiCompat.button(com.niuqu.chatbubble.Txt.translatable("e33chat.server.add"), b -> { list.add(""); rebuild(); },
-            btnLeft(), 0, BUTTON_W, 20);
+        ButtonWidget add = ButtonWidget.builder(Text.translatable("e33chat.server.add"), b -> { list.add(""); rebuild(); })
+            .dimensions(btnLeft(), 0, BUTTON_W, 20).build();
         if (chat) {
-            ButtonWidget genOpen = GuiCompat.button(com.niuqu.chatbubble.Txt.translatable("e33chat.server.gen_open"),
-                b -> { genVisible = true; rebuild(); }, btnRight(), 0, BUTTON_W, 20);
-            rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.actions"), List.of(add, genOpen), null, "e33chat.server.actions"));
+            ButtonWidget genOpen = ButtonWidget.builder(Text.translatable("e33chat.server.gen_open"),
+                b -> { genVisible = true; rebuild(); }).dimensions(btnRight(), 0, BUTTON_W, 20).build();
+            rows.add(row(Text.translatable("e33chat.server.actions"), List.of(add, genOpen), null, "e33chat.server.actions"));
             if (genVisible) {
                 TextFieldWidget genBox = mkBox(inputX(), INPUT_W);
                 genBox.setText(genText);
                 genBox.setChangedListener(s -> { genText = s; genError = null; });
-                rows.add(genInputRow = row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.gen"), List.of(genBox), null, "e33chat.server.gen"));
-                ButtonWidget genOk = GuiCompat.button(com.niuqu.chatbubble.Txt.translatable("e33chat.server.gen_confirm"),
-                    b -> generateFromMessage(), btnLeft(), 0, BUTTON_W, 20);
-                ButtonWidget genCancel = GuiCompat.button(com.niuqu.chatbubble.Txt.translatable("e33chat.server.gen_cancel"),
-                    b -> { genVisible = false; genError = null; rebuild(); }, btnRight(), 0, BUTTON_W, 20);
-                rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.gen"), List.of(genOk, genCancel), null, null));
+                rows.add(genInputRow = row(Text.translatable("e33chat.server.gen"), List.of(genBox), null, "e33chat.server.gen"));
+                ButtonWidget genOk = ButtonWidget.builder(Text.translatable("e33chat.server.gen_confirm"),
+                    b -> generateFromMessage()).dimensions(btnLeft(), 0, BUTTON_W, 20).build();
+                ButtonWidget genCancel = ButtonWidget.builder(Text.translatable("e33chat.server.gen_cancel"),
+                    b -> { genVisible = false; genError = null; rebuild(); }).dimensions(btnRight(), 0, BUTTON_W, 20).build();
+                rows.add(row(Text.translatable("e33chat.server.gen"), List.of(genOk, genCancel), null, null));
             }
         } else {
-            rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.actions"), List.of(add), null, "e33chat.server.actions"));
+            rows.add(row(Text.translatable("e33chat.server.actions"), List.of(add), null, "e33chat.server.actions"));
         }
         // 常见格式预设：标题行 + 逐行[模板字符串(标签,按按钮左缘截断)][+正方形按钮右对齐]
         String[] presets = chat ? CHAT_PRESETS : WHISPER_PRESETS;
-        rows.add(titleRow(com.niuqu.chatbubble.Txt.translatable("e33chat.server.preset_section")));
+        rows.add(titleRow(Text.translatable("e33chat.server.preset_section")));
         for (String p : presets) {
-            ButtonWidget pb = GuiCompat.button(com.niuqu.chatbubble.Txt.literal("+"),
-                b -> { if (!list.contains(p)) { list.add(p); rebuild(); } },
-                inputX() + INPUT_W - 20, 0, 20, 20);
-            Text label = com.niuqu.chatbubble.Txt.literal(truncate(p, inputX() - optLabelX() - 8));
+            ButtonWidget pb = ButtonWidget.builder(Text.literal("+"),
+                b -> { if (!list.contains(p)) { list.add(p); rebuild(); } })
+                .dimensions(inputX() + INPUT_W - 20, 0, 20, 20).build();
+            Text label = Text.literal(truncate(p, inputX() - optLabelX() - 8));
             rows.add(new Row(label, List.of(reg(pb)), null, ROW_H, null, false));
         }
         // 预览：输入即出结果，结果渲染在行内下半部
@@ -268,24 +262,24 @@ public class ServerConfigScreen extends Screen {
             preview.setText(pendingPreviewText);
             pendingPreviewText = null;
         }
-        rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.preview"), List.of(preview),
+        rows.add(row(Text.translatable("e33chat.server.preview"), List.of(preview),
             chat ? previewChatResult : previewWhisperResult, "e33chat.server.preview"));
     }
 
     // 教程：分节速查。每节 = 标题行 + 段落行（像素换行）+ 间距；原理节放最后（进阶）
     private void buildTutorialRows() {
         for (String key : List.of("quick", "concept", "fields", "faq", "why")) {
-            rows.add(titleRow(com.niuqu.chatbubble.Txt.translatable("e33chat.tutorial." + key + ".title")));
-            for (String para : com.niuqu.chatbubble.Txt.translatable("e33chat.tutorial." + key).getString().split("\n")) {
+            rows.add(titleRow(Text.translatable("e33chat.tutorial." + key + ".title")));
+            for (String para : Text.translatable("e33chat.tutorial." + key).getString().split("\n")) {
                 if (para.isBlank()) {
-                    rows.add(textRow(com.niuqu.chatbubble.Txt.literal(""), 6));
+                    rows.add(textRow(Text.literal(""), 6));
                     continue;
                 }
                 for (String line : wrapText(para)) {
-                    rows.add(textRow(com.niuqu.chatbubble.Txt.literal(line), 14));
+                    rows.add(textRow(Text.literal(line), 14));
                 }
             }
-            rows.add(textRow(com.niuqu.chatbubble.Txt.literal(""), 10));
+            rows.add(textRow(Text.literal(""), 10));
         }
     }
 
@@ -326,8 +320,8 @@ public class ServerConfigScreen extends Screen {
         String inferred = TemplateMatcher.inferFromMessage(genText, knownNames()).orElse(null);
         if (inferred == null) {
             // 复制功能只复制纯正文（不含玩家名），先提示要贴含名字的完整行
-            genError = com.niuqu.chatbubble.Txt.translatable("e33chat.server.gen_failed").getString()
-                + "  " + com.niuqu.chatbubble.Txt.translatable("e33chat.server.gen_howto").getString();
+            genError = Text.translatable("e33chat.server.gen_failed").getString()
+                + "  " + Text.translatable("e33chat.server.gen_howto").getString();
             return;
         }
         chatV.add(inferred);
@@ -344,11 +338,7 @@ public class ServerConfigScreen extends Screen {
         var player = MinecraftClient.getInstance().player;
         if (player != null && player.networkHandler != null) {
             for (var info : player.networkHandler.getPlayerList()) {
-                //#if MC >= 12109
-                names.add(info.getProfile().name());
-                //#else
-                //$$ names.add(info.getProfile().getName());
-                //#endif
+                names.add(info.getProfile().getName());
             }
         }
         names.addAll(ChatMessageStore.knownNameVariants());
@@ -364,25 +354,25 @@ public class ServerConfigScreen extends Screen {
         }
         var m = TemplateMatcher.match(text, whisper ? List.of() : tpls, whisper ? tpls : List.of(),
             ChatMessageStore::isKnownPlayerName);
-        if (m.isEmpty()) return com.niuqu.chatbubble.Txt.translatable("e33chat.server.preview_miss").getString();
+        if (m.isEmpty()) return Text.translatable("e33chat.server.preview_miss").getString();
         var t = m.orElseThrow();
         String name = whisper && t.sender() != null ? t.sender() : t.displayName();
-        return com.niuqu.chatbubble.Txt.translatable("e33chat.server.preview_hit", name, t.content()).getString();
+        return Text.translatable("e33chat.server.preview_hit", name, t.content()).getString();
     }
 
     private ButtonWidget mkToggle(java.util.function.BooleanSupplier current,
                                   java.util.function.Consumer<Boolean> apply) {
-        return GuiCompat.button(current.getAsBoolean() ? GuiCompat.onText() : GuiCompat.offText(),
+        return ButtonWidget.builder(current.getAsBoolean() ? ScreenTexts.ON : ScreenTexts.OFF,
             b -> {
                 boolean nv = !current.getAsBoolean();
                 apply.accept(nv);
-                b.setMessage(nv ? GuiCompat.onText() : GuiCompat.offText());
-            }, btnRight(), 0, BUTTON_W, 20);
+                b.setMessage(nv ? ScreenTexts.ON : ScreenTexts.OFF);
+            }).dimensions(btnRight(), 0, BUTTON_W, 20).build();
     }
 
     // 创建输入框（统一 maxLength 200）
     private TextFieldWidget mkBox(int x, int w) {
-        TextFieldWidget box = new TextFieldWidget(textRenderer, x, 0, w, 20, com.niuqu.chatbubble.Txt.literal(""));
+        TextFieldWidget box = new TextFieldWidget(textRenderer, x, 0, w, 20, Text.literal(""));
         box.setMaxLength(200);
         return box;
     }
@@ -401,10 +391,8 @@ public class ServerConfigScreen extends Screen {
             error = err;
             return;
         }
-        //#if MC >= 12005
         ClientPlayNetworking.send(new ServerConfigSavePayload(
             useTpaV, historyV, debugV, new ArrayList<>(chatV), new ArrayList<>(whisperV)));
-        //#endif
         doClose();
     }
 
@@ -412,31 +400,26 @@ public class ServerConfigScreen extends Screen {
         for (int i = 0; i < templates.size(); i++) {
             TemplateMatcher.CompileResult result = TemplateMatcher.compile(templates.get(i));
             if (result.template() == null) {
-                return com.niuqu.chatbubble.Txt.translatable("e33chat.server.invalid",
-                    com.niuqu.chatbubble.Txt.translatable("e33chat.server." + kind), i + 1, result.error()).getString();
+                return Text.translatable("e33chat.server.invalid",
+                    Text.translatable("e33chat.server." + kind), i + 1, result.error()).getString();
             }
         }
         return null;
     }
 
     private void doClose() {
-        if (client != null) GuiCompat.setScreen(client, lastScreen);
+        if (client != null) client.setScreen(lastScreen);
     }
 
-    //#if MC >= 11700
     @Override
     public void close() {
-    //#else
-    //$$ @Override
-    //$$ public void onClose() {
-    //#endif
         if (changed()) {
-            GuiCompat.setScreen(client, new ConfirmScreen(confirmed -> {
+            client.setScreen(new ConfirmScreen(confirmed -> {
                 if (confirmed) doClose();
-                else GuiCompat.setScreen(client, this);
+                else client.setScreen(this);
             },
-                com.niuqu.chatbubble.Txt.translatable("e33chat.config.discard.title"),
-                com.niuqu.chatbubble.Txt.translatable("e33chat.config.discard.message", changeCount())));
+                Text.translatable("e33chat.config.discard.title"),
+                Text.translatable("e33chat.config.discard.message", changeCount())));
         } else {
             doClose();
         }
@@ -458,12 +441,12 @@ public class ServerConfigScreen extends Screen {
         scrollOffset = MathHelper.clamp(scrollOffset, 0, calcMaxScroll());
         treeScroll = MathHelper.clamp(treeScroll, 0, calcTreeMaxScroll());
 
-        doneBtn = GuiCompat.addDrawableChild(this, GuiCompat.button(GuiCompat.doneText(), b -> doClose(),
-            width / 2 - 100, height - 32, 200, 20));
-        exitBtn = GuiCompat.addDrawableChild(this, GuiCompat.button(com.niuqu.chatbubble.Txt.translatable("e33chat.config.exit"), b -> doClose(),
-            width / 2 - 104, height - 32, 100, 20));
-        saveBtn = GuiCompat.addDrawableChild(this, GuiCompat.button(com.niuqu.chatbubble.Txt.translatable("e33chat.server.save"), b -> save(),
-            width / 2 + 4, height - 32, 100, 20));
+        doneBtn = addDrawableChild(ButtonWidget.builder(ScreenTexts.DONE, b -> doClose())
+            .dimensions(width / 2 - 100, height - 32, 200, 20).build());
+        exitBtn = addDrawableChild(ButtonWidget.builder(Text.translatable("e33chat.config.exit"), b -> doClose())
+            .dimensions(width / 2 - 104, height - 32, 100, 20).build());
+        saveBtn = addDrawableChild(ButtonWidget.builder(Text.translatable("e33chat.server.save"), b -> save())
+            .dimensions(width / 2 + 4, height - 32, 100, 20).build());
 
         relayoutWidgets();
     }
@@ -471,7 +454,7 @@ public class ServerConfigScreen extends Screen {
     private void rebuild() {
         scrollOffset = 0;
         setFocused(null);
-        GuiCompat.clearChildren(this);
+        clearChildren();
         boxErrors.clear();
         init();
     }
@@ -488,7 +471,7 @@ public class ServerConfigScreen extends Screen {
         for (Row row : rows) {
             for (Element w : row.widgets()) {
                 if (w instanceof net.minecraft.client.gui.widget.ClickableWidget cw) {
-                    GuiCompat.setWidgetY(cw, y);
+                    cw.setY(y);
                     cw.visible = y >= viewTop() && y + row.height() <= viewBottom();
                 }
             }
@@ -548,7 +531,7 @@ public class ServerConfigScreen extends Screen {
         relayoutWidgets();
     }
 
-    private void drawBar(Object g, int trackX, int top, int bot,
+    private void drawBar(DrawContext g, int trackX, int top, int bot,
                          int totalH, int offset, int maxScroll,
                          double mx, double my, boolean dragging) {
         if (maxScroll <= 0) return;
@@ -565,31 +548,24 @@ public class ServerConfigScreen extends Screen {
             trackX, ty, SCROLLBAR_W, th, base / 255f);
     }
 
-    private void drawTriangle(Object g, int x, int y, boolean down, int color) {
+    private void drawTriangle(DrawContext g, int x, int y, boolean down, int color) {
         if (down) {
-            RenderHelper.fill(g, x, y, x + 5, y + 1, color);
-            RenderHelper.fill(g, x + 1, y + 1, x + 4, y + 2, color);
-            RenderHelper.fill(g, x + 2, y + 2, x + 3, y + 3, color);
+            g.fill(x, y, x + 5, y + 1, color);
+            g.fill(x + 1, y + 1, x + 4, y + 2, color);
+            g.fill(x + 2, y + 2, x + 3, y + 3, color);
         } else {
-            RenderHelper.fill(g, x, y, x + 1, y + 1, color);
-            RenderHelper.fill(g, x, y + 1, x + 2, y + 2, color);
-            RenderHelper.fill(g, x, y + 2, x + 3, y + 3, color);
-            RenderHelper.fill(g, x, y + 3, x + 2, y + 4, color);
-            RenderHelper.fill(g, x, y + 4, x + 1, y + 5, color);
+            g.fill(x, y, x + 1, y + 1, color);
+            g.fill(x, y + 1, x + 2, y + 2, color);
+            g.fill(x, y + 2, x + 3, y + 3, color);
+            g.fill(x, y + 3, x + 2, y + 4, color);
+            g.fill(x, y + 4, x + 1, y + 5, color);
         }
     }
 
     // ===== 交互 =====
 
     @Override
-    //#if MC >= 12109
-    public boolean mouseClicked(Click click, boolean inside) {
-        double mouseX = click.x();
-        double mouseY = click.y();
-        int button = click.button();
-        //#else
-        //$$ public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        //#endif
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int rMax = calcMaxScroll();
         if (rMax > 0 && mouseX >= rTrackX() && mouseX < rTrackX() + SCROLLBAR_W
                 && mouseY >= viewTop() && mouseY < viewBottom()) {
@@ -620,19 +596,11 @@ public class ServerConfigScreen extends Screen {
                 ly += CAT_ROW_H;
             }
         }
-        //#if MC >= 12109
-        return super.mouseClicked(click, inside);
-        //#else
-        //$$ return super.mouseClicked(mouseX, mouseY, button);
-        //#endif
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    //#if MC >= 12004
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-    //#else
-    //$$ public boolean mouseScrolled(double mouseX, double mouseY, double verticalAmount) {
-    //#endif
         if (mouseX < dividerX()) {
             if (calcTreeMaxScroll() <= 0) return false;
             startT(treeScroll - (float) (verticalAmount * 20), 120);
@@ -644,14 +612,7 @@ public class ServerConfigScreen extends Screen {
     }
 
     @Override
-    //#if MC >= 12109
-    public boolean mouseDragged(Click click, double dx, double dy) {
-        double mouseX = click.x();
-        double mouseY = click.y();
-        int button = click.button();
-        //#else
-        //$$ public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
-        //#endif
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
         if (rBarDrag && calcMaxScroll() > 0) {
             int travel = rTrackH() - sbThumbH(rTrackH(), rTotalH());
             if (travel > 0) {
@@ -668,111 +629,93 @@ public class ServerConfigScreen extends Screen {
             }
             return true;
         }
-        //#if MC >= 12109
-        return super.mouseDragged(click, dx, dy);
-        //#else
-        //$$ return super.mouseDragged(mouseX, mouseY, button, dx, dy);
-        //#endif
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
     @Override
-    //#if MC >= 12109
-    public boolean mouseReleased(Click click) {
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
         rBarDrag = false;
         tBarDrag = false;
-        return super.mouseReleased(click);
-        //#else
-        //$$ public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        //$$     rBarDrag = false;
-        //$$     tBarDrag = false;
-        //$$     return super.mouseReleased(mouseX, mouseY, button);
-        //#endif
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     // ===== 渲染 =====
 
     @Override
-    //#if MC >= 12000
-    //#if MC >= 26000
-    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
-    //#else
     public void render(DrawContext g, int mouseX, int mouseY, float partialTick) {
-    //#endif
-    //#else
-    //$$ public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
-    //#endif
-        RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.CONFIG_BG, ChatBubbleTheme.DARK),
-            0, 0, 0f, 0f, width, height, 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.CONFIG_BG, ChatBubbleTheme.DARK),
+            0, 0, width, height, 0f, 0f, 16, 16, 16, 16);
         tickAnims();
-        RenderHelper.drawText(g, textRenderer, title, width / 2 - textRenderer.getWidth(title) / 2, 14, c().configTitle(), false);
+        g.drawText(textRenderer, title, width / 2 - textRenderer.getWidth(title) / 2, 14, c().configTitle(), false);
 
         String tooltipKey = null;
 
         // 左侧分类树（照抄客户端：选中高亮 + 左侧竖条，裁剪到视口）
-        RenderHelper.enableScissor(g, CAT_X, START_Y, dividerX(), viewBottom());
+        g.enableScissor(CAT_X, START_Y, dividerX(), viewBottom());
         int ly = START_Y - treeScroll;
         for (int i = 0; i < CAT_KEYS.length; i++) {
             boolean sel = i == selectedCat;
             boolean hover = mouseX >= CAT_X && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + CAT_ROW_H;
             if (sel || hover)
-                RenderHelper.fill(g, CAT_X, ly, CAT_X + CAT_W, ly + CAT_ROW_H, c().iconHover());
+                g.drawTexture(UiTextureManager.rl(UiElement.HOVER_BG, ChatBubbleTheme.DARK),
+                    CAT_X, ly, CAT_W, CAT_ROW_H, 0f, 0f, 16, 16, 16, 16);
             if (sel)
-                RenderHelper.fill(g, CAT_X, ly, CAT_X + 2, ly + CAT_ROW_H, c().configTitle());
-            RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.translatable(CAT_KEYS[i]), CAT_X + 18, ly + (CAT_ROW_H - 8) / 2,
+                g.fill(CAT_X, ly, CAT_X + 2, ly + CAT_ROW_H, c().configTitle());
+            g.drawText(textRenderer, Text.translatable(CAT_KEYS[i]), CAT_X + 18, ly + (CAT_ROW_H - 8) / 2,
                 sel ? c().configTitle() : c().configLabel(), false);
             ly += CAT_ROW_H;
         }
-        RenderHelper.disableScissor(g);
+        g.disableScissor();
         drawBar(g, tTrackX(), START_Y, viewBottom(), tTotalH(), treeScroll, calcTreeMaxScroll(),
             mouseX, mouseY, tBarDrag);
 
         // 分类与选项区分隔线
-        RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.DIVIDER, ChatBubbleTheme.DARK),
-            dividerX(), START_Y - 6, 0f, 0f, 1, viewBottom() - (START_Y - 6), 1, 1);
+        g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER, ChatBubbleTheme.DARK),
+            dividerX(), START_Y - 6, 1, viewBottom() - (START_Y - 6), 0f, 0f, 16, 16, 16, 16);
 
         // 右区选项行，硬裁剪到视口；普通行 label 垂直居中对齐按钮（y+6），教程小行顶部对齐（y+2）
-        RenderHelper.enableScissor(g, optLabelX() - 4, viewTop(), width, viewBottom());
+        g.enableScissor(optLabelX() - 4, viewTop(), width, viewBottom());
         int y = viewTop() - scrollOffset;
         for (Row row : rows) {
             if (row.title()) {
                 // 分区标题：灰字左对齐 + 字右侧延伸一条细分隔线（同客户端配置界面）
                 Text label = row.label();
-                RenderHelper.drawText(g, textRenderer, label, optLabelX(), y + 11, c().configLabel(), false);
+                g.drawText(textRenderer, label, optLabelX(), y + 11, c().configLabel(), false);
                 int lineX = optLabelX() + textRenderer.getWidth(label) + 8;
                 int lineEnd = optLabelX() + optAreaW() + 4;
                 if (lineX < lineEnd)
-                    RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.DIVIDER, ChatBubbleTheme.DARK),
-                        lineX, y + 15, 0f, 0f, lineEnd - lineX, 1, 1, 1);
+                    g.drawTexture(UiTextureManager.rl(UiElement.DIVIDER, ChatBubbleTheme.DARK),
+                        lineX, y + 15, lineEnd - lineX, 1, 0f, 0f, 16, 16, 16, 16);
                 y += row.height();
                 continue;
             }
             if (!row.label().getString().isEmpty()) {
                 int labelY = row.height() == ROW_H ? y + 6 : y + 2;
-                RenderHelper.drawText(g, textRenderer, row.label(), optLabelX(), labelY, c().configLabel(), false);
+                g.drawText(textRenderer, row.label(), optLabelX(), labelY, c().configLabel(), false);
                 if (row.tooltipKey() != null && y >= viewTop() && y + 20 <= viewBottom()
                     && mouseX >= optLabelX() - 4 && mouseX <= inputX() - 10 && mouseY >= y && mouseY <= y + 20)
                     tooltipKey = row.tooltipKey();
             }
             if (row.extraText() != null && !row.extraText().isEmpty()) {
-                RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.literal(truncate(row.extraText(), rightAreaW())),
+                g.drawText(textRenderer, Text.literal(truncate(row.extraText(), rightAreaW())),
                     optLabelX(), y + 21, c().textSecondary(), false);
             }
             // 实时校验错误：行内控件下方红字（模板行），像素截断防溢出
             for (Element w : row.widgets()) {
                 if (w instanceof TextFieldWidget eb && boxErrors.containsKey(eb)) {
-                    RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.literal(truncate(boxErrors.get(eb), rightAreaW())),
+                    g.drawText(textRenderer, Text.literal(truncate(boxErrors.get(eb), rightAreaW())),
                         optLabelX(), y + 22, 0xFFFF4444, false);
                     break;
                 }
             }
             // 生成失败提示：对齐在生成输入框所在行下方（与模板警告同风格），像素截断
             if (genError != null && row == genInputRow) {
-                RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.literal(truncate(genError, rightAreaW())),
+                g.drawText(textRenderer, Text.literal(truncate(genError, rightAreaW())),
                     optLabelX(), y + 22, 0xFFFF4444, false);
             }
             y += row.height();
         }
-        RenderHelper.disableScissor(g);
+        g.disableScissor();
         drawBar(g, rTrackX(), viewTop(), viewBottom(), rTotalH(), scrollOffset, calcMaxScroll(),
             mouseX, mouseY, rBarDrag);
 
@@ -784,43 +727,24 @@ public class ServerConfigScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
 
         if (changed > 0)
-            RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.translatable("e33chat.config.changed", changed),
+            g.drawText(textRenderer, Text.translatable("e33chat.config.changed", changed),
                 width / 2 + 112, height - 26, c().configLabel(), false);
 
         if (error != null) {
             // 保存校验失败：底部固定红字（模板行/生成行的实时错误已在行下方各自显示），像素截断
-            RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.literal(truncate(error, rightAreaW())),
+            g.drawText(textRenderer, Text.literal(truncate(error, rightAreaW())),
                 optLabelX(), viewBottom() - 12, 0xFFFF4444, false);
         }
 
         if (tooltipKey != null)
-            GuiCompat.renderTooltip(g, this, com.niuqu.chatbubble.Txt.translatable(tooltipKey + ".desc"), mouseX, mouseY);
+            g.drawTooltip(textRenderer, Text.translatable(tooltipKey + ".desc"), mouseX, mouseY);
     }
 
-    //#if MC >= 12004
     @Override
     public void renderBackground(DrawContext g, int mouseX, int mouseY, float partialTick) {
         // no-op：背景已在 render() 开头画一次（同客户端）
     }
-    //#else
-    //#if MC >= 12000
-    //$$ @Override
-    //$$ public void renderBackground(DrawContext g) {
-    //$$     // no-op：背景已在 render() 开头画一次
-    //$$ }
-    //#else
-    //$$ @Override
-    //$$ public void renderBackground(MatrixStack g) {
-    //$$     // no-op：背景已在 render() 开头画一次
-    //$$ }
-    //#endif
-    //#endif
 
-    //#if MC >= 11700
     @Override
     public boolean shouldPause() { return true; }
-    //#else
-    //$$ @Override
-    //$$ public boolean isPauseScreen() { return true; }
-    //#endif
 }

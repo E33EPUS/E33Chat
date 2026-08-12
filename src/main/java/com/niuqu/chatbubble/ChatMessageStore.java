@@ -1,13 +1,8 @@
 package com.niuqu.chatbubble;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
-import com.mojang.serialization.JsonOps;
 import com.niuqu.chatbubble.chat.notification.MentionNotificationController;
-//#if MC >= 12004
-import net.minecraft.text.TextCodecs;
-//#endif
 import net.minecraft.util.Formatting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
@@ -33,40 +28,12 @@ public class ChatMessageStore {
     static final long QUOTE_ECHO_WINDOW_MS = 5_000;
     static final long REPOST_DEDUP_MS = 1_000;
 
-    //#if MC >= 12111
-    private record HintEntry(Text text, boolean isMention) {}
-    private static final java.util.LinkedList<HintEntry> strongHintQueue = new java.util.LinkedList<>();
-    private static int strongHintTicks;
-    public static final int STRONG_HINT_DURATION = 60;
-    //#endif
-
     // True when a repost would duplicate one just sent: the server echoes a whisper
     // twice (signed outgoing + incoming variants) within ~15ms, and both would be
     // rewritten to the same <name>[私聊] line without this guard.
     public static boolean isRepostDuplicate(String lastRepostText, long lastRepostTime, String newText, long now) {
         return newText.equals(lastRepostText) && now - lastRepostTime < REPOST_DEDUP_MS;
     }
-
-    //#if MC >= 12111
-    public static Text getStrongHintText() {
-        if (strongHintQueue.isEmpty()) return null;
-        return strongHintTicks > 0 ? strongHintQueue.peek().text() : null;
-    }
-
-    public static int getStrongHintTicks() { return strongHintTicks; }
-
-    public static void tickStrongHint() {
-        if (strongHintTicks > 0) {
-            strongHintTicks--;
-            if (strongHintTicks <= 0) {
-                strongHintQueue.poll();
-                if (!strongHintQueue.isEmpty()) {
-                    strongHintTicks = STRONG_HINT_DURATION;
-                }
-            }
-        }
-    }
-    //#endif
 
     private static String currentWorldKey;
     private static final Map<String, String> worldTitles = new HashMap<>();
@@ -167,31 +134,12 @@ public class ChatMessageStore {
         return null;
     }
 
-    public static String findSeenProfileName(String name) {
-        if (name == null || name.isEmpty()) return null;
-        String stripped = name.replaceAll("§.", "");
-        for (SeenPlayer sp : seenPlayers.values()) {
-            if (matchesSeenName(name, stripped, sp.profileName())
-                || matchesSeenName(name, stripped, sp.displayName())) {
-                return sp.profileName();
-            }
-        }
-        return null;
-    }
-
     private static boolean matchesSeenName(String raw, String stripped, String stored) {
         if (stored == null || stored.isEmpty()) return false;
         if (raw.equals(stored)) return true;
         if (!stripped.isEmpty() && stripped.equals(stored)) return true;
         String storedStripped = stored.replaceAll("§.", "");
-        if (raw.equals(storedStripped) || (!stripped.isEmpty() && stripped.equals(storedStripped))) {
-            return true;
-        }
-        // Decorated/prefixed names such as "[称号]Steve" should still resolve to
-        // the real profile name for persistent avatar cache lookup.
-        return storedStripped.length() >= 3
-            && ((!stripped.isEmpty() && stripped.contains(storedStripped))
-                || raw.contains(storedStripped));
+        return raw.equals(storedStripped) || (!stripped.isEmpty() && stripped.equals(storedStripped));
     }
 
     // player? Online candidates + self + seen players. Mirrors the mixin's gate.
@@ -316,7 +264,7 @@ public class ChatMessageStore {
 
     public static void debugLog(java.util.function.Supplier<String> msg) {
         if (ChatBubbleClientSetup.config().debugLog())
-            E33Log.info(msg.get());
+            com.mojang.logging.LogUtils.getLogger().info(msg.get());
     }
 
     public static void debugLog(String msg) {
@@ -377,7 +325,7 @@ public class ChatMessageStore {
 
     // The local echo bubble is created with the bare name before the server's
     // decorated version (titles/prefixes) is known — patch it when the echo arrives
-    private static void updateLatestOwnSenderName(Text senderName) {
+    public static void updateLatestOwnSenderName(Text senderName) {
         for (int i = messages.size() - 1; i >= 0 && i >= messages.size() - 5; i--) {
             ChatMessage m = messages.get(i);
             if (!m.isOwn()) continue;
@@ -557,7 +505,7 @@ public class ChatMessageStore {
 
         messages.add(new ChatMessage(
             senderUUID,
-            senderName != null ? senderName : com.niuqu.chatbubble.Txt.literal(""),
+            senderName != null ? senderName : Text.literal(""),
             content,
             System.currentTimeMillis(),
             own,
@@ -599,18 +547,15 @@ public class ChatMessageStore {
             && ChatBubbleClientSetup.config().mentionWhisperBanner()
             && (!localSend || ChatBubbleClientSetup.config().ownWhisperNotify())) {
             MentionNotificationController.INSTANCE.onWhisperReceived(
-                senderUUID, senderName, rawPlayerName, content, messages.size());
+                senderUUID, senderName, content, messages.size());
         }
 
-        // System messages (deaths/joins/broadcasts) pop the same banner as
-        // @/whisper/quote; the [系统] label is the name row.
+        // System messages pop as a banner like @/whisper/quote (no sender name —
+        // the system label is enough, avoiding "[系统] 系统"). Independent toggle,
+        // on by default.
         if (isSystem && ChatBubbleClientSetup.config().systemBannerEnabled()) {
             MentionNotificationController.INSTANCE.onSystemMessage(content, messages.size());
         }
-
-        //#if MC >= 12111
-        boolean systemToHint = isSystem && ChatBubbleClientSetup.config().strongHintEnabled();
-        //#endif
 
         boolean playSound = false;
         if (!own && localPlayerSupplier.get() != null && !isMentionOrQuote && !whisper) {
@@ -619,20 +564,8 @@ public class ChatMessageStore {
         }
         if (playSound) {
             MinecraftClient.getInstance().player.playSound(
-                GuiCompat.soundValue(net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME), 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
+                net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
         }
-
-        //#if MC >= 12111
-        // Strong hints enqueue at top level (not gated on !screenOpen) so a system /
-        // @mention arriving while chat is open also pops — the HUD already draws the
-        // hint above the open screen. Mutual exclusion with the preview is preserved by
-        // the systemToHint / mentionToHint guards (shared with the preview enqueue).
-        if (systemToHint) {
-            strongHintQueue.removeIf(e -> !e.isMention());
-            strongHintQueue.add(new HintEntry(singleLineComponent(content), false));
-            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
-        }
-        //#endif
 
         if (!screenOpen) {
             unreadCount++;
@@ -644,76 +577,14 @@ public class ChatMessageStore {
     }
 
     public static Text sliceStyled(Text src, int start, int end) {
-        MutableText out = com.niuqu.chatbubble.Txt.empty();
+        MutableText out = Text.empty();
         int[] pos = {0};
         src.visit((style, text) -> {
             int s = pos[0], e = s + text.length();
             pos[0] = e;
             int from = Math.max(start, s), to = Math.min(end, e);
             if (from < to)
-                out.append(com.niuqu.chatbubble.Txt.literal(text.substring(from - s, to - s)).fillStyle(style));
-            return Optional.<Object>empty();
-        }, Style.EMPTY);
-        return out;
-    }
-
-    /**
-     * Extract the decorated sender name (with prefix/title) from a fully
-     * rendered chat line by locating the content text and taking everything
-     * before it as the name area.
-     */
-    public static Text extractDecoratedName(Text fullLine, String contentStr,
-                                             String rawName, Text fallback) {
-        if (contentStr == null || contentStr.isEmpty()) return fallback;
-        String fullStr = fullLine.getString();
-        int idx = fullStr.lastIndexOf(contentStr);
-        if (idx <= 0) return fallback;
-        return cleanNameArea(fullLine, 0, idx, rawName, fallback);
-    }
-
-    /**
-     * Clean up a name area extracted from a chat line: strip whitespace,
-     * trailing separators (colons, »), angle brackets wrapping the bare name,
-     * so the result keeps decorations ([VIP], 【称号】) but not the separators.
-     */
-    public static Text cleanNameArea(Text fullLine, int a, int b,
-                                      String rawName, Text fallback) {
-        String fullStr = fullLine.getString();
-        while (a < b && Character.isWhitespace(fullStr.charAt(a))) a++;
-        while (b > a) {
-            char ch = fullStr.charAt(b - 1);
-            if (Character.isWhitespace(ch) || ch == ':' || ch == '：' || ch == '»') b--;
-            else if (ch == '>' && b >= a + 2 && fullStr.charAt(b - 2) == '>') b -= 2;
-            else break;
-        }
-        if (a >= b) return fallback;
-        Text nameArea = sliceStyled(fullLine, a, b);
-        String ns = nameArea.getString();
-        if (rawName != null && !rawName.isEmpty()) {
-            String bracketed = "<" + rawName + ">";
-            int p = ns.indexOf(bracketed);
-            if (p >= 0) {
-                var out = com.niuqu.chatbubble.Txt.empty();
-                if (p > 0) out.append(sliceStyled(nameArea, 0, p));
-                out.append(sliceStyled(nameArea, p + 1, p + 1 + rawName.length()));
-                int tail = p + bracketed.length();
-                if (tail < ns.length()) out.append(sliceStyled(nameArea, tail, ns.length()));
-                return out;
-            }
-            if (ns.length() > 2 && ns.charAt(0) == '<' && ns.charAt(ns.length() - 1) == '>')
-                return sliceStyled(nameArea, 1, ns.length() - 1);
-        }
-        return nameArea;
-    }
-
-    // Flatten the component into styled runs with control chars (newline, tab, ...)
-    // replaced by spaces — for single-line contexts (the strong hint) that can't break
-    // on '\n' and would otherwise draw "LF" boxes. Keeps style + click/hover events.
-    private static Text singleLineComponent(Text c) {
-        MutableText out = com.niuqu.chatbubble.Txt.empty();
-        c.visit((style, text) -> {
-            String cleaned = stripControls(text);
-            if (!cleaned.isEmpty()) out.append(com.niuqu.chatbubble.Txt.literal(cleaned).fillStyle(style));
+                out.append(Text.literal(text.substring(from - s, to - s)).fillStyle(style));
             return Optional.<Object>empty();
         }, Style.EMPTY);
         return out;
@@ -813,11 +684,11 @@ public class ChatMessageStore {
     }
 
     public static Text quoteMessage(int index) {
-        if (index < 0 || index >= messages.size()) return com.niuqu.chatbubble.Txt.literal("");
+        if (index < 0 || index >= messages.size()) return Text.literal("");
         ChatMessage msg = messages.get(index);
         String qName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
-        MutableText quote = com.niuqu.chatbubble.Txt.literal("> " + qName + ": ");
+        MutableText quote = Text.literal("> " + qName + ": ");
         quote.append(msg.content());
         return quote;
     }
@@ -896,16 +767,35 @@ public class ChatMessageStore {
         }
         // zh outgoing: "你悄悄地对[称号]Steve说：hi" — the name after "悄悄地对"
         // is the TARGET, not the sender (the sender is "你" = self); the caller's
-        // fallback carries our own decorated name.
+        // fallback carries our own decorated name. Some plugins echo the outgoing
+        // line with the sender's decorated name ("[称号]E33EPUS悄悄地对Steve说") —
+        // extract that prefix instead of falling back to the bare name.
         int duiIdx = fullStr.indexOf("悄悄地对");
         if (duiIdx >= 0) {
             int sayIdx = fullStr.indexOf("说：", duiIdx);
-            if (sayIdx > duiIdx) return fallback;
+            if (sayIdx > duiIdx) {
+                String prefix = fullStr.substring(0, duiIdx).trim();
+                if (!prefix.isEmpty() && !prefix.equals("你")) {
+                    Text area = sliceStyled(fullLine, fullStr.indexOf(prefix), fullStr.indexOf(prefix) + prefix.length());
+                    if (!area.getString().isBlank()) return stripItalic(area);
+                }
+                return fallback;
+            }
         }
+        // "X whisper to Y: hi" — X is the sender (decorated on plugin servers).
+        // Vanilla English outgoing is "You whisper to X" (X = target), so "You"
+        // is not a real name and falls back.
         int toIdx = fullStr.indexOf("whisper to ");
         if (toIdx >= 0) {
             int colonIdx = fullStr.indexOf(":", toIdx);
-            if (colonIdx > toIdx) return fallback;
+            if (colonIdx > toIdx) {
+                String prefix = fullStr.substring(0, toIdx).trim();
+                if (!prefix.isEmpty() && !prefix.equalsIgnoreCase("you")) {
+                    Text area = sliceStyled(fullLine, fullStr.indexOf(prefix), fullStr.indexOf(prefix) + prefix.length());
+                    if (!area.getString().isBlank()) return stripItalic(area);
+                }
+                return fallback;
+            }
         }
         int whisperIdx = fullStr.indexOf(" whispers to you");
         if (whisperIdx > 0) {
@@ -919,9 +809,9 @@ public class ChatMessageStore {
     // whisper lines gray+italic and the decoration style bleeds into extracted
     // names; 1.20.1 has no mapStyle, so walk the tree via visit.
     private static Text stripItalic(Text src) {
-        MutableText out = com.niuqu.chatbubble.Txt.empty();
+        MutableText out = Text.empty();
         src.visit((style, text) -> {
-            out.append(com.niuqu.chatbubble.Txt.literal(text).fillStyle(style.withItalic(false)));
+            out.append(Text.literal(text).fillStyle(style.withItalic(false)));
             return java.util.Optional.<Object>empty();
         }, net.minecraft.text.Style.EMPTY);
         return out;
@@ -929,8 +819,11 @@ public class ChatMessageStore {
 
     private static Text ownDecoratedName;
 
-    // 自己的最佳显示名：Tab 显示名 > 聊天中缓存到的装饰名 > 队伍前后缀/颜色 > 裸名。
-    // 旧分支会在没有 Tab 显示名和聊天缓存时，继续从 scoreboard team 取称号/颜色兜底。
+    // Best available self name: tab list > decorated name seen in chat > scoreboard
+    // team (color/prefix/suffix) > bare name. Vanilla servers send no tab-list
+    // display name, so the chat cache is the reliable source for the outgoing
+    // whisper repost; NCR servers add no cache before the first own line, so the
+    // team color is the only blue-name source there.
     public static Text ownDisplayName() {
         var player = net.minecraft.client.MinecraftClient.getInstance().player;
         if (player != null && player.networkHandler != null) {
@@ -940,8 +833,6 @@ public class ChatMessageStore {
             }
         }
         if (ownDecoratedName != null) return ownDecoratedName;
-        //#if MC >= 12100
-        //#if MC < 26000
         if (player != null && player.getScoreboardTeam() != null) {
             var team = player.getScoreboardTeam();
             Text pfx = team.getPrefix();
@@ -950,18 +841,16 @@ public class ChatMessageStore {
             boolean hasPfx = pfx != null && !pfx.getString().isEmpty();
             boolean hasSfx = sfx != null && !sfx.getString().isEmpty();
             if (hasPfx || hasSfx || col != null) {
-                MutableText name = com.niuqu.chatbubble.Txt.literal(player.getName().getString());
+                MutableText name = Text.literal(player.getName().getString());
                 if (col != null) name = name.formatted(col);
-                MutableText out = com.niuqu.chatbubble.Txt.empty();
+                MutableText out = Text.empty();
                 if (hasPfx) out.append(pfx);
                 out.append(name);
                 if (hasSfx) out.append(sfx);
                 return out;
             }
         }
-        //#endif
-        //#endif
-        return player != null ? player.getName() : com.niuqu.chatbubble.Txt.literal("?");
+        return player != null ? player.getName() : Text.literal("?");
     }
 
     public static Text cachedOwnDisplayName() {
@@ -1064,7 +953,7 @@ public class ChatMessageStore {
         }
     }
 
-    // ---- JSONL history lines: full styled sender/content + uuid ----
+    // ---- Plain-text history lines: date-time \t sender \t content \t flags ----
     // Open in any text editor and it reads like a log. Plain text only — colors
     // and click/hover data are dropped; the decorated prefix still shows as literal
     // text (e.g. "[称号]E33EPUS"). Flags: M=own, S=system, W=whisper (combinable,
@@ -1094,11 +983,25 @@ public class ChatMessageStore {
 
     static String toLine(ChatMessage msg) {
         if (isSensitiveCommand(msg.content().getString())) return null;
-        Map<String, Object> obj = new LinkedHashMap<>();
+        // JSONL, one message per line. senderJson/contentJson are full styled
+        // components (colors, click/hover events survive the reload) and uuid
+        // lets avatars resolve for offline players after re-joining.
+        java.util.Map<String, Object> obj = new java.util.LinkedHashMap<>();
         obj.put("time", msg.time());
         obj.put("uuid", msg.senderUUID() != null ? msg.senderUUID().toString() : "");
-        String senderJson = componentToJson(msg.senderName());
-        String contentJson = componentToJson(msg.content());
+        String senderJson = null, contentJson = null;
+        try {
+            //#if MC >= 12005
+            senderJson = Text.Serialization.toJsonString(msg.senderName(), registries());
+            contentJson = Text.Serialization.toJsonString(msg.content(), registries());
+            //#else
+            //$$ senderJson = Text.Serializer.toJson(msg.senderName());
+            //$$ contentJson = Text.Serializer.toJson(msg.content());
+            //#endif
+        } catch (Throwable ignored) {
+            // Component codecs unavailable (headless test env / broken registries):
+            // fall back to plain-text fields; styled fields are omitted.
+        }
         if (senderJson != null) obj.put("senderJson", senderJson);
         else obj.put("sender", msg.senderName().getString());
         if (contentJson != null) obj.put("contentJson", contentJson);
@@ -1134,19 +1037,14 @@ public class ChatMessageStore {
         if (whisper && parts.length > 4) partner = unescapeField(parts[4]);
         if (parts.length > 5) replySender = unescapeField(parts[5]);
         if (parts.length > 6) replyContent = unescapeField(parts[6]);
-        UUID uuid = new UUID(0, 0);
-        if (parts.length > 7 && !parts[7].isEmpty()) {
-            try { uuid = UUID.fromString(parts[7]); } catch (Exception ignored) {}
-        }
-        String rawPlayerName = parts.length > 8 ? unescapeField(parts[8]) : null;
         return new ChatMessage(
-            uuid,
+            new UUID(0, 0),
             parseStyledText(unescapeField(parts[1])),
-            ChatImageCompat.convert(parseStyledText(content)),
+            parseStyledText(content),
             millis,
             flags.contains("M"),
             flags.contains("S"),
-            replyContent, replySender, "", 1, rawPlayerName,
+            replyContent, replySender, "", 1, null,
             whisper, partner
         );
     }
@@ -1169,7 +1067,7 @@ public class ChatMessageStore {
         if (content == null || content.getString().isBlank()) return null;
         return new ChatMessage(
             uuid != null ? uuid : new UUID(0, 0),
-            senderName != null ? senderName : com.niuqu.chatbubble.Txt.literal(""),
+            senderName != null ? senderName : Text.literal(""),
             content,
             ((Number) timeObj).longValue(),
             Boolean.TRUE.equals(obj.get("own")),
@@ -1187,35 +1085,46 @@ public class ChatMessageStore {
     private static Text componentFrom(Map<String, Object> obj, String jsonKey, String textKey) {
         String json = (String) obj.get(jsonKey);
         if (json != null) {
-            Text decoded = componentFromJson(json);
-            if (decoded != null) return decoded;
+            //#if MC >= 12005
+            try { return Text.Serialization.fromJson(json, registries()); } catch (Exception ignored) {}
+            //#else
+            //$$ try { return Text.Serializer.fromJson(json); } catch (Exception ignored) {}
+            //#endif
         }
         String text = (String) obj.get(textKey);
         return text != null ? parseStyledText(text) : null;
     }
 
-    private static String componentToJson(Text text) {
-        if (text == null) return null;
-        //#if MC >= 12004
+    // 1.21.1 Text codecs need a registry provider; fall back to the connection
+    // registries, then static builtins, so styles survive the quit-to-title save
+    //#if MC >= 12005
+    private static net.minecraft.registry.RegistryWrapper.WrapperLookup registries() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc != null) {
+            var world = mc.world;
+            if (world != null) return world.getRegistryManager();
+            var conn = mc.getNetworkHandler();
+            if (conn != null) return conn.getRegistryManager();
+        }
         try {
-            return TextCodecs.CODEC.encodeStart(JsonOps.INSTANCE, text)
-                .result().map(Object::toString).orElse(null);
-        } catch (Throwable ignored) {}
-        //#else
-        //$$ try { return Text.Serializer.toJson(text); } catch (Throwable ignored) {}
-        //#endif
-        return null;
+            return net.minecraft.registry.BuiltinRegistries.createWrapperLookup();
+        } catch (Throwable ignored) {
+            // Headless test fallback: an empty lookup serializes plain-text
+            // components fine; registry-dependent hovers degrade instead of crashing
+            return new net.minecraft.registry.RegistryWrapper.WrapperLookup() {
+                @Override
+                public java.util.stream.Stream<net.minecraft.registry.RegistryKey<? extends net.minecraft.registry.Registry<?>>> streamAllRegistryKeys() {
+                    return java.util.stream.Stream.empty();
+                }
+                @Override
+                public <T> java.util.Optional<net.minecraft.registry.RegistryWrapper.Impl<T>> getOptionalWrapper(
+                        net.minecraft.registry.RegistryKey<? extends net.minecraft.registry.Registry<? extends T>> key) {
+                    return java.util.Optional.empty();
+                }
+            };
+        }
     }
-
-    private static Text componentFromJson(String json) {
-        if (json == null) return null;
-        //#if MC >= 12004
-        try { return TextCodecs.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(json)).result().orElse(null); } catch (Throwable ignored) {}
-        //#else
-        //$$ try { return Text.Serializer.fromJson(json); } catch (Throwable ignored) {}
-        //#endif
-        return null;
-    }
+    //#endif
 
     private static String escapeField(String s) {
         return s.replace("\\", "\\\\").replace("\t", "\\t").replace("\r", "\\r").replace("\n", "\\n");
@@ -1241,14 +1150,14 @@ public class ChatMessageStore {
     // Section-sign codes ("§6...§r") back into a styled component; unknown codes
     // (e.g. a stray §x from a plugin) fall through as literal text
     public static Text parseStyledText(String s) {
-        MutableText out = com.niuqu.chatbubble.Txt.empty();
+        MutableText out = Text.empty();
         Style style = Style.EMPTY;
         StringBuilder buf = new StringBuilder();
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
             if (ch == '§' && i + 1 < s.length()) {
                 if (buf.length() > 0) {
-                    out.append(com.niuqu.chatbubble.Txt.literal(buf.toString()).fillStyle(style));
+                    out.append(Text.literal(buf.toString()).fillStyle(style));
                     buf.setLength(0);
                 }
                 Style next = applySectionCode(style, s.charAt(i + 1));
@@ -1263,17 +1172,36 @@ public class ChatMessageStore {
                 buf.append(ch);
             }
         }
-        if (buf.length() > 0) out.append(com.niuqu.chatbubble.Txt.literal(buf.toString()).fillStyle(style));
+        if (buf.length() > 0) out.append(Text.literal(buf.toString()).fillStyle(style));
         return out;
     }
 
     private static Style applySectionCode(Style style, char code) {
-        char c = Character.toLowerCase(code);
-        if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
-            || (c >= 'k' && c <= 'o') || c == 'r') {
-            return com.niuqu.chatbubble.Txt.applyFormattingCode(style, c);
+        switch (Character.toLowerCase(code)) {
+            case '0': return style.withColor(Formatting.BLACK.getColorValue() != null ? Formatting.BLACK.getColorValue() : null);
+            case '1': return style.withColor(Formatting.DARK_BLUE.getColorValue() != null ? Formatting.DARK_BLUE.getColorValue() : null);
+            case '2': return style.withColor(Formatting.DARK_GREEN.getColorValue() != null ? Formatting.DARK_GREEN.getColorValue() : null);
+            case '3': return style.withColor(Formatting.DARK_AQUA.getColorValue() != null ? Formatting.DARK_AQUA.getColorValue() : null);
+            case '4': return style.withColor(Formatting.DARK_RED.getColorValue() != null ? Formatting.DARK_RED.getColorValue() : null);
+            case '5': return style.withColor(Formatting.DARK_PURPLE.getColorValue() != null ? Formatting.DARK_PURPLE.getColorValue() : null);
+            case '6': return style.withColor(Formatting.GOLD.getColorValue() != null ? Formatting.GOLD.getColorValue() : null);
+            case '7': return style.withColor(Formatting.GRAY.getColorValue() != null ? Formatting.GRAY.getColorValue() : null);
+            case '8': return style.withColor(Formatting.DARK_GRAY.getColorValue() != null ? Formatting.DARK_GRAY.getColorValue() : null);
+            case '9': return style.withColor(Formatting.BLUE.getColorValue() != null ? Formatting.BLUE.getColorValue() : null);
+            case 'a': return style.withColor(Formatting.GREEN.getColorValue() != null ? Formatting.GREEN.getColorValue() : null);
+            case 'b': return style.withColor(Formatting.AQUA.getColorValue() != null ? Formatting.AQUA.getColorValue() : null);
+            case 'c': return style.withColor(Formatting.RED.getColorValue() != null ? Formatting.RED.getColorValue() : null);
+            case 'd': return style.withColor(Formatting.LIGHT_PURPLE.getColorValue() != null ? Formatting.LIGHT_PURPLE.getColorValue() : null);
+            case 'e': return style.withColor(Formatting.YELLOW.getColorValue() != null ? Formatting.YELLOW.getColorValue() : null);
+            case 'f': return style.withColor(Formatting.WHITE.getColorValue() != null ? Formatting.WHITE.getColorValue() : null);
+            case 'k': return style.withObfuscated(true);
+            case 'l': return style.withBold(true);
+            case 'm': return style.withStrikethrough(true);
+            case 'n': return style.withUnderline(true);
+            case 'o': return style.withItalic(true);
+            case 'r': return Style.EMPTY;
+            default: return null;
         }
-        return null;
     }
 
     // Legacy file stores LocalTime (HH:mm:ss) with no date; anchor the file's
@@ -1295,12 +1223,19 @@ public class ChatMessageStore {
                     Text senderName = null;
                     String snJson = (String) obj.get("senderNameJson");
                     if (snJson != null) {
-                        senderName = componentFromJson(snJson);
+                        //#if MC >= 12005
+                        try { senderName = Text.Serialization.fromJson(snJson, registries()); } catch (Exception ignored2) {}
+                        //#else
+                        //$$ try { senderName = Text.Serializer.fromJson(snJson); } catch (Exception ignored2) {}
+                        //#endif
                     }
-                    if (senderName == null) senderName = com.niuqu.chatbubble.Txt.literal((String) obj.get("senderName"));
-                    String contentJson = (String) obj.get("content");
-                    Text content = contentJson != null ? componentFromJson(contentJson) : null;
-                    if (content == null) content = com.niuqu.chatbubble.Txt.literal("");
+                    if (senderName == null) senderName = Text.literal((String) obj.get("senderName"));
+                    //#if MC >= 12005
+                    Text content = Text.Serialization.fromJson((String) obj.get("content"), registries());
+                    //#else
+                    //$$ Text content = Text.Serializer.fromJson((String) obj.get("content"));
+                    //#endif
+                    if (content == null) content = Text.literal("");
                     if (content.getString().isBlank()) continue;
                     LocalTime t = LocalTime.parse((String) obj.get("time"), DateTimeFormatter.ISO_LOCAL_TIME);
                     if (latest != null && t.isAfter(latest)) day = day.minusDays(1);
@@ -1316,9 +1251,9 @@ public class ChatMessageStore {
                     out.add(0, new ChatMessage(uuid, senderName, content, millis,
                         isOwn, isSystem, replyContent, replySender, "", 1, rawPlayerName,
                         whisper, whisperPartner));
-                } catch (Exception e) { E33Log.warn("[e33chat] Failed to read/write chat history", e); }
+                } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
             }
-        } catch (Exception e) { E33Log.warn("[e33chat] Failed to read/write chat history", e); }
+        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
         return out;
     }
 
@@ -1333,17 +1268,12 @@ public class ChatMessageStore {
             for (ChatMessage msg : messages) {
                 String line = toLine(msg);
                 if (line == null) continue;
-                //#if MC >= 26000
-                //$$ w.append(line);
-                //$$ w.append("\n");
-                //#else
                 w.write(line);
                 w.write("\n");
-                //#endif
             }
             w.flush();
         } catch (Exception e) {
-            E33Log.warn("[e33chat] Failed to read/write chat history", e);
+            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
             return;
         }
         try {
@@ -1355,7 +1285,7 @@ public class ChatMessageStore {
                 java.nio.file.Files.move(tmp.toPath(), f.toPath(),
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             } catch (Exception e2) {
-                E33Log.warn("[e33chat] Failed to read/write chat history", e2);
+                com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e2);
             }
         }
     }
@@ -1385,7 +1315,7 @@ public class ChatMessageStore {
         for (File f : files) {
             if (f.equals(current)) continue;
             if (isExpired(f.lastModified(), now, days)) {
-                E33Log.info("[e33chat] History retention: deleting " + f.getName());
+                com.mojang.logging.LogUtils.getLogger().info("[e33chat] History retention: deleting " + f.getName());
                 f.delete();
             }
         }
@@ -1413,7 +1343,7 @@ public class ChatMessageStore {
                 new FileInputStream(f), StandardCharsets.UTF_8))) {
             head = br.readLine();
         } catch (Exception e) {
-            E33Log.warn("[e33chat] Failed to read/write chat history", e);
+            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
             return;
         }
         if (head == null) return;
@@ -1442,11 +1372,11 @@ public class ChatMessageStore {
                         if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
                             rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
                     } catch (Exception e) {
-                        E33Log.warn("[e33chat] Failed to read/write chat history", e);
+                        com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
                     }
                 }
             } catch (Exception e) {
-                E33Log.warn("[e33chat] Failed to read/write chat history", e);
+                com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
             }
         }
         while (messages.size() > MAX) messages.remove(0);
@@ -1464,7 +1394,7 @@ public class ChatMessageStore {
         try (Reader r = new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8)) {
             Map<String, String> data = GSON.fromJson(r, new TypeToken<Map<String, String>>(){}.getType());
             if (data != null) worldTitles.putAll(data);
-        } catch (Exception e) { E33Log.warn("[e33chat] Failed to read/write chat history", e); }
+        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
     }
 
     private static void saveWorldTitles() {
@@ -1472,19 +1402,19 @@ public class ChatMessageStore {
         f.getParentFile().mkdirs();
         try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) {
             GSON.toJson(worldTitles, w);
-        } catch (Exception e) { E33Log.warn("[e33chat] Failed to read/write chat history", e); }
+        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
     }
 
     public static void addHistoryMessages(List<com.niuqu.chatbubble.network.HistoryPayload.HistoryEntry> entries) {
         if (!messages.isEmpty() || entries.isEmpty()) return;
         for (var e : entries) {
             if (e.content().isBlank()) continue;
-            if (isPlayerBlocked(e.senderName(), com.niuqu.chatbubble.Txt.literal(e.senderName()),
+            if (isPlayerBlocked(e.senderName(), Text.literal(e.senderName()),
                 ChatBubbleClientSetup.config().blockedPlayers())) continue;
             messages.add(new ChatMessage(
                 e.senderUUID(),
-                com.niuqu.chatbubble.Txt.literal(e.senderName()),
-                ChatImageCompat.convert(com.niuqu.chatbubble.Txt.literal(e.content())),
+                Text.literal(e.senderName()),
+                Text.literal(e.content()),
                 e.time(),
                 false,
                 e.isSystem(),
@@ -1529,13 +1459,7 @@ public class ChatMessageStore {
                         && !msg.content().getString().contains("@" + playerName)
                         && ChatBubbleClientSetup.config().mentionSoundEnabled()) {
                         MinecraftClient.getInstance().player.playSound(
-                            GuiCompat.soundValue(net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME), 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
-                        if (!screenOpen && ChatBubbleClientSetup.config().mentionBannerEnabled()) {
-                            //#if MC >= 12111
-                            strongHintQueue.add(new HintEntry(com.niuqu.chatbubble.Txt.translatable("e33chat.notif.mention"), true));
-                            if (strongHintTicks <= 0) strongHintTicks = STRONG_HINT_DURATION;
-                            //#endif
-                        }
+                            net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
                     }
                 }
                 return;
