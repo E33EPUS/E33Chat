@@ -225,5 +225,7 @@
   "e33chat.image.loading": "Loading…",
   "e33chat.image.failed": "Image failed to load",
   "e33chat.image.ratelimited": "Too many images, rate limited",
-  "e33chat.image.placeholder": "[Image]"
+  "e33chat.image.placeholder": "[Image]",
+  "e33chat.config.receive_images": "Receive images",
+  "e33chat.config.receive_images.tooltip": "When off, image codes in chat render as plain [Image] text and nothing is downloaded"
 }

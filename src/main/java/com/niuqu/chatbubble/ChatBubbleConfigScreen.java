@@ -66,6 +66,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean enabled, redDotEnabled, hideChatIcon, animationEnabled;
     private boolean systemChatAsBubble;
     private boolean antiSpam, chatHistoryEnabled;
+    private boolean receiveImages;
     private boolean soundPublic, soundSystem, soundWhisper;
     private boolean debugLog, preserveInput, colorCodes;
     private boolean mentionBannerEnabled, systemBannerEnabled, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner;
@@ -150,6 +151,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> animationEnabled, v -> animationEnabled = v));
         tracked.add(track(() -> systemChatAsBubble, v -> systemChatAsBubble = v));
         tracked.add(track(() -> antiSpam, v -> antiSpam = v));
+        tracked.add(track(() -> receiveImages, v -> receiveImages = v));
         tracked.add(track(() -> chatHistoryEnabled, v -> chatHistoryEnabled = v));
         tracked.add(track(() -> historyRetentionDays, v -> historyRetentionDays = v));
         tracked.add(track(() -> timeSeparatorMinutes, v -> timeSeparatorMinutes = v));
@@ -212,7 +214,7 @@ public class ChatBubbleConfigScreen extends Screen {
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
             bannerOffsetX, bannerOffsetY, panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle,
             ChatBubbleClientSetup.config().imageRenderEnabled(),
-            ChatBubbleClientSetup.config().receiveImages()));
+            receiveImages));
     }
 
     private void loadFromConfig() {
@@ -221,6 +223,7 @@ public class ChatBubbleConfigScreen extends Screen {
         enabled = cfg.enabled(); redDotEnabled = cfg.redDotEnabled();
         hideChatIcon = cfg.hideChatIcon(); animationEnabled = cfg.animationEnabled();
         systemChatAsBubble = cfg.systemChatAsBubble(); antiSpam = cfg.antiSpam();
+        receiveImages = cfg.receiveImages() != null && cfg.receiveImages();
         chatHistoryEnabled = cfg.chatHistoryEnabled();
         soundPublic = cfg.soundPublic();
         soundSystem = cfg.soundSystem();
@@ -402,6 +405,7 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.enabled", y -> mkBoolButton(y, () -> enabled, v -> enabled = v), null));
         chat.add(new Opt("e33chat.config.system_chat_as_bubble", y -> mkBoolButton(y, () -> systemChatAsBubble, v -> systemChatAsBubble = v), null));
         chat.add(new Opt("e33chat.config.anti_spam", y -> mkBoolButton(y, () -> antiSpam, v -> antiSpam = v), null));
+        chat.add(new Opt("e33chat.config.receive_images", y -> mkBoolButton(y, () -> receiveImages, v -> receiveImages = v), null));
         chat.add(new Opt("e33chat.config.time_separator", this::mkTimeSepButton, null));
         chat.add(new Opt("e33chat.config.color_codes", y -> mkBoolButton(y, () -> colorCodes, v -> colorCodes = v), null));
         chat.add(Opt.header("e33chat.config.section.blocked"));
