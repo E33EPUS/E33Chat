@@ -1008,7 +1008,7 @@ public class ChatMessageStore {
         return new ChatMessage(
             new UUID(0, 0),
             parseStyledText(unescapeField(parts[1])),
-            ChatImageCompat.convert(parseStyledText(content)),
+            parseStyledText(content),
             millis,
             flags.contains("M"),
             flags.contains("S"),
@@ -1325,7 +1325,7 @@ public class ChatMessageStore {
             messages.add(new ChatMessage(
                 e.senderUUID(),
                 Component.literal(e.senderName()),
-                ChatImageCompat.convert(Component.literal(e.content())),
+                Component.literal(e.content()),
                 e.time(),
                 false,
                 e.isSystem(),

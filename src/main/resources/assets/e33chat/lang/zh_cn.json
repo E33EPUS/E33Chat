@@ -222,5 +222,10 @@
   "e33chat.server.actions.desc": "「添加」新建一个空模板行；下方预设区提供常见格式，点一下即可添加。",
   "e33chat.server.gen.desc": "粘贴一条真实聊天消息点生成——模板自动推断（消息里须含在线/见过的玩家名）。",
   "e33chat.server.preview.desc": "输入任意消息即时预览解析结果——显示匹配到的名字和内容。",
-  "e33chat.server.preset_section": "常见格式预设"
+  "e33chat.image.loading": "下载中…",
+  "e33chat.image.failed": "图片加载失败",
+  "e33chat.image.ratelimited": "图片过于频繁，已限流",
+  "e33chat.image.placeholder": "[图片]",
+  "e33chat.config.receive_images": "接收图片",
+  "e33chat.config.receive_images.desc": "关闭后聊天记录里的图片代码显示为纯文本[图片]，不会下载任何图片"
 }
