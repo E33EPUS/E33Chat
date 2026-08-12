@@ -1153,6 +1153,10 @@ public class ChatBubbleScreen extends ChatScreen {
     private void renderTitleBar(DrawContext g, int mouseX, int mouseY, float panelAlpha) {
         int ty = titleY;
         int a255 = (int) (255 * panelAlpha);
+        // Content (icons/text) alpha follows only the open/close animation —
+        // panelOpacity must not tint it (2.3.7 regression: permanent 80%
+        // opacity made icons/text lighter on light themes).
+        int c255 = (int) (255 * getAnimProgress());
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TITLE_BAR), panelX, ty, panelW, TITLE_H, panelAlpha);
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), panelX, ty + TITLE_H, panelW, 1, panelAlpha);
 
@@ -1160,27 +1164,25 @@ public class ChatBubbleScreen extends ChatScreen {
         int menuY = ty + (TITLE_H - ICON_S) / 2;
         boolean hoverMenu = mouseX >= menuX && mouseX <= menuX + ICON_S && mouseY >= menuY && mouseY <= menuY + ICON_S;
         if (hoverMenu) ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), menuX - 1, menuY - 1, ICON_S + 2, ICON_S + 2, panelAlpha);
-        RenderSystem.setShaderColor(1f, 1f, 1f, panelAlpha);
-        drawTextureIcon(g, iconTex("menu"), menuX, menuY, ICON_S);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        drawTextureIconAlpha(g, iconTex("menu"), menuX, menuY, ICON_S, getAnimProgress());
 
         String title = getDisplayTitle();
         int titleW = textRenderer.getWidth(title);
         int titleX = UiLayout.centerX(panelX, panelW, titleW);
         int titleTextY = ty + (TITLE_H - textRenderer.fontHeight) / 2;
-        g.drawText(textRenderer, title, titleX, titleTextY, ChatBubbleTheme.alphaBlend(c().textPrimary(), a255), false);
+        g.drawText(textRenderer, title, titleX, titleTextY, ChatBubbleTheme.alphaBlend(c().textPrimary(), c255), false);
 
         String time = LocalTime.now().format(TIME_FMT);
         int timeW = textRenderer.getWidth(time);
         g.drawText(textRenderer, time,
-            panelX + panelW - PAD - 20 - timeW, ty + (TITLE_H - textRenderer.fontHeight) / 2, ChatBubbleTheme.alphaBlend(c().timeColor(), a255), false);
+            panelX + panelW - PAD - 20 - timeW, ty + (TITLE_H - textRenderer.fontHeight) / 2, ChatBubbleTheme.alphaBlend(c().timeColor(), c255), false);
 
         int closeX = panelX + panelW - 18;
         int closeY = ty + 6;
         boolean hoverClose = mouseX >= closeX && mouseX <= closeX + 12 && mouseY >= closeY && mouseY <= closeY + 12;
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverClose ? UiElement.CLOSE_HOVER : UiElement.CLOSE_BG),
             closeX, closeY, 12, 12, panelAlpha);
-        g.drawText(textRenderer, "✕", closeX + 6 - textRenderer.getWidth("✕") / 2, closeY + 2, ChatBubbleTheme.alphaBlend(c().closeText(), a255), false);
+        g.drawText(textRenderer, "✕", closeX + 6 - textRenderer.getWidth("✕") / 2, closeY + 2, ChatBubbleTheme.alphaBlend(c().closeText(), c255), false);
     }
 
     private boolean isMouseOverHamburger(double mx, double my) {
@@ -2017,23 +2019,17 @@ public class ChatBubbleScreen extends ChatScreen {
         boolean hoverGear = mouseX >= gearX && mouseX <= gearX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverGear) ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), gearX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, panelAlpha);
-        RenderSystem.setShaderColor(1f, 1f, 1f, panelAlpha);
-        drawTextureIcon(g, iconTex("settings"), gearX, iconY, ICON_S);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        drawTextureIconAlpha(g, iconTex("settings"), gearX, iconY, ICON_S, getAnimProgress());
 
         boolean hoverEmoji = mouseX >= emojiX && mouseX <= emojiX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverEmoji || emojiPanel.visible) ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), emojiX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, panelAlpha);
-        RenderSystem.setShaderColor(1f, 1f, 1f, panelAlpha);
-        drawTextureIcon(g, iconTex("emoji"), emojiX, iconY, ICON_S);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        drawTextureIconAlpha(g, iconTex("emoji"), emojiX, iconY, ICON_S, getAnimProgress());
 
         boolean hoverSend = mouseX >= sendX && mouseX <= sendX + ICON_S
             && mouseY >= iconY && mouseY <= iconY + ICON_S;
         if (hoverSend) ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.HOVER_BG), sendX - 1, iconY - 1, ICON_S + 2, ICON_S + 2, panelAlpha);
-        RenderSystem.setShaderColor(1f, 1f, 1f, panelAlpha);
-        drawTextureIcon(g, iconTex("send"), sendX, iconY, ICON_S);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        drawTextureIconAlpha(g, iconTex("send"), sendX, iconY, ICON_S, getAnimProgress());
     }
 
 
