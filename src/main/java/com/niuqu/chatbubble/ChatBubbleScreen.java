@@ -1903,7 +1903,10 @@ public class ChatBubbleScreen extends ChatScreen {
             // Convert embedded image codes so the outgoing bubble previews the
             // image like the vanilla chat does (ChatImage may be absent — then
             // convert passes through unchanged)
-            ChatMessageStore.addMessage(ChatImageCompat.convert(bubbleContent),
+            // 2.3.10+: keep image bracket codes raw so the local bubble renders
+            // the picture natively (BracketCodec + ImageLoader); the vanilla chat
+            // echo is converted by ChatImage's own mixins when installed.
+            ChatMessageStore.addMessage(bubbleContent,
                 minecraft.player.getUUID(),
                 ChatMessageStore.ownDisplayName(),
                 false,

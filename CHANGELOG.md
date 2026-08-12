@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.3.10
+
+**新功能（2.3.10）**
+- **气泡内图片渲染（三端）**：聊天消息里的 `[[CICode,url=...]]`（ChatImage 协议）和 `[[ChatUpgrade,url=...,type=image]]`（chat-upgrade 协议）图片代码现在直接在气泡内原生渲染成图片卡片——不依赖任何 mod，协议层与 ChatImage/chat-upgrade 互通（它们发的图我们能显示，我们发的代码它们也能解析）。历史记录里的旧图片消息（含 ChatImage 转换前的样式组件）自动兼容，重进存档后图片重新加载显示。点击图片卡片用系统浏览器打开原图，悬停显示完整 URL
+- **图片防刷屏（三端）**：聊天图片下载入口是攻击者可控制的，内置三层防护——滑动窗口限流（10 秒最多 4 个新下载，超出的排队，队列满则显示"限流"占位）+ 64 条 LRU 缓存（逐出时销毁 GPU 纹理）+ 上传前等比缩放到 ≤320×180（恶意 16MB 大图只占约 230KB 显存）。下载失败 10 秒后自动重试
+- **接收图片开关（三端）**：设置界面「聊天」标签新增「接收图片」开关（默认开）。关闭后图片代码显示为纯文本 `[图片]`，不发起任何下载
+
+**修复（2.3.10）**
+- **图标/标题文字被面板透明度调制变浅（三端，2.3.7 回归）**：2.3.7 动画更新把 `panelOpacity`（默认 0.8）误当作图标和文字的 alpha——四个图标（菜单/设置/表情/发送）和标题栏文字被永久调制到 80% 不透明度，浅色主题下明显比 PNG 原色浅。现在内容（图标/文字）只跟随面板开合动画，动画结束后 100% 原色；面板透明度只管背景
+- **JPEG/GIF 图片红蓝互换（三端）**：AWT 解码的非 PNG 图片像素按 ARGB 字节序写入 NativeImage 的 ABGR 内存布局，红色和蓝色通道互换。已按 ABGR32 布局转换，JPEG/GIF/BMP 图片颜色正确
+
+**New (2.3.10)**
+- **Native image rendering in bubbles (all platforms)**: `[[CICode,url=...]]` (ChatImage protocol) and `[[ChatUpgrade,url=...,type=image]]` (chat-upgrade protocol) codes now render as image cards directly inside chat bubbles with zero mod dependencies — protocol-level interop with ChatImage/chat-upgrade (their images display in our bubbles, our codes parse in theirs). Legacy history lines (ChatImage-converted styled components) are extracted automatically and re-downloaded on world re-entry. Clicking a card opens the original URL in the system browser, hovering shows the full URL
+- **Image anti-flood (all platforms)**: chat images are an attacker-controlled download trigger, so three layers of protection are built in — sliding-window rate limit (max 4 new downloads per 10s, excess queued, queue-full renders a "rate limited" placeholder) + 64-entry LRU cache (GPU textures destroyed on eviction) + pre-upload scaling to ≤320×180 (a hostile 16MB image costs ~230KB of VRAM). Failed downloads auto-retry after 10 seconds
+- **Receive-images toggle (all platforms)**: new "Receive images" switch in the config screen's Chat tab (default on). When off, image codes render as plain `[Image]` text and nothing is ever downloaded
+
+**Fixes (2.3.10)**
+- **Icons/title text tinted by panel opacity (all platforms, 2.3.7 regression)**: the 2.3.7 animation update fed `panelOpacity` (default 0.8) into the icon/text alpha — the four icons (menu/settings/emoji/send) and title-bar text rendered permanently 80% opaque, visibly lighter than the PNG colour on light themes. Content (icons/text) now follows only the panel open/close animation and returns to 100% original colour afterwards; panel opacity affects the background only
+- **JPEG/GIF images rendered with red and blue swapped (all platforms)**: AWT-decoded non-PNG pixels were written as big-endian ARGB into NativeImage's ABGR memory layout, swapping the R and B channels. Pixels are now converted to ABGR32, so JPEG/GIF/BMP colours are correct
+
+## v2.3.9
+# Changelog
+
 ## v2.3.9
 
 **修复（2.3.9）**

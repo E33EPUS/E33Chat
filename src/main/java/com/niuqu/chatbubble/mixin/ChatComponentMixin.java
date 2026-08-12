@@ -2,7 +2,6 @@ package com.niuqu.chatbubble.mixin;
 
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatBubbleScreen;
-import com.niuqu.chatbubble.ChatImageCompat;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
 import java.util.UUID;
@@ -180,8 +179,10 @@ public class ChatComponentMixin {
         }
         // ChatImage rewrites the vanilla argument after our mixin, so the bubble
         // stored the pre-conversion CICode text — convert it back to the styled
-        // [Image] component so the bubble matches the vanilla chat
-        content = ChatImageCompat.convert(content);
+        // 2.3.10+: image bracket codes are kept raw in storage; the bubble
+        // renders them natively (BracketCodec strips the code, ImageLoader
+        // draws the picture). The vanilla chat still gets ChatImage's own
+        // conversion via ChatImage's mixins, so both surfaces agree.
 
         Component logComp = finalComponent, logContent = content;
         SenderMeta logMeta = meta;

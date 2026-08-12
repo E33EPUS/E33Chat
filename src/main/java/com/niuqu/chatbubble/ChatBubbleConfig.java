@@ -16,6 +16,7 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue SYSTEM_CHAT_AS_BUBBLE;
     public static final ModConfigSpec.BooleanValue ANTI_SPAM;
     public static final ModConfigSpec.BooleanValue CHAT_HISTORY_ENABLED;
+    public static final ModConfigSpec.BooleanValue RECEIVE_IMAGES;
     public static final ModConfigSpec.IntValue HISTORY_RETENTION_DAYS;
     public static final ModConfigSpec.IntValue TIME_SEPARATOR_MINUTES;
     public static final ModConfigSpec.ConfigValue<String> OWN_BUBBLE_COLOR;
@@ -119,6 +120,11 @@ public class ChatBubbleConfig {
             .comment("Keep per-world chat history (restored when you rejoin)")
             .translation("e33chat.config.chat_history")
             .define("chat_history", false);
+
+        RECEIVE_IMAGES = builder
+            .comment("Render inline images from [[CICode]]/[[ChatUpgrade]] bracket codes in bubbles. Off renders the code as plain [Image] text and never downloads")
+            .translation("e33chat.config.receive_images")
+            .define("receive_images", true);
 
         HISTORY_RETENTION_DAYS = builder
             .comment("Delete history files older than this many days on world join (0 = keep forever)")

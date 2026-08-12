@@ -154,6 +154,7 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.enabled", y -> mkBoolButton(y, ChatBubbleConfig.ENABLED), null));
         chat.add(new Opt("e33chat.config.system_chat_as_bubble", y -> mkBoolButton(y, ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE), null));
         chat.add(new Opt("e33chat.config.anti_spam", y -> mkBoolButton(y, ChatBubbleConfig.ANTI_SPAM), null));
+        chat.add(new Opt("e33chat.config.receive_images", y -> mkBoolButton(y, ChatBubbleConfig.RECEIVE_IMAGES), null));
         chat.add(new Opt("e33chat.config.time_separator", this::mkTimeSepButton, null));
         chat.add(new Opt("e33chat.config.color_codes", y -> mkBoolButton(y, ChatBubbleConfig.COLOR_CODES), null));
         chat.add(Opt.header("e33chat.config.section.blocked"));
@@ -269,6 +270,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(ChatBubbleConfig.ANIMATION_ENABLED));
         tracked.add(track(ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE));
         tracked.add(track(ChatBubbleConfig.ANTI_SPAM));
+        tracked.add(track(ChatBubbleConfig.RECEIVE_IMAGES));
         tracked.add(track(ChatBubbleConfig.CHAT_HISTORY_ENABLED));
         tracked.add(track(ChatBubbleConfig.HISTORY_RETENTION_DAYS));
         tracked.add(track(ChatBubbleConfig.TIME_SEPARATOR_MINUTES));

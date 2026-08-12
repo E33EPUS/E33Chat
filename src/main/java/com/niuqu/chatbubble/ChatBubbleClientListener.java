@@ -85,6 +85,7 @@ public class ChatBubbleClientListener {
 
     @SubscribeEvent
     public void onClientTick(ClientTickEvent.Post event) {
+        com.niuqu.chatbubble.image.ImageLoader.tick();
         Minecraft mc = Minecraft.getInstance();
         String key;
         if (mc.level == null || mc.player == null) {

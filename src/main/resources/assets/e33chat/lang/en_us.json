@@ -222,5 +222,10 @@
   "e33chat.server.actions.desc": "Add creates a blank template row. Below, the preset section offers common formats ready to add in one click.",
   "e33chat.server.gen.desc": "Paste a real chat line and generate — the template is inferred automatically (the message must contain an online or seen player name).",
   "e33chat.server.preview.desc": "Type any message to preview parsing instantly — shows the matched name and content.",
-  "e33chat.server.preset_section": "Common format presets"
+  "e33chat.image.loading": "Loading…",
+  "e33chat.image.failed": "Image failed to load",
+  "e33chat.image.ratelimited": "Too many images, rate limited",
+  "e33chat.image.placeholder": "[Image]",
+  "e33chat.config.receive_images": "Receive images",
+  "e33chat.config.receive_images.desc": "When off, image codes in chat history render as plain [Image] text and nothing is downloaded"
 }

@@ -5,9 +5,14 @@ import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.UiLayout;
+import com.niuqu.chatbubble.image.BracketCodec;
+import com.niuqu.chatbubble.image.ImageEntry;
+import com.niuqu.chatbubble.image.ImageLoader;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
@@ -26,6 +31,13 @@ public final class ChatMessageRenderer {
     static final int NAME_H = 10;
     static final int TIME_SEP_H = 14;
 
+    // Image cards (mirrors the Fabric implementation; cardW = min(320, bubbleMaxW))
+    private static final int IMAGE_MAX_W = 320;
+    private static final int IMAGE_MAX_H = 180;
+    private static final int IMAGE_PLACEHOLDER_H = 56;
+    private static final int IMAGE_CARD_PAD = 4;
+    private static final Map<String, ImageEntry.State> lastLoggedImgState = new java.util.HashMap<>();
+
     private ChatMessageRenderer() {}
 
     // ---- Pure computation (testable) ----
@@ -37,10 +49,92 @@ public final class ChatMessageRenderer {
             List<FormattedCharSequence> lines = wrapContent(msg.content(), font, panelW - ChatLayout.PAD * 2 - 20);
             return lines.size() * font.lineHeight + 4;
         }
-        List<FormattedCharSequence> lines = wrapContent(msg.content(), font, bubbleMaxW);
+        BracketCodec.ParseResult parsed = parseImages(msg.content());
+        List<FormattedCharSequence> lines = wrapContent(parsed.textWithoutImages(), font, bubbleMaxW);
         int h = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2 + NAME_H;
+        int cardW = Math.min(IMAGE_MAX_W, bubbleMaxW);
+        for (var ref : parsed.images()) {
+            h += imageCardHeight(ref.url(), cardW) + 2;
+        }
         if (msg.replyContent() != null) h += font.lineHeight + 7;
         return h;
+    }
+
+    /** Bubble-side parse: bracket codes stripped (or placeholder when receiving is off). */
+    public static BracketCodec.ParseResult parseImages(Component c) {
+        if (!ChatBubbleConfig.RECEIVE_IMAGES.get()) {
+            // Receiving disabled: bracket codes render as a plain-text
+            // placeholder, never downloaded (the flood limiter stays untouched).
+            return new BracketCodec.ParseResult(
+                BracketCodec.toPlaceholderText(c), java.util.List.of());
+        }
+        return BracketCodec.parseOrExtract(c);
+    }
+
+    /** Card height in bubble px for one image ref (state-dependent). */
+    public static int imageCardHeight(String url, int cardW) {
+        int maxW = Math.max(16, cardW - IMAGE_CARD_PAD * 2);
+        ImageEntry entry = ImageLoader.getOrLoad(url);
+        if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.width() > 0) {
+            int w = Math.min(maxW, entry.width());
+            int h = Math.min(IMAGE_MAX_H, Math.max(1, entry.height() * w / entry.width()));
+            return IMAGE_CARD_PAD * 2 + h;
+        }
+        return IMAGE_CARD_PAD * 2 + IMAGE_PLACEHOLDER_H;
+    }
+
+    /** Draws one card per image ref below the bubble text. */
+    public static void renderImageCards(GuiGraphics g, Font font, List<BracketCodec.ImageRef> images,
+                                        int x, int y, int cardW, int mouseX, int mouseY,
+                                        ChatBubbleTheme.Colors c, float alpha,
+                                        List<ClickableSpan> clickableSpans) {
+        int yy = y;
+        for (var ref : images) {
+            int cardH = imageCardHeight(ref.url(), cardW);
+            RoundRectRenderer.fill(g, x, yy, x + cardW, yy + cardH, 4,
+                ChatBubbleTheme.alphaBlend(0x22000000, (int) (255 * alpha)));
+            ImageEntry entry = ImageLoader.getOrLoad(ref.url());
+            logImageRenderState(ref.url(), entry);
+            if (entry != null && entry.state() == ImageEntry.State.LOADED
+                    && entry.textureId() != null && entry.width() > 0 && entry.height() > 0) {
+                int maxW = Math.max(16, cardW - IMAGE_CARD_PAD * 2);
+                int w = Math.min(maxW, entry.width());
+                int h = Math.min(IMAGE_MAX_H, entry.height() * w / entry.width());
+                int dx = x + (cardW - w) / 2;
+                int dy = yy + (cardH - h) / 2;
+                // blit has no color tint; the 250ms enter animation simply
+                // doesn't fade the image itself (acceptable).
+                g.blit(entry.textureId(), dx, dy, w, h, 0, 0,
+                    entry.width(), entry.height(), entry.width(), entry.height());
+            } else if (entry != null && entry.state() == ImageEntry.State.FAILED) {
+                boolean limited = entry.failure() != null && entry.failure().contains("rate limited");
+                String txt = Component.translatable(limited ? "e33chat.image.ratelimited" : "e33chat.image.failed").getString();
+                g.drawString(font, Component.literal(txt), x + (cardW - font.width(txt)) / 2,
+                    yy + (cardH - font.lineHeight) / 2,
+                    ChatBubbleTheme.alphaBlend(0xFFFF5555, (int) (255 * alpha)), false);
+            } else {
+                String txt = Component.translatable("e33chat.image.loading").getString();
+                g.drawString(font, Component.literal(txt), x + (cardW - font.width(txt)) / 2,
+                    yy + (cardH - font.lineHeight) / 2,
+                    ChatBubbleTheme.alphaBlend(c.textSecondary(), (int) (255 * alpha)), false);
+            }
+            // Open the URL in the system browser on click; hover shows the URL
+            Style st = Style.EMPTY
+                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, ref.url()))
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(ref.url())));
+            clickableSpans.add(new ClickableSpan(x, yy, cardW, cardH, st));
+            yy += cardH + 2;
+        }
+    }
+
+    // Per-URL state-change logging (probe): prints once per state transition,
+    // not every frame.
+    private static void logImageRenderState(String url, ImageEntry entry) {
+        ImageEntry.State st = entry == null ? null : entry.state();
+        if (lastLoggedImgState.get(url) == st) return;
+        lastLoggedImgState.put(url, st);
+        com.mojang.logging.LogUtils.getLogger().info(
+            "[e33chat] image render {} -> {}", url, st);
     }
 
     public static String timeKey(long timeMillis, int interval) {
@@ -251,12 +345,19 @@ public final class ChatMessageRenderer {
             return;
         }
 
-        List<FormattedCharSequence> lines = wrapContent(msg.content(), font, bubbleMaxW);
+        BracketCodec.ParseResult parsed = parseImages(msg.content());
+        List<FormattedCharSequence> lines = wrapContent(parsed.textWithoutImages(), font, bubbleMaxW);
 
         int textW = 0;
         for (var line : lines) textW = Math.max(textW, font.width(line));
-        int bubbleW = textW + BUBBLE_PAD_X * 2;
-        int bubbleH = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2;
+        int imageW = 0;
+        int imageH = 0;
+        if (!parsed.images().isEmpty()) {
+            imageW = Math.min(IMAGE_MAX_W, bubbleMaxW);
+            for (var ref : parsed.images()) imageH += imageCardHeight(ref.url(), imageW) + 2;
+        }
+        int bubbleW = Math.max(textW, imageW) + BUBBLE_PAD_X * 2;
+        int bubbleH = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2 + imageH;
 
         int avatarX, bubbleX;
         if (own) {
@@ -301,6 +402,12 @@ public final class ChatMessageRenderer {
         for (int li = 0; li < lines.size(); li++)
             renderLineWithClicks(g, font, lines.get(li), bubbleX + BUBBLE_PAD_X,
                 bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fgA, fb, clickableSpans);
+
+        if (!parsed.images().isEmpty()) {
+            int imgTop = bubbleY + BUBBLE_PAD_Y + lines.size() * font.lineHeight;
+            renderImageCards(g, font, parsed.images(), bubbleX + BUBBLE_PAD_X, imgTop,
+                Math.max(textW, imageW), mouseX, mouseY, c, alpha, clickableSpans);
+        }
 
         // Draw avatar (per-element alpha: vanilla blit ignores setShaderColor)
         if (alpha > 0.003f) {
