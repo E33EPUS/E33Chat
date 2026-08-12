@@ -6,9 +6,15 @@ import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
 import com.niuqu.chatbubble.network.HistoryPayload;
+import com.niuqu.chatbubble.network.MediaRequestPayload;
+import com.niuqu.chatbubble.network.MediaResponsePayload;
+import com.niuqu.chatbubble.network.MediaUploadAckPayload;
+import com.niuqu.chatbubble.network.MediaUploadPayload;
+import com.niuqu.chatbubble.network.MediaCapPayload;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.network.ServerConfigSavePayload;
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
+import com.niuqu.chatbubble.server.DiskMediaStore;
 import net.fabricmc.api.ModInitializer;
 import com.mojang.brigadier.ParseResults;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -40,9 +46,28 @@ public class ChatBubbleMod implements ModInitializer {
     private static boolean historyEnabled;
     private static boolean useTpa;
     private static boolean templateDebug;
+    private static boolean mediaEnabled;
     private static List<String> chatTemplates = List.of();
     private static List<String> whisperTemplates = List.of();
     private static boolean configLoaded;
+    private static volatile com.niuqu.chatbubble.server.DiskMediaStore mediaStore;
+
+    /** Lazily-created per-world media store (next to the server config). */
+    private static com.niuqu.chatbubble.server.DiskMediaStore mediaStore(net.minecraft.server.MinecraftServer server) {
+        com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
+        if (s == null) {
+            synchronized (ChatBubbleMod.class) {
+                s = mediaStore;
+                if (s == null) {
+                    s = new com.niuqu.chatbubble.server.DiskMediaStore(
+                        server.getSavePath(net.minecraft.util.WorldSavePath.ROOT)
+                            .resolve("serverconfig").resolve("e33chat-media"));
+                    mediaStore = s;
+                }
+            }
+        }
+        return s;
+    }
 
     private record QuotePending(String quotedSenderName, String quotedContent, String messageHash, long time) {}
 
@@ -63,6 +88,60 @@ public class ChatBubbleMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(ConfigSyncV2Payload.ID, ConfigSyncV2Payload.CODEC);
         PayloadTypeRegistry.playS2C().register(ServerConfigScreenPayload.ID, ServerConfigScreenPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(ServerConfigSavePayload.ID, ServerConfigSavePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaUploadPayload.ID, MediaUploadPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaRequestPayload.ID, MediaRequestPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaUploadAckPayload.ID, MediaUploadAckPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaResponsePayload.ID, MediaResponsePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaCapPayload.ID, MediaCapPayload.CODEC);
+
+        ServerPlayNetworking.registerGlobalReceiver(MediaUploadPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> {
+                if (!mediaEnabled) {
+                    ServerPlayNetworking.send(player,
+                        new MediaUploadAckPayload(payload.uploadId(), null, "disabled"));
+                    return;
+                }
+                DiskMediaStore store = mediaStore(context.server());
+                String result = payload.index() == 0
+                    ? store.beginUpload(payload.uploadId(), player.getName().getString(),
+                        payload.totalChunks(), payload.totalBytes(), payload.contentType())
+                    : store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                if (result == null) return; // upload still in progress
+                store.discardUpload(payload.uploadId());
+                if (DiskMediaStore.isValidMediaId(result)) {
+                    ServerPlayNetworking.send(player,
+                        new MediaUploadAckPayload(payload.uploadId(), result, null));
+                } else {
+                    ServerPlayNetworking.send(player,
+                        new MediaUploadAckPayload(payload.uploadId(), null, result));
+                }
+            });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(MediaRequestPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> {
+                String id = payload.mediaId();
+                DiskMediaStore store = mediaStore(context.server());
+                long size = store.sizeOf(id);
+                if (size < 0) {
+                    ServerPlayNetworking.send(player,
+                        new MediaResponsePayload(id, 0, 1, new byte[0]));
+                    return;
+                }
+                int total = DiskMediaStore.totalChunksFor(size);
+                for (int i = 0; i < total; i++) {
+                    byte[] chunk = store.readChunk(id, i, total);
+                    if (chunk == null) {
+                        ServerPlayNetworking.send(player,
+                            new MediaResponsePayload(id, 0, 1, new byte[0]));
+                        return;
+                    }
+                    ServerPlayNetworking.send(player, new MediaResponsePayload(id, i, total, chunk));
+                }
+            });
+        });
 
         ServerPlayNetworking.registerGlobalReceiver(QuoteSyncPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -135,6 +214,10 @@ public class ChatBubbleMod implements ModInitializer {
             ServerPlayNetworking.send(handler.player,
                 new ConfigSyncPayload(useTpa));
             ServerPlayNetworking.send(handler.player, buildConfigV2());
+            // Separate capability type: old clients drop unknown payloads, so
+            // mediaEnabled never desyncs mixed client/server versions.
+            ServerPlayNetworking.send(handler.player,
+                new MediaCapPayload(mediaEnabled));
 
             if (!historyEnabled) return;
             if (historyBuffer.isEmpty()) return;
@@ -172,6 +255,7 @@ public class ChatBubbleMod implements ModInitializer {
         useTpa = config.use_tpa;
         historyEnabled = config.history_enabled;
         templateDebug = config.template_debug;
+        mediaEnabled = config.media_enabled;
         chatTemplates = config.chat_templates != null ? config.chat_templates : List.of();
         whisperTemplates = config.whisper_templates != null ? config.whisper_templates : List.of();
     }

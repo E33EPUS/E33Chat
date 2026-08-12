@@ -67,6 +67,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean systemChatAsBubble;
     private boolean antiSpam, chatHistoryEnabled;
     private boolean receiveImages;
+    private String uploadUrl = "";
     private boolean soundPublic, soundSystem, soundWhisper;
     private boolean debugLog, preserveInput, colorCodes;
     private boolean mentionBannerEnabled, systemBannerEnabled, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner;
@@ -214,7 +215,11 @@ public class ChatBubbleConfigScreen extends Screen {
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
             bannerOffsetX, bannerOffsetY, panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle,
             ChatBubbleClientSetup.config().imageRenderEnabled(),
-            receiveImages));
+            receiveImages,
+            uploadUrl.isEmpty() ? null : uploadUrl,
+            ChatBubbleClientSetup.config().uploadField(),
+            ChatBubbleClientSetup.config().uploadExtra(),
+            ChatBubbleClientSetup.config().uploadResponse()));
     }
 
     private void loadFromConfig() {
@@ -224,6 +229,7 @@ public class ChatBubbleConfigScreen extends Screen {
         hideChatIcon = cfg.hideChatIcon(); animationEnabled = cfg.animationEnabled();
         systemChatAsBubble = cfg.systemChatAsBubble(); antiSpam = cfg.antiSpam();
         receiveImages = cfg.receiveImages() != null && cfg.receiveImages();
+        uploadUrl = cfg.uploadUrl() != null ? cfg.uploadUrl() : "";
         chatHistoryEnabled = cfg.chatHistoryEnabled();
         soundPublic = cfg.soundPublic();
         soundSystem = cfg.soundSystem();
@@ -483,6 +489,14 @@ public class ChatBubbleConfigScreen extends Screen {
         advanced.add(new Opt("e33chat.config.chat_history", y -> mkBoolButton(y, () -> chatHistoryEnabled, v -> chatHistoryEnabled = v), null));
         advanced.add(new Opt("e33chat.config.history_retention", y -> mkIntBox(y, String.valueOf(historyRetentionDays), 0, 365, 3, v -> historyRetentionDays = v), null));
         advanced.add(new Opt("e33chat.config.preserve_input", y -> mkBoolButton(y, () -> preserveInput, v -> preserveInput = v), null));
+        advanced.add(Opt.header("e33chat.config.section.upload"));
+        advanced.add(new Opt("e33chat.config.upload_url", y -> {
+            TextFieldWidget box = new TextFieldWidget(textRenderer, inputX, y, INPUT_W, 20, Text.literal(""));
+            box.setText(uploadUrl);
+            box.setMaxLength(512);
+            box.setChangedListener(v -> uploadUrl = v);
+            return box;
+        }, null));
         advanced.add(Opt.header("e33chat.config.section.debug"));
         advanced.add(new Opt("e33chat.config.debug_log", y -> mkBoolButton(y, () -> debugLog, v -> debugLog = v), null));
         advanced.add(new Opt("e33chat.config.own_mention_notify", y -> mkBoolButton(y, () -> ownMentionNotify, v -> ownMentionNotify = v), null));

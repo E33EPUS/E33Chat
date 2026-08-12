@@ -70,7 +70,11 @@ public final class ConfigManager {
             // receiveImages is the user-facing switch; legacy imageRenderEnabled
             // (2.3.10 early builds) migrates into it when the new key is absent.
             c.receiveImages() != null ? c.receiveImages()
-                : (c.imageRenderEnabled() != null ? c.imageRenderEnabled() : d.receiveImages()));
+                : (c.imageRenderEnabled() != null ? c.imageRenderEnabled() : d.receiveImages()),
+            c.uploadUrl() != null ? c.uploadUrl() : d.uploadUrl(),
+            c.uploadField() != null ? c.uploadField() : d.uploadField(),
+            c.uploadExtra() != null ? c.uploadExtra() : d.uploadExtra(),
+            c.uploadResponse() != null ? c.uploadResponse() : d.uploadResponse());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {

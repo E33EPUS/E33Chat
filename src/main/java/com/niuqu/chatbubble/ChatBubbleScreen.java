@@ -5,8 +5,12 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.image.BracketCodec;
+import com.niuqu.chatbubble.image.EmoteCatalog;
+import com.niuqu.chatbubble.image.EmoteCodec;
 import com.niuqu.chatbubble.image.ImageEntry;
 import com.niuqu.chatbubble.image.ImageLoader;
+import com.niuqu.chatbubble.image.ImageUploader;
+import com.niuqu.chatbubble.image.LocalImageSource;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.texture.UiElement;
@@ -158,10 +162,11 @@ public class ChatBubbleScreen extends ChatScreen {
     private final Map<ChatMessageStore.ChatMessage, BracketCodec.ParseResult> imageParseCache =
         new IdentityHashMap<>();
     private int lastImageVersion = -1;
+    private boolean uploading = false;
+    private int uploadToastTicks = 0;
     private static final int IMAGE_MAX_W = 320;
     private static final int IMAGE_MAX_H = 180;
     private static final int IMAGE_PLACEHOLDER_H = 56;
-    private static final int IMAGE_CARD_PAD = 4;
 
     private final List<int[]> bubbleRects = new ArrayList<>();
     private final List<ClickableSpan> clickableSpans = new ArrayList<>();
@@ -576,6 +581,10 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // Ctrl+V with an image in the clipboard uploads it and inserts the code.
+        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_V && (modifiers & 0x2) != 0) {
+            startUploadFromClipboard();
+        }
         if (settingsMenu.visible && keyCode == 256) { settingsMenu.visible = false; return true; }
         if (emojiPanel.visible && keyCode == 256) { emojiPanel.visible = false; return true; }
         if (quickChatPanel.visible && keyCode == 256) {
@@ -917,7 +926,14 @@ public class ChatBubbleScreen extends ChatScreen {
                     Util.getOperatingSystem().open(file); return true;
                 }
                 if (click.getAction() == ClickEvent.Action.OPEN_URL) {
-                    handleTextClick(style); return true;
+                    // Local file:// links (e.g. legacy chatimage messages) are not
+                    // browser URLs; opening them throws URISyntaxException. Only
+                    // hand http(s) to the vanilla handler.
+                    String clickUrl = click.getValue();
+                    if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
+                        handleTextClick(style);
+                    }
+                    return true;
                 }
                 handleTextClick(style); return true;
             }
@@ -979,6 +995,82 @@ public class ChatBubbleScreen extends ChatScreen {
             sendMessage(); return true;
         }
         return false;
+    }
+
+
+    // ---- Local image upload (2.3.11) ----
+
+    /** OS file drag onto the window (vanilla drop hook): upload the first image dropped. */
+    @Override
+    public void filesDragged(List<java.nio.file.Path> paths) {
+        if (uploading) return;
+        for (java.nio.file.Path p : paths) {
+            String l = p.getFileName().toString().toLowerCase();
+            if (l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg")
+                    || l.endsWith(".gif") || l.endsWith(".bmp") || l.endsWith(".webp")) {
+                upload(p.toFile());
+                // The OS drop can steal window focus; give it back to the chat input
+                // so typing keeps working right after a drag.
+                client.execute(() -> setFocused(chatField));
+                return;
+            }
+        }
+    }
+
+    private void startUploadFromClipboard() {
+        if (uploading) return;
+        LocalImageSource.PreparedImage prep;
+        try {
+            prep = LocalImageSource.fromClipboard();
+        } catch (Throwable t) {
+            prep = null;
+        }
+        if (prep == null) return; // no image in clipboard — let vanilla paste text
+        final LocalImageSource.PreparedImage fprep = prep;
+        uploading = true;
+        ImageLoader.executor().execute(() -> finishUpload(fprep, "clipboard"));
+    }
+
+    private void upload(java.io.File f) {
+        uploading = true;
+        ImageLoader.executor().execute(() -> {
+            LocalImageSource.PreparedImage prep = LocalImageSource.fromFile(f);
+            if (prep == null) {
+                client.execute(() -> { uploading = false; uploadToastTicks = 60; });
+                return;
+            }
+            finishUpload(prep, f.getName());
+        });
+    }
+
+    private void finishUpload(LocalImageSource.PreparedImage prep, String srcName) {
+        com.niuqu.chatbubble.config.ChatBubbleConfig cfg = ChatBubbleClientSetup.config();
+        String serverUrl = com.niuqu.chatbubble.image.MediaClient.serverEnabled()
+            ? com.niuqu.chatbubble.image.MediaClient.upload(prep.bytes(), "image/png")
+            : null;
+        // Server hosting unavailable (not installed / disabled / failed) — fall back to third-party
+        final String url = serverUrl != null
+            ? serverUrl
+            : ImageUploader.upload(prep.bytes(), prep.fileName(),
+                cfg.uploadUrl(), cfg.uploadField(), cfg.uploadExtra(), cfg.uploadResponse());
+        com.mojang.logging.LogUtils.getLogger().info("[e33chat] upload {} -> {}", srcName, url == null ? "FAILED" : url);
+        client.execute(() -> {
+            uploading = false;
+            if (url == null) {
+                uploadToastTicks = 60;
+                return;
+            }
+            String code = "[[CICode,url=" + url + "]]";
+            String cur = chatField.getText();
+            if (cur.contains("[[CICode,url=file://")) {
+                // Replace the local file:// CICode (chatimage drag/paste) with
+                // the real upload URL instead of appending a second link.
+                cur = cur.replaceFirst("\\[\\[CICode,url=file://[^]]*]]", code);
+            } else {
+                cur = cur.isEmpty() ? code : cur + " " + code;
+            }
+            chatField.setText(cur);
+            chatField.setCursorToEnd(false);        });
     }
 
     private void handleContextClick(int mx, int my) {
@@ -1401,6 +1493,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private List<OrderedText> wrapContent(Text c, int width) {
+        c = EmoteCodec.process(c);
         List<Text> paras = new ArrayList<>();
         MutableText[] cur = { Text.empty() };
         c.visit((style, text) -> {
@@ -1480,14 +1573,13 @@ public class ChatBubbleScreen extends ChatScreen {
 
     /** Card height in bubble px for one image ref (state-dependent). */
     private int imageCardHeight(String url, int cardW) {
-        int maxW = Math.max(16, cardW - IMAGE_CARD_PAD * 2);
         ImageEntry entry = ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.width() > 0) {
-            int w = Math.min(maxW, entry.width());
+            int w = Math.min(cardW, entry.width());
             int h = Math.min(IMAGE_MAX_H, Math.max(1, entry.height() * w / entry.width()));
-            return IMAGE_CARD_PAD * 2 + h;
+            return h;
         }
-        return IMAGE_CARD_PAD * 2 + IMAGE_PLACEHOLDER_H;
+        return IMAGE_PLACEHOLDER_H;
     }
 
     private void renderBubble(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY, float alpha) {
@@ -1616,17 +1708,16 @@ public class ChatBubbleScreen extends ChatScreen {
         int yy = y;
         for (var ref : images) {
             int cardH = imageCardHeight(ref.url(), cardW);
-            RoundRectRenderer.fill(g, x, yy, x + cardW, yy + cardH, 4,
-                ChatBubbleTheme.alphaBlend(0x22000000, (int) (255 * alpha)));
             ImageEntry entry = ImageLoader.getOrLoad(ref.url());
             logImageRenderState(ref.url(), entry);
             if (entry != null && entry.state() == ImageEntry.State.LOADED
                     && entry.textureId() != null && entry.width() > 0 && entry.height() > 0) {
-                int maxW = Math.max(16, cardW - IMAGE_CARD_PAD * 2);
-                int w = Math.min(maxW, entry.width());
+                int w = Math.min(cardW, entry.width());
                 int h = Math.min(IMAGE_MAX_H, entry.height() * w / entry.width());
                 int dx = x + (cardW - w) / 2;
                 int dy = yy + (cardH - h) / 2;
+                // Image draws directly on the bubble (no card bg/padding — the
+                // 0x22 black backdrop read as a dark border on light bubbles).
                 // 1.21.1 drawTexture has no color tint; the 250ms enter animation
                 // simply doesn't fade the image itself (acceptable).
                 g.drawTexture(entry.textureId(), dx, dy, w, h, 0, 0,
@@ -1670,7 +1761,8 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color, Style fallback) {
         final List<Style> styles = new ArrayList<>();
-        line.accept((i, st, cp) -> { styles.add(st); return true; });
+        final List<Character> chars = new ArrayList<>();
+        line.accept((i, st, cp) -> { styles.add(st); chars.add((char) cp); return true; });
 
         final int beforeCount = clickableSpans.size();
         int runStart = -1;
@@ -1722,6 +1814,22 @@ public class ChatBubbleScreen extends ChatScreen {
             sink.accept(i, (i < styleLen ? hasClickEvent[i] : st.getClickEvent() != null)
                 && !st.isUnderlined() ? st.withUnderline(true) : st, cp));
         g.drawText(textRenderer, decorated, x, y, color, false);
+
+        // Inline emotes: the placeholder (full-width space) is already drawn;
+        // paint the emote texture over it, positioned by per-char width sums.
+        int emoteX = x;
+        for (int i = 0; i < chars.size(); i++) {
+            char c = chars.get(i);
+            if (EmoteCodec.isPlaceholder(c)) {
+                String token = EmoteCodec.tokenOf(styles.get(i));
+                Identifier tex = token != null ? EmoteCatalog.resolve(token) : null;
+                if (tex != null) {
+                    int size = textRenderer.fontHeight;
+                    g.drawTexture(tex, emoteX, y + (textRenderer.fontHeight - size) / 2, size, size, 0, 0, 16, 16, 16, 16);
+                }
+            }
+            emoteX += textRenderer.getWidth(String.valueOf(c));
+        }
     }
 
     private int prefixWidth(OrderedText line, int count) {
@@ -2200,9 +2308,33 @@ public class ChatBubbleScreen extends ChatScreen {
             || (c >= 'K' && c <= 'O');
     }
 
+    /** Extracts the local path from [[CICode,url=file:///...]] (chatimage appends Windows backslash paths). */
+    private static String extractLocalPath(String cicode) {
+        int start = cicode.indexOf("url=file:///");
+        if (start < 0) return null;
+        start += "url=file:///".length();
+        int end = cicode.indexOf("]]", start);
+        if (end < 0) end = cicode.length();
+        String path = cicode.substring(start, end);
+        // file:///C:\... → C:\... (drop the leading slash before the drive letter)
+        if (path.startsWith("/") && path.length() > 1 && path.charAt(1) == ':') return path.substring(1);
+        return path;
+    }
+
     private void sendMessage() {
         String raw = chatField.getText().trim();
         if (raw.isEmpty()) return;
+        if (raw.contains("[[CICode,url=file://")) {
+            // A local file:// CICode (chatimage's drag/paste handler inserts
+            // these) is a local-only broken link. Kick off our own upload and
+            // block the send until it replaces the link.
+            if (!uploading) {
+                String localPath = extractLocalPath(raw);
+                if (localPath != null) upload(new java.io.File(localPath));
+            }
+            client.player.sendMessage(Text.translatable("e33chat.upload.wait"), false);
+            return;
+        }
         var cfg = ChatBubbleClientSetup.config();
         // Send the text UNCHANGED (raw '&', never '§'): vanilla servers reject '§' in
         // player chat and kick, so converting client-side is a dead end. Server color
