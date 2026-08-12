@@ -1449,11 +1449,12 @@ public class ChatBubbleScreen extends ChatScreen {
             h = lines.size() * textRenderer.fontHeight + 4;
         } else {
             int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
+            int cardW = Math.min(IMAGE_MAX_W, bubbleMaxW);
             BracketCodec.ParseResult parsed = parseImages(msg);
             List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
             h = lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2 + NAME_H;
             for (var ref : parsed.images()) {
-                h += imageCardHeight(ref.url()) + 2;
+                h += imageCardHeight(ref.url(), cardW) + 2;
             }
             if (msg.replyContent() != null) h += textRenderer.fontHeight + 7;
         }
@@ -1473,10 +1474,11 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     /** Card height in bubble px for one image ref (state-dependent). */
-    private int imageCardHeight(String url) {
+    private int imageCardHeight(String url, int cardW) {
+        int maxW = Math.max(16, cardW - IMAGE_CARD_PAD * 2);
         ImageEntry entry = ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.width() > 0) {
-            int w = Math.min(IMAGE_MAX_W, entry.width());
+            int w = Math.min(maxW, entry.width());
             int h = Math.min(IMAGE_MAX_H, Math.max(1, entry.height() * w / entry.width()));
             return IMAGE_CARD_PAD * 2 + h;
         }
@@ -1508,7 +1510,7 @@ public class ChatBubbleScreen extends ChatScreen {
         int imageH = 0;
         if (!parsed.images().isEmpty()) {
             imageW = Math.min(IMAGE_MAX_W, bubbleMaxW);
-            for (var ref : parsed.images()) imageH += imageCardHeight(ref.url()) + 2;
+            for (var ref : parsed.images()) imageH += imageCardHeight(ref.url(), imageW) + 2;
         }
         int bubbleW = Math.max(textW, imageW) + BUBBLE_PAD_X * 2;
         int bubbleH = lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2 + imageH;
@@ -1608,14 +1610,15 @@ public class ChatBubbleScreen extends ChatScreen {
                                   int x, int y, int cardW, int mouseX, int mouseY, float alpha) {
         int yy = y;
         for (var ref : images) {
-            int cardH = imageCardHeight(ref.url());
+            int cardH = imageCardHeight(ref.url(), cardW);
             RoundRectRenderer.fill(g, x, yy, x + cardW, yy + cardH, 4,
                 ChatBubbleTheme.alphaBlend(0x22000000, (int) (255 * alpha)));
             ImageEntry entry = ImageLoader.getOrLoad(ref.url());
             logImageRenderState(ref.url(), entry);
             if (entry != null && entry.state() == ImageEntry.State.LOADED
                     && entry.textureId() != null && entry.width() > 0 && entry.height() > 0) {
-                int w = Math.min(IMAGE_MAX_W, entry.width());
+                int maxW = Math.max(16, cardW - IMAGE_CARD_PAD * 2);
+                int w = Math.min(maxW, entry.width());
                 int h = Math.min(IMAGE_MAX_H, entry.height() * w / entry.width());
                 int dx = x + (cardW - w) / 2;
                 int dy = yy + (cardH - h) / 2;
