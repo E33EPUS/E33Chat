@@ -67,7 +67,6 @@
 
 **新功能（2.3.11）**
 - **本地图片上传**：聊天输入框旁的上传按钮 / Ctrl+V 粘贴 / **直接拖图片进窗口**，自动缩放到 ≤2048 边长并重新编码，上传到图床（默认 Litterbox，可配置），插入 `[[CICode,url=...]]` 发送；上传失败有提示，不会插入死链接
-- **行内表情**：`[:token]` 渲染为行内小表情。内置 12 个代码生成的像素表情（happy/sad/angry/love/thumb/ok/cry/laugh/wow/sleep/cool/fire），零外部依赖；可在 `config/e33chat-emote.json` 自定义 token→图片 URL（走共享图片管线，含防刷屏/缓存）。未知 token 原样显示为文本；表情跟随消息样式
 - **服务端媒体直传**：当服务器也装了 e33chat 时，聊天图片直接存到服务器（`e33chat://media/<id>`，永久不过期），不再受第三方图床 72h 过期限制；服务器没装/未开启时自动回退图床，无感。服务端配置 `media_enabled`（默认 true）控制；单文件上限 8MB、总配额 512MB、随机 UUID 媒体 ID 防遍历；能力探测走独立协议类型，新旧客户端/服务端混用不炸
 - **图片渲染升级**（继承 2.3.10 管线）：无卡片背景/边框，图片直接绘制在气泡上，上边缘与文本齐平，图间 2px 间隙
 
@@ -79,7 +78,6 @@
 
 **New (2.3.11)**
 - **Local image upload**: upload button / Ctrl+V paste / **drag & drop onto the window**, auto-scaled to ≤2048px and re-encoded, uploaded to a host (default Litterbox, configurable), inserted as `[[CICode,url=...]]`; failures show a hint and never insert dead links
-- **Inline emotes**: `[:token]` renders as inline emote images. 12 built-in code-generated pixel emotes (happy/sad/angry/love/thumb/ok/cry/laugh/wow/sleep/cool/fire), zero external dependencies; custom tokens go in `config/e33chat-emote.json` as token→image URL (shared image pipeline, anti-flood/cache included). Unknown tokens stay literal; emotes follow message styling
 - **Server-side media hosting**: when the server also runs e33chat, chat images are stored on the server (`e33chat://media/<id>`, permanent) instead of the third-party host's 72h expiry; falls back to the host automatically when the server lacks/disabled it. Toggle `media_enabled` (default true); 8MB/file, 512MB quota, random UUID media IDs; capability detection uses a separate protocol type so mixed client/server versions never desync
 - **Image rendering upgrade** (on the 2.3.10 pipeline): no card background/border, drawn directly on the bubble, top edge flush with text, 2px gap between images
 

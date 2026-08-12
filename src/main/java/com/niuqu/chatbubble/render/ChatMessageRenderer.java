@@ -6,8 +6,6 @@ import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.UiLayout;
 import com.niuqu.chatbubble.image.BracketCodec;
-import com.niuqu.chatbubble.image.EmoteCatalog;
-import com.niuqu.chatbubble.image.EmoteCodec;
 import com.niuqu.chatbubble.image.ImageEntry;
 import com.niuqu.chatbubble.image.ImageLoader;
 import net.minecraft.client.gui.Font;
@@ -188,7 +186,7 @@ public final class ChatMessageRenderer {
     }
 
     public static List<FormattedCharSequence> wrapContent(Component c, Font font, int width) {
-        c = EmoteCodec.process(c);
+
         List<Component> paras = new ArrayList<>();
         MutableComponent[] cur = {Component.empty()};
         c.visit((style, text) -> {
@@ -229,8 +227,7 @@ public final class ChatMessageRenderer {
                                              Style fallback,
                                              List<ClickableSpan> clickableSpans) {
         List<Style> styles = new ArrayList<>();
-        List<Character> chars = new ArrayList<>();
-        line.accept((i, st, cp) -> { styles.add(st); chars.add((char) cp); return true; });
+        line.accept((i, st, cp) -> { styles.add(st); return true; });
 
         int beforeCount = clickableSpans.size();
         int runStart = -1;
@@ -287,21 +284,6 @@ public final class ChatMessageRenderer {
                 && !st.isUnderlined() ? st.withUnderlined(true) : st, cp));
         g.drawString(font, decorated, x, y, color, false);
 
-        // Inline emotes: the placeholder (full-width space) is already drawn;
-        // paint the emote texture over it, positioned by per-char width sums.
-        int emoteX = x;
-        for (int i = 0; i < chars.size(); i++) {
-            char c = chars.get(i);
-            if (EmoteCodec.isPlaceholder(c)) {
-                String token = EmoteCodec.tokenOf(styles.get(i));
-                ResourceLocation tex = token != null ? EmoteCatalog.resolve(token) : null;
-                if (tex != null) {
-                    int size = font.lineHeight;
-                    g.blit(tex, emoteX, y + (font.lineHeight - size) / 2, size, size, 0, 0, 16, 16, 16, 16);
-                }
-            }
-            emoteX += font.width(String.valueOf(c));
-        }
     }
 
     public static void renderTimeSeparator(GuiGraphics g, Font font, long timeMillis, int y,
