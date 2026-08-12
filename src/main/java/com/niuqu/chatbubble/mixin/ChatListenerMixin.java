@@ -473,9 +473,40 @@ public class ChatListenerMixin {
         Text playerContent = raw;
         Text senderName = com.niuqu.chatbubble.Txt.literal(name);
         //#if MC >= 26000
-        //$$ Text paramName = params.name();
-        //$$ senderName = paramName != null ? paramName : senderName;
-        //#else
+    //$$ // decoratedContent() returns the full decorated line (e.g. "<[prefix]name> hello").
+    //$$ // Extract just the message content and display name to avoid duplicating
+    //$$ // the player name in the bubble content.
+    //$$ String pattern = "<" + name + "> ";
+    //$$ int idx = rawStr.indexOf(pattern);
+    //$$ int contentStart = idx >= 0 ? idx + pattern.length() : -1;
+    //$$ int prefixEnd = idx;
+    //$$ if (contentStart < 0) {
+    //$$     int i2 = rawStr.indexOf(name + "> ");
+    //$$     if (i2 > 0) {
+    //$$         int open = rawStr.lastIndexOf('<', i2);
+    //$$         if (open >= 0 && rawStr.indexOf('>', open) == i2 + name.length()) {
+    //$$             contentStart = i2 + name.length() + 2;
+    //$$             prefixEnd = open;
+    //$$         }
+    //$$     }
+    //$$ }
+    //$$ if (contentStart >= 0) {
+    //$$     String cleanContent = rawStr.substring(contentStart);
+    //$$     Text displayName = extractDecoratedName(raw, cleanContent, name,
+    //$$         com.niuqu.chatbubble.Txt.literal((rawStr.substring(0, prefixEnd) + name).trim()));
+    //$$     displayName = tabDisplayName(findOnlinePlayer(name), name, displayName);
+    //$$     playerContent = ChatMessageStore.sliceStyled(raw, contentStart, rawStr.length());
+    //$$     var player = MinecraftClient.getInstance().player;
+    //$$     if (player != null && senderId != null && senderId.equals(player.getUuid())) {
+    //$$         ChatMessageStore.cacheOwnDecoratedName(displayName);
+    //$$     }
+    //$$     ChatMessageStore.debugLog("[e33chat] PlayerChat(raw line) | raw='" + rawStr + "' | sender='" + displayName.getString() + "' | content='" + playerContent.getString() + "' | isWhisper=" + isWhisper);
+    //$$     ChatMessageStore.setPendingMeta(new SenderMeta(senderId, displayName, playerContent, false, name, isWhisper, whisperPartner));
+    //$$     return;
+    //$$ }
+    //$$ Text paramName = params.name();
+    //$$ senderName = paramName != null ? paramName : senderName;
+    //#else
         // 沿用旧分支：有些版本/服务器的 SignedMessage content 本身就是完整聊天行
         // （例如 "<玩家名> 内容" 或 "<称号玩家名> 内容"），先从 raw 中拆出显示名与正文。
         String pattern = "<" + name + "> ";
