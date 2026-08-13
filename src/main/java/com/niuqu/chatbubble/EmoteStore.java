@@ -25,6 +25,7 @@ public final class EmoteStore {
     public static final int EMOTE_MAX = 10;
     private static final List<File> emotes = new ArrayList<>();
     private static final Map<File, Identifier> textures = new HashMap<>();
+    private static int textureSeq;
     private static boolean scanned;
 
     private EmoteStore() {}
@@ -35,7 +36,8 @@ public final class EmoteStore {
 
     private static boolean isImage(File f) {
         String n = f.getName().toLowerCase();
-        return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg");
+        return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg")
+            || n.endsWith(".webp") || n.endsWith(".gif");
     }
 
     /** Re-scans the emote dir. Called when the panel opens and after edits. */
@@ -45,10 +47,13 @@ public final class EmoteStore {
         File d = dir();
         File[] files = d.listFiles();
         if (files != null) {
+            // Sort FIRST, then truncate — listFiles() order is unspecified,
+            // truncating unsorted would pick a random subset when over the cap.
             for (File f : files) {
-                if (isImage(f) && emotes.size() < EMOTE_MAX) emotes.add(f);
+                if (isImage(f)) emotes.add(f);
             }
             emotes.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+            while (emotes.size() > EMOTE_MAX) emotes.remove(emotes.size() - 1);
         }
         textures.keySet().removeIf(f -> !emotes.contains(f));
     }
@@ -118,8 +123,10 @@ public final class EmoteStore {
                 return null;
             }
             // NativeImage ownership transfers to the texture; never close it here.
+            // Monotonic id: textures.size() reuses ids after removals, which
+            // makes registerDynamicTexture return a stale texture for the new file.
             Identifier tex = MinecraftClient.getInstance().getTextureManager()
-                .registerDynamicTexture("e33chat_emote_" + textures.size(),
+                .registerDynamicTexture("e33chat_emote_" + (textureSeq++),
                     new NativeImageBackedTexture(dec.image()));
             textures.put(f, tex);
             return tex;

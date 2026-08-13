@@ -24,6 +24,11 @@ public final class ConfigManager {
                 }
             } catch (Exception e) {
                 LoggerFactory.getLogger("e33chat").warn("[e33chat] Failed to load config, using defaults", e);
+                // Keep the corrupt file for manual recovery instead of overwriting it.
+                try {
+                    Files.move(path, path.resolveSibling(path.getFileName() + ".bak"),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (Exception ignored) {}
             }
         }
         ChatBubbleConfig def = ChatBubbleConfig.defaults();
@@ -52,15 +57,15 @@ public final class ConfigManager {
             c.quickChatPhrases() != null ? c.quickChatPhrases() : d.quickChatPhrases(),
             c.mentionBannerEnabled(),
             c.systemBannerEnabled(),
-            c.mentionBannerDuration() > 0 ? c.mentionBannerDuration() : d.mentionBannerDuration(),
+            c.mentionBannerDuration() != null ? c.mentionBannerDuration() : d.mentionBannerDuration(),
             c.mentionSoundEnabled(),
             c.mentionRequireAt(),
             c.mentionWhisperBanner(),
             c.blurEnabled(),
-            c.panelOpacity() > 0 ? c.panelOpacity() : d.panelOpacity(),
-            c.soundVolume() > 0 ? c.soundVolume() : d.soundVolume(),
+            c.panelOpacity() != null ? c.panelOpacity() : d.panelOpacity(),
+            c.soundVolume() != null ? c.soundVolume() : d.soundVolume(),
             c.ownMentionNotify(), c.ownQuoteNotify(), c.ownWhisperNotify(),
-            c.bannerCornerRadius() > 0 ? c.bannerCornerRadius() : d.bannerCornerRadius(),
+            c.bannerCornerRadius() != null ? c.bannerCornerRadius() : d.bannerCornerRadius(),
             c.bannerOffsetX(), c.bannerOffsetY(),
             c.panelAnimStyle() != null ? c.panelAnimStyle() : d.panelAnimStyle(),
             c.bannerAnimStyle() != null ? c.bannerAnimStyle() : d.bannerAnimStyle(),
@@ -80,8 +85,18 @@ public final class ConfigManager {
     public static void save(Path path, ChatBubbleConfig config) {
         try {
             Files.createDirectories(path.getParent());
-            try (Writer w = new OutputStreamWriter(Files.newOutputStream(path), StandardCharsets.UTF_8)) {
+            // Write-then-move: a crash mid-write leaves the old file intact
+            // instead of a truncated JSON that resets the config on next load.
+            Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
+            try (Writer w = new OutputStreamWriter(Files.newOutputStream(tmp), StandardCharsets.UTF_8)) {
                 GSON.toJson(config, w);
+            }
+            try {
+                Files.move(tmp, path,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                Files.move(tmp, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (Exception e) {
             LoggerFactory.getLogger("e33chat").warn("[e33chat] Failed to save config", e);
