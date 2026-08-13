@@ -1,10 +1,11 @@
 package com.niuqu.chatbubble;
 
+import com.niuqu.chatbubble.image.RasterImageDecoder;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
+import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,6 +21,7 @@ import java.util.Map;
  * Clicking one sends it through the normal image upload path.
  */
 public final class EmoteStore {
+    private static final Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
     public static final int EMOTE_MAX = 10;
     private static final List<File> emotes = new ArrayList<>();
     private static final Map<File, Identifier> textures = new HashMap<>();
@@ -80,21 +82,49 @@ public final class EmoteStore {
         return false;
     }
 
+    /** Saves clipboard/pasted image bytes into the emote dir. False when full or IO fails. */
+    public static boolean addBytes(byte[] png, String name) {
+        if (png == null || png.length == 0) return false;
+        if (emotes.size() >= EMOTE_MAX) return false;
+        try {
+            File d = dir();
+            if (!d.isDirectory() && !d.mkdirs()) return false;
+            String safe = name.replaceAll("[^A-Za-z0-9._-]", "_");
+            if (!safe.endsWith(".png")) safe += ".png";
+            File dest = new File(d, safe);
+            Files.write(dest.toPath(), png);
+            refresh();
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     public static boolean isFull() {
         return emotes.size() >= EMOTE_MAX;
     }
 
-    /** Lazily loads the file into a registered texture; null when it fails. */
+    /** Lazily loads the file into a registered texture; null when it fails.
+     * Decoding goes through RasterImageDecoder (PNG fast path + ImageIO
+     * fallback, which picks up TwelveMonkeys for webp). */
     public static Identifier texture(File f) {
         Identifier id = textures.get(f);
         if (id != null) return id;
-        try (NativeImage img = NativeImage.read(Files.newInputStream(f.toPath()))) {
+        try {
+            RasterImageDecoder.DecodedImage dec =
+                RasterImageDecoder.decode(Files.readAllBytes(f.toPath()));
+            if (dec == null) {
+                LOGGER.warn("[e33chat] emote decode failed: {}", f.getName());
+                return null;
+            }
+            // NativeImage ownership transfers to the texture; never close it here.
             Identifier tex = MinecraftClient.getInstance().getTextureManager()
                 .registerDynamicTexture("e33chat_emote_" + textures.size(),
-                    new NativeImageBackedTexture(img));
+                    new NativeImageBackedTexture(dec.image()));
             textures.put(f, tex);
             return tex;
         } catch (IOException e) {
+            LOGGER.warn("[e33chat] emote read failed: {}", f.getName(), e);
             return null;
         }
     }

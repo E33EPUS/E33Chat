@@ -18,6 +18,9 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
     modCompileOnly "com.terraformersmc:modmenu:11.0.3"
+    // WebP emote decoding via TwelveMonkeys ImageIO (picked up by RasterImageDecoder)
+    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
+    include 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }

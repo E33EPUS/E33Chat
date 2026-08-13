@@ -161,9 +161,11 @@ public class ChatBubbleScreen extends ChatScreen {
         new IdentityHashMap<>();
     private int lastImageVersion = -1;
     private boolean uploading = false;
+    private boolean emoteSendMode = false;
     private int uploadToastTicks = 0;
     private static final int IMAGE_MAX_W = 320;
     private static final int IMAGE_MAX_H = 180;
+    private static final int EMOTE_MAX_SIZE = 64;
     private static final int IMAGE_PLACEHOLDER_H = 56;
 
     private final List<int[]> bubbleRects = new ArrayList<>();
@@ -579,9 +581,14 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // Ctrl+V with an image in the clipboard uploads it and inserts the code.
+        // Ctrl+V with an image in the clipboard uploads it and inserts the code;
+        // on the custom-emote tab it adds the image to the emote pack instead.
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_V && (modifiers & 0x2) != 0) {
-            startUploadFromClipboard();
+            if (emojiPanel.visible && emojiPanel.tab == 2) {
+                addClipboardEmote();
+            } else {
+                startUploadFromClipboard();
+            }
         }
         if (settingsMenu.visible && keyCode == 256) { settingsMenu.visible = false; return true; }
         if (emojiPanel.visible && keyCode == 256) { emojiPanel.visible = false; return true; }
@@ -835,6 +842,7 @@ public class ChatBubbleScreen extends ChatScreen {
                         java.io.File f = new java.io.File(emojiText.substring(7));
                         if (f.isFile()) {
                             emojiPanel.visible = false;
+                            emoteSendMode = true;
                             upload(f);
                         }
                     } else if (emojiText.startsWith("@EMOTE_DEL:")) {
@@ -1035,6 +1043,17 @@ public class ChatBubbleScreen extends ChatScreen {
         }
     }
 
+    private void addClipboardEmote() {
+        LocalImageSource.PreparedImage prep;
+        try {
+            prep = LocalImageSource.fromClipboard();
+        } catch (Throwable t) {
+            prep = null;
+        }
+        if (prep == null) return; // no image in clipboard
+        EmoteStore.addBytes(prep.bytes(), "paste_" + System.currentTimeMillis() + ".png");
+    }
+
     private void startUploadFromClipboard() {
         if (uploading) return;
         LocalImageSource.PreparedImage prep;
@@ -1076,6 +1095,14 @@ public class ChatBubbleScreen extends ChatScreen {
             uploading = false;
             if (url == null) {
                 uploadToastTicks = 60;
+                emoteSendMode = false;
+                return;
+            }
+            if (emoteSendMode) {
+                emoteSendMode = false;
+                // Emote click = send immediately as a bubble-less emote message.
+                chatField.setText("[[E33Emote,url=" + url + "]]");
+                sendMessage();
                 return;
             }
             String code = "[[CICode,url=" + url + "]]";
@@ -1564,6 +1591,13 @@ public class ChatBubbleScreen extends ChatScreen {
             int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
             int cardW = Math.min(IMAGE_MAX_W, bubbleMaxW);
             BracketCodec.ParseResult parsed = parseImages(msg);
+            if (!parsed.images().isEmpty()
+                    && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
+                    && parsed.textWithoutImages().getString().isBlank()) {
+                h = NAME_H + textRenderer.fontHeight + 2 + EMOTE_MAX_SIZE + 2;
+                msgHeightCache.put(msg, h);
+                return h;
+            }
             List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
             h = lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2 + NAME_H;
             for (var ref : parsed.images()) {
@@ -1617,6 +1651,15 @@ public class ChatBubbleScreen extends ChatScreen {
         boolean own = msg.isOwn();
         int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
         BracketCodec.ParseResult parsed = parseImages(msg);
+
+        // E33Emote-only messages render bubble-less: max 64px, aligned by direction (QQ style).
+        if (!parsed.images().isEmpty()
+                && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
+                && parsed.textWithoutImages().getString().isBlank()) {
+            renderEmoteMessage(g, msg, baseY, own, alpha);
+            return;
+        }
+
         List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
 
         int textW = 0;
@@ -1718,6 +1761,57 @@ public class ChatBubbleScreen extends ChatScreen {
 
         if (index == searchHighlightIndex)
             g.drawBorder(bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2, ChatSearchPanel.HIGHLIGHT);
+    }
+
+    /** QQ-style emote: bubble-less image, max 64px, aligned by direction. */
+    private void renderEmoteMessage(DrawContext g, ChatMessageStore.ChatMessage msg, int baseY, boolean own, float alpha) {
+        BracketCodec.ParseResult parsed = parseImages(msg);
+        if (parsed.images().isEmpty()) return;
+        BracketCodec.ImageRef ref = parsed.images().get(0);
+
+        int avatarX = own ? panelX + panelW - PAD - AVATAR : panelX + PAD;
+        int nameY = baseY;
+
+        if (!msg.senderName().getString().isEmpty()) {
+            int maxNameW = panelW - AVATAR - PAD * 2 - 20;
+            Text sn = msg.senderName();
+            OrderedText nameSeq;
+            if (textRenderer.getWidth(sn) > maxNameW) {
+                var cut = textRenderer.trimToWidth(sn, maxNameW - textRenderer.getWidth("..."));
+                nameSeq = Language.getInstance().reorder(
+                    StringVisitable.concat(cut, StringVisitable.plain("...")));
+            } else {
+                nameSeq = sn.asOrderedText();
+            }
+            int nameW = textRenderer.getWidth(nameSeq);
+            int startX = own ? (avatarX - 8 - nameW) : (avatarX + AVATAR + 4);
+            g.drawText(textRenderer, nameSeq, startX, nameY,
+                ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), false);
+        }
+
+        Identifier skin = getSkin(msg.senderUUID(), msg.rawPlayerName());
+        drawPlayerHead(g, skin, avatarX, baseY, 16, 18, alpha);
+
+        int emoteY = baseY + NAME_H + 2;
+        int w = EMOTE_MAX_SIZE, h = EMOTE_MAX_SIZE;
+        ImageEntry entry = ImageLoader.getOrLoad(ref.url());
+        if (entry != null && entry.state() == ImageEntry.State.LOADED
+                && entry.width() > 0 && entry.height() > 0) {
+            float ratio = Math.min((float) EMOTE_MAX_SIZE / entry.width(),
+                (float) EMOTE_MAX_SIZE / entry.height());
+            ratio = Math.min(1f, ratio); // never upscale
+            w = Math.max(1, (int) (entry.width() * ratio));
+            h = Math.max(1, (int) (entry.height() * ratio));
+        }
+        int emoteX = own ? (avatarX - 8 - w) : (avatarX + AVATAR + 4);
+        if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
+            g.drawTexture(entry.textureId(), emoteX, emoteY, w, h,
+                0, 0, entry.width(), entry.height(), entry.width(), entry.height());
+        } else {
+            String txt = Text.translatable("e33chat.image.loading").getString();
+            g.drawText(textRenderer, txt, emoteX, emoteY,
+                ChatBubbleTheme.alphaBlend(c().textSecondary(), (int) (255 * alpha)), false);
+        }
     }
 
     /** Draws one card per image ref below the bubble text. */
