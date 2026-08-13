@@ -85,16 +85,21 @@ public class ChatServerListener {
 
     private static volatile com.niuqu.chatbubble.server.DiskMediaStore mediaStore;
 
-    /** Lazily-created media store under the game config directory. */
+    /** Lazily-created media store next to the server config (<world>/serverconfig/, like Fabric). */
     public static com.niuqu.chatbubble.server.DiskMediaStore mediaStore() {
         com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
         if (s == null) {
             synchronized (ChatServerListener.class) {
                 s = mediaStore;
                 if (s == null) {
-                    s = new com.niuqu.chatbubble.server.DiskMediaStore(
-                        net.minecraftforge.fml.loading.FMLLoader.getGamePath()
-                            .resolve("config").resolve("e33chat-media"));
+                    net.minecraft.server.MinecraftServer server =
+                        net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+                    java.nio.file.Path dir = server != null
+                        ? server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+                            .resolve("serverconfig").resolve("e33chat-media")
+                        : net.minecraftforge.fml.loading.FMLLoader.getGamePath()
+                            .resolve("config").resolve("e33chat-media");
+                    s = new com.niuqu.chatbubble.server.DiskMediaStore(dir);
                     mediaStore = s;
                 }
             }
