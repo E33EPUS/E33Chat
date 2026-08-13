@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.3.12
+
+**新功能（2.3.12，仅 Fabric，Forge/Neo 待同步）**
+- **自定义表情包**：表情面板新增「自定义」标签页，从 `config/e33chat/emotes/` 目录加载最多 10 个表情图片（png/jpg）；点击表情立即发送（走图片上传链路，对方看到图片卡片）；悬停显示删除角标；点「+」打开系统文件选择器添加
+- **配置目录重构**：客户端配置迁移到 `config/e33chat/client.json`（旧的 `config/e33chat-client.json` / `config/e33chat.json` 自动迁移，设置不丢），表情目录为 `config/e33chat/emotes/`；聊天历史仍在 `runDir/e33chat/history/`
+
+**New (2.3.12, Fabric only; Forge/Neo pending)**
+- **Custom emote pack**: the emoji panel gains a "Custom" tab listing up to 10 images from `config/e33chat/emotes/` (png/jpg); clicking an emote sends it immediately through the normal image upload path (others see an image card); hover shows a delete badge; the "+" slot opens the OS file picker
+- **Config dir restructure**: client config moved to `config/e33chat/client.json` (auto-migrated from `config/e33chat-client.json` / `config/e33chat.json`, nothing lost), emotes in `config/e33chat/emotes/`; chat history stays in `runDir/e33chat/history/`
+
 ## v2.3.16
 
 **修复（2.3.16）**
