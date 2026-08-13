@@ -225,24 +225,48 @@ public final class GuiCompat {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static void renderTooltipWrapped(Object ctx, Screen screen, java.util.List<? extends net.minecraft.text.OrderedText> lines, int x, int y) {
         if (screen == null || lines == null || lines.isEmpty()) return;
-        //#if MC >= 12106
-        var tr = MinecraftClient.getInstance().textRenderer;
-        ((net.minecraft.client.gui.DrawContext) ctx).drawTooltip(tr, (java.util.List) lines,
-            net.minecraft.client.gui.tooltip.HoveredTooltipPositioner.INSTANCE, x, y, false);
-        //#else
-        //#if MC >= 12100
-        //$$ var tr = MinecraftClient.getInstance().textRenderer;
-        //$$ ((net.minecraft.client.gui.DrawContext) ctx).drawTooltip(tr, (java.util.List) lines,
-        //$$     net.minecraft.client.gui.tooltip.HoveredTooltipPositioner.INSTANCE, x, y);
-        //#else
-        //#if MC >= 12000
-        //$$ var tr = MinecraftClient.getInstance().textRenderer;
-        //$$ ((net.minecraft.client.gui.DrawContext) ctx).drawTooltip(tr, (java.util.List) lines, x, y);
-        //#else
-        //$$ screen.renderOrderedTooltip((net.minecraft.client.util.math.MatrixStack) ctx, lines, x, y);
-        //#endif
-        //#endif
-        //#endif
+        try {
+            //#if MC >= 12106
+            var tr = MinecraftClient.getInstance().textRenderer;
+            ((net.minecraft.client.gui.DrawContext) ctx).drawTooltip(tr, (java.util.List) lines,
+                net.minecraft.client.gui.tooltip.HoveredTooltipPositioner.INSTANCE, x, y, false);
+            //#else
+            //#if MC >= 12100
+            //$$ var tr = MinecraftClient.getInstance().textRenderer;
+            //$$ ((net.minecraft.client.gui.DrawContext) ctx).drawTooltip(tr, (java.util.List) lines,
+            //$$     net.minecraft.client.gui.tooltip.HoveredTooltipPositioner.INSTANCE, x, y);
+            //#else
+            //#if MC >= 12000
+            //$$ var tr = MinecraftClient.getInstance().textRenderer;
+            //$$ ((net.minecraft.client.gui.DrawContext) ctx).drawTooltip(tr, (java.util.List) lines, x, y);
+            //#else
+            //$$ screen.renderOrderedTooltip((net.minecraft.client.util.math.MatrixStack) ctx, lines, x, y);
+            //#endif
+            //#endif
+            //#endif
+        } catch (RuntimeException e) {
+            // ModernUI wraps OrderedText in FormattedTextWrapper which breaks
+            // DrawContext.drawTooltip's internal Lists.transform() cast to Text.
+            // Fall back to single-Text overload with extracted plain text.
+            try {
+                var tr = MinecraftClient.getInstance().textRenderer;
+                StringBuilder sb = new StringBuilder();
+                for (var ot : lines) {
+                    ot.accept((index, style, codePoint) -> {
+                        sb.appendCodePoint(codePoint);
+                        return true;
+                    });
+                    sb.append('\n');
+                }
+                Text fallback = Txt.literal(sb.toString().trim());
+                //#if MC >= 12000
+                ((net.minecraft.client.gui.DrawContext) ctx).drawTooltip(tr, fallback, x, y);
+                //#else
+                //$$ screen.renderTooltip((net.minecraft.client.util.math.MatrixStack) ctx, fallback, x, y);
+                //#endif
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     // ---- reflection helpers (MC < 1.19) ----
