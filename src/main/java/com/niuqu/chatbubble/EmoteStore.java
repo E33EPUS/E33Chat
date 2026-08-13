@@ -1,5 +1,6 @@
 package com.niuqu.chatbubble;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
@@ -27,7 +28,7 @@ public final class EmoteStore {
     private EmoteStore() {}
 
     public static File dir() {
-        return new File(MinecraftClient.getInstance().runDirectory, "e33chat/emotes");
+        return FabricLoader.getInstance().getConfigDir().resolve("e33chat/emotes").toFile();
     }
 
     private static boolean isImage(File f) {
