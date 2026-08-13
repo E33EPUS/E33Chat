@@ -37,7 +37,7 @@ public final class EmoteStore {
     private static boolean isImage(File f) {
         String n = f.getName().toLowerCase();
         return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg")
-            || n.endsWith(".webp") || n.endsWith(".gif");
+            || n.endsWith(".gif");
     }
 
     /** Re-scans the emote dir. Called when the panel opens and after edits. */
@@ -111,7 +111,7 @@ public final class EmoteStore {
 
     /** Lazily loads the file into a registered texture; null when it fails.
      * Decoding goes through RasterImageDecoder (PNG fast path + ImageIO
-     * fallback, which picks up TwelveMonkeys for webp). */
+     * fallback for jpg/gif). */
     public static Identifier texture(File f) {
         Identifier id = textures.get(f);
         if (id != null) return id;

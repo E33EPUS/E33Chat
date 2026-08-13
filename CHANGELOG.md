@@ -3,7 +3,7 @@
 ## v2.3.12
 
 **新功能（2.3.12，三端同步：Fabric / Forge / NeoForge）**
-- **自定义表情包**：表情面板新增「自定义」标签页，从 `config/e33chat/emotes/` 目录加载最多 10 个表情图片（png/jpg/gif 首帧/webp）；点击表情立即发送（无气泡小图）；悬停显示删除角标；点「+」打开系统文件选择器添加；表情标签页打开时 Ctrl+V 直接把剪贴板图片加入表情包
+- **自定义表情包**：表情面板新增「自定义」标签页，从 `config/e33chat/emotes/` 目录加载最多 10 个表情图片（png/jpg/gif 首帧）；点击表情立即发送（无气泡小图）；悬停显示删除角标；点「+」打开系统文件选择器添加；表情标签页打开时 Ctrl+V 直接把剪贴板图片加入表情包
 - **图片消息无气泡化**：所有图片消息改为无气泡渲染（保留头像与昵称），长边 240 上限并随面板宽度自适应（窄窗口不再溢出）；多图纵向堆叠；点击图片打开原图 URL，悬停显示链接
 - **图床切换**：默认图床上传从 Litterbox 改为 uguu.se——Litterbox 的下载 CDN 在部分网络不可达（图传得上去但永远加载不出来），uguu.se 上传/下载全链路可达；自定义图床的响应解析新增 JSON 路径语法（如 `json:files[0].url`）
 - **上传链路重构**：上传任务排队串行（最多 8 个），回车一次即可——上传完成后自动发送，不再需要按第二次回车；上传失败恢复输入框内容，可重试
@@ -11,7 +11,7 @@
 - **配置目录**：客户端配置迁移到 `config/e33chat/client.json`（旧路径自动迁移，设置不丢）；聊天历史仍在 `runDir/e33chat/history/`
 
 **New (2.3.12, all loaders: Fabric / Forge / NeoForge)**
-- **Custom emote pack**: the emoji panel gains a "Custom" tab loading up to 10 images from `config/e33chat/emotes/` (png/jpg/gif first frame/webp); clicking an emote sends it immediately as a bubble-less small image; hover shows a delete badge; the "+" slot opens the OS file picker; with the emote tab open, Ctrl+V adds the clipboard image to the pack
+- **Custom emote pack**: the emoji panel gains a "Custom" tab loading up to 10 images from `config/e33chat/emotes/` (png/jpg/gif first frame); clicking an emote sends it immediately as a bubble-less small image; hover shows a delete badge; the "+" slot opens the OS file picker; with the emote tab open, Ctrl+V adds the clipboard image to the pack
 - **Bubble-less image messages**: image messages now render without a bubble (avatar + name kept), capped at 240px long edge and clamped to the panel width (no more overflow on narrow windows); multiple images stack vertically; clicking an image opens the original URL, hover shows it
 - **Default image host switched**: uploads now go to uguu.se by default — Litterbox's download CDN is unreachable on some networks (uploads succeed but the image can never load), uguu.se is reachable end-to-end; custom hosts gain JSON path response parsing (e.g. `json:files[0].url`)
 - **Upload pipeline rework**: uploads queue and run serially (up to 8), and one Enter press is enough — the message sends automatically once the upload finishes; failed uploads restore the input text so you can retry
@@ -51,11 +51,11 @@
 
 **改动（2.3.14）**
 - 移除输入框左侧的 `+` 上传按钮（不再需要点按钮选图）
-- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp/webp，取第一个图片）；Ctrl+V 粘贴上传保留
+- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp，取第一个图片）；Ctrl+V 粘贴上传保留
 
 **Changes (2.3.14)**
 - Removed the `+` upload button next to the chat input
-- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp/webp, first image wins); Ctrl+V paste upload kept
+- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp, first image wins); Ctrl+V paste upload kept
 
 ## v2.3.13
 
@@ -87,11 +87,11 @@
 
 **改动（2.3.14）**
 - 移除输入框左侧的 `+` 上传按钮（不再需要点按钮选图）
-- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp/webp，取第一个图片）；Ctrl+V 粘贴上传保留
+- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp，取第一个图片）；Ctrl+V 粘贴上传保留
 
 **Changes (2.3.14)**
 - Removed the `+` upload button next to the chat input
-- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp/webp, first image wins); Ctrl+V paste upload kept
+- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp, first image wins); Ctrl+V paste upload kept
 
 ## v2.3.13
 
