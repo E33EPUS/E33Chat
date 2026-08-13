@@ -64,7 +64,9 @@ public final class ImageUploader {
                 .build();
             HttpResponse<String> resp = ImageLoader.client().send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
-                LOGGER.info("[e33chat] upload {} -> HTTP {}: {}", endpoint, resp.statusCode(), resp.body());
+                LOGGER.info("[e33chat] upload {} -> HTTP {}: {} ({} bytes, boundary={}, UA={})",
+                    endpoint, resp.statusCode(), resp.body(), body.length,
+                    boundary, req.headers().firstValue("User-Agent").orElse("?"));
                 return null;
             }
             String out = extractUrl(resp.body(), mode);

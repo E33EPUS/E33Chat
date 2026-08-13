@@ -542,6 +542,7 @@ public class ChatBubbleScreen extends ChatScreen {
     @Override
     public void tick() {
         if (copyToastTicks > 0) copyToastTicks--;
+        if (uploadToastTicks > 0) uploadToastTicks--;
         if (closing && Util.getMeasuringTimeMs() - animStart >= ANIM_MS)
             client.setScreen(null);
     }
@@ -1952,9 +1953,15 @@ public class ChatBubbleScreen extends ChatScreen {
             g.drawTexture(entry.textureId(), emoteX, emoteY, w, h,
                 0, 0, entry.width(), entry.height(), entry.width(), entry.height());
         } else {
-            String txt = Text.translatable("e33chat.image.loading").getString();
+            boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
+                && entry.failure() != null && entry.failure().contains("rate limited");
+            String txt = limited
+                ? Text.translatable("e33chat.image.ratelimited").getString()
+                : entry != null && entry.state() == ImageEntry.State.FAILED
+                    ? Text.translatable("e33chat.image.failed").getString()
+                    : Text.translatable("e33chat.image.loading").getString();
             g.drawText(textRenderer, txt, emoteX, emoteY,
-                ChatBubbleTheme.alphaBlend(c().textSecondary(), (int) (255 * alpha)), false);
+                ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c().textSecondary(), (int) (255 * alpha)), false);
         }
     }
 
@@ -2223,10 +2230,19 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void renderToast(DrawContext g) {
-        if (copyToastTicks <= 0) return;
-        int alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
-        int color = (alpha << 24) | (c().toastText() & 0x00FFFFFF);
-        String text = Text.translatable("e33chat.toast.copied").getString();
+        int alpha;
+        String text;
+        int color;
+        if (uploadToastTicks > 0) {
+            alpha = Animation.fadeInOut(uploadToastTicks, 5, 20, 5);
+            color = (alpha << 24) | 0x00FF5555;
+            text = Text.translatable("e33chat.upload.failed").getString();
+        } else {
+            if (copyToastTicks <= 0) return;
+            alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
+            color = (alpha << 24) | (c().toastText() & 0x00FFFFFF);
+            text = Text.translatable("e33chat.toast.copied").getString();
+        }
         int tw = textRenderer.getWidth(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
