@@ -2702,8 +2702,36 @@ public class ChatBubbleScreen extends ChatScreen {
             if (cachedByName != null) return cachedByName;
         }
         Identifier resolved = resolveSkin(uuid, name);
+        // Do NOT let a default-skin fallback overwrite a previously-cached real
+        // skin. When a player was online we cached their actual texture; once they
+        // go offline getPlayerListEntry returns null and resolveSkin can only
+        // produce the default Steve/Alex. Overwriting would make their head vanish.
+        // Instead, prefer the previously-cached real skin when available.
+        if (isDefaultSkin(resolved)) {
+            Identifier kept = (uuid != null && !uuid.equals(NIL_UUID)) ? skinCache.get(uuid) : null;
+            if (kept == null) {
+                String nk = skinNameKey(name);
+                if (nk != null) kept = skinNameCache.get(nk);
+            }
+            if (kept != null) return kept;
+            return resolved;
+        }
         rememberSkin(uuid, name, resolved);
         return resolved;
+    }
+
+    private boolean isDefaultSkin(Identifier tex) {
+        if (tex == null) return true;
+        //#if MC >= 12109
+        return tex.equals(DefaultSkinHelper.getSkinTextures(
+            new GameProfile(NIL_UUID, "")).body().texturePath());
+        //#else
+        //#if MC >= 12004
+        //$$ return tex.equals(DefaultSkinHelper.getSkinTextures(NIL_UUID).texture());
+        //#else
+        //$$ return tex.equals(DefaultSkinHelper.getTexture());
+        //#endif
+        //#endif
     }
 
     private Identifier resolveSkin(UUID uuid, String name) {

@@ -132,46 +132,67 @@ public class ChatListenerMixin {
         //$$ String profile = info.getProfile().getName();
         //#endif
         String currentStr = currentName.getString().replaceAll("§.", "").trim();
-        // If currentName is just the bare profile name (no prefix), try to enrich it
-        if (currentStr.equals(profile)) {
-            // Prefer the tab-list display name (includes prefix/suffix/color)
-            var tabDisplay = info.getDisplayName();
-            if (tabDisplay != null && !tabDisplay.getString().isBlank()
-                && !tabDisplay.getString().replaceAll("§.", "").trim().equals(profile)) {
-                return tabDisplay;
+
+        // Extract the scoreboard team prefix/suffix. This is the authoritative
+        // source for the player's team tag — even when the chat decoration or tab
+        // display name carries other decorations but omits the team prefix.
+        var team = info.getScoreboardTeam();
+        Text pfx = null, sfx = null;
+        if (team != null) {
+            //#if MC >= 26000
+            if (team instanceof net.minecraft.world.scores.PlayerTeam pt) {
+                pfx = pt.getPlayerPrefix();
+                sfx = pt.getPlayerSuffix();
             }
-            // Fall back to team prefix/suffix
-            var team = info.getScoreboardTeam();
-            if (team != null) {
-                //#if MC >= 26000
-                Text pfx = null, sfx = null;
-                if (team instanceof net.minecraft.world.scores.PlayerTeam pt) {
-                    pfx = pt.getPlayerPrefix();
-                    sfx = pt.getPlayerSuffix();
-                }
-                //#else
-                //#if MC >= 12004
-                Text pfx = team.getPrefix();
-                Text sfx = team.getSuffix();
-                //#else
-                //$$ Text pfx = null, sfx = null;
-                //$$ if (team instanceof net.minecraft.scoreboard.Team) {
-                //$$     net.minecraft.scoreboard.Team t = (net.minecraft.scoreboard.Team) team;
-                //$$     pfx = t.getPrefix();
-                //$$     sfx = t.getSuffix();
-                //$$ }
-                //#endif
-                //#endif
-                String pfxStr = pfx != null ? pfx.getString() : "";
-                String sfxStr = sfx != null ? sfx.getString() : "";
-                if (!pfxStr.isEmpty() || !sfxStr.isEmpty()) {
-                    var out = Text.empty();
-                    if (!pfxStr.isEmpty()) out.append(pfx);
-                    out.append(currentName);
-                    if (!sfxStr.isEmpty()) out.append(sfx);
-                    return out;
-                }
+            //#else
+            //#if MC >= 12004
+            pfx = team.getPrefix();
+            sfx = team.getSuffix();
+            //#else
+            //$$ if (team instanceof net.minecraft.scoreboard.Team) {
+            //$$     net.minecraft.scoreboard.Team t = (net.minecraft.scoreboard.Team) team;
+            //$$     pfx = t.getPrefix();
+            //$$     sfx = t.getSuffix();
+            //$$ }
+            //#endif
+            //#endif
+        }
+        String pfxStr = pfx != null ? pfx.getString().replaceAll("§.", "") : "";
+        String sfxStr = sfx != null ? sfx.getString().replaceAll("§.", "") : "";
+
+        // If the team has a non-empty prefix/suffix, prepend/append it UNLESS the
+        // current name already contains it (avoids double-prefixing). This runs
+        // regardless of whether currentName is the bare profile name — decoration
+        // from the server may have added color/rank but still omitted team prefix.
+        if (!pfxStr.isEmpty() || !sfxStr.isEmpty()) {
+            if (currentStr.contains(pfxStr) || currentStr.contains(sfxStr)) {
+                return currentName; // team tag already present
             }
+            // Only prepend if the current name is not already carrying an unrelated
+            // prefix that equals the team prefix; otherwise just return it.
+            if (currentStr.equals(profile)) {
+                var out = Text.empty();
+                if (!pfxStr.isEmpty()) out.append(pfx);
+                out.append(currentName);
+                if (!sfxStr.isEmpty()) out.append(sfx);
+                return out;
+            }
+            // currentName has some decoration but not the team prefix. Prepend
+            // team prefix before whatever is there so the team tag is visible.
+            if (currentStr.startsWith(pfxStr)) return currentName;
+            var out = Text.empty();
+            if (!pfxStr.isEmpty()) out.append(pfx);
+            out.append(currentName);
+            if (!sfxStr.isEmpty()) out.append(sfx);
+            return out;
+        }
+
+        // No team prefix/suffix: fall back to the tab-list display name if it is
+        // meaningfully different from the bare profile name.
+        var tabDisplay = info.getDisplayName();
+        if (tabDisplay != null && !tabDisplay.getString().isBlank()
+            && !tabDisplay.getString().replaceAll("§.", "").trim().equals(profile)) {
+            return tabDisplay;
         }
         return currentName;
     }
