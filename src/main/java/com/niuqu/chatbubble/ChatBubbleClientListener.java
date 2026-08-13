@@ -18,7 +18,15 @@ public class ChatBubbleClientListener {
 
     @SubscribeEvent
     public void onScreenOpen(ScreenEvent.Opening event) {
-        if (!ChatBubbleConfig.ENABLED.get()) return;
+        // Minecraft.<init> fires ScreenEvent.Opening before NeoForge/Forge have
+        // loaded configs; ConfigValue.get() then throws IllegalStateException
+        // ("Cannot get config value before config is loaded") and crashes the
+        // game at startup. Until configs are loaded, leave screens untouched.
+        try {
+            if (!ChatBubbleConfig.ENABLED.get()) return;
+        } catch (IllegalStateException e) {
+            return;
+        }
         if (event.getScreen() instanceof InBedChatScreen) {
             // Vanilla force-opens InBedChatScreen every tick while sleeping; swap in
             // our minimal bed screen so the Leave Bed button survives the chat rework
