@@ -57,6 +57,10 @@ public abstract class ChatComponentMixin {
                 ci.cancel();
                 return;
             }
+            // Skip matrix shift during world unload — the chat HUD may render
+            // briefly after world=null, and push/pop without a matching render
+            // can leave the matrix stack unbalanced if the render throws.
+            if (MinecraftClient.getInstance().world == null) return;
             context.getMatrices().pushMatrix();
             context.getMatrices().translate(0, -8);
             e33chat$shifted = true;
@@ -81,6 +85,8 @@ public abstract class ChatComponentMixin {
                 ci.cancel();
                 return;
             }
+            // Skip matrix shift during world unload (see 1.21.11 branch comment).
+            if (MinecraftClient.getInstance().world == null) return;
             //#if MC >= 12106
             context.getMatrices().pushMatrix();
             context.getMatrices().translate(0, -8);

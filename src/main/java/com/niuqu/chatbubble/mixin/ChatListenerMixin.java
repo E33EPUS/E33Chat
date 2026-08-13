@@ -114,6 +114,68 @@ public class ChatListenerMixin {
         return out.toArray(new String[0]);
     }
 
+    /**
+     * Enrich sender name with scoreboard team prefix/suffix if not already present.
+     * Handles servers where chat decoration (applyChatDecoration) doesn't include
+     * the team prefix — the local player's prefix is covered by ownDisplayName(),
+     * but other players need this explicit lookup.
+     */
+    private static Text enrichWithTeamPrefix(UUID senderUuid, Text currentName) {
+        if (senderUuid == null) return currentName;
+        var player = MinecraftClient.getInstance().player;
+        if (player == null || player.networkHandler == null) return currentName;
+        var info = player.networkHandler.getPlayerListEntry(senderUuid);
+        if (info == null) return currentName;
+        //#if MC >= 12109
+        String profile = info.getProfile().name();
+        //#else
+        //$$ String profile = info.getProfile().getName();
+        //#endif
+        String currentStr = currentName.getString().replaceAll("§.", "").trim();
+        // If currentName is just the bare profile name (no prefix), try to enrich it
+        if (currentStr.equals(profile)) {
+            // Prefer the tab-list display name (includes prefix/suffix/color)
+            var tabDisplay = info.getDisplayName();
+            if (tabDisplay != null && !tabDisplay.getString().isBlank()
+                && !tabDisplay.getString().replaceAll("§.", "").trim().equals(profile)) {
+                return tabDisplay;
+            }
+            // Fall back to team prefix/suffix
+            var team = info.getScoreboardTeam();
+            if (team != null) {
+                //#if MC >= 26000
+                Text pfx = null, sfx = null;
+                if (team instanceof net.minecraft.world.scores.PlayerTeam pt) {
+                    pfx = pt.getPlayerPrefix();
+                    sfx = pt.getPlayerSuffix();
+                }
+                //#else
+                //#if MC >= 12004
+                Text pfx = team.getPrefix();
+                Text sfx = team.getSuffix();
+                //#else
+                //$$ Text pfx = null, sfx = null;
+                //$$ if (team instanceof net.minecraft.scoreboard.Team) {
+                //$$     net.minecraft.scoreboard.Team t = (net.minecraft.scoreboard.Team) team;
+                //$$     pfx = t.getPrefix();
+                //$$     sfx = t.getSuffix();
+                //$$ }
+                //#endif
+                //#endif
+                String pfxStr = pfx != null ? pfx.getString() : "";
+                String sfxStr = sfx != null ? sfx.getString() : "";
+                if (!pfxStr.isEmpty() || !sfxStr.isEmpty()) {
+                    var out = Text.empty();
+                    if (!pfxStr.isEmpty()) out.append(pfx);
+                    out.append(currentName);
+                    if (!sfxStr.isEmpty()) out.append(sfx);
+                    return out;
+                }
+            }
+        }
+        return currentName;
+    }
+
     private static void addNameVariants(Set<String> out, String name) {
         if (name == null || name.isEmpty()) return;
         out.add(name);
@@ -247,6 +309,7 @@ public class ChatListenerMixin {
             }
             ChatMessageStore.rememberPlayer(uuid, profile, displayName);
             ChatMessageStore.debugLog("[e33chat] Key(chat) | name=" + profile + " | display='" + name.getString() + "' | content='" + contentStr + "'");
+            name = enrichWithTeamPrefix(uuid, name);
             ChatMessageStore.setPendingMeta(new SenderMeta(uuid, name, content, false, profile, false, null));
             return true;
         }
@@ -563,6 +626,7 @@ public class ChatListenerMixin {
             String cleanContent = rawStr.substring(contentStart);
             Text displayName = extractDecoratedName(raw, cleanContent, name,
                 Text.literal((rawStr.substring(0, prefixEnd) + name).trim()));
+            displayName = enrichWithTeamPrefix(senderId, displayName);
             Text contentComp = ChatMessageStore.sliceStyled(raw, contentStart, rawStr.length());
             ChatMessageStore.setPendingMeta(new SenderMeta(
                 senderId != null ? senderId : new UUID(0, 0),
@@ -602,6 +666,8 @@ public class ChatListenerMixin {
         // the decorated name here — the outgoing whisper repost needs it later.
         if (senderId != null && senderId.equals(net.minecraft.client.MinecraftClient.getInstance().player.getUuid())) {
             ChatMessageStore.cacheOwnDecoratedName(senderName);
+        } else {
+            senderName = enrichWithTeamPrefix(senderId, senderName);
         }
         ChatMessageStore.debugLog("[e33chat] PlayerChat | raw='" + rawStr + "' | sender='" + senderName.getString() + "' | content='" + playerContent.getString() + "'");
         ChatMessageStore.setPendingMeta(new SenderMeta(
@@ -660,6 +726,17 @@ public class ChatListenerMixin {
                 Text fullLine = params.applyChatDecoration(content);
                 disSender = extractDecoratedName(fullLine, msgStr, params.name().getString(), disSender);
                 //#endif
+            }
+            // Enrich with team prefix for servers that don't include it in chat decoration
+            if (!isOutgoing) {
+                var disInfo = findOnlinePlayer(params.name().getString().replaceAll("§.", "").trim());
+                if (disInfo != null) {
+                    //#if MC >= 12109
+                    disSender = enrichWithTeamPrefix(disInfo.getProfile().id(), disSender);
+                    //#else
+                    //$$ disSender = enrichWithTeamPrefix(disInfo.getProfile().getId(), disSender);
+                    //#endif
+                }
             }
             ChatMessageStore.debugLog("[e33chat] Disguised | raw='" + msgStr + "' | whisper=" + isWhisper + " | partner=" + whisperPartner + " | sender='" + disSender.getString() + "' | content='" + disContent.getString() + "'");
             ChatMessageStore.setPendingMeta(new SenderMeta(

@@ -3,6 +3,7 @@ package com.niuqu.chatbubble.chat.notification;
 import com.mojang.authlib.GameProfile;
 import com.niuqu.chatbubble.Animation;
 import com.niuqu.chatbubble.AnimationStyle;
+import com.niuqu.chatbubble.BlurRenderer;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RenderHelper;
@@ -300,27 +301,51 @@ public class MentionNotificationBanner {
         if (uuid != null && !uuid.equals(NIL_UUID)) {
             Identifier cached = skinCache.get(uuid);
             if (cached != null) return cached;
-            //#if MC >= 12004
-            //#if MC >= 12109
-            SkinTextures skin = mc.getSkinProvider().supplySkinTextures(
-                new GameProfile(uuid, name != null ? name : ""), false).get();
-            if (skin != null) {
-                Identifier tex = skin.body().texturePath();
-                if (tex != null) {
-                    skinCache.put(uuid, tex);
-                    return tex;
+            // Disconnect guard: when the network is down (server disconnect in
+            // progress) the synchronous supplySkinTextures().get() below can block
+            // the render thread for a long time. Fall back to the default skin.
+            MinecraftClient dc = MinecraftClient.getInstance();
+            if (BlurRenderer.isDisconnecting() || dc.world == null || dc.player == null) {
+                return defaultSkin(uuid, name);
+            }
+            try {
+                //#if MC >= 12004
+                //#if MC >= 12109
+                SkinTextures skin = mc.getSkinProvider().supplySkinTextures(
+                    new GameProfile(uuid, name != null ? name : ""), false).get();
+                if (skin != null) {
+                    Identifier tex = skin.body().texturePath();
+                    if (tex != null) {
+                        skinCache.put(uuid, tex);
+                        return tex;
+                    }
                 }
+                //#else
+                SkinTextures skin = mc.getSkinProvider().getSkinTextures(
+                    new GameProfile(uuid, name != null ? name : ""));
+                if (skin != null && skin.texture() != null) {
+                    skinCache.put(uuid, skin.texture());
+                    return skin.texture();
+                }
+                //#endif
+                //#endif
+            } catch (Exception ignored) {
+                // Network failure — fall through to default skin
             }
-            //#else
-            SkinTextures skin = mc.getSkinProvider().getSkinTextures(
-                new GameProfile(uuid, name != null ? name : ""));
-            if (skin != null && skin.texture() != null) {
-                skinCache.put(uuid, skin.texture());
-                return skin.texture();
-            }
-            //#endif
-            //#endif
         }
+        //#if MC >= 12004
+        //#if MC >= 12109
+        return DefaultSkinHelper.getSkinTextures(
+            new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : "")).body().texturePath();
+        //#else
+        return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID).texture();
+        //#endif
+        //#else
+        //$$ return DefaultSkinHelper.getTexture();
+        //#endif
+    }
+
+    private Identifier defaultSkin(UUID uuid, String name) {
         //#if MC >= 12004
         //#if MC >= 12109
         return DefaultSkinHelper.getSkinTextures(

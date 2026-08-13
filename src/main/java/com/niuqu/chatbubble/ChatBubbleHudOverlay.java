@@ -37,7 +37,8 @@ public class ChatBubbleHudOverlay {
 
     public static void render(DrawContext g) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.options == null) return;
+        if (BlurRenderer.isDisconnecting()) return;
+        if (mc.player == null || mc.options == null || mc.world == null) return;
 
         //#if MC >= 12106
         g.getMatrices().pushMatrix();
@@ -100,7 +101,8 @@ public class ChatBubbleHudOverlay {
     // it re-invoke this so the banner stays visible on top
     public static void renderBannerForScreen(DrawContext g) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.options == null) return;
+        if (BlurRenderer.isDisconnecting()) return;
+        if (mc.player == null || mc.options == null || mc.world == null) return;
         if (mc.currentScreen instanceof ChatBubbleScreen) {
             MentionNotificationBanner.INSTANCE.render(g,
                 mc.getWindow().getScaledWidth(),

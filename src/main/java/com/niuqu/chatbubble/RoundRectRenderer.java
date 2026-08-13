@@ -1,66 +1,30 @@
 package com.niuqu.chatbubble;
 
 //#if MC >= 12000
-//#if MC < 12102
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
-import org.joml.Matrix4f;
-import org.joml.Vector4f;
-import org.slf4j.LoggerFactory;
-//#endif
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
 //#endif
 
 /**
  * Rounded rectangle renderer.
  *
- * <p>MC 1.20.0 - 1.21.1: uses a signed-distance-field fragment shader for
- * anti-aliased rounded corners (standard sdRoundedBox by Inigo Quilez).</p>
- *
- * <p>MC &lt; 1.20.0 and MC &ge; 1.21.2: uses per-pixel SDF coverage
- * anti-aliasing via {@link RenderHelper#fill}. Fully-covered pixels are
- * batched into horizontal runs; only circle-boundary pixels invoke
+ * <p>Uses per-pixel SDF coverage anti-aliasing via {@link RenderHelper#fill}
+ * (a pure GUI-operation, no raw GL / RenderSystem state changes). Fully-covered
+ * pixels are batched into horizontal runs; only circle-boundary pixels invoke
  * individual fill calls with proportional alpha for smooth edges.</p>
+ *
+ * <p>IMPORTANT: an earlier revision used a custom SDF fragment shader
+ * (RenderSystem.setShader / BufferRenderer.drawWithGlobalProgram) for
+ * MC 1.20.0 - 1.21.1. That path leaked blend/shader state and caused a black
+ * screen when exiting a server. It has been removed — this renderer now only
+ * ever calls {@link RenderHelper#fill}, which goes through DrawContext.fill()
+ * and is safe inside Minecraft's render pipeline.</p>
  */
 public class RoundRectRenderer {
 
-    //#if MC >= 12000
-    //#if MC < 12102
-    private static ShaderProgram shader;
-    private static boolean loadAttempted;
-
-    private static ShaderProgram getShader() {
-        if (!loadAttempted) {
-            loadAttempted = true;
-            try {
-                shader = new ShaderProgram(
-                    MinecraftClient.getInstance().getResourceManager(),
-                    "rendertype_round_rect",
-                    VertexFormats.POSITION_COLOR);
-            } catch (Exception e) {
-                LoggerFactory.getLogger("e33chat")
-                    .warn("[e33chat] round rect shader failed to load, falling back to square corners", e);
-            }
-        }
-        return shader;
-    }
-    //#endif
-    //#endif
-
     public static void resetShader() {
-        //#if MC >= 12000
-        //#if MC < 12102
-        loadAttempted = false;
-        shader = null;
-        //#endif
-        //#endif
+        // No-op — no custom shader is used.
     }
 
     /**
@@ -80,59 +44,7 @@ public class RoundRectRenderer {
         if (w <= 0 || h <= 0) return;
         radius = Math.min(radius, Math.min(w, h) / 2f);
 
-        //#if MC >= 12000
-        //#if MC < 12102
-        DrawContext ctx = (DrawContext) g;
-        ShaderProgram sh = getShader();
-        if (sh == null || radius <= 0) {
-            ctx.fill(x1, y1, x2, y2, argb);
-            return;
-        }
-        ctx.draw();
-
-        Matrix4f pose = ctx.getMatrices().peek().getPositionMatrix();
-        Vector4f center = pose.transform(new Vector4f((x1 + x2) / 2f, (y1 + y2) / 2f, 0f, 1f));
-
-        GlUniform uRect = sh.getUniform("u_Rect");
-        GlUniform uRadius = sh.getUniform("u_Radius");
-        if (uRect == null || uRadius == null) {
-            ctx.fill(x1, y1, x2, y2, argb);
-            return;
-        }
-        uRect.set(0, center.x);
-        uRect.set(1, center.y);
-        uRect.set(2, (x2 - x1) / 2f);
-        uRect.set(3, (y2 - y1) / 2f);
-        uRadius.set(0, radius);
-
-        float a = (argb >>> 24) / 255f;
-        float r = (argb >> 16 & 0xFF) / 255f;
-        float gr = (argb >> 8 & 0xFF) / 255f;
-        float b = (argb & 0xFF) / 255f;
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(() -> sh);
-
-        //#if MC >= 12100
-        BufferBuilder bb = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-        //#else
-        //$$ BufferBuilder bb = Tessellator.getInstance().getBuffer();
-        //$$ bb.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-        //#endif
-        bb.vertex(pose, x1, y1, 0).color(r, gr, b, a);
-        bb.vertex(pose, x1, y2, 0).color(r, gr, b, a);
-        bb.vertex(pose, x2, y2, 0).color(r, gr, b, a);
-        bb.vertex(pose, x2, y1, 0).color(r, gr, b, a);
-        BufferRenderer.drawWithGlobalProgram(bb.end());
-
-        RenderSystem.disableBlend();
-        //#else
-        //$$ scanLineFill(g, x1, y1, x2, y2, radius, argb);
-        //#endif
-        //#else
-        //$$ scanLineFill(g, x1, y1, x2, y2, radius, argb);
-        //#endif
+        scanLineFill(g, x1, y1, x2, y2, radius, argb);
     }
 
     private static void scanLineFill(Object g, int x1, int y1, int x2, int y2, float radius, int argb) {

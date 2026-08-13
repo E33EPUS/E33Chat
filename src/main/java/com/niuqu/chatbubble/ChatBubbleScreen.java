@@ -1421,6 +1421,16 @@ public class ChatBubbleScreen extends ChatScreen {
     //$$ public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
     //$$ DrawContext g = new DrawContext(matrices);
     //#endif
+        // Guard: if the world/player is null (server disconnect in progress),
+        // skip ALL rendering — GL state may be transitional and any draw call
+        // (including child widget rendering) can trigger unsafe GL operations.
+        // Do NOT call super.render() — ChatScreen.render() accesses package-private
+        // chatInputSuggestor and may trigger GL operations unsafe during disconnect.
+        var mc = MinecraftClient.getInstance();
+        if (mc.world == null || mc.player == null) {
+            return;
+        }
+
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
@@ -2697,6 +2707,13 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private Identifier resolveSkin(UUID uuid, String name) {
+        // Disconnect guard: when the network is down (server disconnect in
+        // progress) the synchronous supplySkinTextures().get() below can block
+        // the render thread for a long time -> gray frozen window. Fall back to
+        // the default skin instead.
+        if (BlurRenderer.disconnecting || client.world == null || client.player == null) {
+            return defaultSkinIdentifier(uuid, name);
+        }
         // Route through PlayerSkinProvider with a name-bearing GameProfile so CSL
         // can match offline players to imported skins. getSkinTextures(GameProfile)
         // is the Yarn equivalent of Mojang's SkinManager.getInsecureSkin().
@@ -2705,6 +2722,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 GameProfile profile = new GameProfile(
                     uuid != null && !uuid.equals(NIL_UUID) ? uuid : NIL_UUID, name);
                 //#if MC >= 12109
+                // supplySkinTextures returns a Supplier whose get() synchronously
+                // performs the profile lookup. During a server disconnect the
+                // network is down and this can block the render thread for a long
+                // time (gray frozen window). The disconnecting guard at the top of
+                // resolveSkin short-circuits before we ever reach this call.
                 return client.getSkinProvider().supplySkinTextures(profile, false).get().body().texturePath();
                 //#else
                 //#if MC >= 12004
@@ -2717,6 +2739,19 @@ public class ChatBubbleScreen extends ChatScreen {
                 //#endif
             } catch (Exception ignored) {}
         }
+        //#if MC >= 12109
+        return DefaultSkinHelper.getSkinTextures(
+            new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : "")).body().texturePath();
+        //#else
+        //#if MC >= 12004
+        //$$ return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID).texture();
+        //#else
+        //$$ return DefaultSkinHelper.getTexture();
+        //#endif
+        //#endif
+    }
+
+    private Identifier defaultSkinIdentifier(UUID uuid, String name) {
         //#if MC >= 12109
         return DefaultSkinHelper.getSkinTextures(
             new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : "")).body().texturePath();
@@ -2951,7 +2986,9 @@ public class ChatBubbleScreen extends ChatScreen {
     public void removed() {
         if (ChatBubbleClientSetup.config().preserveInput()) savedInput = chatField.getText();
         ChatMessageStore.setScreenOpen(false);
-        if (client != null && client.inGameHud != null) {
+        // Guard: during server disconnect, world may already be null — calling
+        // ChatHud.reset() at that point can trigger unsafe state access.
+        if (client != null && client.world != null && client.inGameHud != null && client.inGameHud.getChatHud() != null) {
             client.inGameHud.getChatHud().reset();
         }
     }
