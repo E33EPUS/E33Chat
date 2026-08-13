@@ -2717,10 +2717,15 @@ public class ChatBubbleScreen extends ChatScreen {
                 //#endif
             } catch (Exception ignored) {}
         }
+        //#if MC >= 12109
+        return DefaultSkinHelper.getSkinTextures(
+            new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : "")).body().texturePath();
+        //#else
         //#if MC >= 12004
-        return DefaultSkinHelper.getTexture();
+        //$$ return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID).texture();
         //#else
         //$$ return DefaultSkinHelper.getTexture();
+        //#endif
         //#endif
     }
 

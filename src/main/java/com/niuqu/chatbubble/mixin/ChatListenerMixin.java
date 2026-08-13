@@ -83,6 +83,13 @@ public class ChatListenerMixin {
             var team = info.getScoreboardTeam();
             if (team != null) {
                 StringBuilder sb = new StringBuilder();
+                //#if MC >= 26000
+                Text pfx = null, sfx = null;
+                if (team instanceof net.minecraft.world.scores.PlayerTeam pt) {
+                    pfx = pt.getPlayerPrefix();
+                    sfx = pt.getPlayerSuffix();
+                }
+                //#else
                 //#if MC >= 12004
                 Text pfx = team.getPrefix();
                 Text sfx = team.getSuffix();
@@ -93,6 +100,7 @@ public class ChatListenerMixin {
                 //$$     pfx = t.getPrefix();
                 //$$     sfx = t.getSuffix();
                 //$$ }
+                //#endif
                 //#endif
                 if (pfx != null) sb.append(pfx.getString());
                 sb.append(profile);
