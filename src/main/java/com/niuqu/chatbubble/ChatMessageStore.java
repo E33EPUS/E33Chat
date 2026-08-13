@@ -36,9 +36,7 @@ public class ChatMessageStore {
     }
 
     private static String currentWorldKey;
-    private static final Map<String, String> worldTitles = new HashMap<>();
     private static final Gson GSON = new Gson();
-    private static boolean titlesLoaded;
     private static final Map<String, PendingMeta> pendingMetas = new HashMap<>();
 
     public record SeenPlayer(UUID uuid, String profileName, String displayName) {}
@@ -844,23 +842,6 @@ public class ChatMessageStore {
         return messages.size();
     }
 
-    public static String getCustomTitle() {
-        if (currentWorldKey == null) return null;
-        loadWorldTitles();
-        String v = worldTitles.get(currentWorldKey);
-        return (v != null && !v.isEmpty()) ? v : null;
-    }
-
-    public static void setCustomTitle(String title) {
-        if (currentWorldKey == null) return;
-        loadWorldTitles();
-        String v = (title != null && !title.isEmpty()) ? title : "";
-        if (v.isEmpty())
-            worldTitles.remove(currentWorldKey);
-        else
-            worldTitles.put(currentWorldKey, v);
-        saveWorldTitles();
-    }
 
     public static void setCurrentWorld(String name) {
         if (java.util.Objects.equals(name, currentWorldKey)) return;
@@ -1293,28 +1274,6 @@ public class ChatMessageStore {
         while (messages.size() > MAX) messages.remove(0);
     }
 
-    private static File getTitlesFile() {
-        return new File(Minecraft.getInstance().gameDirectory, "e33chat/titles.json");
-    }
-
-    private static void loadWorldTitles() {
-        if (titlesLoaded) return;
-        titlesLoaded = true;
-        File f = getTitlesFile();
-        if (!f.exists()) return;
-        try (Reader r = new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8)) {
-            Map<String, String> data = GSON.fromJson(r, new TypeToken<Map<String, String>>(){}.getType());
-            if (data != null) worldTitles.putAll(data);
-        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
-    }
-
-    private static void saveWorldTitles() {
-        File f = getTitlesFile();
-        f.getParentFile().mkdirs();
-        try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) {
-            GSON.toJson(worldTitles, w);
-        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
-    }
 
     public static void addHistoryMessages(List<com.niuqu.chatbubble.packets.HistoryPacket.HistoryEntry> entries) {
         if (!messages.isEmpty() || entries.isEmpty()) return;
