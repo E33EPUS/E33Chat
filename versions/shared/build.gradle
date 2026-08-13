@@ -175,6 +175,10 @@ abstract class PreprocessTask extends DefaultTask {
                             // Pre-1.19: Formatting.getColorValue() returns Integer, use Formatting directly
                             processed = processed.replaceAll("Formatting\\.([A-Z_]+)\\.getColorValue\\(\\) != null \\? Formatting\\.\\1\\.getColorValue\\(\\) : null", 'Formatting.$1')
                         }
+                        // Pre-1.20: DrawContext wrapper is in com.niuqu.chatbubble (avoids Loom excluding net.minecraft.* sources)
+                        if (targetMcVersion < 12000) {
+                            processed = processed.replaceAll("import net\\.minecraft\\.client\\.gui\\.DrawContext;", "import com.niuqu.chatbubble.DrawContext;")
+                        }
                         if (targetMcVersion < 11700) {
                             // 1.16.5 only: setScreen → openScreen
                             processed = processed.replaceAll("client\\.setScreen\\(", "client.openScreen(")

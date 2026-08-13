@@ -1,8 +1,9 @@
 //#if MC < 12000
-package net.minecraft.client.gui;
+package com.niuqu.chatbubble;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -13,7 +14,9 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Matrix4f;
 //#endif
 import com.mojang.blaze3d.systems.RenderSystem;
+//#if MC >= 11700
 import net.minecraft.client.render.GameRenderer;
+//#endif
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.Tessellator;
@@ -21,8 +24,9 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 
 /**
- * Polyfill DrawContext for pre-1.20 versions (1.16.5, 1.18.2).
+ * Polyfill DrawContext for pre-1.20 versions (1.16.5, 1.18.2, 1.19.x).
  * Wraps a MatrixStack and delegates rendering to DrawableHelper / TextRenderer.
+ * Placed in com.niuqu.chatbubble to avoid Fabric Loom excluding net.minecraft.* sources.
  */
 public class DrawContext extends DrawableHelper {
     private final MatrixStack matrices;
@@ -89,7 +93,7 @@ public class DrawContext extends DrawableHelper {
         RenderSystem.setShaderTexture(0, texture);
         DrawableHelper.drawTexture(matrices, x, y, width, height, u, v, regionWidth, regionHeight, textureWidth, textureHeight);
         //#else
-        //$$ RenderSystem.setShaderTexture(0, texture);
+        //$$ MinecraftClient.getInstance().getTextureManager().bindTexture(texture);
         //$$ Matrix4f model = matrices.peek().getModel();
         //$$ drawTexturedQuad(model, x, x + width, y, y + height,
         //$$         u / textureWidth, (u + regionWidth) / textureWidth,
@@ -106,7 +110,6 @@ public class DrawContext extends DrawableHelper {
     //#if MC < 11800
     //$$ private static void drawTexturedQuad(Matrix4f matrix, int x1, int x2, int y1, int y2,
     //$$         float u1, float u2, float v1, float v2) {
-    //$$     RenderSystem.setShader(GameRenderer::getPositionTexShader);
     //$$     BufferBuilder buffer = Tessellator.getInstance().getBuffer();
     //$$     buffer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
     //$$     buffer.vertex(matrix, x1, y2, 0).texture(u1, v2).next();
