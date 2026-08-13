@@ -161,6 +161,8 @@ public class ChatBubbleScreen extends ChatScreen {
         new IdentityHashMap<>();
     private int lastImageVersion = -1;
     private int uploadToastTicks = 0;
+    /** Upload-in-progress hint; set while a job is running, cleared on completion. */
+    private int uploadBusyTicks = 0;
     private static final int IMAGE_EDGE = 240;
     private static final int EMOTE_MAX_SIZE = 32;
     private static final int MAX_UPLOAD_JOBS = 8;
@@ -1104,23 +1106,42 @@ public class ChatBubbleScreen extends ChatScreen {
         UploadJob job = uploadJobs.pollFirst();
         if (job == null) return;
         uploadRunning = true;
+        uploadBusyTicks = 60;
         ImageLoader.executor().execute(() -> {
-            LocalImageSource.PreparedImage prep;
-            if (job.file != null) {
-                prep = LocalImageSource.fromFile(job.file);
-            } else {
-                prep = new LocalImageSource.PreparedImage(job.bytes, job.fileName);
-            }
-            if (prep == null) {
+            try {
+                com.mojang.logging.LogUtils.getLogger().info(
+                    "[e33chat] upload start | file={} | emote={} | serverEnabled={}",
+                    job.file != null ? job.file.getName() : job.fileName, job.emote,
+                    com.niuqu.chatbubble.image.MediaClient.serverEnabled());
+                LocalImageSource.PreparedImage prep;
+                if (job.file != null) {
+                    prep = LocalImageSource.fromFile(job.file);
+                } else {
+                    prep = new LocalImageSource.PreparedImage(job.bytes, job.fileName);
+                }
+                if (prep == null) {
+                    client.execute(() -> {
+                        uploadRunning = false;
+                        uploadBusyTicks = 0;
+                        uploadToastTicks = 60;
+                        if (job.pendingText != null) chatField.setText(job.pendingText);
+                        drainUploads();
+                    });
+                    return;
+                }
+                finishUpload(job, prep);
+            } catch (Throwable t) {
+                // Never let a worker crash leak into the queue: reset the latch so
+                // queued jobs keep draining and the failure is visible.
+                com.mojang.logging.LogUtils.getLogger().error("[e33chat] upload worker crashed", t);
                 client.execute(() -> {
                     uploadRunning = false;
+                    uploadBusyTicks = 0;
                     uploadToastTicks = 60;
                     if (job.pendingText != null) chatField.setText(job.pendingText);
                     drainUploads();
                 });
-                return;
             }
-            finishUpload(job, prep);
         });
     }
 
@@ -1137,6 +1158,7 @@ public class ChatBubbleScreen extends ChatScreen {
         com.mojang.logging.LogUtils.getLogger().info("[e33chat] upload {} -> {}", prep.fileName(), url == null ? "FAILED" : url);
         client.execute(() -> {
             uploadRunning = false;
+            uploadBusyTicks = 0;
             if (url == null) {
                 uploadToastTicks = 60;
                 // Failed send: restore the draft so the user sees what did not
@@ -2256,6 +2278,11 @@ public class ChatBubbleScreen extends ChatScreen {
             alpha = Animation.fadeInOut(uploadToastTicks, 5, 20, 5);
             color = (alpha << 24) | 0x00FF5555;
             text = Text.translatable("e33chat.upload.failed").getString();
+        } else if (uploadBusyTicks > 0) {
+            // Upload-in-progress hint; cleared by the worker when the job finishes.
+            alpha = 200;
+            color = (alpha << 24) | 0x00FFAA00;
+            text = Text.translatable("e33chat.upload.start").getString();
         } else {
             if (copyToastTicks <= 0) return;
             alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
