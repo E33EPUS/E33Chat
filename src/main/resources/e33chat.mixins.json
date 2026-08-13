@@ -4,12 +4,12 @@
   "compatibilityLevel": "JAVA_21",
   "minVersion": "0.8",
   "refmap": "e33chat.refmap.json",
-  "mixins": [
-  ],
+  "mixins": [],
   "client": [
     "ChatComponentMixin",
     "ChatListenerMixin",
-    "CommandSuggestionsMixin"
+    "CommandSuggestionsMixin",
+    "MouseHandlerAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

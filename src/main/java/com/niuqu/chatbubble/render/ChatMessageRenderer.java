@@ -31,11 +31,10 @@ public final class ChatMessageRenderer {
     static final int NAME_H = 10;
     static final int TIME_SEP_H = 14;
 
-    // Image cards (mirrors the Fabric implementation; cardW = min(320, bubbleMaxW))
-    private static final int IMAGE_MAX_W = 320;
-    private static final int IMAGE_MAX_H = 180;
-    private static final int IMAGE_PLACEHOLDER_H = 56;
-    private static final Map<String, ImageEntry.State> lastLoggedImgState = new java.util.HashMap<>();
+    // Bubble-less image rendering: 240px long-edge cap, clamped to the panel
+    // width so narrow windows/guiScale can never push images off-screen.
+    public static final int IMAGE_EDGE = 240;
+    public static final int EMOTE_MAX_SIZE = 32;
 
     private ChatMessageRenderer() {}
 
@@ -49,12 +48,22 @@ public final class ChatMessageRenderer {
             return lines.size() * font.lineHeight + 4;
         }
         BracketCodec.ParseResult parsed = parseImages(msg.content());
+        if (!parsed.images().isEmpty()
+                && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
+                && parsed.textWithoutImages().getString().isBlank()) {
+            return NAME_H + font.lineHeight + 2 + EMOTE_MAX_SIZE + 2;
+        }
+        if (!parsed.images().isEmpty()) {
+            List<FormattedCharSequence> imgLines = wrapContent(parsed.textWithoutImages(), font, bubbleMaxW);
+            int textH = imgLines.size() * font.lineHeight;
+            int imgH = 0;
+            for (var ref : parsed.images()) imgH += imageEdgeHeight(ref.url(), panelW) + 2;
+            int h = NAME_H + textH + imgH;
+            if (msg.replyContent() != null) h += font.lineHeight + 7;
+            return h;
+        }
         List<FormattedCharSequence> lines = wrapContent(parsed.textWithoutImages(), font, bubbleMaxW);
         int h = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2 + NAME_H;
-        int cardW = Math.min(IMAGE_MAX_W, bubbleMaxW);
-        for (var ref : parsed.images()) {
-            h += imageCardHeight(ref.url(), cardW) + 2;
-        }
         if (msg.replyContent() != null) h += font.lineHeight + 7;
         return h;
     }
@@ -70,68 +79,190 @@ public final class ChatMessageRenderer {
         return BracketCodec.parseOrExtract(c);
     }
 
-    /** Card height in bubble px for one image ref (state-dependent). */
-    public static int imageCardHeight(String url, int cardW) {
+    /** Height in px for one bubble-less image (state-dependent, long-edge ≤240, panel-clamped). */
+    public static int imageEdgeHeight(String url, int panelW) {
+        int maxW = Math.max(80, Math.min(IMAGE_EDGE, panelW - AVATAR - ChatLayout.PAD * 2 - 16));
         ImageEntry entry = ImageLoader.getOrLoad(url);
-        if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.width() > 0) {
-            int w = Math.min(cardW, entry.width());
-            int h = Math.min(IMAGE_MAX_H, Math.max(1, entry.height() * w / entry.width()));
-            return h;
+        if (entry != null && entry.state() == ImageEntry.State.LOADED
+                && entry.width() > 0 && entry.height() > 0) {
+            float ratio = Math.min((float) maxW / entry.width(),
+                (float) maxW / entry.height());
+            ratio = Math.min(1f, ratio);
+            return Math.max(1, (int) (entry.height() * ratio));
         }
-        return IMAGE_PLACEHOLDER_H;
+        return maxW;
     }
 
-    /** Draws one card per image ref below the bubble text. */
-    public static void renderImageCards(GuiGraphics g, Font font, List<BracketCodec.ImageRef> images,
-                                        int x, int y, int cardW, int mouseX, int mouseY,
-                                        ChatBubbleTheme.Colors c, float alpha,
-                                        List<ClickableSpan> clickableSpans) {
-        int yy = y;
-        for (var ref : images) {
-            int cardH = imageCardHeight(ref.url(), cardW);
+    /** Truncated sender-name sequence shared by bubble and bubble-less paths. */
+    private static FormattedCharSequence nameSequence(Font font, Component sn, int maxNameW) {
+        if (font.width(sn) <= maxNameW) return sn.getVisualOrderText();
+        var cut = font.substrByWidth(sn, maxNameW - font.width("..."));
+        return net.minecraft.locale.Language.getInstance().getVisualOrder(
+            net.minecraft.network.chat.FormattedText.composite(cut,
+                net.minecraft.network.chat.FormattedText.of("...")));
+    }
+
+    /** 20x22 head + hat, direction-independent (mirrors the bubble avatar). */
+    private static void drawAvatar(GuiGraphics g, ResourceLocation skin, int avatarX, int avatarY, float alpha) {
+        if (alpha > 0.003f) {
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX, avatarY, 20, 20,
+                8.0F, 8.0F, 8, 8, 64, 64, alpha);
+            int hatOff = 1;
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX - hatOff, avatarY - hatOff, 22, 22,
+                40.0F, 8.0F, 8, 8, 64, 64, alpha);
+        }
+    }
+
+    /** Bubble-less image message: name + avatar + optional text + images
+     * (240px long-edge, aspect preserved, stacked vertically, direction-aligned). */
+    public static void renderNoBubbleMessage(GuiGraphics g, Font font,
+            ChatMessageStore.ChatMessage msg, int index, int baseY, boolean own, float alpha,
+            BracketCodec.ParseResult parsed, List<FormattedCharSequence> lines,
+            ChatBubbleTheme.Colors c, ResourceLocation skin, int panelX, int panelW,
+            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans) {
+        int avatarX = own ? panelX + panelW - ChatLayout.PAD - AVATAR : panelX + ChatLayout.PAD;
+
+        if (!msg.senderName().getString().isEmpty()) {
+            int maxNameW = panelW - AVATAR - ChatLayout.PAD * 2 - 20;
+            FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
+            int nameW = font.width(nameSeq);
+            int startX = own ? (avatarX - 8 - nameW) : (avatarX + AVATAR + 4);
+            g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
+        }
+
+        drawAvatar(g, skin, avatarX, baseY, alpha);
+
+        int maxTextW = 0;
+        for (var line : lines) maxTextW = Math.max(maxTextW, font.width(line));
+        int textX = own ? (avatarX - 8 - maxTextW) : (avatarX + AVATAR + 4);
+
+        int y = baseY + NAME_H;
+        if (!lines.isEmpty()) {
+            int fg = own
+                ? ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_TEXT_COLOR.get(), 0xFFFFFFFF)
+                : ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_TEXT_COLOR.get(), c.textPrimary());
+            Style fb = findClickStyle(msg.content());
+            int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
+            for (int li = 0; li < lines.size(); li++)
+                renderLineWithClicks(g, font, lines.get(li), textX, y + li * font.lineHeight, fgA, fb, clickableSpans);
+            y += lines.size() * font.lineHeight;
+        }
+
+        int maxImgW = Math.max(80, Math.min(IMAGE_EDGE, panelW - AVATAR - ChatLayout.PAD * 2 - 16));
+        for (var ref : parsed.images()) {
+            int w = maxImgW, h = maxImgW;
             ImageEntry entry = ImageLoader.getOrLoad(ref.url());
-            logImageRenderState(ref.url(), entry);
             if (entry != null && entry.state() == ImageEntry.State.LOADED
-                    && entry.textureId() != null && entry.width() > 0 && entry.height() > 0) {
-                int w = Math.min(cardW, entry.width());
-                int h = Math.min(IMAGE_MAX_H, entry.height() * w / entry.width());
-                int dx = x + (cardW - w) / 2;
-                int dy = yy + (cardH - h) / 2;
-                // Image draws directly on the bubble (no card bg/padding — the
-                // 0x22 black backdrop read as a dark border on light bubbles).
-                // blit has no color tint; the 250ms enter animation simply
-                // doesn't fade the image itself (acceptable).
-                g.blit(entry.textureId(), dx, dy, w, h, 0, 0,
+                    && entry.width() > 0 && entry.height() > 0) {
+                float ratio = Math.min((float) maxImgW / entry.width(),
+                    (float) maxImgW / entry.height());
+                ratio = Math.min(1f, ratio); // never upscale
+                w = Math.max(1, (int) (entry.width() * ratio));
+                h = Math.max(1, (int) (entry.height() * ratio));
+            }
+            int imgX = own ? (avatarX - 8 - w) : (avatarX + AVATAR + 4);
+            if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
+                g.blit(entry.textureId(), imgX, y, w, h, 0, 0,
                     entry.width(), entry.height(), entry.width(), entry.height());
-            } else if (entry != null && entry.state() == ImageEntry.State.FAILED) {
-                boolean limited = entry.failure() != null && entry.failure().contains("rate limited");
-                String txt = Component.translatable(limited ? "e33chat.image.ratelimited" : "e33chat.image.failed").getString();
-                g.drawString(font, Component.literal(txt), x + (cardW - font.width(txt)) / 2,
-                    yy + (cardH - font.lineHeight) / 2,
-                    ChatBubbleTheme.alphaBlend(0xFFFF5555, (int) (255 * alpha)), false);
             } else {
-                String txt = Component.translatable("e33chat.image.loading").getString();
-                g.drawString(font, Component.literal(txt), x + (cardW - font.width(txt)) / 2,
-                    yy + (cardH - font.lineHeight) / 2,
-                    ChatBubbleTheme.alphaBlend(c.textSecondary(), (int) (255 * alpha)), false);
+                boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
+                    && entry.failure() != null && entry.failure().contains("rate limited");
+                String txt = limited
+                    ? Component.translatable("e33chat.image.ratelimited").getString()
+                    : entry != null && entry.state() == ImageEntry.State.FAILED
+                        ? Component.translatable("e33chat.image.failed").getString()
+                        : Component.translatable("e33chat.image.loading").getString();
+                g.drawString(font, Component.literal(txt), imgX, y,
+                    ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c.textSecondary(), (int)(255 * alpha)), false);
             }
             // Open the URL in the system browser on click; hover shows the URL
             Style st = Style.EMPTY
                 .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, ref.url()))
                 .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(ref.url())));
-            clickableSpans.add(new ClickableSpan(x, yy, cardW, cardH, st));
-            yy += cardH + 2;
+            clickableSpans.add(new ClickableSpan(imgX, y, w, h, st));
+            y += h + 2;
         }
+
+        if (msg.duplicateCount() > 1) {
+            String label = "x" + msg.duplicateCount();
+            int labelW = font.width(label);
+            int lx = own ? (avatarX - 8 - labelW - 3) : (avatarX + AVATAR + 4 + 3);
+            g.drawString(font, Component.literal(label), lx, baseY + NAME_H + 2,
+                ChatBubbleTheme.alphaBlend(c.duplicateLabel(), (int)(255 * alpha)), false);
+        }
+
+        if (msg.replyContent() != null) {
+            int quoteMaxW = panelW - ChatLayout.PAD * 2 - AVATAR - 24;
+            String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
+            String quoteDisplay = font.plainSubstrByWidth(quoteText, quoteMaxW - 10);
+            if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
+            int quoteW = Math.min(font.width(quoteDisplay) + 8, quoteMaxW);
+            int quoteX = own ? (avatarX - 8 - quoteW) : (avatarX + AVATAR + 4);
+            if (quoteX < panelX + ChatLayout.PAD) quoteX = panelX + ChatLayout.PAD;
+            if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
+                quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
+            RoundRectRenderer.fill(g, quoteX, y, quoteX + quoteW, y + font.lineHeight + 4, 3,
+                ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
+            g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, y + 2,
+                ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)), false);
+        }
+
+        // Hit-test region for avatar clicks / context menus: the message span.
+        bubbleRects.add(new int[]{own ? avatarX - 8 - maxTextW : avatarX + AVATAR + 4,
+            baseY, Math.max(maxTextW, maxImgW), y - baseY, index});
     }
 
-    // Per-URL state-change logging (probe): prints once per state transition,
-    // not every frame.
-    private static void logImageRenderState(String url, ImageEntry entry) {
-        ImageEntry.State st = entry == null ? null : entry.state();
-        if (lastLoggedImgState.get(url) == st) return;
-        lastLoggedImgState.put(url, st);
-        com.mojang.logging.LogUtils.getLogger().info(
-            "[e33chat] image render {} -> {}", url, st);
+    /** QQ-style emote: bubble-less image, max 32px, aligned by direction. */
+    public static void renderEmoteMessage(GuiGraphics g, Font font,
+            ChatMessageStore.ChatMessage msg, int index, int baseY, boolean own, float alpha,
+            ChatBubbleTheme.Colors c, ResourceLocation skin, int panelX, int panelW,
+            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans) {
+        BracketCodec.ParseResult parsed = parseImages(msg.content());
+        if (parsed.images().isEmpty()) return;
+        BracketCodec.ImageRef ref = parsed.images().get(0);
+
+        int avatarX = own ? panelX + panelW - ChatLayout.PAD - AVATAR : panelX + ChatLayout.PAD;
+        if (!msg.senderName().getString().isEmpty()) {
+            int maxNameW = panelW - AVATAR - ChatLayout.PAD * 2 - 20;
+            FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
+            int nameW = font.width(nameSeq);
+            int startX = own ? (avatarX - 8 - nameW) : (avatarX + AVATAR + 4);
+            g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
+        }
+
+        drawAvatar(g, skin, avatarX, baseY, alpha);
+
+        int emoteY = baseY + NAME_H + 2;
+        int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - AVATAR - ChatLayout.PAD * 2 - 16));
+        int w = maxE, h = maxE;
+        ImageEntry entry = ImageLoader.getOrLoad(ref.url());
+        if (entry != null && entry.state() == ImageEntry.State.LOADED
+                && entry.width() > 0 && entry.height() > 0) {
+            float ratio = Math.min((float) maxE / entry.width(), (float) maxE / entry.height());
+            ratio = Math.min(1f, ratio); // never upscale
+            w = Math.max(1, (int) (entry.width() * ratio));
+            h = Math.max(1, (int) (entry.height() * ratio));
+        }
+        int emoteX = own ? (avatarX - 8 - w) : (avatarX + AVATAR + 4);
+        if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
+            g.blit(entry.textureId(), emoteX, emoteY, w, h, 0, 0,
+                entry.width(), entry.height(), entry.width(), entry.height());
+        } else {
+            boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
+                && entry.failure() != null && entry.failure().contains("rate limited");
+            String txt = limited
+                ? Component.translatable("e33chat.image.ratelimited").getString()
+                : entry != null && entry.state() == ImageEntry.State.FAILED
+                    ? Component.translatable("e33chat.image.failed").getString()
+                    : Component.translatable("e33chat.image.loading").getString();
+            g.drawString(font, Component.literal(txt), emoteX, emoteY,
+                ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c.textSecondary(), (int)(255 * alpha)), false);
+        }
+        Style st = Style.EMPTY
+            .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, ref.url()))
+            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(ref.url())));
+        clickableSpans.add(new ClickableSpan(emoteX, emoteY, w, h, st));
+        bubbleRects.add(new int[]{emoteX, emoteY, w, h, index});
     }
 
     public static String timeKey(long timeMillis, int interval) {
@@ -347,16 +478,26 @@ public final class ChatMessageRenderer {
         BracketCodec.ParseResult parsed = parseImages(msg.content());
         List<FormattedCharSequence> lines = wrapContent(parsed.textWithoutImages(), font, bubbleMaxW);
 
+        // E33Emote-only messages render bubble-less: max 32px, aligned by direction.
+        if (!parsed.images().isEmpty()
+                && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
+                && parsed.textWithoutImages().getString().isBlank()) {
+            renderEmoteMessage(g, font, msg, index, baseY, own, alpha, c, skin,
+                panelX, panelW, bubbleRects, clickableSpans);
+            return;
+        }
+        // Any message carrying images renders bubble-less too (240px long-edge,
+        // aspect preserved, stacked vertically, direction-aligned).
+        if (!parsed.images().isEmpty()) {
+            renderNoBubbleMessage(g, font, msg, index, baseY, own, alpha, parsed, lines, c, skin,
+                panelX, panelW, bubbleRects, clickableSpans);
+            return;
+        }
+
         int textW = 0;
         for (var line : lines) textW = Math.max(textW, font.width(line));
-        int imageW = 0;
-        int imageH = 0;
-        if (!parsed.images().isEmpty()) {
-            imageW = Math.min(IMAGE_MAX_W, bubbleMaxW);
-            for (var ref : parsed.images()) imageH += imageCardHeight(ref.url(), imageW) + 2;
-        }
-        int bubbleW = Math.max(textW, imageW) + BUBBLE_PAD_X * 2;
-        int bubbleH = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2 + imageH;
+        int bubbleW = textW + BUBBLE_PAD_X * 2;
+        int bubbleH = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2;
 
         int avatarX, bubbleX;
         if (own) {
@@ -371,16 +512,7 @@ public final class ChatMessageRenderer {
 
         if (!msg.senderName().getString().isEmpty()) {
             int maxNameW = panelW - AVATAR - ChatLayout.PAD * 2 - 20;
-            Component sn = msg.senderName();
-            FormattedCharSequence nameSeq;
-            if (font.width(sn) > maxNameW) {
-                var cut = font.substrByWidth(sn, maxNameW - font.width("..."));
-                nameSeq = net.minecraft.locale.Language.getInstance().getVisualOrder(
-                    net.minecraft.network.chat.FormattedText.composite(cut,
-                        net.minecraft.network.chat.FormattedText.of("...")));
-            } else {
-                nameSeq = sn.getVisualOrderText();
-            }
+            FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
             int nameW = font.width(nameSeq);
             int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
             g.drawString(font, nameSeq, startX, nameY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
@@ -402,20 +534,8 @@ public final class ChatMessageRenderer {
             renderLineWithClicks(g, font, lines.get(li), bubbleX + BUBBLE_PAD_X,
                 bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fgA, fb, clickableSpans);
 
-        if (!parsed.images().isEmpty()) {
-            int imgTop = bubbleY + BUBBLE_PAD_Y + lines.size() * font.lineHeight;
-            renderImageCards(g, font, parsed.images(), bubbleX + BUBBLE_PAD_X, imgTop,
-                Math.max(textW, imageW), mouseX, mouseY, c, alpha, clickableSpans);
-        }
-
         // Draw avatar (per-element alpha: vanilla blit ignores setShaderColor)
-        if (alpha > 0.003f) {
-            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX, avatarY, 20, 20,
-                8.0F, 8.0F, 8, 8, 64, 64, alpha);
-            int hatOff = 1;
-            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX - hatOff, avatarY - hatOff, 22, 22,
-                40.0F, 8.0F, 8, 8, 64, 64, alpha);
-        }
+        drawAvatar(g, skin, avatarX, avatarY, alpha);
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();

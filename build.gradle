@@ -120,6 +120,8 @@ configurations {
 
 dependencies {
     compileOnly "org.spongepowered:mixin:0.8.7"
+    // WebP emote decoding (EmoteStore + RasterImageDecoder ImageIO fallback)
+    jarJar("com.twelvemonkeys.imageio:imageio-webp:3.12.0")
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
