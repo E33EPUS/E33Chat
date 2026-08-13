@@ -8,6 +8,38 @@ import static org.junit.jupiter.api.Assertions.*;
 class ImageUploaderTest {
 
     @Test
+    void extractUrlJsonPathModeReadsNestedArrayField() {
+        // uguu.se response shape
+        String body = "{\"success\":true,\"files\":[{\"hash\":\"abc\",\"filename\":\"x.png\","
+            + "\"url\":\"https://d.uguu.se/abc.png\",\"size\":42}]}";
+        assertEquals("https://d.uguu.se/abc.png",
+            ImageUploader.extractUrl(body, "json:files[0].url"));
+        // deep object path
+        assertEquals("https://d.uguu.se/abc.png",
+            ImageUploader.extractUrl(body, "json:files[0].url"));
+        // legacy top-level field still works
+        assertEquals("https://d.uguu.se/abc.png",
+            ImageUploader.extractUrl("{\"url\":\"https://d.uguu.se/abc.png\"}", "json:url"));
+    }
+
+    @Test
+    void extractUrlJsonPathRejectsBadIndexOrType() {
+        String body = "{\"files\":[{\"url\":\"https://d.uguu.se/a.png\"}]}";
+        assertNull(ImageUploader.extractUrl(body, "json:files[1].url"), "index out of range");
+        assertNull(ImageUploader.extractUrl(body, "json:files[x].url"), "non-numeric index");
+        assertNull(ImageUploader.extractUrl(body, "json:files[0].size"), "field is a number, not a URL");
+        assertNull(ImageUploader.extractUrl("{\"files\":{}}", "json:files[0].url"), "object where array expected");
+    }
+
+    @Test
+    void defaultHostIsUguuAndRequiresNoExtraFields() {
+        assertEquals("https://uguu.se/upload", ImageUploader.DEFAULT_URL);
+        assertEquals("files[]", ImageUploader.DEFAULT_FIELD);
+        assertEquals("", ImageUploader.DEFAULT_EXTRA);
+        assertEquals("json:files[0].url", ImageUploader.DEFAULT_RESPONSE);
+    }
+
+    @Test
     void multipartContainsExtraFieldsThenFilePart() {
         byte[] body = ImageUploader.buildMultipart(
             new byte[]{1, 2, 3}, "a b.png", "fileToUpload", "time=72h", "BOUND");
