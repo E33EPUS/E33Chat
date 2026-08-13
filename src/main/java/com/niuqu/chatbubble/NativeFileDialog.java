@@ -37,7 +37,7 @@ public final class NativeFileDialog {
                     fd.setFilenameFilter((dir, name) -> {
                         String n = name.toLowerCase();
                         return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg")
-                            || n.endsWith(".webp") || n.endsWith(".gif");
+                            || n.endsWith(".gif");
                     });
                     fd.setVisible(true);
                     File[] files = fd.getFiles();
