@@ -1790,7 +1790,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         Identifier skin = getSkin(msg.senderUUID(), msg.rawPlayerName());
-        drawPlayerHead(g, skin, avatarX, baseY, 16, 18, alpha);
+        drawPlayerHead(g, skin, avatarX, baseY, 20, 22, alpha);
 
         int emoteY = baseY + NAME_H + 2;
         int w = EMOTE_MAX_SIZE, h = EMOTE_MAX_SIZE;

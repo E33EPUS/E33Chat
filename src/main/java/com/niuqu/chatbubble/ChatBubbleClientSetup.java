@@ -61,7 +61,15 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             }
         }
         if (config == null || !Files.exists(configPath)) {
-            config = ConfigManager.load(configPath);
+            if (Files.exists(legacyPath)) {
+                // Migration move failed earlier (locked/IO) — read in place so
+                // settings are never silently replaced by defaults.
+                config = ConfigManager.load(legacyPath);
+            } else if (Files.exists(oldFlatPath)) {
+                config = ConfigManager.load(oldFlatPath);
+            } else {
+                config = ConfigManager.load(configPath);
+            }
         }
 
         ClientPlayNetworking.registerGlobalReceiver(ChatMetaPayload.ID, (payload, context) -> {
