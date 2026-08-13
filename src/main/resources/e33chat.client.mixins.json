@@ -8,6 +8,7 @@
     "ChatInputSuggestorMixin",
     "ChatListenerMixin",
     "MinecraftClientMixin",
-    "MouseHandlerAccessor"
+    "MouseHandlerAccessor",
+    "AwtHeadlessHackMixin"
   ]
 }

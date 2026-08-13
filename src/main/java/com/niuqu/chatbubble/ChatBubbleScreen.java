@@ -1043,6 +1043,19 @@ public class ChatBubbleScreen extends ChatScreen {
     /** OS file drag onto the window (vanilla drop hook): upload the first image dropped. */
     @Override
     public void filesDragged(List<java.nio.file.Path> paths) {
+        com.mojang.logging.LogUtils.getLogger().info("[e33chat] filesDrop {} paths | emojiTab={}",
+            paths.size(), emojiPanel.visible && emojiPanel.tab == 2);
+        // Emote tab open: dropping adds to the pack instead of uploading.
+        if (emojiPanel.visible && emojiPanel.tab == 2) {
+            for (java.nio.file.Path p : paths) {
+                java.io.File f = p.toFile();
+                if (f.isFile() && EmoteStore.isImageFile(f)) {
+                    EmoteStore.add(f);
+                    break;
+                }
+            }
+            return;
+        }
         for (java.nio.file.Path p : paths) {
             String l = p.getFileName().toString().toLowerCase();
             if (l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg")
