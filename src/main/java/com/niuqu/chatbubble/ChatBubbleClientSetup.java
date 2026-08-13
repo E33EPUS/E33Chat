@@ -2,7 +2,6 @@ package com.niuqu.chatbubble;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.config.ConfigManager;
-import com.niuqu.chatbubble.image.EmoteCatalog;
 import com.niuqu.chatbubble.image.ImageLoader;
 import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
@@ -43,7 +42,6 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         configPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat-client.json");
-        EmoteCatalog.loadCustom(MinecraftClient.getInstance().runDirectory.toPath().resolve("config"));
         // v2.3.x renamed the file from e33chat.json to e33chat-client.json (aligns with
         // Forge/Neo); migrate an existing old file so users keep their settings
         Path legacyPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat.json");

@@ -5,8 +5,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.image.BracketCodec;
-import com.niuqu.chatbubble.image.EmoteCatalog;
-import com.niuqu.chatbubble.image.EmoteCodec;
 import com.niuqu.chatbubble.image.ImageEntry;
 import com.niuqu.chatbubble.image.ImageLoader;
 import com.niuqu.chatbubble.image.ImageUploader;
@@ -1069,6 +1067,7 @@ public class ChatBubbleScreen extends ChatScreen {
             } else {
                 cur = cur.isEmpty() ? code : cur + " " + code;
             }
+            ChatMessageStore.debugLog("[e33chat] upload replace | before='" + chatField.getText() + "' | after='" + cur + "'");
             chatField.setText(cur);
             chatField.setCursorToEnd(false);        });
     }
@@ -1493,7 +1492,6 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private List<OrderedText> wrapContent(Text c, int width) {
-        c = EmoteCodec.process(c);
         List<Text> paras = new ArrayList<>();
         MutableText[] cur = { Text.empty() };
         c.visit((style, text) -> {
@@ -1761,8 +1759,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color, Style fallback) {
         final List<Style> styles = new ArrayList<>();
-        final List<Character> chars = new ArrayList<>();
-        line.accept((i, st, cp) -> { styles.add(st); chars.add((char) cp); return true; });
+        line.accept((i, st, cp) -> { styles.add(st); return true; });
 
         final int beforeCount = clickableSpans.size();
         int runStart = -1;
@@ -1815,21 +1812,6 @@ public class ChatBubbleScreen extends ChatScreen {
                 && !st.isUnderlined() ? st.withUnderline(true) : st, cp));
         g.drawText(textRenderer, decorated, x, y, color, false);
 
-        // Inline emotes: the placeholder (full-width space) is already drawn;
-        // paint the emote texture over it, positioned by per-char width sums.
-        int emoteX = x;
-        for (int i = 0; i < chars.size(); i++) {
-            char c = chars.get(i);
-            if (EmoteCodec.isPlaceholder(c)) {
-                String token = EmoteCodec.tokenOf(styles.get(i));
-                Identifier tex = token != null ? EmoteCatalog.resolve(token) : null;
-                if (tex != null) {
-                    int size = textRenderer.fontHeight;
-                    g.drawTexture(tex, emoteX, y + (textRenderer.fontHeight - size) / 2, size, size, 0, 0, 16, 16, 16, 16);
-                }
-            }
-            emoteX += textRenderer.getWidth(String.valueOf(c));
-        }
     }
 
     private int prefixWidth(OrderedText line, int count) {
@@ -2333,6 +2315,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (localPath != null) upload(new java.io.File(localPath));
             }
             client.player.sendMessage(Text.translatable("e33chat.upload.wait"), false);
+            ChatMessageStore.debugLog("[e33chat] upload block | uploading=" + uploading + " | raw=" + raw);
             return;
         }
         var cfg = ChatBubbleClientSetup.config();
