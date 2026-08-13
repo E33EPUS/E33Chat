@@ -166,7 +166,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int MAX_UPLOAD_JOBS = 8;
 
     /** One queued upload; when pendingText is set the send is completed
-     * automatically after the upload (chat-upgrade draft semantics: the user
+     * automatically after the upload (draft semantics: the user
      * hits enter once, the message goes out when the file is up). */
     private static final class UploadJob {
         final java.io.File file;      // file source (emote / drag)
@@ -1127,7 +1127,7 @@ public class ChatBubbleScreen extends ChatScreen {
             if (url == null) {
                 uploadToastTicks = 60;
                 // Failed send: restore the draft so the user sees what did not
-                // go out (chat-upgrade keeps failed drafts around for retry).
+                // go out (failed drafts are kept around for retry).
                 if (job.pendingText != null) chatField.setText(job.pendingText);
                 drainUploads();
                 return;

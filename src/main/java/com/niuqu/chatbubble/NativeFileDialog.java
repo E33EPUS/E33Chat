@@ -10,7 +10,7 @@ import java.io.File;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * AWT FileDialog-based image picker, mirroring chat-upgrade's NativeFileDialogModal:
+ * AWT FileDialog-based image picker, mirroring the modal picker pattern:
  * runs on a worker thread + EDT so the render thread never blocks; MC key/mouse
  * state is released while the dialog owns input and the render thread resumes normally.
  */

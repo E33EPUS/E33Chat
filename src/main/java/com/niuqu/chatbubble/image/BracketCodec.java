@@ -14,7 +14,7 @@ import net.minecraft.text.Text;
  *
  * Two wire tags are accepted so the mod interoperates with both ecosystems:
  *   [[CICode,url=...,name=...]]        (ChatImage)
- *   [[ChatUpgrade,url=...,name=...,type=...]]  (chat-upgrade; type=image assumed)
+ *   [[ChatUpgrade,url=...,name=...,type=...]]  (third-party rich-message mod; type=image assumed)
  *
  * {@link #strip(Text)} removes the bracket blocks from the styled component
  * tree (keeping the surrounding styles) and returns the extracted image refs.

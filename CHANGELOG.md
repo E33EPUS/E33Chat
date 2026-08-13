@@ -2,91 +2,23 @@
 
 ## v2.3.12
 
-**新功能（2.3.12，仅 Fabric，Forge/Neo 待同步）**
-- **自定义表情包**：表情面板新增「自定义」标签页，从 `config/e33chat/emotes/` 目录加载最多 10 个表情图片（png/jpg）；点击表情立即发送（走图片上传链路，对方看到图片卡片）；悬停显示删除角标；点「+」打开系统文件选择器添加
-- **配置目录重构**：客户端配置迁移到 `config/e33chat/client.json`（旧的 `config/e33chat-client.json` / `config/e33chat.json` 自动迁移，设置不丢），表情目录为 `config/e33chat/emotes/`；聊天历史仍在 `runDir/e33chat/history/`
+**新功能（2.3.12，三端同步：Fabric / Forge / NeoForge）**
+- **自定义表情包**：表情面板新增「自定义」标签页，从 `config/e33chat/emotes/` 目录加载最多 10 个表情图片（png/jpg/gif 首帧/webp）；点击表情立即发送（无气泡小图）；悬停显示删除角标；点「+」打开系统文件选择器添加；表情标签页打开时 Ctrl+V 直接把剪贴板图片加入表情包
+- **图片消息无气泡化**：所有图片消息改为无气泡渲染（保留头像与昵称），长边 240 上限并随面板宽度自适应（窄窗口不再溢出）；多图纵向堆叠；点击图片打开原图 URL，悬停显示链接
+- **图床切换**：默认图床上传从 Litterbox 改为 uguu.se——Litterbox 的下载 CDN 在部分网络不可达（图传得上去但永远加载不出来），uguu.se 上传/下载全链路可达；自定义图床的响应解析新增 JSON 路径语法（如 `json:files[0].url`）
+- **上传链路重构**：上传任务排队串行（最多 8 个），回车一次即可——上传完成后自动发送，不再需要按第二次回车；上传失败恢复输入框内容，可重试
+- **配置修复**：音量 0（静音）/面板透明度 0/圆角 0 等合法设置不再被重置为默认值；配置写入改为原子替换（游戏崩溃不再损坏配置文件，损坏文件保留 .bak 供恢复）
+- **配置目录**：客户端配置迁移到 `config/e33chat/client.json`（旧路径自动迁移，设置不丢）；聊天历史仍在 `runDir/e33chat/history/`
 
-**New (2.3.12, Fabric only; Forge/Neo pending)**
-- **Custom emote pack**: the emoji panel gains a "Custom" tab listing up to 10 images from `config/e33chat/emotes/` (png/jpg); clicking an emote sends it immediately through the normal image upload path (others see an image card); hover shows a delete badge; the "+" slot opens the OS file picker
-- **Config dir restructure**: client config moved to `config/e33chat/client.json` (auto-migrated from `config/e33chat-client.json` / `config/e33chat.json`, nothing lost), emotes in `config/e33chat/emotes/`; chat history stays in `runDir/e33chat/history/`
+**New (2.3.12, all loaders: Fabric / Forge / NeoForge)**
+- **Custom emote pack**: the emoji panel gains a "Custom" tab loading up to 10 images from `config/e33chat/emotes/` (png/jpg/gif first frame/webp); clicking an emote sends it immediately as a bubble-less small image; hover shows a delete badge; the "+" slot opens the OS file picker; with the emote tab open, Ctrl+V adds the clipboard image to the pack
+- **Bubble-less image messages**: image messages now render without a bubble (avatar + name kept), capped at 240px long edge and clamped to the panel width (no more overflow on narrow windows); multiple images stack vertically; clicking an image opens the original URL, hover shows it
+- **Default image host switched**: uploads now go to uguu.se by default — Litterbox's download CDN is unreachable on some networks (uploads succeed but the image can never load), uguu.se is reachable end-to-end; custom hosts gain JSON path response parsing (e.g. `json:files[0].url`)
+- **Upload pipeline rework**: uploads queue and run serially (up to 8), and one Enter press is enough — the message sends automatically once the upload finishes; failed uploads restore the input text so you can retry
+- **Config fixes**: zero values (muted volume / fully transparent panel / square corners) are no longer reset to defaults; config writes are atomic (a crash can no longer corrupt the file, and a corrupt file is kept as .bak)
+- **Config dir**: client config moved to `config/e33chat/client.json` (auto-migrated from legacy paths, nothing lost); chat history stays in `runDir/e33chat/history/`
 
-## v2.3.16
-
-**修复（2.3.16）**
-- **拖拽图片不再插入 file:// 死链接**：chatimage 等 mod 会把拖入的本地图片插成 `[[CICode,url=file:///C:\...]]`（本地专用、带反斜杠的非法 URI，别人看不到）。现在：e33chat 上传完成后自动把输入框里的 file:// 链接替换成真实 URL；若发送时 file:// 还在（上传未完成），阻止发送并提示「图片上传中，稍候再发」（同时自动开始上传）
-- **修复点击 file:// 图片消息抛异常**：点击历史 file:// 图片会触发系统打开非法 URI（URISyntaxException 刷日志），现在只对 http(s) 链接响应点击
-
-**Fixes (2.3.16)**
-- Dragging an image no longer leaves a dead `file://` link in the input: mods like chatimage insert `[[CICode,url=file:///C:\...]]` (local-only, backslash URI). e33chat now replaces that link with the real upload URL once the upload finishes; if you press Enter before that, the send is blocked with a "wait" hint (and the upload is started automatically)
-- Fixed clicking file:// image messages throwing URISyntaxException; only http(s) links respond to clicks now
-
-## v2.3.15
-# Changelog
-
-## v2.3.15
-
-**修复（2.3.15）**
-- **修复本地图片上传一直失败**：Litterbox 需要 `reqtype=fileupload` 参数，旧版本漏了导致 HTTP 412（图从来传不上去）；旧配置文件自动注入修复
-- **修复拖拽图片后输入框键盘失效**：拖放会抢走窗口焦点，现在自动把焦点还给聊天输入框
-
-**Fixes (2.3.15)**
-- Fixed local image upload failing with HTTP 412: Litterbox requires `reqtype=fileupload`, which was missing; legacy configs get it injected automatically
-- Fixed keyboard input dying after dragging an image: the OS drop steals window focus; it is now handed back to the chat input
-
-## v2.3.14
-# Changelog
-
-## v2.3.14
-
-**改动（2.3.14）**
-- 移除输入框左侧的 `+` 上传按钮（不再需要点按钮选图）
-- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp/webp，取第一个图片）；Ctrl+V 粘贴上传保留
-
-**Changes (2.3.14)**
-- Removed the `+` upload button next to the chat input
-- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp/webp, first image wins); Ctrl+V paste upload kept
-
-## v2.3.13
-
-
-## v2.3.13
-
-**新功能（2.3.13）**
-- **服务端媒体直传**：当服务器也装了 e33chat 时，聊天图片上传直接存到服务器（`config/e33chat-media/`，`e33chat://media/<id>` 链接，永久不过期），不再受第三方图床 72h 过期限制；服务器没装/未开启时自动回退原图床，无感
-- 服务器配置 `serverconfig/e33chat-server.json` 的 `media_enabled`（默认 true）控制开关；单文件上限 8MB、总配额 512MB；媒体 ID 为随机 UUID，防遍历
-- 接收端无感：老链接（第三方图床 URL）照常显示；服务端直传图片也走同一渲染管线（防刷屏/缓存/缩放）
-
-**New (2.3.13)**
-- **Server-side media hosting**: when the server runs e33chat too, chat image uploads are stored on the server (`config/e33chat-media/`, `e33chat://media/<id>` links, permanent) instead of the third-party host's 72h expiry; falls back to the old host automatically when the server lacks/disabled it
-- Toggle via `media_enabled` in `serverconfig/e33chat-server.json` (default true); 8 MB per file, 512 MB total quota; random UUID media IDs prevent URL guessing
-- Receiving is unchanged: legacy third-party URLs still render; server-hosted images flow through the same pipeline (anti-flood/cache/scale)
-
-## v2.3.12
-# Changelog
-
-## v2.3.14
-
-**改动（2.3.14）**
-- 移除输入框左侧的 `+` 上传按钮（不再需要点按钮选图）
-- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp/webp，取第一个图片）；Ctrl+V 粘贴上传保留
-
-**Changes (2.3.14)**
-- Removed the `+` upload button next to the chat input
-- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp/webp, first image wins); Ctrl+V paste upload kept
-
-## v2.3.13
-
-
-## v2.3.12
-
-**新功能（2.3.12）**
-- **行内表情（三端）**：聊天消息里的 `[:token]` 现在渲染为行内小表情图片（如 `[:happy]` `[:love]` `[:laugh]`）。内置 12 个代码生成的像素表情（happy/sad/angry/love/thumb/ok/cry/laugh/wow/sleep/cool/fire），零外部依赖；也可在 `config/e33chat-emote.json` 自定义 token→图片 URL（如 `{"kusa": "https://..."}`），自定义表情走图片加载管线（含防刷屏/缓存）。未注册的 token 原样显示为文本
-- 表情跟随消息样式（颜色/下划线保留），发送侧零改动（直接输入 `[:happy]` 即可）
-
-**New (2.3.12)**
-- **Inline emotes (all platforms)**: `[:token]` codes render as inline emote images (`[:happy]` `[:love]` `[:laugh]` …). 12 built-in code-generated pixel emotes (happy/sad/angry/love/thumb/ok/cry/laugh/wow/sleep/cool/fire) with zero external dependencies; custom tokens go in `config/e33chat-emote.json` as token→image URL (e.g. `{"kusa": "https://..."}`) and load through the shared image pipeline (anti-flood/cache included). Unknown tokens stay as literal text
-- Emotes follow message styling (colors/underline preserved); sending needs no changes — just type `[:happy]`
-
+## v2.3.11
 ## v2.3.11
 
 **新功能（2.3.11）**
@@ -131,7 +63,7 @@
 ## v2.3.10
 
 **新功能（2.3.10）**
-- **气泡内图片渲染（三端）**：聊天消息里的 `[[CICode,url=...]]`（ChatImage 协议）和 `[[ChatUpgrade,url=...,type=image]]`（chat-upgrade 协议）图片代码现在直接在气泡内原生渲染成图片卡片——不依赖任何 mod，协议层与 ChatImage/chat-upgrade 互通（它们发的图我们能显示，我们发的代码它们也能解析）。历史记录里的旧图片消息（含 ChatImage 转换前的样式组件）自动兼容，重进存档后图片重新加载显示。点击图片卡片用系统浏览器打开原图，悬停显示完整 URL
+- **气泡内图片渲染（三端）**：聊天消息里的 `[[CICode,url=...]]`（ChatImage 协议）和 `[[ChatUpgrade,url=...,type=image]]`（第三方富文本协议）图片代码现在直接在气泡内原生渲染成图片卡片——不依赖任何 mod，协议层与 ChatImage 等第三方 mod 互通（它们发的图我们能显示，我们发的代码它们也能解析）。历史记录里的旧图片消息（含 ChatImage 转换前的样式组件）自动兼容，重进存档后图片重新加载显示。点击图片卡片用系统浏览器打开原图，悬停显示完整 URL
 - **图片防刷屏（三端）**：聊天图片下载入口是攻击者可控制的，内置三层防护——滑动窗口限流（10 秒最多 4 个新下载，超出的排队，队列满则显示"限流"占位）+ 64 条 LRU 缓存（逐出时销毁 GPU 纹理）+ 上传前等比缩放到 ≤320×180（恶意 16MB 大图只占约 230KB 显存）。下载失败 10 秒后自动重试
 - **接收图片开关（三端）**：设置界面「聊天」标签新增「接收图片」开关（默认开）。关闭后图片代码显示为纯文本 `[图片]`，不发起任何下载
 
@@ -140,7 +72,7 @@
 - **JPEG/GIF 图片红蓝互换（三端）**：AWT 解码的非 PNG 图片像素按 ARGB 字节序写入 NativeImage 的 ABGR 内存布局，红色和蓝色通道互换。已按 ABGR32 布局转换，JPEG/GIF/BMP 图片颜色正确
 
 **New (2.3.10)**
-- **Native image rendering in bubbles (all platforms)**: `[[CICode,url=...]]` (ChatImage protocol) and `[[ChatUpgrade,url=...,type=image]]` (chat-upgrade protocol) codes now render as image cards directly inside chat bubbles with zero mod dependencies — protocol-level interop with ChatImage/chat-upgrade (their images display in our bubbles, our codes parse in theirs). Legacy history lines (ChatImage-converted styled components) are extracted automatically and re-downloaded on world re-entry. Clicking a card opens the original URL in the system browser, hovering shows the full URL
+- **Native image rendering in bubbles (all platforms)**: `[[CICode,url=...]]` (ChatImage protocol) and `[[ChatUpgrade,url=...,type=image]]` (third-party rich-message protocol) codes now render as image cards directly inside chat bubbles with zero mod dependencies — protocol-level interop with ChatImage and other third-party mods (their images display in our bubbles, our codes parse in theirs). Legacy history lines (ChatImage-converted styled components) are extracted automatically and re-downloaded on world re-entry. Clicking a card opens the original URL in the system browser, hovering shows the full URL
 - **Image anti-flood (all platforms)**: chat images are an attacker-controlled download trigger, so three layers of protection are built in — sliding-window rate limit (max 4 new downloads per 10s, excess queued, queue-full renders a "rate limited" placeholder) + 64-entry LRU cache (GPU textures destroyed on eviction) + pre-upload scaling to ≤320×180 (a hostile 16MB image costs ~230KB of VRAM). Failed downloads auto-retry after 10 seconds
 - **Receive-images toggle (all platforms)**: new "Receive images" switch in the config screen's Chat tab (default on). When off, image codes render as plain `[Image]` text and nothing is ever downloaded
 
