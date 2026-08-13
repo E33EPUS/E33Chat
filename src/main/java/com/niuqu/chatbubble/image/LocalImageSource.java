@@ -24,7 +24,9 @@ import org.slf4j.Logger;
  */
 public final class LocalImageSource {
     private static final Logger LOGGER = LogUtils.getLogger();
-    public static final int MAX_EDGE = 2048;
+    // 1280px long edge: chat images don't need more (240px render cap), and
+    // an 8MB photo compresses to a few hundred KB — fast upload and download.
+    public static final int MAX_EDGE = 1280;
 
     public record PreparedImage(byte[] bytes, String fileName) {}
 

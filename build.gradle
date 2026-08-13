@@ -90,6 +90,10 @@ dependencies {
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    // WebP emote decoding (EmoteStore + RasterImageDecoder ImageIO fallback)
+    jarJar(group: 'com.twelvemonkeys.imageio', name: 'imageio-webp', version: '3.12.0') {
+        jarJar.ranged(it, '[3.12.0,)')
+    }
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -150,6 +154,9 @@ tasks.register('copyRefmap', Copy) {
     include 'mixins.e33chat.refmap.json'
 }
 compileJava.finalizedBy 'copyRefmap'
+// jarJar consumes build/resources/main (refmap output) — declare the dependency
+// explicitly or Gradle refuses to order the tasks.
+tasks.named('jarJar').configure { dependsOn 'copyRefmap' }
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()

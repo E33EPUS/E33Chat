@@ -38,6 +38,25 @@ class ImageUploaderTest {
         assertFalse(s.contains("name=\"=val\""));
     }
 
+
+    @Test
+    void extractUrlJsonPathModeReadsNestedArrayField() {
+        String body = "{\"success\":true,\"files\":[{\"hash\":\"abc\",\"filename\":\"x.png\","
+            + "\"url\":\"https://d.uguu.se/abc.png\",\"size\":42}]}";
+        assertEquals("https://d.uguu.se/abc.png",
+            ImageUploader.extractUrl(body, "json:files[0].url"));
+        assertEquals("https://d.uguu.se/abc.png",
+            ImageUploader.extractUrl("{\"url\":\"https://d.uguu.se/abc.png\"}", "json:url"));
+    }
+
+    @Test
+    void extractUrlJsonPathRejectsBadIndexOrType() {
+        String body = "{\"files\":[{\"url\":\"https://d.uguu.se/a.png\"}]}";
+        assertNull(ImageUploader.extractUrl(body, "json:files[1].url"));
+        assertNull(ImageUploader.extractUrl(body, "json:files[x].url"));
+        assertNull(ImageUploader.extractUrl(body, "json:files[0].size"));
+    }
+
     @Test
     void extractUrlTextModeAcceptsHttpUrl() {
         assertEquals("https://litter.catbox.moe/abc.png",
@@ -86,8 +105,8 @@ class ImageUploaderTest {
         try {
             java.awt.image.BufferedImage decoded = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(p.bytes()));
             assertNotNull(decoded);
-            assertEquals(2048, decoded.getWidth());
-            assertEquals(512, decoded.getHeight());
+            assertEquals(LocalImageSource.MAX_EDGE, decoded.getWidth());
+            assertEquals(LocalImageSource.MAX_EDGE / 4, decoded.getHeight());
         } catch (Exception e) {
             fail(e);
         }
