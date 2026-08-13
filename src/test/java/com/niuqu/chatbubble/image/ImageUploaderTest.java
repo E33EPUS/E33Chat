@@ -118,8 +118,8 @@ class ImageUploaderTest {
         try {
             java.awt.image.BufferedImage decoded = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(p.bytes()));
             assertNotNull(decoded);
-            assertEquals(2048, decoded.getWidth());
-            assertEquals(512, decoded.getHeight());
+            assertEquals(LocalImageSource.MAX_EDGE, decoded.getWidth());
+            assertEquals(LocalImageSource.MAX_EDGE / 4, decoded.getHeight());
         } catch (Exception e) {
             fail(e);
         }

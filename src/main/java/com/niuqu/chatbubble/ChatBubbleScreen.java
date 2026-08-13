@@ -161,8 +161,8 @@ public class ChatBubbleScreen extends ChatScreen {
         new IdentityHashMap<>();
     private int lastImageVersion = -1;
     private int uploadToastTicks = 0;
-    private static final int IMAGE_EDGE = 320;
-    private static final int EMOTE_MAX_SIZE = 64;
+    private static final int IMAGE_EDGE = 240;
+    private static final int EMOTE_MAX_SIZE = 32;
     private static final int MAX_UPLOAD_JOBS = 8;
 
     /** One queued upload; when pendingText is set the send is completed
@@ -1668,17 +1668,18 @@ public class ChatBubbleScreen extends ChatScreen {
         return cached;
     }
 
-    /** Height in px for one bubble-less image (state-dependent, long-edge 320). */
+    /** Height in px for one bubble-less image (state-dependent, long-edge ≤240, panel-clamped). */
     private int imageEdgeHeight(String url) {
+        int maxW = Math.max(80, Math.min(IMAGE_EDGE, panelW - AVATAR - PAD * 2 - 16));
         ImageEntry entry = ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED
                 && entry.width() > 0 && entry.height() > 0) {
-            float ratio = Math.min((float) IMAGE_EDGE / entry.width(),
-                (float) IMAGE_EDGE / entry.height());
+            float ratio = Math.min((float) maxW / entry.width(),
+                (float) maxW / entry.height());
             ratio = Math.min(1f, ratio);
             return Math.max(1, (int) (entry.height() * ratio));
         }
-        return IMAGE_EDGE;
+        return maxW;
     }
 
     private void renderBubble(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY, float alpha) {
@@ -1847,13 +1848,17 @@ public class ChatBubbleScreen extends ChatScreen {
             y += lines.size() * textRenderer.fontHeight;
         }
 
+        // Hard 240px cap, clamped to the panel's usable width so a narrow
+        // window/guiScale can never push the image off-screen.
+        int maxImgW = Math.max(80, Math.min(IMAGE_EDGE, panelW - AVATAR - PAD * 2 - 16));
+
         for (var ref : parsed.images()) {
-            int w = IMAGE_EDGE, h = IMAGE_EDGE;
+            int w = maxImgW, h = maxImgW;
             ImageEntry entry = ImageLoader.getOrLoad(ref.url());
             if (entry != null && entry.state() == ImageEntry.State.LOADED
                     && entry.width() > 0 && entry.height() > 0) {
-                float ratio = Math.min((float) IMAGE_EDGE / entry.width(),
-                    (float) IMAGE_EDGE / entry.height());
+                float ratio = Math.min((float) maxImgW / entry.width(),
+                    (float) maxImgW / entry.height());
                 ratio = Math.min(1f, ratio); // never upscale
                 w = Math.max(1, (int) (entry.width() * ratio));
                 h = Math.max(1, (int) (entry.height() * ratio));
@@ -1905,7 +1910,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         // Hit-test region for avatar clicks / context menus: the message span.
         bubbleRects.add(new int[]{own ? avatarX - 8 - maxTextW : avatarX + AVATAR + 4,
-            baseY, Math.max(maxTextW, IMAGE_EDGE), y - baseY, index});
+            baseY, Math.max(maxTextW, maxImgW), y - baseY, index});
     }
 
     /** QQ-style emote: bubble-less image, max 64px, aligned by direction. */
@@ -1938,12 +1943,13 @@ public class ChatBubbleScreen extends ChatScreen {
         drawPlayerHead(g, skin, avatarX, baseY, 20, 22, alpha);
 
         int emoteY = baseY + NAME_H + 2;
-        int w = EMOTE_MAX_SIZE, h = EMOTE_MAX_SIZE;
+        int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - AVATAR - PAD * 2 - 16));
+        int w = maxE, h = maxE;
         ImageEntry entry = ImageLoader.getOrLoad(ref.url());
         if (entry != null && entry.state() == ImageEntry.State.LOADED
                 && entry.width() > 0 && entry.height() > 0) {
-            float ratio = Math.min((float) EMOTE_MAX_SIZE / entry.width(),
-                (float) EMOTE_MAX_SIZE / entry.height());
+            float ratio = Math.min((float) maxE / entry.width(),
+                (float) maxE / entry.height());
             ratio = Math.min(1f, ratio); // never upscale
             w = Math.max(1, (int) (entry.width() * ratio));
             h = Math.max(1, (int) (entry.height() * ratio));
