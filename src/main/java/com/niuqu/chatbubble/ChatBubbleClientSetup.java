@@ -65,16 +65,18 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                 com.mojang.logging.LogUtils.getLogger().info("[e33chat] Migrated config from config/e33chat.json to config/e33chat/client.json");
             }
         }
-        if (config == null || !Files.exists(configPath)) {
-            if (Files.exists(legacyPath)) {
-                // Migration move failed earlier (locked/IO) — read in place so
-                // settings are never silently replaced by defaults.
-                config = ConfigManager.load(legacyPath);
-            } else if (Files.exists(oldFlatPath)) {
-                config = ConfigManager.load(oldFlatPath);
-            } else {
-                config = ConfigManager.load(configPath);
-            }
+        // Load is unconditional once the new path exists — the static field
+        // starts as defaults() (non-null), so a null check can never trigger.
+        if (Files.exists(configPath)) {
+            config = ConfigManager.load(configPath);
+        } else if (Files.exists(legacyPath)) {
+            // Migration move failed earlier (locked/IO) — read in place so
+            // settings are never silently replaced by defaults.
+            config = ConfigManager.load(legacyPath);
+        } else if (Files.exists(oldFlatPath)) {
+            config = ConfigManager.load(oldFlatPath);
+        } else {
+            config = ConfigManager.load(configPath);
         }
 
         ClientPlayNetworking.registerGlobalReceiver(ChatMetaPayload.ID, (payload, context) -> {
