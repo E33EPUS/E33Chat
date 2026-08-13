@@ -322,12 +322,19 @@ public class ChatMessageStore {
     }
 
     // The local echo bubble is created with the bare name before the server's
-    // decorated version (titles/prefixes) is known — patch it when the echo arrives
+    // decorated version (titles/prefixes) is known — patch it when the echo arrives.
+    // However, if ownDisplayName() already returned a decorated name (via team
+    // prefix/suffix) and the server echo's extractDecoratedName() fell back to
+    // the bare name, skip the replacement to avoid stripping the prefix (flicker).
     public static void updateLatestOwnSenderName(Text senderName) {
         for (int i = messages.size() - 1; i >= 0 && i >= messages.size() - 5; i--) {
             ChatMessage m = messages.get(i);
             if (!m.isOwn()) continue;
             if (!m.senderName().getString().equals(senderName.getString())) {
+                String raw = m.rawPlayerName();
+                if (raw != null && !raw.isEmpty() && raw.equals(senderName.getString())) {
+                    return;
+                }
                 messages.set(i, new ChatMessage(
                     m.senderUUID(), senderName, m.content(), m.time(),
                     m.isOwn(), m.isSystem(), m.replyContent(), m.replySender(),
