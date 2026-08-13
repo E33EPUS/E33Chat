@@ -125,7 +125,14 @@ public class ChatListenerMixin {
         var player = MinecraftClient.getInstance().player;
         if (player == null || player.networkHandler == null) return currentName;
         var info = player.networkHandler.getPlayerListEntry(senderUuid);
-        if (info == null) return currentName;
+        // Fallback: the given uuid may not match a tab entry (e.g. offline/uuid
+        // mangled by the server). Look the player up by their bare name instead so
+        // the team prefix / tab display name can still be applied.
+        if (info == null) {
+            String bare = currentName.getString().replaceAll("§.", "").trim();
+            info = findOnlinePlayer(bare);
+            if (info == null) return currentName;
+        }
         //#if MC >= 12109
         String profile = info.getProfile().name();
         //#else
@@ -133,9 +140,22 @@ public class ChatListenerMixin {
         //#endif
         String currentStr = currentName.getString().replaceAll("§.", "").trim();
 
-        // Extract the scoreboard team prefix/suffix. This is the authoritative
-        // source for the player's team tag — even when the chat decoration or tab
-        // display name carries other decorations but omits the team prefix.
+        // Priority 1: the tab-list display name. Servers commonly expose the
+        // player's prefix/tag via the tab-list display name (getDisplayName),
+        // exactly like ownDisplayName() does for the local player. Reuse it so
+        // other players get the same decorated name the vanilla tab list shows.
+        var tabDisplay = info.getDisplayName();
+        if (tabDisplay != null) {
+            String tabStr = tabDisplay.getString().replaceAll("§.", "").trim();
+            if (!tabStr.isEmpty()
+                && !tabStr.equals(profile)          // tab name differs from bare name
+                && !tabStr.equals(currentStr)) {    // and current name isn't already it
+                return tabDisplay;
+            }
+        }
+
+        // Priority 2: scoreboard team prefix/suffix. Prepend only when the current
+        // name is the bare profile name (or doesn't already carry the team tag).
         var team = info.getScoreboardTeam();
         Text pfx = null, sfx = null;
         if (team != null) {
@@ -159,27 +179,10 @@ public class ChatListenerMixin {
         }
         String pfxStr = pfx != null ? pfx.getString().replaceAll("§.", "") : "";
         String sfxStr = sfx != null ? sfx.getString().replaceAll("§.", "") : "";
-
-        // If the team has a non-empty prefix/suffix, prepend/append it UNLESS the
-        // current name already contains it (avoids double-prefixing). This runs
-        // regardless of whether currentName is the bare profile name — decoration
-        // from the server may have added color/rank but still omitted team prefix.
         if (!pfxStr.isEmpty() || !sfxStr.isEmpty()) {
             if (currentStr.contains(pfxStr) || currentStr.contains(sfxStr)) {
                 return currentName; // team tag already present
             }
-            // Only prepend if the current name is not already carrying an unrelated
-            // prefix that equals the team prefix; otherwise just return it.
-            if (currentStr.equals(profile)) {
-                var out = Text.empty();
-                if (!pfxStr.isEmpty()) out.append(pfx);
-                out.append(currentName);
-                if (!sfxStr.isEmpty()) out.append(sfx);
-                return out;
-            }
-            // currentName has some decoration but not the team prefix. Prepend
-            // team prefix before whatever is there so the team tag is visible.
-            if (currentStr.startsWith(pfxStr)) return currentName;
             var out = Text.empty();
             if (!pfxStr.isEmpty()) out.append(pfx);
             out.append(currentName);
@@ -187,13 +190,6 @@ public class ChatListenerMixin {
             return out;
         }
 
-        // No team prefix/suffix: fall back to the tab-list display name if it is
-        // meaningfully different from the bare profile name.
-        var tabDisplay = info.getDisplayName();
-        if (tabDisplay != null && !tabDisplay.getString().isBlank()
-            && !tabDisplay.getString().replaceAll("§.", "").trim().equals(profile)) {
-            return tabDisplay;
-        }
         return currentName;
     }
 
