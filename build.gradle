@@ -114,6 +114,9 @@ tasks.named('processResources', ProcessResources).configure {
 
 tasks.named('jar', Jar).configure {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    // The -all (jarJar) variant carries the bundled webp lib and is the
+    // deployable artifact; give it the canonical name and demote this one.
+    archiveClassifier = 'plain'
     manifest {
         attributes([
                 'Specification-Title'     : mod_id,
@@ -156,7 +159,10 @@ tasks.register('copyRefmap', Copy) {
 compileJava.finalizedBy 'copyRefmap'
 // jarJar consumes build/resources/main (refmap output) — declare the dependency
 // explicitly or Gradle refuses to order the tasks.
-tasks.named('jarJar').configure { dependsOn 'copyRefmap' }
+tasks.named('jarJar').configure {
+    dependsOn 'copyRefmap'
+    archiveClassifier = ''
+}
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
