@@ -8,6 +8,7 @@
     "ChatComponentMixin",
     "ChatListenerMixin",
     "CommandSuggestionsMixin",
-    "MouseHandlerAccessor"
+    "MouseHandlerAccessor",
+    "AwtHeadlessHackMixin"
   ]
 }

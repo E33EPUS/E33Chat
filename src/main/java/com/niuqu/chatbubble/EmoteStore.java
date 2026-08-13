@@ -34,11 +34,14 @@ public final class EmoteStore {
         return net.minecraftforge.fml.loading.FMLPaths.CONFIGDIR.get().resolve("e33chat/emotes").toFile();
     }
 
-    private static boolean isImage(File f) {
+    public static boolean isImageFile(File f) {
+        if (f == null) return false;
         String n = f.getName().toLowerCase();
         return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg")
             || n.endsWith(".gif");
     }
+
+    private static boolean isImage(File f) { return isImageFile(f); }
 
     /** Re-scans the emote dir. Called when the panel opens and after edits. */
     public static void refresh() {
