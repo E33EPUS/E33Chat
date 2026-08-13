@@ -9,7 +9,8 @@
     "ChatComponentMixin",
     "ChatListenerMixin",
     "CommandSuggestionsMixin",
-    "MouseHandlerAccessor"
+    "MouseHandlerAccessor",
+    "AwtHeadlessHackMixin"
   ],
   "injectors": {
     "defaultRequire": 1
