@@ -282,15 +282,19 @@ public class MentionNotificationBanner {
         if (mc.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             var info = mc.getNetworkHandler().getPlayerListEntry(uuid);
             if (info != null) {
-                //#if MC >= 12004
-                //#if MC >= 12109
-                return info.getSkinTextures().body().texturePath();
-                //#else
-                return info.getSkinTextures().texture();
-                //#endif
-                //#else
-                //$$ return info.getSkinTexture();
-                //#endif
+                try {
+                    //#if MC >= 12004
+                    //#if MC >= 12109
+                    return info.getSkinTextures().body().texturePath();
+                    //#else
+                    return info.getSkinTextures().texture();
+                    //#endif
+                    //#else
+                    //$$ return info.getSkinTexture();
+                    //#endif
+                } catch (Exception ignored) {
+                    // Fall through to cache / resolve path
+                }
             }
         }
         if (uuid != null && !uuid.equals(NIL_UUID)) {

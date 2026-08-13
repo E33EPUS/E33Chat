@@ -2662,17 +2662,22 @@ public class ChatBubbleScreen extends ChatScreen {
         if (client.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             PlayerListEntry info = client.getNetworkHandler().getPlayerListEntry(uuid);
             if (info != null) {
-                //#if MC >= 12109
-                Identifier tex = info.getSkinTextures().body().texturePath();
-                //#else
-                //#if MC >= 12004
-                //$$ Identifier tex = info.getSkinTextures().texture();
-                //#else
-                //$$ Identifier tex = info.getSkinTexture();
-                //#endif
-                //#endif
-                rememberSkin(uuid, name, tex);
-                return tex;
+                try {
+                    //#if MC >= 12109
+                    Identifier tex = info.getSkinTextures().body().texturePath();
+                    //#else
+                    //#if MC >= 12004
+                    //$$ Identifier tex = info.getSkinTextures().texture();
+                    //#else
+                    //$$ Identifier tex = info.getSkinTexture();
+                    //#endif
+                    //#endif
+                    rememberSkin(uuid, name, tex);
+                    return tex;
+                } catch (Exception ignored) {
+                    // Skin not loaded yet (texturesSupplier may be null on 1.21.11+);
+                    // fall through to resolveSkin for async resolution.
+                }
             }
         }
         // Offline player / history mention: route through SkinProvider with a name-bearing

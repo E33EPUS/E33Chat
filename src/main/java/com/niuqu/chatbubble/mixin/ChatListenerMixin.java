@@ -78,6 +78,31 @@ public class ChatListenerMixin {
         addNameVariants(out, profile);
         var tab = info.getDisplayName();
         if (tab != null) addNameVariants(out, tab.getString().trim());
+        // Fallback: when displayName is null, construct from team prefix + name + suffix
+        if (tab == null) {
+            var team = info.getScoreboardTeam();
+            if (team != null) {
+                StringBuilder sb = new StringBuilder();
+                //#if MC >= 12004
+                Text pfx = team.getPrefix();
+                Text sfx = team.getSuffix();
+                //#else
+                //$$ Text pfx = null, sfx = null;
+                //$$ if (team instanceof net.minecraft.scoreboard.Team) {
+                //$$     net.minecraft.scoreboard.Team t = (net.minecraft.scoreboard.Team) team;
+                //$$     pfx = t.getPrefix();
+                //$$     sfx = t.getSuffix();
+                //$$ }
+                //#endif
+                if (pfx != null) sb.append(pfx.getString());
+                sb.append(profile);
+                if (sfx != null) sb.append(sfx.getString());
+                String decorated = sb.toString().trim();
+                if (!decorated.isEmpty() && !decorated.equals(profile)) {
+                    addNameVariants(out, decorated);
+                }
+            }
+        }
         return out.toArray(new String[0]);
     }
 
