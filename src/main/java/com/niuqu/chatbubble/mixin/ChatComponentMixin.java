@@ -71,6 +71,7 @@ public abstract class ChatComponentMixin {
         }
     }
     //#else
+    //#if MC >= 12005
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void onRender(DrawContext context, int tickDelta, int mouseX, int mouseY,
                           boolean focused, CallbackInfo ci) {
@@ -102,6 +103,29 @@ public abstract class ChatComponentMixin {
             //#endif
         }
     }
+    //#else
+    //$$ @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    //$$ private void onRender(DrawContext context, int tickDelta, int mouseX, int mouseY,
+    //$$                       CallbackInfo ci) {
+    //$$     e33chat$shifted = false;
+    //$$     if (ChatBubbleClientSetup.config().enabled()) {
+    //$$         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
+    //$$             ci.cancel();
+    //$$             return;
+    //$$         }
+    //$$         context.getMatrices().push();
+    //$$         context.getMatrices().translate(0, -8, 0);
+    //$$         e33chat$shifted = true;
+    //$$     }
+    //$$ }
+    //$$ @Inject(method = "render", at = @At("RETURN"))
+    //$$ private void onRenderReturn(DrawContext context, int tickDelta, int mouseX, int mouseY,
+    //$$                             CallbackInfo ci) {
+    //$$     if (e33chat$shifted) {
+    //$$         context.getMatrices().pop();
+    //$$     }
+    //$$ }
+    //#endif
     //#endif
     //#else
     //$$ @Inject(method = "render", at = @At("HEAD"), cancellable = true)
