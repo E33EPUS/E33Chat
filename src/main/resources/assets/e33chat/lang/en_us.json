@@ -235,5 +235,6 @@
   "e33chat.upload.tooltip": "Pick a local image, upload it and insert into the message (Ctrl+V also works with an image in the clipboard)",
   "e33chat.upload.start": "Uploading…",
   "e33chat.upload.failed": "Upload failed",
-  "e33chat.upload.wait": "Image uploading, wait a moment…"
+  "e33chat.upload.wait": "Image uploading, wait a moment…",
+  "e33chat.emoji.tab_custom": "Custom"
 }

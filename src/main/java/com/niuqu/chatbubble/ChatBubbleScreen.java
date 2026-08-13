@@ -831,7 +831,24 @@ public class ChatBubbleScreen extends ChatScreen {
             if (emojiPanel.visible) {
                 String emojiText = emojiPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD);
                 if (emojiText != null && !emojiText.isEmpty()) {
-                    chatField.write(emojiText);
+                    if (emojiText.startsWith("@EMOTE:")) {
+                        java.io.File f = new java.io.File(emojiText.substring(7));
+                        if (f.isFile()) {
+                            emojiPanel.visible = false;
+                            upload(f);
+                        }
+                    } else if (emojiText.startsWith("@EMOTE_DEL:")) {
+                        java.io.File f = new java.io.File(emojiText.substring(11));
+                        if (f.isFile()) EmoteStore.remove(f);
+                    } else if (emojiText.equals("@EMOTE_ADD")) {
+                        NativeFileDialog.pickImage(f -> {
+                            if (f == null || !f.isFile()) return;
+                            if (EmoteStore.isFull()) return;
+                            EmoteStore.add(f);
+                        });
+                    } else {
+                        chatField.write(emojiText);
+                    }
                 }
                 return true;
             }
@@ -984,7 +1001,10 @@ public class ChatBubbleScreen extends ChatScreen {
             if (searchPanel.visible) closeSearchPanel();
             boolean opening = !emojiPanel.visible;
             emojiPanel.visible = opening;
-            if (opening) emojiAnimStart = Util.getMeasuringTimeMs();
+            if (opening) {
+                EmoteStore.refresh();
+                emojiAnimStart = Util.getMeasuringTimeMs();
+            }
             showMentions = false;
             if (emojiPanel.visible) emojiPanel.scroll = 0;
             return true;
