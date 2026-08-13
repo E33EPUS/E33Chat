@@ -160,11 +160,27 @@ public class ChatBubbleScreen extends ChatScreen {
     private final Map<ChatMessageStore.ChatMessage, BracketCodec.ParseResult> imageParseCache =
         new IdentityHashMap<>();
     private int lastImageVersion = -1;
-    private boolean uploading = false;
-    private boolean emoteSendMode = false;
     private int uploadToastTicks = 0;
     private static final int IMAGE_EDGE = 320;
     private static final int EMOTE_MAX_SIZE = 64;
+    private static final int MAX_UPLOAD_JOBS = 8;
+
+    /** One queued upload; when pendingText is set the send is completed
+     * automatically after the upload (chat-upgrade draft semantics: the user
+     * hits enter once, the message goes out when the file is up). */
+    private static final class UploadJob {
+        final java.io.File file;      // file source (emote / drag)
+        final byte[] bytes;           // clipboard source when file == null
+        final String fileName;
+        final boolean emote;          // send [[E33Emote,url=...]] immediately
+        final String pendingText;     // non-null: replace its file:// CICode and send
+        UploadJob(java.io.File file, byte[] bytes, String fileName, boolean emote, String pendingText) {
+            this.file = file; this.bytes = bytes; this.fileName = fileName;
+            this.emote = emote; this.pendingText = pendingText;
+        }
+    }
+    private final java.util.ArrayDeque<UploadJob> uploadJobs = new java.util.ArrayDeque<>();
+    private boolean uploadRunning = false;
 
     private final List<int[]> bubbleRects = new ArrayList<>();
     private final List<ClickableSpan> clickableSpans = new ArrayList<>();
@@ -840,8 +856,7 @@ public class ChatBubbleScreen extends ChatScreen {
                         java.io.File f = new java.io.File(emojiText.substring(7));
                         if (f.isFile()) {
                             emojiPanel.visible = false;
-                            emoteSendMode = true;
-                            upload(f);
+                            enqueueUpload(new UploadJob(f, null, null, true, null));
                         }
                     } else if (emojiText.startsWith("@EMOTE_DEL:")) {
                         java.io.File f = new java.io.File(emojiText.substring(11));
@@ -1027,12 +1042,11 @@ public class ChatBubbleScreen extends ChatScreen {
     /** OS file drag onto the window (vanilla drop hook): upload the first image dropped. */
     @Override
     public void filesDragged(List<java.nio.file.Path> paths) {
-        if (uploading) return;
         for (java.nio.file.Path p : paths) {
             String l = p.getFileName().toString().toLowerCase();
             if (l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg")
                     || l.endsWith(".gif") || l.endsWith(".bmp") || l.endsWith(".webp")) {
-                upload(p.toFile());
+                enqueueUpload(new UploadJob(p.toFile(), null, null, false, null));
                 // The OS drop can steal window focus; give it back to the chat input
                 // so typing keeps working right after a drag.
                 client.execute(() -> setFocused(chatField));
@@ -1053,7 +1067,6 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void startUploadFromClipboard() {
-        if (uploading) return;
         LocalImageSource.PreparedImage prep;
         try {
             prep = LocalImageSource.fromClipboard();
@@ -1061,24 +1074,43 @@ public class ChatBubbleScreen extends ChatScreen {
             prep = null;
         }
         if (prep == null) return; // no image in clipboard — let vanilla paste text
-        final LocalImageSource.PreparedImage fprep = prep;
-        uploading = true;
-        ImageLoader.executor().execute(() -> finishUpload(fprep, "clipboard"));
+        enqueueUpload(new UploadJob(null, prep.bytes(), "clipboard", false, null));
     }
 
-    private void upload(java.io.File f) {
-        uploading = true;
+    private void enqueueUpload(UploadJob job) {
+        if (uploadJobs.size() >= MAX_UPLOAD_JOBS) return;
+        uploadJobs.addLast(job);
+        drainUploads();
+    }
+
+    /** Runs queued uploads one at a time; the completion callback in
+     * finishUpload calls this again for the next job. */
+    private void drainUploads() {
+        if (uploadRunning) return;
+        UploadJob job = uploadJobs.pollFirst();
+        if (job == null) return;
+        uploadRunning = true;
         ImageLoader.executor().execute(() -> {
-            LocalImageSource.PreparedImage prep = LocalImageSource.fromFile(f);
+            LocalImageSource.PreparedImage prep;
+            if (job.file != null) {
+                prep = LocalImageSource.fromFile(job.file);
+            } else {
+                prep = new LocalImageSource.PreparedImage(job.bytes, job.fileName);
+            }
             if (prep == null) {
-                client.execute(() -> { uploading = false; uploadToastTicks = 60; });
+                client.execute(() -> {
+                    uploadRunning = false;
+                    uploadToastTicks = 60;
+                    if (job.pendingText != null) chatField.setText(job.pendingText);
+                    drainUploads();
+                });
                 return;
             }
-            finishUpload(prep, f.getName());
+            finishUpload(job, prep);
         });
     }
 
-    private void finishUpload(LocalImageSource.PreparedImage prep, String srcName) {
+    private void finishUpload(UploadJob job, LocalImageSource.PreparedImage prep) {
         com.niuqu.chatbubble.config.ChatBubbleConfig cfg = ChatBubbleClientSetup.config();
         String serverUrl = com.niuqu.chatbubble.image.MediaClient.serverEnabled()
             ? com.niuqu.chatbubble.image.MediaClient.upload(prep.bytes(), "image/png")
@@ -1088,33 +1120,41 @@ public class ChatBubbleScreen extends ChatScreen {
             ? serverUrl
             : ImageUploader.upload(prep.bytes(), prep.fileName(),
                 cfg.uploadUrl(), cfg.uploadField(), cfg.uploadExtra(), cfg.uploadResponse());
-        com.mojang.logging.LogUtils.getLogger().info("[e33chat] upload {} -> {}", srcName, url == null ? "FAILED" : url);
+        com.mojang.logging.LogUtils.getLogger().info("[e33chat] upload {} -> {}", prep.fileName(), url == null ? "FAILED" : url);
         client.execute(() -> {
-            uploading = false;
+            uploadRunning = false;
             if (url == null) {
                 uploadToastTicks = 60;
-                emoteSendMode = false;
+                // Failed send: restore the draft so the user sees what did not
+                // go out (chat-upgrade keeps failed drafts around for retry).
+                if (job.pendingText != null) chatField.setText(job.pendingText);
+                drainUploads();
                 return;
             }
-            if (emoteSendMode) {
-                emoteSendMode = false;
+            if (job.emote) {
                 // Emote click = send immediately as a bubble-less emote message.
-                chatField.setText("[[E33Emote,url=" + url + "]]");
-                sendMessage();
-                return;
-            }
-            String code = "[[CICode,url=" + url + "]]";
-            String cur = chatField.getText();
-            if (cur.contains("[[CICode,url=file://")) {
-                // Replace the local file:// CICode (chatimage drag/paste) with
-                // the real upload URL instead of appending a second link.
-                cur = cur.replaceFirst("\\[\\[CICode,url=file://[^]]*]]", code);
+                sendMessageText("[[E33Emote,url=" + url + "]]");
+            } else if (job.pendingText != null) {
+                // Enter was pressed on a file:// CICode: finish the send now —
+                // one enter, no second press, no lost message.
+                String finalText = job.pendingText.replaceFirst(
+                    "\\[\\[CICode,url=file://[^]]*]]", "[[CICode,url=" + url + "]]");
+                sendMessageText(finalText);
             } else {
-                cur = cur.isEmpty() ? code : cur + " " + code;
+                String code = "[[CICode,url=" + url + "]]";
+                String cur = chatField.getText();
+                if (cur.contains("[[CICode,url=file://")) {
+                    // Replace the local file:// CICode (chatimage drag/paste) with
+                    // the real upload URL instead of appending a second link.
+                    cur = cur.replaceFirst("\\[\\[CICode,url=file://[^]]*]]", code);
+                } else {
+                    cur = cur.isEmpty() ? code : cur + " " + code;
+                }
+                chatField.setText(cur);
+                chatField.setCursorToEnd(false);
             }
-            ChatMessageStore.debugLog("[e33chat] upload replace | before='" + chatField.getText() + "' | after='" + cur + "'");
-            chatField.setText(cur);
-            chatField.setCursorToEnd(false);        });
+            drainUploads();
+        });
     }
 
     private void handleContextClick(int mx, int my) {
@@ -2473,22 +2513,33 @@ public class ChatBubbleScreen extends ChatScreen {
         if (raw.isEmpty()) return;
         if (raw.contains("[[CICode,url=file://")) {
             // A local file:// CICode (chatimage's drag/paste handler inserts
-            // these) is a local-only broken link. Kick off our own upload and
-            // block the send until it replaces the link.
-            if (!uploading) {
-                String localPath = extractLocalPath(raw);
-                if (localPath != null) upload(new java.io.File(localPath));
+            // these) is a local-only broken link. Queue our own upload and
+            // finish the send automatically once the real URL is up — one
+            // enter, no second press. The input is cleared so the enter can't
+            // double-fire; the text is restored if the upload fails.
+            String localPath = extractLocalPath(raw);
+            if (localPath == null) {
+                client.player.sendMessage(Text.translatable("e33chat.upload.failed"), false);
+                ChatMessageStore.debugLog("[e33chat] upload block | no local path in " + raw);
+                return;
             }
+            chatField.setText("");
+            savedInput = "";
+            enqueueUpload(new UploadJob(new java.io.File(localPath), null, null, false, raw));
             client.player.sendMessage(Text.translatable("e33chat.upload.wait"), false);
-            ChatMessageStore.debugLog("[e33chat] upload block | uploading=" + uploading + " | raw=" + raw);
+            ChatMessageStore.debugLog("[e33chat] upload block | queued=" + uploadJobs.size() + " | raw=" + raw);
             return;
         }
+        sendMessageText(raw);
+    }
+
+    private void sendMessageText(String text) {
+        String raw = text;
         var cfg = ChatBubbleClientSetup.config();
         // Send the text UNCHANGED (raw '&', never '§'): vanilla servers reject '§' in
         // player chat and kick, so converting client-side is a dead end. Server color
         // plugins (Essentials etc.) translate '&' for everyone; on plain servers others
         // see the literal '&'. Local coloring of our own bubble is done at addMessage.
-        String text = raw;
 
         if (whisperPartner != null && !text.startsWith("/")) {
             text = "/msg " + whisperPartner + " " + text;
