@@ -2517,10 +2517,15 @@ public class ChatBubbleScreen extends ChatScreen {
             // finish the send automatically once the real URL is up — one
             // enter, no second press. The input is cleared so the enter can't
             // double-fire; the text is restored if the upload fails.
+            //
+            // Strict validity check: only a real, existing local file is an
+            // upload candidate. Edited remnants (deleted brackets, stale paths)
+            // fall through and are sent as plain text — never block the user
+            // on a string prefix alone.
             String localPath = extractLocalPath(raw);
-            if (localPath == null) {
-                client.player.sendMessage(Text.translatable("e33chat.upload.failed"), false);
-                ChatMessageStore.debugLog("[e33chat] upload block | no local path in " + raw);
+            if (localPath == null || !new java.io.File(localPath).isFile()) {
+                ChatMessageStore.debugLog("[e33chat] upload skip | not a live file | raw=" + raw);
+                sendMessageText(raw);
                 return;
             }
             chatField.setText("");
