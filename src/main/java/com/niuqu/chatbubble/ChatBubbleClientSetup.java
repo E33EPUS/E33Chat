@@ -57,6 +57,11 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             } else if (Files.exists(oldFlatPath)) {
                 config = ConfigManager.load(oldFlatPath);
                 ConfigManager.save(configPath, config);
+                try {
+                    Files.delete(oldFlatPath);
+                } catch (Exception e) {
+                    com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Legacy config cleanup failed", e);
+                }
                 com.mojang.logging.LogUtils.getLogger().info("[e33chat] Migrated config from config/e33chat.json to config/e33chat/client.json");
             }
         }
