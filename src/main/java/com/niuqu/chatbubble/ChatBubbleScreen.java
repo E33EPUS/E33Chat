@@ -1054,7 +1054,7 @@ public class ChatBubbleScreen extends ChatScreen {
         for (java.nio.file.Path p : paths) {
             String l = p.getFileName().toString().toLowerCase();
             if (l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg")
-                    || l.endsWith(".gif") || l.endsWith(".bmp") || l.endsWith(".webp")) {
+                    || l.endsWith(".gif") || l.endsWith(".bmp")) {
                 enqueueUpload(new UploadJob(p.toFile(), null, null, false, null));
                 // The OS drop can steal window focus; give it back to the chat input
                 // so typing keeps working right after a drag.
