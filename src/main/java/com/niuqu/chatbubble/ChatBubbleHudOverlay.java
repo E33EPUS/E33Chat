@@ -1,11 +1,12 @@
 package com.niuqu.chatbubble;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import java.util.List;
 import net.minecraft.client.MinecraftClient;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#endif
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -21,7 +22,11 @@ public class ChatBubbleHudOverlay {
 
     private static Identifier chatIconTex() {
         String theme = cfg().theme().toLowerCase();
+        //#if MC >= 12005
         return Identifier.of("e33chat", "textures/gui/" + theme + "/chat_icon.png");
+        //#else
+        //$$ return new Identifier("e33chat", "textures/gui/" + theme + "/chat_icon.png");
+        //#endif
     }
 
     private static ChatBubbleTheme theme() {
@@ -34,8 +39,16 @@ public class ChatBubbleHudOverlay {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.options == null) return;
 
+        //#if MC >= 12106
+        g.getMatrices().pushMatrix();
+        //#else
         g.getMatrices().push();
+        //#endif
+        //#if MC >= 12106
+        g.getMatrices().translate(0, 0);
+        //#else
         g.getMatrices().translate(0, 0, 300);
+        //#endif
 
         MentionNotificationBanner.INSTANCE.tick();
         if (mc.currentScreen == null) {
@@ -44,9 +57,17 @@ public class ChatBubbleHudOverlay {
                 mc.getWindow().getScaledHeight());
         }
 
+        //#if MC >= 12106
+        if (mc.currentScreen != null) { g.getMatrices().popMatrix(); return; }
+        //#else
         if (mc.currentScreen != null) { g.getMatrices().pop(); return; }
+        //#endif
 
+        //#if MC >= 11700
         String keyName = mc.options.chatKey.getBoundKeyLocalizedText().getString();
+        //#else
+        //$$ String keyName = mc.options.keyChat.getBoundKeyLocalizedText().getString();
+        //#endif
         int screenH = mc.getWindow().getScaledHeight();
         int x = 3;
         int iconY = screenH - ICON_S - 20;
@@ -68,7 +89,11 @@ public class ChatBubbleHudOverlay {
             g.drawText(mc.textRenderer, keyDisplay, keyX, textY, 0xFFFFFFFF, false);
         }
 
+        //#if MC >= 12106
+        g.getMatrices().popMatrix();
+        //#else
         g.getMatrices().pop();
+        //#endif
     }
 
     // Fabric's HUD layer draws behind the screen batch; screens that render over
@@ -95,11 +120,27 @@ public class ChatBubbleHudOverlay {
 
     private static void drawIcon(DrawContext g, int x, int y) {
         // getTexture 无缓存时自动 new ResourceTexture 懒加载（资源包可覆盖，F3+T 即时生效）
+        //#if MC >= 12106
+        g.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, chatIconTex(), x, y, 0.0F, 0.0F, ICON_S, ICON_S, ICON_S, ICON_S);
+        //#else
+        //#if MC >= 12102
+        //$$ g.drawTexture(id -> net.minecraft.client.render.RenderLayer.getGuiTextured(id), chatIconTex(), x, y, (int)0.0F, (int)0.0F, ICON_S, ICON_S, ICON_S, ICON_S);
+        //#else
         g.drawTexture(chatIconTex(), x, y, 0.0F, 0.0F, ICON_S, ICON_S, ICON_S, ICON_S);
+        //#endif
+        //#endif
     }
 
     private static void drawScaledTip(DrawContext g, int x, int y, int disp) {
         Identifier tex = ChatBubbleScreen.iconTex("private_tip");
+        //#if MC >= 12106
+        g.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, tex, x, y, (float) SRC_U, (float) SRC_V, disp, disp, SRC_S, SRC_S, 16, 16);
+        //#else
+        //#if MC >= 12102
+        //$$ g.drawTexture(id -> net.minecraft.client.render.RenderLayer.getGuiTextured(id), tex, x, y, (float) SRC_U, (float) SRC_V, disp, disp, SRC_S, SRC_S, 16, 16);
+        //#else
         g.drawTexture(tex, x, y, disp, disp, (float) SRC_U, (float) SRC_V, SRC_S, SRC_S, 16, 16);
+        //#endif
+        //#endif
     }
 }

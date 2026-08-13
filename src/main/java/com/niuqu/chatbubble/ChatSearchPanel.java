@@ -1,7 +1,11 @@
 package com.niuqu.chatbubble;
 
 import net.minecraft.client.font.TextRenderer;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
@@ -28,7 +32,7 @@ public class ChatSearchPanel {
         return Math.max(100, Math.min(PANEL_W, panelWidth - 4));
     }
 
-    public void render(DrawContext g, int mouseX, int mouseY,
+    public void render(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
             TextFieldWidget searchInput,
@@ -42,7 +46,7 @@ public class ChatSearchPanel {
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
             com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, py, w, PANEL_H, alpha);
-        g.drawBorder(px, py, w, PANEL_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        drawBorder(g, px, py, w, PANEL_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         int inputX = px + 4;
         int inputY = py + 4;
@@ -52,7 +56,7 @@ public class ChatSearchPanel {
         int counterW = 0;
         if (!searchInput.getText().isEmpty()) {
             if (searchMatches.isEmpty())
-                counter = Text.translatable("e33chat.search.no_match").getString();
+                counter = com.niuqu.chatbubble.Txt.translatable("e33chat.search.no_match").getString();
             else
                 counter = (searchMatchIdx + 1) + "/" + searchMatches.size();
             counterW = font.getWidth(counter) + 6;
@@ -65,24 +69,26 @@ public class ChatSearchPanel {
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + INPUT_H;
         if (hoverInput || searchInput.isFocused())
-            g.drawBorder(inputX, inputY, inputW, INPUT_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
+            drawBorder(g, inputX, inputY, inputW, INPUT_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
 
         if (!counter.isEmpty()) {
             int cc = searchMatches.isEmpty() ? c.textMuted() : c.textSecondary();
-            g.drawText(font, counter, inputX + inputW - counterW, inputY + 3,
+            RenderHelper.drawText(g, font, counter, inputX + inputW - counterW, inputY + 3,
                 com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(cc, a255), false);
         }
 
         int editW = inputW - 4 - counterW;
         searchInput.setX(inputX + 2);
         searchInput.setWidth(editW - 4);
-        searchInput.setY(inputY + 3);
+        GuiCompat.setWidgetY(searchInput, inputY + 3);
+        //#if MC >= 12004
         searchInput.setHeight(INPUT_H - 2);
+        //#endif
         searchInput.setVisible(true);
 
         if (searchInput.getText().isEmpty()) {
-            String ph = Text.translatable("e33chat.search.placeholder").getString();
-            g.drawText(font, ph, inputX + 2, inputY + 3, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
+            String ph = com.niuqu.chatbubble.Txt.translatable("e33chat.search.placeholder").getString();
+            RenderHelper.drawText(g, font, ph, inputX + 2, inputY + 3, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
         }
     }
 
@@ -92,5 +98,12 @@ public class ChatSearchPanel {
         int sx = clampX(panelX + panelW / 2 - w / 2, w, panelX, panelW);
         int sy = barTop - PANEL_H - 4;
         return mx >= sx && mx <= sx + w && my >= sy && my <= sy + PANEL_H;
+    }
+
+    private static void drawBorder(Object g, int x, int y, int w, int h, int color) {
+        RenderHelper.fill(g, x, y, x + w, y + 1, color);
+        RenderHelper.fill(g, x, y + h - 1, x + w, y + h, color);
+        RenderHelper.fill(g, x, y + 1, x + 1, y + h - 1, color);
+        RenderHelper.fill(g, x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 }

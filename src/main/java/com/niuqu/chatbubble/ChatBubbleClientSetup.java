@@ -35,7 +35,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
 
     public static void saveConfig(ChatBubbleConfig newConfig) {
         config = newConfig;
-        com.mojang.logging.LogUtils.getLogger().info("[e33chat] Saving config | soundPublic=" + newConfig.soundPublic() + " | soundSystem=" + newConfig.soundSystem());
+        E33Log.info("[e33chat] Saving config | soundPublic=" + newConfig.soundPublic() + " | soundSystem=" + newConfig.soundSystem());
         ConfigManager.save(configPath, config);
     }
 
@@ -48,7 +48,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         if (!Files.exists(configPath) && Files.exists(legacyPath)) {
             config = ConfigManager.load(legacyPath);
             ConfigManager.save(configPath, config);
-            com.mojang.logging.LogUtils.getLogger().info("[e33chat] Migrated config from config/e33chat.json to config/e33chat-client.json");
+            E33Log.info("[e33chat] Migrated config from config/e33chat.json to config/e33chat-client.json");
         } else {
             config = ConfigManager.load(configPath);
         }
@@ -83,10 +83,17 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         //#endif
 
         //#if MC < 26000
+        //#if MC >= 12000
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
             if (!config.enabled()) return;
             ChatBubbleHudOverlay.render(drawContext);
         });
+        //#else
+        //$$ HudRenderCallback.EVENT.register((matrices, tickDelta) -> {
+        //$$     if (!config.enabled()) return;
+        //$$     ChatBubbleHudOverlay.render(new DrawContext(matrices));
+        //$$ });
+        //#endif
         //#endif
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -124,18 +131,30 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         });
 
         //#if MC < 26000
+        //#if MC >= 12000
         ScreenEvents.BEFORE_INIT.register((client, screen, width, height) ->
             ScreenEvents.afterRender(screen).register((scr, g, mouseX, mouseY, delta) -> {
                 if (config.enabled()) ChatBubbleHudOverlay.renderBannerForScreen(g);
             })
         );
+        //#else
+        //$$ ScreenEvents.BEFORE_INIT.register((client, screen, width, height) ->
+        //$$     ScreenEvents.afterRender(screen).register((scr, matrices, mouseX, mouseY, delta) -> {
+        //$$         if (config.enabled()) ChatBubbleHudOverlay.renderBannerForScreen(new DrawContext(matrices));
+        //$$     })
+        //$$ );
+        //#endif
         //#endif
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(
             new SimpleSynchronousResourceReloadListener() {
                 @Override
                 public Identifier getFabricId() {
+                    //#if MC >= 12000
                     return Identifier.of(ChatBubbleMod.MOD_ID, "shader_reload");
+                    //#else
+                    //$$ return new Identifier(ChatBubbleMod.MOD_ID, "shader_reload");
+                    //#endif
                 }
                 @Override
                 //#if MC >= 26000

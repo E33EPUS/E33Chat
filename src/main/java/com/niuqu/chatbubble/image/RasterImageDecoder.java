@@ -1,6 +1,7 @@
 package com.niuqu.chatbubble.image;
 
-import com.mojang.logging.LogUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -9,7 +10,6 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import net.minecraft.client.texture.NativeImage;
-import org.slf4j.Logger;
 
 /**
  * Decodes image bytes to a {@link NativeImage} on a worker thread.
@@ -20,7 +20,7 @@ import org.slf4j.Logger;
  * instead of allocating a huge BufferedImage (decompression-bomb guard).
  */
 public final class RasterImageDecoder {
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger("e33chat");
     public static final int MAX_DIMENSION = 4096;
 
     public record DecodedImage(NativeImage image, int width, int height) {}
@@ -80,7 +80,15 @@ public final class RasterImageDecoder {
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 int c = argb[y * w + x];
+                //#if MC >= 12102
+                out.setColorArgb(x, y, c);
+                //#else
+                //#if MC >= 11800
                 out.setColor(x, y, (c & 0xFF00FF00) | ((c & 0x00FF0000) >> 16) | ((c & 0x000000FF) << 16));
+                //#else
+                //$$ out.setPixelColor(x, y, (c & 0xFF00FF00) | ((c & 0x00FF0000) >> 16) | ((c & 0x000000FF) << 16));
+                //#endif
+                //#endif
             }
         }
         return out;

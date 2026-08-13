@@ -1,6 +1,7 @@
 package com.niuqu.chatbubble.image;
 
-import com.mojang.logging.LogUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import com.niuqu.chatbubble.network.MediaRequestPayload;
 import com.niuqu.chatbubble.network.MediaResponsePayload;
 import com.niuqu.chatbubble.network.MediaUploadAckPayload;
@@ -8,7 +9,6 @@ import com.niuqu.chatbubble.network.MediaUploadPayload;
 import com.niuqu.chatbubble.server.DiskMediaStore;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
-import org.slf4j.Logger;
 
 import java.util.Map;
 import java.util.UUID;
@@ -30,7 +30,8 @@ import java.util.concurrent.TimeUnit;
  * mediaId futures.
  */
 public final class MediaClient {
-    private static final Logger LOGGER = LogUtils.getLogger();
+    //#if MC >= 12005
+    private static final Logger LOGGER = LogManager.getLogger("e33chat");
     private static final long TIMEOUT_SECONDS = 30;
 
     private static volatile boolean serverEnabled;
@@ -146,4 +147,11 @@ public final class MediaClient {
             return null;
         }
     }
+    //#else
+    //$$ public static void setServerEnabled(boolean b) {}
+    //$$ public static boolean serverEnabled() { return false; }
+    //$$ public static void registerReceivers() {}
+    //$$ public static String upload(byte[] bytes, String contentType) { return null; }
+    //$$ public static byte[] fetch(String mediaId) { return null; }
+    //#endif
 }

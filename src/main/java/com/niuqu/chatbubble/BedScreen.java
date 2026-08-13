@@ -24,8 +24,12 @@ public class BedScreen extends Screen {
 
     @Override
     protected void init() {
+        //#if MC >= 11903
         addDrawableChild(ButtonWidget.builder(Text.translatable("multiplayer.stopSleeping"), b -> sendWakeUp())
             .dimensions(width / 2 - 100, height - 40, 200, 20).build());
+        //#else
+        //$$ addDrawableChild(new ButtonWidget(width / 2 - 100, height - 40, 200, 20, Text.translatable("multiplayer.stopSleeping"), b -> sendWakeUp()));
+        //#endif
     }
 
     //#if MC >= 12004

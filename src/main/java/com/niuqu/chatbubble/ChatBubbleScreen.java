@@ -15,13 +15,25 @@ import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
+//#if MC >= 12109
+import net.minecraft.client.gui.Click;
+//#endif
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
+//#if MC >= 11900
 import net.minecraft.client.gui.screen.ChatInputSuggestor;
+//#endif
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.render.GameRenderer;
+//#if MC >= 12102
+import net.minecraft.client.render.RenderLayer;
+//#endif
 import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.text.*;
 import net.minecraft.util.Formatting;
@@ -72,7 +84,11 @@ public class ChatBubbleScreen extends ChatScreen {
 
     static Identifier iconTex(String name) {
         String theme = ChatBubbleClientSetup.config().theme().toLowerCase();
+        //#if MC >= 11900
         return Identifier.of("e33chat", "textures/gui/" + theme + "/" + name + ".png");
+        //#else
+        //$$ return new Identifier("e33chat", "textures/gui/" + theme + "/" + name + ".png");
+        //#endif
     }
 
 
@@ -82,7 +98,11 @@ public class ChatBubbleScreen extends ChatScreen {
         return ChatMessageStore.timeKey(t, ChatBubbleClientSetup.config().timeSeparatorMinutes());
     }
 
+    //#if MC >= 11900
     private ChatInputSuggestor commandSuggestions;
+    //#else
+    //$$ // commandSuggestions not available before 1.19
+    //#endif
     private static int inputX, inputY;
 
     public static int getInputX() { return inputX; }
@@ -185,7 +205,12 @@ public class ChatBubbleScreen extends ChatScreen {
     private int notifBarTextY;
 
     public ChatBubbleScreen(String initialText) {
-        super("");
+        //#if MC >= 12109
+        // 1.21.9+: ChatScreen constructor gained a `draft` boolean parameter.
+        super("", false);
+        //#else
+        //$$ super("");
+        //#endif
         this.initialText = initialText;
     }
 
@@ -235,10 +260,16 @@ public class ChatBubbleScreen extends ChatScreen {
         addDrawableChild(chatField);
 
         int cmdBgAlpha = theme() == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
+        //#if MC >= 11900
         commandSuggestions = new ChatInputSuggestor(client, this, chatField, textRenderer,
             false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdBgAlpha));
+        //#endif
+        //#if MC >= 11900
         commandSuggestions.setWindowActive(true);
+        //#endif
+        //#if MC >= 11900
         commandSuggestions.refresh();
+        //#endif
 
 
         sidebarSearchBox = new TextFieldWidget(textRenderer, 2, 5, SIDEBAR_W - 5, SIDEBAR_SEARCH_H, Text.literal(""));
@@ -297,7 +328,11 @@ public class ChatBubbleScreen extends ChatScreen {
         if (chatField != null) {
             chatField.setX(inputX);
             chatField.setWidth(inputW);
+            //#if MC >= 12000
             chatField.setY(ibY + 3);
+            //#else
+            //$$ GuiCompat.setWidgetY(chatField, ibY + 3);
+            //#endif
         }
     }
 
@@ -349,6 +384,26 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private static final int SIDEBAR_SEARCH_H = 14;
 
+    // 1.21.9+ removed DrawContext.drawBorder; emulate it with four fill() calls
+    // using the exact same pixel coverage as the old vanilla implementation.
+    private static void drawRectBorder(DrawContext g, int x, int y, int w, int h, int color) {
+        //#if MC >= 12109
+        g.fill(x, y, x + w, y + 1, color);
+        g.fill(x, y + h - 1, x + w, y + h, color);
+        g.fill(x, y + 1, x + 1, y + h - 1, color);
+        g.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+        //#else
+        //#if MC >= 12000
+        //$$ g.drawBorder(x, y, w, h, color);
+        //#else
+        //$$ g.fill(x, y, x + w, y + 1, color);
+        //$$ g.fill(x, y + h - 1, x + w, y + h, color);
+        //$$ g.fill(x, y + 1, x + 1, y + h - 1, color);
+        //$$ g.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+        //#endif
+        //#endif
+    }
+
     private void renderSidebar(DrawContext g, int mouseX, int mouseY, float alpha) {
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, SIDEBAR_W, height, alpha);
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), SIDEBAR_W - 1, 0, 1, height, alpha);
@@ -363,7 +418,7 @@ public class ChatBubbleScreen extends ChatScreen {
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.INPUT_BG), sbx - 1, sby, sbw + 1, sbh, alpha);
         boolean hoverSearch = mouseX >= sbx - 1 && mouseX <= sbx + sbw && mouseY >= sby && mouseY <= sby + sbh;
         if (hoverSearch || sidebarSearchBox.isFocused())
-            g.drawBorder(sbx - 1, sby, sbw + 1, sbh, c().textMuted());
+            drawRectBorder(g, sbx - 1, sby, sbw + 1, sbh, c().textMuted());
         if (sidebarSearchBox.getText().isEmpty() && !sidebarSearchBox.isFocused()) {
             g.drawText(textRenderer, Text.translatable("e33chat.sidebar.search").getString(), sbx, sby + 3, c().textMuted(), false);
         }
@@ -398,7 +453,11 @@ public class ChatBubbleScreen extends ChatScreen {
             int visibleBottom = msgBottom > 0 ? msgBottom : height - BAR_H;
             int totalH = 0;
             for (var info : players) {
-                String name = info.getProfile().getName();
+                //#if MC >= 12109
+                String name = info.getProfile().name();
+                //#else
+                //$$ String name = info.getProfile().getName();
+                //#endif
                 if (name.equals(selfName)) continue;
                 if (!filter.isEmpty() && !name.toLowerCase().contains(filter)) continue;
                 if (ChatBubbleClientSetup.config().isSidebarHidden(name)) continue;
@@ -420,7 +479,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 g.enableScissor(0, startY, SIDEBAR_W, visibleBottom);
                 int scrollY = startY - sidebarScrollOffset;
                 for (var info : players) {
-                    String name = info.getProfile().getName();
+                    //#if MC >= 12109
+                    String name = info.getProfile().name();
+                    //#else
+                    //$$ String name = info.getProfile().getName();
+                    //#endif
                     if (name.equals(selfName)) continue;
                     if (!filter.isEmpty() && !name.toLowerCase().contains(filter)) continue;
                     if (ChatBubbleClientSetup.config().isSidebarHidden(name)) continue;
@@ -433,7 +496,12 @@ public class ChatBubbleScreen extends ChatScreen {
                         else if (hoverRow)
                             ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, SIDEBAR_W, itemH, alpha);
 
-                        Identifier skin = getSkin(info.getProfile().getId(), info.getProfile().getName());
+                        //#if MC >= 12109
+                        // 1.21.9+ authlib: GameProfile is now a record with id()/name() accessors.
+                        Identifier skin = getSkin(info.getProfile().id(), info.getProfile().name());
+                        //#else
+                        //$$ Identifier skin = getSkin(info.getProfile().getId(), info.getProfile().getName());
+                        //#endif
                         drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18, alpha);
 
                         int tipW = ChatMessageStore.hasUnreadWhisper(name) ? 16 : 0;
@@ -467,7 +535,11 @@ public class ChatBubbleScreen extends ChatScreen {
         String text = chatField.getText();
         int atIdx = text.lastIndexOf('@');
         chatField.setText(text.substring(0, atIdx) + "@" + name + " ");
+        //#if MC >= 12004
         chatField.setCursorToEnd(false);
+        //#else
+        //$$ chatField.setCursorToEnd();
+        //#endif
         showMentions = false;
         mentionNavigated = false;
     }
@@ -484,7 +556,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 mentionFilter = after.toLowerCase();
                 mentionCandidates.clear();
                 for (var info : client.player.networkHandler.getPlayerList()) {
-                    String name = info.getProfile().getName();
+                    //#if MC >= 12109
+                    String name = info.getProfile().name();
+                    //#else
+                    //$$ String name = info.getProfile().getName();
+                    //#endif
                     if (name.toLowerCase().contains(mentionFilter))
                         mentionCandidates.add(name);
                 }
@@ -493,9 +569,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 showMentions = !mentionCandidates.isEmpty();
             }
         }
+        //#if MC >= 11900
         if (commandSuggestions != null) {
             commandSuggestions.refresh();
         }
+        //#endif
         // IMBlocker listens to vanilla ChatScreen.onChatFieldUpdate, which we
         // bypass; mirror its command-detection hook so the IME still switches
         // to English while typing a command. No-op when IMBlocker is absent.
@@ -527,11 +605,30 @@ public class ChatBubbleScreen extends ChatScreen {
     public void tick() {
         if (copyToastTicks > 0) copyToastTicks--;
         if (closing && Util.getMeasuringTimeMs() - animStart >= ANIM_MS)
+            //#if MC >= 11700
             client.setScreen(null);
+            //#else
+            //$$ client.openScreen(null);
+            //#endif
     }
 
+    //#if MC >= 12004
+    //#if MC >= 26000
+    @Override
+    public void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+    //#else
     @Override
     public void renderBackground(DrawContext g, int mouseX, int mouseY, float delta) {
+    //#endif
+    //#else
+    //#if MC >= 12000
+    //$$ @Override
+    //$$ public void renderBackground(DrawContext g) {
+    //#else
+    //$$ @Override
+    //$$ public void renderBackground(MatrixStack g) {
+    //#endif
+    //#endif
         // no-op: disable vanilla blur
     }
 
@@ -559,26 +656,65 @@ public class ChatBubbleScreen extends ChatScreen {
         Runnable render = renderer.apply(alpha);
         if (t >= 1f || style == AnimationStyle.NONE) { render.run(); return; }
         if (style == AnimationStyle.ZOOM) {
-            g.getMatrices().push();
+            //#if MC >= 12106
+            g.getMatrices().pushMatrix();
+            //#else
+            //$$ g.getMatrices().push();
+            //#endif
             float s = 0.85f + 0.15f * Animation.easeOutBack(alpha);
-            g.getMatrices().translate(width / 2f, height / 2f, 0);
-            g.getMatrices().scale(s, s, 1f);
-            g.getMatrices().translate(-width / 2f, -height / 2f, 0);
+            //#if MC >= 12106
+            g.getMatrices().translate(width / 2f, height / 2f);
+            //#else
+            //$$ g.getMatrices().translate(width / 2f, height / 2f, 0);
+            //#endif
+            //#if MC >= 12106
+            g.getMatrices().scale(s, s);
+            //#else
+            //$$ g.getMatrices().scale(s, s, 1f);
+            //#endif
+            //#if MC >= 12106
+            g.getMatrices().translate(-width / 2f, -height / 2f);
+            //#else
+            //$$ g.getMatrices().translate(-width / 2f, -height / 2f, 0);
+            //#endif
             render.run();
-            g.getMatrices().pop();
+            //#if MC >= 12106
+            g.getMatrices().popMatrix();
+            //#else
+            //$$ g.getMatrices().pop();
+            //#endif
         } else if (style == AnimationStyle.SLIDE) {
             // SLIDE: rise up from below while fading in
-            g.getMatrices().push();
-            g.getMatrices().translate(0, (1f - alpha) * 10f, 0);
+            //#if MC >= 12106
+            g.getMatrices().pushMatrix();
+            //#else
+            //$$ g.getMatrices().push();
+            //#endif
+            //#if MC >= 12106
+            g.getMatrices().translate(0, (1f - alpha) * 10f);
+            //#else
+            //$$ g.getMatrices().translate(0, (1f - alpha) * 10f, 0);
+            //#endif
             render.run();
-            g.getMatrices().pop();
+            //#if MC >= 12106
+            g.getMatrices().popMatrix();
+            //#else
+            //$$ g.getMatrices().pop();
+            //#endif
         } else {
             render.run();
         }
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    //#if MC >= 12109
+    public boolean keyPressed(net.minecraft.client.input.KeyInput key) {
+        int keyCode = key.key();
+        int scanCode = key.scancode();
+        int modifiers = key.modifiers();
+    //#else
+    //$$ public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    //#endif
         // Ctrl+V with an image in the clipboard uploads it and inserts the code.
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_V && (modifiers & 0x2) != 0) {
             startUploadFromClipboard();
@@ -606,7 +742,8 @@ public class ChatBubbleScreen extends ChatScreen {
 
         if (sidebarSearchBox.isFocused()) {
             if (keyCode == 256 || keyCode == 257 || keyCode == 335) {
-                sidebarSearchBox.setFocused(false); setFocused(chatField); return true;
+                GuiCompat.setWidgetFocused(sidebarSearchBox, false);
+                setFocused(chatField); return true;
             }
         }
 
@@ -622,8 +759,14 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
-        if (commandSuggestions != null && commandSuggestions.keyPressed(keyCode, scanCode, modifiers))
+        //#if MC >= 11900
+        //#if MC >= 12109
+        if (commandSuggestions != null && commandSuggestions.keyPressed(key))
+        //#else
+        //$$ if (commandSuggestions != null && commandSuggestions.keyPressed(keyCode, scanCode, modifiers))
+        //#endif
             return true;
+        //#endif
         if (keyCode == 256) { onClose(); return true; }
         if (quickChatInput.isFocused() && (keyCode == 257 || keyCode == 335)) {
             String text = quickChatInput.getText().trim();
@@ -644,10 +787,22 @@ public class ChatBubbleScreen extends ChatScreen {
         // 不调 super.keyPressed（= ChatScreen，内部访问 package-private chatInputSuggestor = null → NPE）。
         // self 实现 Screen.keyPressed 等价分发：先给 focused widget（chatField TextFieldWidget 处理
         // backspace/删除/左右/Home/End/Ctrl+A/C/V/X），再 Tab/箭头焦点导航。
-        if (this.getFocused() != null && this.getFocused().keyPressed(keyCode, scanCode, modifiers))
+        //#if MC >= 12109
+        // 1.21.9+: Element.keyPressed takes a KeyInput instead of (int,int,int).
+        if (this.getFocused() != null && this.getFocused().keyPressed(key))
+        //#else
+        //$$ if (this.getFocused() != null && this.getFocused().keyPressed(keyCode, scanCode, modifiers))
+        //#endif
             return true;
+        //#if MC >= 12000
         net.minecraft.client.gui.navigation.GuiNavigation nav = switch (keyCode) {
-            case 258 -> new net.minecraft.client.gui.navigation.GuiNavigation.Tab(!Screen.hasShiftDown());
+            //#if MC >= 12109
+            // 1.21.9+: Screen.hasShiftDown() was removed; use the shift modifier bit
+            // carried by the KeyInput (set by GLFW on Shift+Tab).
+            case 258 -> new net.minecraft.client.gui.navigation.GuiNavigation.Tab((modifiers & net.minecraft.client.util.InputUtil.GLFW_MOD_SHIFT) == 0);
+            //#else
+            //$$ case 258 -> new net.minecraft.client.gui.navigation.GuiNavigation.Tab(!Screen.hasShiftDown());
+            //#endif
             case 262 -> new net.minecraft.client.gui.navigation.GuiNavigation.Arrow(net.minecraft.client.gui.navigation.NavigationDirection.RIGHT);
             case 263 -> new net.minecraft.client.gui.navigation.GuiNavigation.Arrow(net.minecraft.client.gui.navigation.NavigationDirection.LEFT);
             case 264 -> new net.minecraft.client.gui.navigation.GuiNavigation.Arrow(net.minecraft.client.gui.navigation.NavigationDirection.DOWN);
@@ -657,16 +812,23 @@ public class ChatBubbleScreen extends ChatScreen {
         if (nav != null) {
             net.minecraft.client.gui.navigation.GuiNavigationPath path = super.getNavigationPath(nav);
             if (path == null && nav instanceof net.minecraft.client.gui.navigation.GuiNavigation.Tab) {
-                this.blur();
+                // Screen.blur() is private (inaccessible from subclass) in 1.20.1; replicate its
+                // vanilla body (this.setFocused((Element)null)) via the public ParentElement API.
+                this.setFocused((net.minecraft.client.gui.Element) null);
                 path = super.getNavigationPath(nav);
             }
             if (path != null) this.switchFocus(path);
         }
+        //#endif
         return false;
     }
 
     @Override
+    //#if MC >= 12004
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    //#else
+    //$$ public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+    //#endif
         if (emojiPanel.visible) { emojiPanel.handleScroll(scrollY); return true; }
         if (quickChatPanel.visible) { quickChatPanel.handleScroll(scrollY); return true; }
         if (searchPanel.visible && !searchMatches.isEmpty()) {
@@ -684,7 +846,9 @@ public class ChatBubbleScreen extends ChatScreen {
             sidebarScrollOffset = MathHelper.clamp(sidebarScrollOffset - (int) (scrollY * 20), 0, sidebarMaxScroll);
             return true;
         }
+        //#if MC >= 11900
         if (commandSuggestions != null && commandSuggestions.mouseScrolled(scrollY)) return true;
+        //#endif
         scrollToBottom = false;
         lastScrollTime = Util.getMeasuringTimeMs();
         float newTarget = MathHelper.clamp(scrollOffset - (int) (scrollY * 40), 0, maxScroll);
@@ -696,7 +860,14 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    //#if MC >= 12109
+    public boolean mouseClicked(Click click, boolean inside) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
+    //#else
+    //$$ public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    //#endif
         // Panel contents are translated by panelOffset during the open/close slide;
         // undo the shift here so hit-testing matches what is drawn. The sidebar and
         // EditBox render outside that translate (they set their own x), so they keep
@@ -706,10 +877,22 @@ public class ChatBubbleScreen extends ChatScreen {
 
         // @mention popup click
         if (showMentions && button == 0) {
+            //#if MC >= 12000
             int popupX = chatField.getX();
+            //#else
+            //$$ int popupX = GuiCompat.getWidgetX(chatField);
+            //#endif
             int popupH = Math.min(mentionCandidates.size(), 8) * textRenderer.fontHeight + 4;
+            //#if MC >= 12000
             int popupY = chatField.getY() - popupH - 2;
+            //#else
+            //$$ int popupY = GuiCompat.getWidgetY(chatField) - popupH - 2;
+            //#endif
+            //#if MC >= 12000
             if (popupY < msgTop) popupY = chatField.getY() + chatField.getHeight() + 2;
+            //#else
+            //$$ if (popupY < msgTop) popupY = GuiCompat.getWidgetY(chatField) + chatField.getHeight() + 2;
+            //#endif
             int maxW = 60;
             for (String name : mentionCandidates) maxW = Math.max(maxW, textRenderer.getWidth(name));
             int popupW = maxW + 12;
@@ -730,7 +913,9 @@ public class ChatBubbleScreen extends ChatScreen {
             int searchY = 2;
             int searchH = SIDEBAR_SEARCH_H;
             if (mouseY >= searchY && mouseY <= searchY + searchH) {
-                setFocused(sidebarSearchBox); chatField.setFocused(false); return true;
+                setFocused(sidebarSearchBox);
+                GuiCompat.setWidgetFocused(chatField, false);
+                return true;
             }
             if (sidebarSearchBox.isFocused()) setFocused(chatField);
 
@@ -745,7 +930,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 String filter = sidebarSearchBox.getText().toLowerCase().trim();
                 int scrollY = y2 - sidebarScrollOffset;
                 for (var info : players) {
-                    String name = info.getProfile().getName();
+                    //#if MC >= 12109
+                    String name = info.getProfile().name();
+                    //#else
+                    //$$ String name = info.getProfile().getName();
+                    //#endif
                     if (name.equals(selfName)) continue;
                     if (!filter.isEmpty() && !name.toLowerCase().contains(filter)) continue;
                     if (mouseY >= scrollY && mouseY <= scrollY + SIDEBAR_ITEM_H) {
@@ -799,8 +988,15 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
-        if (commandSuggestions != null && commandSuggestions.mouseClicked((int) mouseX, (int) mouseY, button))
+        //#if MC >= 11900
+        //#if MC >= 12109
+        // 1.21.9+: ChatInputSuggestor.mouseClicked takes a Click.
+        if (commandSuggestions != null && commandSuggestions.mouseClicked(new Click(mouseX, mouseY, click.buttonInfo())))
+        //#else
+        //$$ if (commandSuggestions != null && commandSuggestions.mouseClicked((int) mouseX, (int) mouseY, button))
+        //#endif
             return true;
+        //#endif
 
         if (button == 0) {
             if (isMouseOverHamburger(mouseX, mouseY)) {
@@ -843,7 +1039,7 @@ public class ChatBubbleScreen extends ChatScreen {
                     // 与 sidebar 搜索框聚焦同款（Fabric 实测需显式失焦主输入框，否则焦点链被 chatField 占用）
                     quickChatInput.setVisible(true);
                     setFocused(quickChatInput);
-                    chatField.setFocused(false);
+                    GuiCompat.setWidgetFocused(chatField, false);
                     return true;
                 }
                 int result = quickChatPanel.handleClick((int) mouseX, (int) mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput);
@@ -878,7 +1074,11 @@ public class ChatBubbleScreen extends ChatScreen {
                     String mentionName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
                         ? msg.rawPlayerName() : msg.senderName().getString();
                     chatField.setText(chatField.getText() + "@" + mentionName + " ");
+                    //#if MC >= 12004
                     chatField.setCursorToEnd(false);
+                    //#else
+                    //$$ chatField.setCursorToEnd();
+                    //#endif
                     return true;
                 }
             }
@@ -915,32 +1115,78 @@ public class ChatBubbleScreen extends ChatScreen {
         if (button == 0) {
             Style style = getHoveredStyle(mouseX, mouseY);
             if (style != null && style.getClickEvent() != null) {
-                ClickEvent click = style.getClickEvent();
-                if (click.getAction() == ClickEvent.Action.SUGGEST_COMMAND) {
-                    chatField.setText(click.getValue()); return true;
+                //#if MC >= 12105
+                // Renamed to clickEvent to avoid clashing with the `Click click` method
+                // parameter introduced in 1.21.9+ (mouseClicked(Click, boolean)).
+                ClickEvent clickEvent = style.getClickEvent();
+                if (clickEvent instanceof ClickEvent.SuggestCommand sc) {
+                    chatField.setText(sc.command()); return true;
                 }
-                if (click.getAction() == ClickEvent.Action.OPEN_FILE) {
-                    java.io.File file = new java.io.File(click.getValue());
-                    Util.getOperatingSystem().open(file); return true;
+                if (clickEvent instanceof ClickEvent.OpenFile of) {
+                    Util.getOperatingSystem().open(of.path()); return true;
                 }
-                if (click.getAction() == ClickEvent.Action.OPEN_URL) {
-                    // Local file:// links (e.g. legacy chatimage messages) are not
-                    // browser URLs; opening them throws URISyntaxException. Only
-                    // hand http(s) to the vanilla handler.
-                    String clickUrl = click.getValue();
+                if (clickEvent instanceof ClickEvent.OpenUrl url) {
+                    String clickUrl = url.uri().toString();
                     if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
-                        handleTextClick(style);
+                        //#if MC >= 12111
+                        Screen.handleClickEvent(clickEvent, client, this);
+                        //#else
+                        //$$ handleTextClick(style);
+                        //#endif
                     }
                     return true;
                 }
-                handleTextClick(style); return true;
+                if (clickEvent instanceof ClickEvent.RunCommand cmd) {
+                    String command = cmd.command();
+                    if (command.startsWith("/")) command = command.substring(1);
+                    GuiCompat.sendCommand(client.player.networkHandler, command); return true;
+                }
+                if (clickEvent instanceof ClickEvent.CopyToClipboard ctc) {
+                    client.keyboard.setClipboard(ctc.value()); return true;
+                }
+                //#else
+                //$$ ClickEvent click = style.getClickEvent();
+                //$$ if (click.getAction() == ClickEvent.Action.SUGGEST_COMMAND) {
+                    //$$ chatField.setText(click.getValue()); return true;
+                //$$ }
+                //$$ if (click.getAction() == ClickEvent.Action.OPEN_FILE) {
+                    //$$ java.io.File file = new java.io.File(click.getValue());
+                    //$$ Util.getOperatingSystem().open(file); return true;
+                //$$ }
+                //$$ if (click.getAction() == ClickEvent.Action.OPEN_URL) {
+                    //$$ // Local file:// links (e.g. legacy chatimage messages) are not
+                    //$$ // browser URLs; opening them throws URISyntaxException. Only
+                    //$$ // hand http(s) to the vanilla handler.
+                    //$$ String clickUrl = click.getValue();
+                    //$$ if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
+                        //$$ handleTextClick(style);
+                    //$$ }
+                    //$$ return true;
+                //$$ }
+                //$$ handleTextClick(style); return true;
+                //#endif
             }
         }
-        return this.chatField.mouseClicked(origX, mouseY, button);
+        //#if MC >= 12109
+        // 1.21.9+: ClickableWidget.mouseClicked takes (Click, boolean). The chat field
+        // is drawn outside the panel slide, so use the unshifted origX coordinate.
+        return this.chatField.mouseClicked(new Click(origX, mouseY, click.buttonInfo()), inside);
+        //#else
+        //$$ return this.chatField.mouseClicked(origX, mouseY, button);
+        //#endif
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    //#if MC >= 12109
+    public boolean mouseDragged(Click click, double dx, double dy) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
+        double dragX = dx;
+        double dragY = dy;
+    //#else
+    //$$ public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    //#endif
         if (scrollbarDragging && maxScroll > 0) {
             lastScrollTime = Util.getMeasuringTimeMs();
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
@@ -949,21 +1195,38 @@ public class ChatBubbleScreen extends ChatScreen {
             thumbH = Math.min(thumbH, trackH);
             int travelRange = trackH - thumbH;
             if (travelRange > 0) {
-                int dy = (int) mouseY - scrollbarDragStartY;
-                float newTarget = MathHelper.clamp(scrollbarDragStartOffset + (int) ((long) dy * maxScroll / travelRange), 0, maxScroll);
+                int deltaY = (int) mouseY - scrollbarDragStartY;
+                float newTarget = MathHelper.clamp(scrollbarDragStartOffset + (int) ((long) deltaY * maxScroll / travelRange), 0, maxScroll);
                 scrollAnimFrom = scrollOffset; scrollAnimTo = newTarget;
                 scrollAnimStart = Util.getMeasuringTimeMs();
                 if (!scrollAnimActive) { scrollAnimDuration = 80; scrollAnimActive = true; }
             }
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        //#if MC >= 12109
+        // 1.21.9+: mouseDragged takes (Click, double, double).
+        return super.mouseDragged(click, dragX, dragY);
+        //#else
+        //$$ return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        //#endif
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    //#if MC >= 12109
+    public boolean mouseReleased(Click click) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
+    //#else
+    //$$ public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    //#endif
         if (scrollbarDragging) { scrollbarDragging = false; return true; }
-        return super.mouseReleased(mouseX, mouseY, button);
+        //#if MC >= 12109
+        // 1.21.9+: mouseReleased takes a Click.
+        return super.mouseReleased(click);
+        //#else
+        //$$ return super.mouseReleased(mouseX, mouseY, button);
+        //#endif
     }
 
     private boolean handleIconClick(int mx, int my) {
@@ -999,8 +1262,13 @@ public class ChatBubbleScreen extends ChatScreen {
     // ---- Local image upload (2.3.11) ----
 
     /** OS file drag onto the window (vanilla drop hook): upload the first image dropped. */
+    //#if MC >= 12104
     @Override
-    public void filesDragged(List<java.nio.file.Path> paths) {
+    public void onFilesDropped(List<java.nio.file.Path> paths) {
+    //#else
+    //$$ @Override
+    //$$ public void filesDragged(List<java.nio.file.Path> paths) {
+    //#endif
         if (uploading) return;
         for (java.nio.file.Path p : paths) {
             String l = p.getFileName().toString().toLowerCase();
@@ -1051,7 +1319,7 @@ public class ChatBubbleScreen extends ChatScreen {
             ? serverUrl
             : ImageUploader.upload(prep.bytes(), prep.fileName(),
                 cfg.uploadUrl(), cfg.uploadField(), cfg.uploadExtra(), cfg.uploadResponse());
-        com.mojang.logging.LogUtils.getLogger().info("[e33chat] upload {} -> {}", srcName, url == null ? "FAILED" : url);
+        E33Log.info("[e33chat] upload {} -> {}", srcName, url == null ? "FAILED" : url);
         client.execute(() -> {
             uploading = false;
             if (url == null) {
@@ -1069,7 +1337,12 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             ChatMessageStore.debugLog("[e33chat] upload replace | before='" + chatField.getText() + "' | after='" + cur + "'");
             chatField.setText(cur);
-            chatField.setCursorToEnd(false);        });
+            //#if MC >= 12004
+            chatField.setCursorToEnd(false);
+            //#else
+            //$$ chatField.setCursorToEnd();
+            //#endif
+        });
     }
 
     private void handleContextClick(int mx, int my) {
@@ -1098,7 +1371,7 @@ public class ChatBubbleScreen extends ChatScreen {
             String name = msg != null ? msg.rawPlayerName() : null;
             if (name == null || name.isEmpty()) { contextAvatarIndex = -1; return; }
             if (my >= menuY && my <= menuY + CTX_ITEM_H) {
-                client.player.networkHandler.sendChatCommand((ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
+                GuiCompat.sendChat(client.player.networkHandler, "/" + (ChatMessageStore.useTpa() ? "tpa " : "tp ") + name);
             } else if (my >= menuY + CTX_ITEM_H + 2 && my <= menuY + CTX_ITEM_H * 2 + 2) {
                 whisperPartner = name;
                 ChatMessageStore.clearUnreadWhisper(name);
@@ -1135,8 +1408,19 @@ public class ChatBubbleScreen extends ChatScreen {
         ChatMessageStore.debugLog(() -> "[e33chat] Block list updated | name='" + target + "' | blocked=" + nowBlocked);
     }
 
+    //#if MC >= 12000
+    //#if MC >= 26000
+    @Override
+    public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+    //#else
     @Override
     public void render(DrawContext g, int mouseX, int mouseY, float delta) {
+    //#endif
+    //#else
+    //$$ @Override
+    //$$ public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
+    //$$ DrawContext g = new DrawContext(matrices);
+    //#endif
         tickSidebarAnimation();
 
         float anim = getAnimProgress();
@@ -1146,13 +1430,33 @@ public class ChatBubbleScreen extends ChatScreen {
         float panelScale = 1f;
         if (zoom) panelScale = 0.8f + 0.2f * Animation.easeOutBack(anim);
 
-        g.getMatrices().push();
-        g.getMatrices().translate(panelOffset, 0, 0);
+        //#if MC >= 12106
+        g.getMatrices().pushMatrix();
+        //#else
+        //$$ g.getMatrices().push();
+        //#endif
+        //#if MC >= 12106
+        g.getMatrices().translate(panelOffset, 0);
+        //#else
+        //$$ g.getMatrices().translate(panelOffset, 0, 0);
+        //#endif
         if (zoom) {
             float cx = panelX + panelW / 2f;
-            g.getMatrices().translate(cx, height / 2f, 0);
-            g.getMatrices().scale(panelScale, panelScale, 1f);
-            g.getMatrices().translate(-cx, -height / 2f, 0);
+            //#if MC >= 12106
+            g.getMatrices().translate(cx, height / 2f);
+            //#else
+            //$$ g.getMatrices().translate(cx, height / 2f, 0);
+            //#endif
+            //#if MC >= 12106
+            g.getMatrices().scale(panelScale, panelScale);
+            //#else
+            //$$ g.getMatrices().scale(panelScale, panelScale, 1f);
+            //#endif
+            //#if MC >= 12106
+            g.getMatrices().translate(-cx, -height / 2f);
+            //#else
+            //$$ g.getMatrices().translate(-cx, -height / 2f, 0);
+            //#endif
         }
 
         float panelOpacity = ChatBubbleClientSetup.config().panelOpacity() / 100f * anim;
@@ -1163,8 +1467,14 @@ public class ChatBubbleScreen extends ChatScreen {
         int fillLeft = (!sidebarAnimating && sidebarOpen && pstyle == AnimationStyle.SLIDE)
             ? (int)(anim * SIDEBAR_W) : panelX;
         if (ChatBubbleClientSetup.config().blurEnabled() && panelOpacity < 0.999f && !zoom) {
+            //#if MC >= 12000
+            //#if MC < 12106
             g.draw();
-            BlurRenderer.blurPanel(panelOffset + fillLeft, 0, panelX + panelW - fillLeft, height);
+            //#endif
+            //#endif
+            //#if MC < 26000
+            BlurRenderer.blurPanel(g, panelOffset + fillLeft, 0, panelX + panelW - fillLeft, height);
+            //#endif
         }
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
@@ -1173,10 +1483,18 @@ public class ChatBubbleScreen extends ChatScreen {
         renderMessages(g, mouseX, mouseY);
         Style hovered = getHoveredStyle(mouseX, mouseY);
         if (hovered != null && hovered.getHoverEvent() != null) {
+            //#if MC >= 12000
+            //#if MC < 26000
             g.drawHoverEvent(textRenderer, hovered, mouseX, mouseY);
+            //#endif
+            //#endif
         }
 
-        g.getMatrices().translate(0, 0, 50);
+        //#if MC >= 12106
+        g.getMatrices().translate(0, 0);
+        //#else
+        //$$ g.getMatrices().translate(0, 0, 50);
+        //#endif
         renderNotificationBar(g, mouseX, mouseY);
         renderReplyBar(g, mouseX, mouseY);
         renderContextMenu(g, mouseX, mouseY);
@@ -1186,8 +1504,16 @@ public class ChatBubbleScreen extends ChatScreen {
         renderMentionPopup(g, mouseX, mouseY);
         // 弹层面板（设置/表情/快捷/搜索）画在底栏之上，z 高一层——侧边栏同 z 后画
         // 会盖住它们，提升弹层 z 到侧边栏之上避免遮挡
-        g.getMatrices().push();
-        g.getMatrices().translate(0, 0, 100);
+        //#if MC >= 12106
+        g.getMatrices().pushMatrix();
+        //#else
+        //$$ g.getMatrices().push();
+        //#endif
+        //#if MC >= 12106
+        g.getMatrices().translate(0, 0);
+        //#else
+        //$$ g.getMatrices().translate(0, 0, 100);
+        //#endif
         renderPopupWithAnim(g, settingsAnimStart, a -> () -> settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex, a));
         renderPopupWithAnim(g, emojiAnimStart, a -> () -> emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD, a));
         renderPopupWithAnim(g, quickAnimStart, a -> () -> quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput, a));
@@ -1195,20 +1521,56 @@ public class ChatBubbleScreen extends ChatScreen {
         // 输入框 widget 在 z=50 的 children 循环渲染，会被这里 z=100 的不透明面板背景盖住
         // （5bb740e 弹层 z 提升引入）——面板打开时在同 z 重画一次，文字/光标才可见。
         // widget 无背景（drawsBackground=false），只画文字/光标，不遮挡面板内容
-        if (quickChatPanel.visible && quickChatInput != null) quickChatInput.render(g, mouseX, mouseY, delta);
-        if (searchPanel.visible && searchInput != null) searchInput.render(g, mouseX, mouseY, delta);
-        g.getMatrices().pop();
+        if (quickChatPanel.visible && quickChatInput != null) {
+            //#if MC >= 12000
+            quickChatInput.render(g, mouseX, mouseY, delta);
+            //#else
+            //$$ quickChatInput.render(g.getMatrices(), mouseX, mouseY, delta);
+            //#endif
+        }
+        if (searchPanel.visible && searchInput != null) {
+            //#if MC >= 12000
+            searchInput.render(g, mouseX, mouseY, delta);
+            //#else
+            //$$ searchInput.render(g.getMatrices(), mouseX, mouseY, delta);
+            //#endif
+        }
+        //#if MC >= 12106
+        g.getMatrices().popMatrix();
+        //#else
+        //$$ g.getMatrices().pop();
+        //#endif
 
-        g.getMatrices().pop();
+        //#if MC >= 12106
+        g.getMatrices().popMatrix();
+        //#else
+        //$$ g.getMatrices().pop();
+        //#endif
 
         if (sidebarOpen || sidebarAnimating) {
-            g.getMatrices().push();
+            //#if MC >= 12106
+            g.getMatrices().pushMatrix();
+            //#else
+            //$$ g.getMatrices().push();
+            //#endif
             // ZOOM: the sidebar scales with the panel around the panel center
             if (zoom) {
                 float cx = panelX + panelW / 2f;
-                g.getMatrices().translate(cx, height / 2f, 0);
-                g.getMatrices().scale(panelScale, panelScale, 1f);
-                g.getMatrices().translate(-cx, -height / 2f, 0);
+                //#if MC >= 12106
+                g.getMatrices().translate(cx, height / 2f);
+                //#else
+                //$$ g.getMatrices().translate(cx, height / 2f, 0);
+                //#endif
+                //#if MC >= 12106
+                g.getMatrices().scale(panelScale, panelScale);
+                //#else
+                //$$ g.getMatrices().scale(panelScale, panelScale, 1f);
+                //#endif
+                //#if MC >= 12106
+                g.getMatrices().translate(-cx, -height / 2f);
+                //#else
+                //$$ g.getMatrices().translate(-cx, -height / 2f, 0);
+                //#endif
             }
             // Fade/zoom-in-place applies only to the panel's own open/close
             // animation; the hamburger toggle always slides.
@@ -1216,27 +1578,60 @@ public class ChatBubbleScreen extends ChatScreen {
             int sidebarOffset = (closing && !fadeSidebar)
                 ? (int) ((getAnimProgress() - 1.0f) * SIDEBAR_W)
                 : (fadeSidebar ? 0 : getSidebarScreenX());
-            g.getMatrices().translate(sidebarOffset, 0, 50);
+            //#if MC >= 12106
+            g.getMatrices().translate(sidebarOffset, 0);
+            //#else
+            //$$ g.getMatrices().translate(sidebarOffset, 0, 50);
+            //#endif
             // Per-element alpha (vanilla drawTexture ignores setShaderColor; the
             // sidebar fades its own textures through the alpha path)
             renderSidebar(g, mouseX - sidebarOffset, mouseY, fadeSidebar ? getAnimProgress() : 1f);
-            g.getMatrices().pop();
+            //#if MC >= 12106
+            g.getMatrices().popMatrix();
+            //#else
+            //$$ g.getMatrices().pop();
+            //#endif
             if (closing) sidebarSearchBox.setX(2 + sidebarOffset);
         }
 
-        g.getMatrices().push();
-        g.getMatrices().translate(0, 0, 50);
+        //#if MC >= 12106
+        g.getMatrices().pushMatrix();
+        //#else
+        //$$ g.getMatrices().push();
+        //#endif
+        //#if MC >= 12106
+        g.getMatrices().translate(0, 0);
+        //#else
+        //$$ g.getMatrices().translate(0, 0, 50);
+        //#endif
         chatField.setX(inputX + panelOffset);
         // 不调 super.render（ChatScreen.render 访问 package-private chatInputSuggestor，
         // 跨包无法初始化）；复制 Screen.render 的 widgets 遍历渲染
         for (net.minecraft.client.gui.Element w : this.children()) {
-            if (w instanceof net.minecraft.client.gui.Drawable d) d.render(g, mouseX, mouseY, delta);
+            if (w instanceof net.minecraft.client.gui.Drawable d) {
+                //#if MC >= 12000
+                d.render(g, mouseX, mouseY, delta);
+                //#else
+                //$$ d.render(g.getMatrices(), mouseX, mouseY, delta);
+                //#endif
+            }
         }
         // 建议框定位基于 chatField.getScreenX()（屏幕坐标），与 input 同坐标空间渲染
         g.enableScissor(panelX, 0, panelX + panelW, height);
+        // In 1.19.x (MC >= 11900 && MC < 12000) ChatInputSuggestor.render takes a MatrixStack, not DrawContext.
+        //#if MC >= 12000
         if (commandSuggestions != null) commandSuggestions.render(g, mouseX, mouseY);
+        //#else
+        //#if MC >= 11900
+        //$$ if (commandSuggestions != null) commandSuggestions.render(g.getMatrices(), mouseX, mouseY);
+        //#endif
+        //#endif
         g.disableScissor();
-        g.getMatrices().pop();
+        //#if MC >= 12106
+        g.getMatrices().popMatrix();
+        //#else
+        //$$ g.getMatrices().pop();
+        //#endif
 
         // Notification banner is rendered by ChatBubbleHudOverlay at z=300
     }
@@ -1427,8 +1822,16 @@ public class ChatBubbleScreen extends ChatScreen {
                     }
                 }
             }
-            g.getMatrices().push();
-            g.getMatrices().translate(mDx, mDy, 0);
+            //#if MC >= 12106
+            g.getMatrices().pushMatrix();
+            //#else
+            //$$ g.getMatrices().push();
+            //#endif
+            //#if MC >= 12106
+            g.getMatrices().translate(mDx, mDy);
+            //#else
+            //$$ g.getMatrices().translate(mDx, mDy, 0);
+            //#endif
             if (mScale != 1f) {
                 // Bubble top-left for the ZOOM pivot (mirrors renderBubble's layout)
                 int zW = 0;
@@ -1439,12 +1842,28 @@ public class ChatBubbleScreen extends ChatScreen {
                     ? panelX + panelW - PAD - AVATAR - 4 - zBubbleW
                     : panelX + PAD + AVATAR + 4;
                 int zBubbleY = screenY + NAME_H;
-                g.getMatrices().translate(zBubbleX + zBubbleW / 2f, zBubbleY, 0);
-                g.getMatrices().scale(mScale, mScale, 1f);
-                g.getMatrices().translate(-(zBubbleX + zBubbleW / 2f), -zBubbleY, 0);
+                //#if MC >= 12106
+                g.getMatrices().translate(zBubbleX + zBubbleW / 2f, zBubbleY);
+                //#else
+                //$$ g.getMatrices().translate(zBubbleX + zBubbleW / 2f, zBubbleY, 0);
+                //#endif
+                //#if MC >= 12106
+                g.getMatrices().scale(mScale, mScale);
+                //#else
+                //$$ g.getMatrices().scale(mScale, mScale, 1f);
+                //#endif
+                //#if MC >= 12106
+                g.getMatrices().translate(-(zBubbleX + zBubbleW / 2f), -zBubbleY);
+                //#else
+                //$$ g.getMatrices().translate(-(zBubbleX + zBubbleW / 2f), -zBubbleY, 0);
+                //#endif
             }
             renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha);
-            g.getMatrices().pop();
+            //#if MC >= 12106
+            g.getMatrices().popMatrix();
+            //#else
+            //$$ g.getMatrices().pop();
+            //#endif
             fullIdx++;
         }
         renderScrollbar(g, mouseX, mouseY, effectiveMsgBottom);
@@ -1626,7 +2045,11 @@ public class ChatBubbleScreen extends ChatScreen {
             Text sn = msg.senderName();
             OrderedText nameSeq;
             if (textRenderer.getWidth(sn) > maxNameW) {
+                //#if MC >= 26000
+                //$$ var cut = textRenderer.substrByWidth(sn, maxNameW - textRenderer.getWidth("..."));
+                //#else
                 var cut = textRenderer.trimToWidth(sn, maxNameW - textRenderer.getWidth("..."));
+                //#endif
                 nameSeq = Language.getInstance().reorder(
                     StringVisitable.concat(cut, StringVisitable.plain("...")));
             } else {
@@ -1697,7 +2120,7 @@ public class ChatBubbleScreen extends ChatScreen {
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
 
         if (index == searchHighlightIndex)
-            g.drawBorder(bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2, ChatSearchPanel.HIGHLIGHT);
+            drawRectBorder(g, bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2, ChatSearchPanel.HIGHLIGHT);
     }
 
     /** Draws one card per image ref below the bubble text. */
@@ -1718,8 +2141,15 @@ public class ChatBubbleScreen extends ChatScreen {
                 // 0x22 black backdrop read as a dark border on light bubbles).
                 // 1.21.1 drawTexture has no color tint; the 250ms enter animation
                 // simply doesn't fade the image itself (acceptable).
-                g.drawTexture(entry.textureId(), dx, dy, w, h, 0, 0,
-                    entry.width(), entry.height(), entry.width(), entry.height());
+                //#if MC >= 12106
+                g.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, entry.textureId(), dx, dy, 0.0F, 0.0F, w, h, entry.width(), entry.height(), entry.width(), entry.height());
+                //#else
+                //#if MC >= 12102
+                //$$ g.drawTexture(id -> net.minecraft.client.render.RenderLayer.getGuiTextured(id), entry.textureId(), dx, dy, 0, 0, w, h, entry.width(), entry.height(), entry.width(), entry.height());
+                //#else
+                //$$ g.drawTexture(entry.textureId(), dx, dy, w, h, 0, 0, entry.width(), entry.height(), entry.width(), entry.height());
+                //#endif
+                //#endif
             } else if (entry != null && entry.state() == ImageEntry.State.FAILED) {
                 boolean limited = entry.failure() != null && entry.failure().contains("rate limited");
                 String txt = Text.translatable(limited ? "e33chat.image.ratelimited" : "e33chat.image.failed").getString();
@@ -1734,8 +2164,13 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             // Open the URL in the system browser on click; hover shows the URL
             Style st = Style.EMPTY
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, ref.url()))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(ref.url())));
+                //#if MC >= 12105
+                .withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(ref.url())))
+                .withHoverEvent(new HoverEvent.ShowText(Text.literal(ref.url())));
+                //#else
+                //$$ .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, ref.url()))
+                //$$ .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(ref.url())));
+                //#endif
             clickableSpans.add(new ClickableSpan(x, yy, cardW, cardH, st));
             yy += cardH + 2;
         }
@@ -1749,7 +2184,7 @@ public class ChatBubbleScreen extends ChatScreen {
         ImageEntry.State st = entry == null ? null : entry.state();
         if (lastLoggedImgState.get(url) == st) return;
         lastLoggedImgState.put(url, st);
-        com.mojang.logging.LogUtils.getLogger().info(
+        E33Log.info(
             "[e33chat] image render {} -> {}", url, st);
     }
 
@@ -1811,7 +2246,6 @@ public class ChatBubbleScreen extends ChatScreen {
             sink.accept(i, (i < styleLen ? hasClickEvent[i] : st.getClickEvent() != null)
                 && !st.isUnderlined() ? st.withUnderline(true) : st, cp));
         g.drawText(textRenderer, decorated, x, y, color, false);
-
     }
 
     private int prefixWidth(OrderedText line, int count) {
@@ -1999,12 +2433,18 @@ public class ChatBubbleScreen extends ChatScreen {
         int popupW = maxW + 12;
         int visible = Math.min(mentionCandidates.size(), 8);
         int popupH = visible * textRenderer.fontHeight + 4;
+        //#if MC >= 12000
         int popupX = chatField.getX();
         int popupY = chatField.getY() - popupH - 2;
         if (popupY < msgTop) popupY = chatField.getY() + chatField.getHeight() + 2;
+        //#else
+        //$$ int popupX = GuiCompat.getWidgetX(chatField);
+        //$$ int popupY = GuiCompat.getWidgetY(chatField) - popupH - 2;
+        //$$ if (popupY < msgTop) popupY = GuiCompat.getWidgetY(chatField) + chatField.getHeight() + 2;
+        //#endif
 
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, popupW, popupH, getAnimProgress());
-        g.drawBorder(popupX, popupY, popupW, popupH, ChatBubbleTheme.alphaBlend(c().divider(), (int) (255 * getAnimProgress())));
+        drawRectBorder(g, popupX, popupY, popupW, popupH, ChatBubbleTheme.alphaBlend(c().divider(), (int) (255 * getAnimProgress())));
 
         int startIdx = Math.max(0, mentionIdx - visible + 1);
         int endIdx = Math.min(mentionCandidates.size(), startIdx + visible);
@@ -2066,13 +2506,21 @@ public class ChatBubbleScreen extends ChatScreen {
                 searchInput.setEditableColor(editColor);
                 searchInput.setUneditableColor(c().textMuted());
                 int cmdAlpha = next == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
+                //#if MC >= 11900
                 commandSuggestions = new ChatInputSuggestor(client, this, chatField, textRenderer,
                     false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdAlpha));
+                //#endif
+                //#if MC >= 11900
                 commandSuggestions.setWindowActive(true);
+                //#endif
                 break;
             }
             case 3: // settings
+                //#if MC >= 11700
                 client.setScreen(new ChatBubbleConfigScreen(this));
+                //#else
+                //$$ client.openScreen(new ChatBubbleConfigScreen(this));
+                //#endif
                 break;
         }
     }
@@ -2100,7 +2548,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         boolean hoverInput = mouseX >= ibX - 1 && mouseX <= ibX + ibW && mouseY >= ibY && mouseY <= ibY + ibH;
         if (hoverInput || chatField.isFocused())
-            g.drawBorder(ibX - 1, ibY, ibW + 1, ibH, ChatBubbleTheme.alphaBlend(c().textMuted(), a255));
+            drawRectBorder(g, ibX - 1, ibY, ibW + 1, ibH, ChatBubbleTheme.alphaBlend(c().textMuted(), a255));
 
         int gearX = panelX + 4;
         int sendX = panelX + panelW - PAD - ICON_S + 2;
@@ -2126,20 +2574,53 @@ public class ChatBubbleScreen extends ChatScreen {
 
     static void drawTextureIcon(DrawContext g, Identifier tex, int x, int y, int size) {
         // getTexture 无缓存时自动 new ResourceTexture 懒加载（资源包可覆盖，F3+T 即时生效）
+        //#if MC >= 11700
+        //#if MC < 12102
         RenderSystem.setShaderTexture(0, tex);
+        //#endif
+        //#else
+        //$$ MinecraftClient.getInstance().getTextureManager().bindTexture(tex);
+        //#endif
+        //#if MC >= 11700
+        //#if MC < 12102
+        // getPositionTexShader() was removed in 1.19.3 (MC 11903); getPositionTexProgram() introduced in 1.19.3.
+        //#if MC >= 11903
         RenderSystem.setShader(GameRenderer::getPositionTexProgram);
+        //#else
+        //$$ RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        //#endif
+        //#endif
+        //#endif
+        //#if MC < 12105
         RenderSystem.enableBlend();
+        //#endif
         if (size < 16) {
             // 图标纹理约定 16x16（内容居中，四周 1px 透明边，内容占 14x14）。采样内容区
             // (偏移1,1) 完整 14x14 绘制——窗口取 size 会切掉内容右/下 2px（copy 右页被切）。
-            g.drawTexture(tex, x, y, size, size, 1.0F, 1.0F, 14, 14, 16, 16);
+            //#if MC >= 12106
+            g.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, tex, x, y, 1.0F, 1.0F, size, size, 14, 14, 16, 16);
+            //#else
+            //#if MC >= 12102
+            //$$ g.drawTexture(id -> net.minecraft.client.render.RenderLayer.getGuiTextured(id), tex, x, y, 1.0F, 1.0F, size, size, 14, 14, 16, 16);
+            //#else
+            //$$ g.drawTexture(tex, x, y, size, size, 1.0F, 1.0F, 14, 14, 16, 16);
+            //#endif
+            //#endif
         } else {
-            g.drawTexture(tex, x, y, 0, 0, size, size, size, size);
+            //#if MC >= 12106
+            g.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, tex, x, y, 0.0F, 0.0F, size, size, size, size);
+            //#else
+            //#if MC >= 12102
+            //$$ g.drawTexture(id -> net.minecraft.client.render.RenderLayer.getGuiTextured(id), tex, x, y, 0, 0, size, size, size, size);
+            //#else
+            //$$ g.drawTexture(tex, x, y, 0, 0, size, size, size, size);
+            //#endif
+            //#endif
         }
     }
 
     /** 带透明度图标的绘制：与 drawTextureIcon 同采样语义，但走带 alpha 的渲染路径（弹层淡入用）。 */
-    static void drawTextureIconAlpha(DrawContext g, Identifier tex, int x, int y, int size, float alpha) {
+    static void drawTextureIconAlpha(Object g, Identifier tex, int x, int y, int size, float alpha) {
         if (alpha <= 0.003f) return;
         if (size < 16) {
             ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16, alpha);
@@ -2181,7 +2662,15 @@ public class ChatBubbleScreen extends ChatScreen {
         if (client.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             PlayerListEntry info = client.getNetworkHandler().getPlayerListEntry(uuid);
             if (info != null) {
-                Identifier tex = info.getSkinTextures().texture();
+                //#if MC >= 12109
+                Identifier tex = info.getSkinTextures().body().texturePath();
+                //#else
+                //#if MC >= 12004
+                //$$ Identifier tex = info.getSkinTextures().texture();
+                //#else
+                //$$ Identifier tex = info.getSkinTexture();
+                //#endif
+                //#endif
                 rememberSkin(uuid, name, tex);
                 return tex;
             }
@@ -2210,10 +2699,24 @@ public class ChatBubbleScreen extends ChatScreen {
             try {
                 GameProfile profile = new GameProfile(
                     uuid != null && !uuid.equals(NIL_UUID) ? uuid : NIL_UUID, name);
-                return client.getSkinProvider().getSkinTextures(profile).texture();
+                //#if MC >= 12109
+                return client.getSkinProvider().supplySkinTextures(profile, false).get().body().texturePath();
+                //#else
+                //#if MC >= 12004
+                //$$ return client.getSkinProvider().getSkinTextures(profile).texture();
+                //#else
+                //$$ java.util.Map<com.mojang.authlib.minecraft.MinecraftProfileTexture.Type, com.mojang.authlib.minecraft.MinecraftProfileTexture> skinMap = client.getSkinProvider().getTextures(profile);
+                //$$ com.mojang.authlib.minecraft.MinecraftProfileTexture skinTex = skinMap.get(com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN);
+                //$$ if (skinTex != null) return client.getSkinProvider().loadSkin(skinTex, com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN);
+                //#endif
+                //#endif
             } catch (Exception ignored) {}
         }
+        //#if MC >= 12004
         return DefaultSkinHelper.getTexture();
+        //#else
+        //$$ return DefaultSkinHelper.getTexture();
+        //#endif
     }
 
     private void jumpToMessage(int msgIndex) {
@@ -2314,7 +2817,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 String localPath = extractLocalPath(raw);
                 if (localPath != null) upload(new java.io.File(localPath));
             }
+            //#if MC >= 26000
+            //$$ minecraft.player.sendSystemMessage(Text.translatable("e33chat.upload.wait"));
+            //#else
             client.player.sendMessage(Text.translatable("e33chat.upload.wait"), false);
+            //#endif
             ChatMessageStore.debugLog("[e33chat] upload block | uploading=" + uploading + " | raw=" + raw);
             return;
         }
@@ -2346,19 +2853,15 @@ public class ChatBubbleScreen extends ChatScreen {
                         ? target.rawPlayerName() : target.senderName().getString();
                     String quoted = ChatMessageStore.singleLine(target.content().getString());
                     ChatMessageStore.setPendingReply(quoted, quoteSender);
+                    //#if MC >= 12005
                     ClientPlayNetworking.send(new QuoteSyncPayload(quoteSender, quoted, displayText));
+                    //#endif
                 }
             }
             replyTargetIndex = -1;
         }
 
-        if (text.startsWith("/"))
-            // yarn: sendChatCommand is the full signed path (vanilla ChatScreen
-            // uses it); sendCommand silently drops commands with signable
-            // arguments (/msg /tell /w) — regression from the 1.20 port
-            client.player.networkHandler.sendChatCommand(text.substring(1));
-        else
-            client.player.networkHandler.sendChatMessage(text);
+        GuiCompat.sendChat(client.player.networkHandler, text);
         client.inGameHud.getChatHud().addToMessageHistory(text);
 
         ChatMessageStore.debugLog("[e33chat] Send | cmd='" + text + "' | display='" + displayText + "' | whisperTarget=" + whisperTarget + " | localBubble=" + localBubble);
@@ -2420,9 +2923,17 @@ public class ChatBubbleScreen extends ChatScreen {
 
     // 父类 resize 访问 package-private chatInputSuggestor（跨包 null）→ 自实现
     @Override
-    public void resize(MinecraftClient client, int width, int height) {
+    //#if MC >= 12111
+    public void resize(int width, int height) {
+    //#else
+    //$$ public void resize(MinecraftClient client, int width, int height) {
+    //#endif
         String cur = chatField.getText();
-        this.init(client, width, height);
+        //#if MC >= 12111
+        this.init(width, height);
+        //#else
+        //$$ this.init(client, width, height);
+        //#endif
         chatField.setText(cur);
     }
 
@@ -2436,14 +2947,22 @@ public class ChatBubbleScreen extends ChatScreen {
     public void onClose() {
         if (ChatBubbleClientSetup.config().preserveInput()) savedInput = chatField.getText();
         if (!ChatBubbleClientSetup.config().animationEnabled()) {
+            //#if MC >= 11700
             client.setScreen(null); return;
+            //#else
+            //$$ client.openScreen(null);
+            //#endif
         }
         if (closing) return;
         closing = true;
         animStart = Util.getMeasuringTimeMs();
     }
 
+    //#if MC >= 11700
     public boolean shouldPause() { return false; }
+    //#else
+    //$$ public boolean isPauseScreen() { return false; }
+    //#endif
 
     private static class ClickableSpan {
         final int x, y, w, h;

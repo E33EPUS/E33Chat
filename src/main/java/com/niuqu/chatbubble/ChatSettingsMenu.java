@@ -1,7 +1,11 @@
 package com.niuqu.chatbubble;
 
 import net.minecraft.client.font.TextRenderer;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -14,7 +18,7 @@ public class ChatSettingsMenu {
 
     boolean visible;
 
-    public void render(DrawContext g, int mouseX, int mouseY,
+    public void render(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
             Function<String, Identifier> iconTex, float alpha) {
@@ -28,17 +32,17 @@ public class ChatSettingsMenu {
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
             com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, py, W, menuH, alpha);
-        g.drawBorder(px, py, W, menuH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        drawBorder(g, px, py, W, menuH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         Identifier[] icons = {
             iconTex.apply("search"), iconTex.apply("quick_chat"),
             iconTex.apply("theme"), iconTex.apply("settings")
         };
         String[] labels = {
-            Text.translatable("e33chat.menu.search").getString(),
-            Text.translatable("e33chat.menu.quick_chat").getString(),
-            Text.translatable("e33chat.menu.theme").getString(),
-            Text.translatable("e33chat.menu.settings").getString()
+            com.niuqu.chatbubble.Txt.translatable("e33chat.menu.search").getString(),
+            com.niuqu.chatbubble.Txt.translatable("e33chat.menu.quick_chat").getString(),
+            com.niuqu.chatbubble.Txt.translatable("e33chat.menu.theme").getString(),
+            com.niuqu.chatbubble.Txt.translatable("e33chat.menu.settings").getString()
         };
 
         for (int i = 0; i < COUNT; i++) {
@@ -51,7 +55,7 @@ public class ChatSettingsMenu {
             ChatBubbleScreen.drawTextureIconAlpha(g, icons[i], px + 3, ry + 2, 14, alpha);
             int maxTextW = W - 22;
             String label = font.trimToWidth(labels[i], maxTextW);
-            g.drawText(font, label, px + 20, ry + 4, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+            RenderHelper.drawText(g, font, label, px + 20, ry + 4, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
     }
 
@@ -79,5 +83,12 @@ public class ChatSettingsMenu {
             return row; // 0=search, 1=quick_chat, 2=theme, 3=settings
         }
         return -1;
+    }
+
+    private static void drawBorder(Object g, int x, int y, int w, int h, int color) {
+        RenderHelper.fill(g, x, y, x + w, y + 1, color);
+        RenderHelper.fill(g, x, y + h - 1, x + w, y + h, color);
+        RenderHelper.fill(g, x, y + 1, x + 1, y + h - 1, color);
+        RenderHelper.fill(g, x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 }

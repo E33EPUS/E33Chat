@@ -185,6 +185,7 @@ public final class BracketCodec {
     }
 
     private static String readUrlFromHover(net.minecraft.text.HoverEvent hover) {
+        //#if MC < 12105
         try {
             Object value = hover.getValue(hover.getAction());
             // Custom actions carry whatever their codec decoded — ChatImage's
@@ -204,5 +205,10 @@ public final class BracketCodec {
             return null;
         }
         return null;
+        //#else
+        //$$ // 1.21.5+: HoverEvent became an interface; getValue(Action) was removed,
+        //$$ // so legacy ChatImage custom hover payloads can no longer be read here.
+        //$$ return null;
+        //#endif
     }
 }

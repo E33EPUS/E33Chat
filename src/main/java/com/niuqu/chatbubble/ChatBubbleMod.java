@@ -283,7 +283,16 @@ public class ChatBubbleMod implements ModInitializer {
         if (label.startsWith("/")) label = label.substring(1);
         if (!label.equals("msg") && !label.equals("tell") && !label.equals("w") && !label.equals("whisper")) return;
         ServerCommandSource source = parseResults.getContext().getSource();
+        //#if MC >= 11900
         ServerPlayerEntity sender = source.getPlayer();
+        //#else
+        //$$ ServerPlayerEntity sender;
+        //$$ try {
+        //$$     sender = source.getPlayer();
+        //$$ } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+        //$$     return;
+        //$$ }
+        //#endif
         if (sender == null) return;
         QuotePending quote = takeQuote(sender.getUuid());
         if (quote == null) return;

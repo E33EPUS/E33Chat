@@ -5,13 +5,23 @@ import com.niuqu.chatbubble.ChatBubbleScreen;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
 import net.minecraft.client.MinecraftClient;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#endif
+//#if MC < 12000
+import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.client.gui.hud.ChatHud;
+//#if MC >= 11900
+//#if MC < 26000
 import net.minecraft.client.gui.hud.MessageIndicator;
+//#endif
 import net.minecraft.network.message.MessageSignatureData;
+//#endif
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -19,13 +29,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.UUID;
 
 @Mixin(value = ChatHud.class, priority = 500)
-public class ChatComponentMixin {
+public abstract class ChatComponentMixin {
     private Text lastComponent;
     private boolean e33chat$shifted;
     private boolean e33chat$reposting;
     private String lastRepostText;
     private long lastRepostTime;
 
+    //#if MC >= 26000
+    //$$ @Invoker("addMessage")
+    //$$ abstract void e33chat$invokeAddMessage(Text message, MessageSignatureData signature,
+    //$$         net.minecraft.client.multiplayer.message.GuiMessageSource source,
+    //$$         net.minecraft.client.multiplayer.message.GuiMessageTag tag);
+    //#endif
+
+    //#if MC >= 12000
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void onRender(DrawContext context, int tickDelta, int mouseX, int mouseY,
                           boolean focused, CallbackInfo ci) {
@@ -35,8 +53,13 @@ public class ChatComponentMixin {
                 ci.cancel();
                 return;
             }
-            context.getMatrices().push();
-            context.getMatrices().translate(0, -8, 0);
+            //#if MC >= 12106
+            context.getMatrices().pushMatrix();
+            context.getMatrices().translate(0, -8);
+            //#else
+            //$$ context.getMatrices().push();
+            //$$ context.getMatrices().translate(0, -8, 0);
+            //#endif
             e33chat$shifted = true;
         }
     }
@@ -45,9 +68,34 @@ public class ChatComponentMixin {
     private void onRenderReturn(DrawContext context, int tickDelta, int mouseX, int mouseY,
                                 boolean focused, CallbackInfo ci) {
         if (e33chat$shifted) {
-            context.getMatrices().pop();
+            //#if MC >= 12106
+            context.getMatrices().popMatrix();
+            //#else
+            //$$ context.getMatrices().pop();
+            //#endif
         }
     }
+    //#else
+    //$$ @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    //$$ private void onRender(MatrixStack context, int ticks, CallbackInfo ci) {
+    //$$     e33chat$shifted = false;
+    //$$     if (ChatBubbleClientSetup.config().enabled()) {
+    //$$         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
+    //$$             ci.cancel();
+    //$$             return;
+    //$$         }
+    //$$         context.push();
+    //$$         context.translate(0, -8, 0);
+    //$$         e33chat$shifted = true;
+    //$$     }
+    //$$ }
+    //$$ @Inject(method = "render", at = @At("RETURN"))
+    //$$ private void onRenderReturn(MatrixStack context, int ticks, CallbackInfo ci) {
+    //$$     if (e33chat$shifted) {
+    //$$         context.pop();
+    //$$     }
+    //$$ }
+    //#endif
 
     @Inject(method = "addMessage(Lnet/minecraft/text/Text;)V",
             at = @At("HEAD"), cancellable = true)
@@ -55,12 +103,16 @@ public class ChatComponentMixin {
         captureMessage(message, ci);
     }
 
+    //#if MC >= 11900
+    //#if MC < 26000
     @Inject(method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
             at = @At("HEAD"), cancellable = true)
     private void onAddMessageFull(Text message, MessageSignatureData signature,
                                   MessageIndicator indicator, CallbackInfo ci) {
         captureMessage(message, ci);
     }
+    //#endif
+    //#endif
 
     // Vanilla chat gets a unified player-style format for whispers/quotes:
     //   <sender>[私聊] content   (whisper in/out, incl. self-whisper)
@@ -87,7 +139,15 @@ public class ChatComponentMixin {
         e33chat$reposting = true;
         // 3-arg addMessage with a null indicator: the 1-arg overload forces
         // MessageIndicator.system(), which logs "[System] [CHAT]" and styles the line
+        //#if MC >= 26000
+        //$$ e33chat$invokeAddMessage(reformatted, null, null, null);
+        //#else
+        //#if MC >= 11900
         ((ChatHud) (Object) this).addMessage(reformatted, null, null);
+        //#else
+        //$$ ((ChatHud) (Object) this).addMessage(reformatted);
+        //#endif
+        //#endif
         e33chat$reposting = false;
     }
 

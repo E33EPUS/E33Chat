@@ -1,7 +1,15 @@
 package com.niuqu.chatbubble;
 
 import net.minecraft.client.font.TextRenderer;
+//#if MC >= 12109
+import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.MouseInput;
+//#endif
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
@@ -17,7 +25,7 @@ public class ChatQuickChatPanel {
     boolean visible;
     int scrollOffset;
 
-    public void render(DrawContext g, int mouseX, int mouseY,
+    public void render(Object g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
             TextFieldWidget input, float alpha) {
@@ -37,7 +45,7 @@ public class ChatQuickChatPanel {
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
             com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, py, W, panelH, alpha);
-        g.drawBorder(px, py, W, panelH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        drawBorder(g, px, py, W, panelH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         int totalPhrases = phrases.size();
         int phraseAreaRight = px + W - 4;
@@ -75,7 +83,7 @@ public class ChatQuickChatPanel {
             if (hover) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
                 com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
                 px + 4, rowY, hoverRight - (px + 4), ROW_H, alpha);
-            g.drawText(font, display, px + 6, rowY + 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+            RenderHelper.drawText(g, font, display, px + 6, rowY + 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
             int delX = hoverRight - 13;
             int delY = rowY + 1;
             boolean hoverDel = mouseX >= delX && mouseX <= delX + 12 && mouseY >= delY && mouseY <= delY + 12;
@@ -84,7 +92,7 @@ public class ChatQuickChatPanel {
                     ? com.niuqu.chatbubble.texture.UiElement.CLOSE_HOVER
                     : com.niuqu.chatbubble.texture.UiElement.CLOSE_BG),
                 delX, delY, 12, 12, alpha);
-            g.drawText(font, "✕", delX + 6 - font.getWidth("✕") / 2, delY + 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.closeText(), a255), false);
+            RenderHelper.drawText(g, font, "\u2715", delX + 6 - font.getWidth("\u2715") / 2, delY + 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.closeText(), a255), false);
         }
 
         int inputY = py + 4 + listH + separatorH + 4;
@@ -97,15 +105,17 @@ public class ChatQuickChatPanel {
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + inputH;
         if (hoverInput || input.isFocused())
-            g.drawBorder(inputX, inputY, inputW, inputH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
+            drawBorder(g, inputX, inputY, inputW, inputH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
         if (input.getText().isEmpty() && !input.isFocused())
-            g.drawText(font, Text.translatable("e33chat.quick_chat.placeholder").getString(),
+            RenderHelper.drawText(g, font, com.niuqu.chatbubble.Txt.translatable("e33chat.quick_chat.placeholder").getString(),
                 inputX + 2, inputY + 3, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
 
         input.setX(inputX + 2);
         input.setWidth(inputW - 4);
-        input.setY(inputY + 3);
+        GuiCompat.setWidgetY(input, inputY + 3);
+        //#if MC >= 12004
         input.setHeight(inputH - 2);
+        //#endif
         input.setVisible(true);
     }
 
@@ -168,7 +178,11 @@ public class ChatQuickChatPanel {
             }
         }
 
-        if (input.mouseClicked(mx, my, 0))
+        //#if MC >= 12109
+        if (input.mouseClicked(new Click((double)mx, (double)my, new MouseInput(0, 0)), false))
+        //#else
+        //$$ if (input.mouseClicked(mx, my, 0))
+        //#endif
             return -2;
         return -1;
     }
@@ -177,5 +191,12 @@ public class ChatQuickChatPanel {
         var phrases = ChatBubbleClientSetup.config().quickChatPhrases();
         int maxScroll = Math.max(0, phrases.size() - MAX_VISIBLE);
         scrollOffset = MathHelper.clamp(scrollOffset - (int) scrollY, 0, maxScroll);
+    }
+
+    private static void drawBorder(Object g, int x, int y, int w, int h, int color) {
+        RenderHelper.fill(g, x, y, x + w, y + 1, color);
+        RenderHelper.fill(g, x, y + h - 1, x + w, y + h, color);
+        RenderHelper.fill(g, x, y + 1, x + 1, y + h - 1, color);
+        RenderHelper.fill(g, x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 }

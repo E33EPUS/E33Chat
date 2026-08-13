@@ -1,6 +1,7 @@
 package com.niuqu.chatbubble.image;
 
-import com.mojang.logging.LogUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -19,7 +20,6 @@ import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.texture.TextureManager;
 import net.minecraft.util.Identifier;
-import org.slf4j.Logger;
 
 /**
  * URL → memory cache → async HTTP fetch → decode → scale → texture upload.
@@ -35,7 +35,7 @@ import org.slf4j.Logger;
  *    hostile 16MB image costs ~230KB of GPU memory.
  */
 public final class ImageLoader {
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger("e33chat");
     private static final Map<String, ImageEntry> CACHE = new ConcurrentHashMap<>();
     private static final Deque<String> LRU = new ArrayDeque<>();
     private static final Deque<ImageEntry> PENDING = new ArrayDeque<>();
@@ -332,7 +332,11 @@ public final class ImageLoader {
                     Identifier id = Identifier.of("e33chat", "img/" + hash(url));
                     TextureManager tm = MinecraftClient.getInstance().getTextureManager();
                     tm.destroyTexture(id);
-                    tm.registerTexture(id, new NativeImageBackedTexture(uploadImage.image()));
+                    //#if MC >= 12105
+                    tm.registerTexture(id, new NativeImageBackedTexture(() -> id.toString(), uploadImage.image()));
+                    //#else
+                    //$$ tm.registerTexture(id, new NativeImageBackedTexture(uploadImage.image()));
+                    //#endif
                     entry.markLoaded(id, uploadImage.image());
                     LOGGER.info("[e33chat] image upload OK {} -> {}x{} @ {}", url, entry.width(), entry.height(), id);
                 } catch (Throwable t) {

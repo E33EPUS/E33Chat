@@ -1,14 +1,14 @@
 package com.niuqu.chatbubble.image;
 
 import com.google.gson.JsonParser;
-import com.mojang.logging.LogUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.UUID;
-import org.slf4j.Logger;
 
 /**
  * Uploads image bytes to a file host and returns the resulting URL.
@@ -24,7 +24,7 @@ import org.slf4j.Logger;
  * (extract the URL from a JSON object field).
  */
 public final class ImageUploader {
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger("e33chat");
 
     public static final String DEFAULT_URL = "https://litterbox.catbox.moe/resources/internals/api.php";
     public static final String DEFAULT_FIELD = "fileToUpload";

@@ -2,7 +2,13 @@ package com.niuqu.chatbubble.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+//#if MC >= 11800
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+//#else
+//$$ import org.apache.logging.log4j.LogManager;
+//$$ import org.apache.logging.log4j.Logger;
+//#endif
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -11,6 +17,11 @@ import java.nio.file.Path;
 
 public final class ConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    //#if MC >= 11800
+    private static final Logger LOGGER = LoggerFactory.getLogger("e33chat");
+    //#else
+    //$$ private static final Logger LOGGER = LogManager.getLogger("e33chat");
+    //#endif
     private ConfigManager() {}
 
     public static ChatBubbleConfig load(Path path) {
@@ -19,16 +30,16 @@ public final class ConfigManager {
                 ChatBubbleConfig loaded = GSON.fromJson(r, ChatBubbleConfig.class);
                 if (loaded != null) {
                     var merged = mergeWithDefaults(loaded);
-                    LoggerFactory.getLogger("e33chat").info("[e33chat] Loaded config | soundPublic=" + merged.soundPublic() + " | soundSystem=" + merged.soundSystem());
+                    LOGGER.info("[e33chat] Loaded config | soundPublic=" + merged.soundPublic() + " | soundSystem=" + merged.soundSystem());
                     return merged;
                 }
             } catch (Exception e) {
-                LoggerFactory.getLogger("e33chat").warn("[e33chat] Failed to load config, using defaults", e);
+                LOGGER.warn("[e33chat] Failed to load config, using defaults", e);
             }
         }
         ChatBubbleConfig def = ChatBubbleConfig.defaults();
         save(path, def);
-        LoggerFactory.getLogger("e33chat").info("[e33chat] Created default config | soundPublic=" + def.soundPublic() + " | soundSystem=" + def.soundSystem());
+        LOGGER.info("[e33chat] Created default config | soundPublic=" + def.soundPublic() + " | soundSystem=" + def.soundSystem());
         return def;
     }
 
@@ -84,7 +95,7 @@ public final class ConfigManager {
                 GSON.toJson(config, w);
             }
         } catch (Exception e) {
-            LoggerFactory.getLogger("e33chat").warn("[e33chat] Failed to save config", e);
+            LOGGER.warn("[e33chat] Failed to save config", e);
         }
     }
 }

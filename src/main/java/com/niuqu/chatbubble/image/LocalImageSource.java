@@ -1,6 +1,7 @@
 package com.niuqu.chatbubble.image;
 
-import com.mojang.logging.LogUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
@@ -15,7 +16,6 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
-import org.slf4j.Logger;
 
 /**
  * Turns a local file or a clipboard image into uploadable bytes (scaled to
@@ -23,7 +23,7 @@ import org.slf4j.Logger;
  * clipboard read itself.
  */
 public final class LocalImageSource {
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger("e33chat");
     public static final int MAX_EDGE = 2048;
 
     public record PreparedImage(byte[] bytes, String fileName) {}

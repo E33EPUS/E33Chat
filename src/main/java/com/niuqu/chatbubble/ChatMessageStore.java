@@ -36,9 +36,7 @@ public class ChatMessageStore {
     }
 
     private static String currentWorldKey;
-    private static final Map<String, String> worldTitles = new HashMap<>();
     private static final Gson GSON = new Gson();
-    private static boolean titlesLoaded;
     private static final Map<String, PendingMeta> pendingMetas = new HashMap<>();
 
     public record SeenPlayer(UUID uuid, String profileName, String displayName) {}
@@ -264,7 +262,7 @@ public class ChatMessageStore {
 
     public static void debugLog(java.util.function.Supplier<String> msg) {
         if (ChatBubbleClientSetup.config().debugLog())
-            com.mojang.logging.LogUtils.getLogger().info(msg.get());
+            E33Log.info(msg.get());
     }
 
     public static void debugLog(String msg) {
@@ -564,7 +562,11 @@ public class ChatMessageStore {
         }
         if (playSound) {
             MinecraftClient.getInstance().player.playSound(
+                //#if MC >= 11903
                 net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
+                //#else
+                //$$ net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME, 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
+                //#endif
         }
 
         if (!screenOpen) {
@@ -835,14 +837,40 @@ public class ChatMessageStore {
         if (ownDecoratedName != null) return ownDecoratedName;
         if (player != null && player.getScoreboardTeam() != null) {
             var team = player.getScoreboardTeam();
-            Text pfx = team.getPrefix();
-            Text sfx = team.getSuffix();
+            //#if MC >= 26000
+            //$$ Text pfx = null, sfx = null;
+            //$$ if (team instanceof net.minecraft.world.scores.PlayerTeam pt) {
+            //$$     pfx = pt.getPlayerPrefix();
+            //$$     sfx = pt.getPlayerSuffix();
+            //$$ }
+            //#else
+            //#if MC >= 12004
+            //$$ Text pfx = team.getPrefix();
+            //$$ Text sfx = team.getSuffix();
+            //#else
+            //$$ Text pfx = null, sfx = null;
+            //$$ if (team instanceof net.minecraft.scoreboard.Team) {
+            //$$     net.minecraft.scoreboard.Team t = (net.minecraft.scoreboard.Team) team;
+            //$$     pfx = t.getPrefix();
+            //$$     sfx = t.getSuffix();
+            //$$ }
+            //#endif
+            //#endif
+            //#if MC >= 260200
+            //$$ var colorOpt = team.getColor();
+            //$$ net.minecraft.network.chat.TextColor col = colorOpt.map(net.minecraft.world.scores.TeamColor::textColor).orElse(null);
+            //#else
             Formatting col = team.getColor();
+            //#endif
             boolean hasPfx = pfx != null && !pfx.getString().isEmpty();
             boolean hasSfx = sfx != null && !sfx.getString().isEmpty();
             if (hasPfx || hasSfx || col != null) {
                 MutableText name = Text.literal(player.getName().getString());
+                //#if MC >= 260200
+                //$$ if (col != null) name = name.withColor(col);
+                //#else
                 if (col != null) name = name.formatted(col);
+                //#endif
                 MutableText out = Text.empty();
                 if (hasPfx) out.append(pfx);
                 out.append(name);
@@ -869,24 +897,6 @@ public class ChatMessageStore {
 
     public static int size() {
         return messages.size();
-    }
-
-    public static String getCustomTitle() {
-        if (currentWorldKey == null) return null;
-        loadWorldTitles();
-        String v = worldTitles.get(currentWorldKey);
-        return (v != null && !v.isEmpty()) ? v : null;
-    }
-
-    public static void setCustomTitle(String title) {
-        if (currentWorldKey == null) return;
-        loadWorldTitles();
-        String v = (title != null && !title.isEmpty()) ? title : "";
-        if (v.isEmpty())
-            worldTitles.remove(currentWorldKey);
-        else
-            worldTitles.put(currentWorldKey, v);
-        saveWorldTitles();
     }
 
     public static void setCurrentWorld(String name) {
@@ -991,9 +1001,19 @@ public class ChatMessageStore {
         obj.put("uuid", msg.senderUUID() != null ? msg.senderUUID().toString() : "");
         String senderJson = null, contentJson = null;
         try {
+            //#if MC >= 12004
+            //#if MC >= 12106
+            senderJson = net.minecraft.text.TextCodecs.CODEC.encodeStart(net.minecraft.registry.RegistryOps.of(com.mojang.serialization.JsonOps.INSTANCE, registries()), msg.senderName()).result().map(com.google.gson.JsonElement::toString).orElse(null);
+            contentJson = net.minecraft.text.TextCodecs.CODEC.encodeStart(net.minecraft.registry.RegistryOps.of(com.mojang.serialization.JsonOps.INSTANCE, registries()), msg.content()).result().map(com.google.gson.JsonElement::toString).orElse(null);
+            //#else
             //#if MC >= 12005
-            senderJson = Text.Serialization.toJsonString(msg.senderName(), registries());
-            contentJson = Text.Serialization.toJsonString(msg.content(), registries());
+            //$$ senderJson = Text.Serialization.toJsonString(msg.senderName(), registries());
+            //$$ contentJson = Text.Serialization.toJsonString(msg.content(), registries());
+            //#else
+            //$$ senderJson = Text.Serialization.toJsonString(msg.senderName());
+            //$$ contentJson = Text.Serialization.toJsonString(msg.content());
+            //#endif
+            //#endif
             //#else
             //$$ senderJson = Text.Serializer.toJson(msg.senderName());
             //$$ contentJson = Text.Serializer.toJson(msg.content());
@@ -1085,8 +1105,16 @@ public class ChatMessageStore {
     private static Text componentFrom(Map<String, Object> obj, String jsonKey, String textKey) {
         String json = (String) obj.get(jsonKey);
         if (json != null) {
+            //#if MC >= 12004
+            //#if MC >= 12106
+            try { return net.minecraft.text.TextCodecs.CODEC.parse(net.minecraft.registry.RegistryOps.of(com.mojang.serialization.JsonOps.INSTANCE, registries()), com.google.gson.JsonParser.parseString(json)).result().orElse(null); } catch (Exception ignored) {}
+            //#else
             //#if MC >= 12005
-            try { return Text.Serialization.fromJson(json, registries()); } catch (Exception ignored) {}
+            //$$ try { return Text.Serialization.fromJson(json, registries()); } catch (Exception ignored) {}
+            //#else
+            //$$ try { return Text.Serialization.fromJson(json); } catch (Exception ignored) {}
+            //#endif
+            //#endif
             //#else
             //$$ try { return Text.Serializer.fromJson(json); } catch (Exception ignored) {}
             //#endif
@@ -1107,7 +1135,11 @@ public class ChatMessageStore {
             if (conn != null) return conn.getRegistryManager();
         }
         try {
+            //#if MC >= 26000
+            //$$ return net.minecraft.registry.RegistryAccess.fromRegistryOfRegistries(net.minecraft.registry.BuiltinRegistries.REGISTRY);
+            //#else
             return net.minecraft.registry.BuiltinRegistries.createWrapperLookup();
+            //#endif
         } catch (Throwable ignored) {
             // Headless test fallback: an empty lookup serializes plain-text
             // components fine; registry-dependent hovers degrade instead of crashing
@@ -1116,11 +1148,19 @@ public class ChatMessageStore {
                 public java.util.stream.Stream<net.minecraft.registry.RegistryKey<? extends net.minecraft.registry.Registry<?>>> streamAllRegistryKeys() {
                     return java.util.stream.Stream.empty();
                 }
+                //#if MC >= 12102
                 @Override
-                public <T> java.util.Optional<net.minecraft.registry.RegistryWrapper.Impl<T>> getOptionalWrapper(
+                public <T> java.util.Optional<net.minecraft.registry.RegistryWrapper.Impl<T>> getOptional(
                         net.minecraft.registry.RegistryKey<? extends net.minecraft.registry.Registry<? extends T>> key) {
                     return java.util.Optional.empty();
                 }
+                //#else
+                //$$ @Override
+                //$$ public <T> java.util.Optional<net.minecraft.registry.RegistryWrapper.Impl<T>> getOptionalWrapper(
+                //$$         net.minecraft.registry.RegistryKey<? extends net.minecraft.registry.Registry<? extends T>> key) {
+                //$$     return java.util.Optional.empty();
+                //$$ }
+                //#endif
             };
         }
     }
@@ -1223,15 +1263,31 @@ public class ChatMessageStore {
                     Text senderName = null;
                     String snJson = (String) obj.get("senderNameJson");
                     if (snJson != null) {
+                        //#if MC >= 12004
+                        //#if MC >= 12106
+                        try { senderName = net.minecraft.text.TextCodecs.CODEC.parse(net.minecraft.registry.RegistryOps.of(com.mojang.serialization.JsonOps.INSTANCE, registries()), com.google.gson.JsonParser.parseString(snJson)).result().orElse(null); } catch (Exception ignored2) {}
+                        //#else
                         //#if MC >= 12005
-                        try { senderName = Text.Serialization.fromJson(snJson, registries()); } catch (Exception ignored2) {}
+                        //$$ try { senderName = Text.Serialization.fromJson(snJson, registries()); } catch (Exception ignored2) {}
+                        //#else
+                        //$$ try { senderName = Text.Serialization.fromJson(snJson); } catch (Exception ignored2) {}
+                        //#endif
+                        //#endif
                         //#else
                         //$$ try { senderName = Text.Serializer.fromJson(snJson); } catch (Exception ignored2) {}
                         //#endif
                     }
                     if (senderName == null) senderName = Text.literal((String) obj.get("senderName"));
+                    //#if MC >= 12004
+                    //#if MC >= 12106
+                    Text content = net.minecraft.text.TextCodecs.CODEC.parse(net.minecraft.registry.RegistryOps.of(com.mojang.serialization.JsonOps.INSTANCE, registries()), com.google.gson.JsonParser.parseString((String) obj.get("content"))).result().orElse(null);
+                    //#else
                     //#if MC >= 12005
-                    Text content = Text.Serialization.fromJson((String) obj.get("content"), registries());
+                    //$$ Text content = Text.Serialization.fromJson((String) obj.get("content"), registries());
+                    //#else
+                    //$$ Text content = Text.Serialization.fromJson((String) obj.get("content"));
+                    //#endif
+                    //#endif
                     //#else
                     //$$ Text content = Text.Serializer.fromJson((String) obj.get("content"));
                     //#endif
@@ -1251,9 +1307,9 @@ public class ChatMessageStore {
                     out.add(0, new ChatMessage(uuid, senderName, content, millis,
                         isOwn, isSystem, replyContent, replySender, "", 1, rawPlayerName,
                         whisper, whisperPartner));
-                } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
+                } catch (Exception e) { E33Log.warn("[e33chat] Failed to read/write chat history", e); }
             }
-        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
+        } catch (Exception e) { E33Log.warn("[e33chat] Failed to read/write chat history", e); }
         return out;
     }
 
@@ -1273,7 +1329,7 @@ public class ChatMessageStore {
             }
             w.flush();
         } catch (Exception e) {
-            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
+            E33Log.warn("[e33chat] Failed to read/write chat history", e);
             return;
         }
         try {
@@ -1285,7 +1341,7 @@ public class ChatMessageStore {
                 java.nio.file.Files.move(tmp.toPath(), f.toPath(),
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             } catch (Exception e2) {
-                com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e2);
+                E33Log.warn("[e33chat] Failed to read/write chat history", e2);
             }
         }
     }
@@ -1315,7 +1371,7 @@ public class ChatMessageStore {
         for (File f : files) {
             if (f.equals(current)) continue;
             if (isExpired(f.lastModified(), now, days)) {
-                com.mojang.logging.LogUtils.getLogger().info("[e33chat] History retention: deleting " + f.getName());
+                E33Log.info("[e33chat] History retention: deleting " + f.getName());
                 f.delete();
             }
         }
@@ -1343,7 +1399,7 @@ public class ChatMessageStore {
                 new FileInputStream(f), StandardCharsets.UTF_8))) {
             head = br.readLine();
         } catch (Exception e) {
-            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
+            E33Log.warn("[e33chat] Failed to read/write chat history", e);
             return;
         }
         if (head == null) return;
@@ -1372,37 +1428,14 @@ public class ChatMessageStore {
                         if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
                             rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
                     } catch (Exception e) {
-                        com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
+                        E33Log.warn("[e33chat] Failed to read/write chat history", e);
                     }
                 }
             } catch (Exception e) {
-                com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
+                E33Log.warn("[e33chat] Failed to read/write chat history", e);
             }
         }
         while (messages.size() > MAX) messages.remove(0);
-    }
-
-    private static File getTitlesFile() {
-        return new File(MinecraftClient.getInstance().runDirectory, "e33chat/titles.json");
-    }
-
-    private static void loadWorldTitles() {
-        if (titlesLoaded) return;
-        titlesLoaded = true;
-        File f = getTitlesFile();
-        if (!f.exists()) return;
-        try (Reader r = new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8)) {
-            Map<String, String> data = GSON.fromJson(r, new TypeToken<Map<String, String>>(){}.getType());
-            if (data != null) worldTitles.putAll(data);
-        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
-    }
-
-    private static void saveWorldTitles() {
-        File f = getTitlesFile();
-        f.getParentFile().mkdirs();
-        try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) {
-            GSON.toJson(worldTitles, w);
-        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
     }
 
     public static void addHistoryMessages(List<com.niuqu.chatbubble.network.HistoryPayload.HistoryEntry> entries) {
@@ -1459,7 +1492,11 @@ public class ChatMessageStore {
                         && !msg.content().getString().contains("@" + playerName)
                         && ChatBubbleClientSetup.config().mentionSoundEnabled()) {
                         MinecraftClient.getInstance().player.playSound(
+                            //#if MC >= 11903
                             net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
+                            //#else
+                            //$$ net.minecraft.sound.SoundEvents.BLOCK_NOTE_BLOCK_CHIME, 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
+                            //#endif
                     }
                 }
                 return;

@@ -1,17 +1,27 @@
 package com.niuqu.chatbubble.chat.notification;
 
 import com.mojang.authlib.GameProfile;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.niuqu.chatbubble.Animation;
 import com.niuqu.chatbubble.AnimationStyle;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatMessageStore;
+import com.niuqu.chatbubble.RenderHelper;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import net.minecraft.client.MinecraftClient;
+//#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
+//#else
+//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
 import net.minecraft.client.util.DefaultSkinHelper;
+//#if MC >= 12004
+//#if MC >= 12109
+import net.minecraft.entity.player.SkinTextures;
+//#else
 import net.minecraft.client.util.SkinTextures;
+//#endif
+//#endif
 import net.minecraft.text.MutableText;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
@@ -52,12 +62,12 @@ public class MentionNotificationBanner {
         MinecraftClient mc = MinecraftClient.getInstance();
 
         String prefix = switch (type) {
-            case MENTION -> Text.translatable("e33chat.banner.mention").getString();
-            case QUOTE -> Text.translatable("e33chat.banner.quote").getString();
-            case WHISPER -> Text.translatable("e33chat.banner.whisper").getString();
-            case SYSTEM -> Text.translatable("e33chat.banner.system").getString();
+            case MENTION -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.mention").getString();
+            case QUOTE -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.quote").getString();
+            case WHISPER -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.whisper").getString();
+            case SYSTEM -> com.niuqu.chatbubble.Txt.translatable("e33chat.banner.system").getString();
         };
-        Text labeledName = Text.literal(prefix).append(senderName);
+        Text labeledName = com.niuqu.chatbubble.Txt.literal(prefix).append(senderName);
 
         // System banners carry no sender — plain text, no avatar, flush text start.
         // [系统] 标签与第一行内容同行，内容宽度预算扣掉标签宽，避免同行溢出横幅
@@ -74,7 +84,7 @@ public class MentionNotificationBanner {
         } else if (nameLines.size() > 1) {
             String plainName = mc.textRenderer.trimToWidth(
                 labeledName.getString(), maxTextW - dotsW) + "...";
-            nameSeq = mc.textRenderer.wrapLines(Text.literal(plainName), maxTextW).get(0);
+            nameSeq = mc.textRenderer.wrapLines(com.niuqu.chatbubble.Txt.literal(plainName), maxTextW).get(0);
         } else {
             nameSeq = nameLines.get(0);
         }
@@ -150,7 +160,7 @@ public class MentionNotificationBanner {
         }
     }
 
-    public void render(DrawContext g, int screenW, int screenH) {
+    public void render(Object g, int screenW, int screenH) {
         if (current == null || state == BannerState.HIDDEN) return;
         if (!ChatBubbleClientSetup.config().mentionBannerEnabled()) return;
 
@@ -202,10 +212,10 @@ public class MentionNotificationBanner {
         int y = (int) ((-bannerH) + slide * bannerH) + ChatBubbleClientSetup.config().bannerOffsetY();
 
         if (bscale != 1f) {
-            g.getMatrices().push();
-            g.getMatrices().translate(x + bannerW / 2f, y + bannerH / 2f, 0);
-            g.getMatrices().scale(bscale, bscale, 1f);
-            g.getMatrices().translate(-(x + bannerW / 2f), -(y + bannerH / 2f), 0);
+            RenderHelper.pushMatrix(g);
+            RenderHelper.translate(g, x + bannerW / 2f, y + bannerH / 2f, 0);
+            RenderHelper.scale(g, bscale, bscale, 1f);
+            RenderHelper.translate(g, -(x + bannerW / 2f), -(y + bannerH / 2f), 0);
         }
 
         var theme = com.niuqu.chatbubble.ChatBubbleTheme.valueOf(
@@ -234,14 +244,14 @@ public class MentionNotificationBanner {
             int nameY = y + 6;
             int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
             nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
-            g.drawText(mc.textRenderer, nameSeq, textX, nameY, nameColor, false);
+            RenderHelper.drawText(g, mc.textRenderer, nameSeq, textX, nameY, nameColor, false);
 
             // Message lines
             int msgAlpha = (int) ((theme.textSecondary() >>> 24) * alpha);
             msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
             int msgY = nameY + mc.textRenderer.fontHeight + 2;
             for (int i = 0; i < msgLines.size(); i++)
-                g.drawText(mc.textRenderer, msgLines.get(i), textX,
+                RenderHelper.drawText(g, mc.textRenderer, msgLines.get(i), textX,
                     msgY + i * mc.textRenderer.fontHeight, msgColor, false);
         } else {
             // Plain-text banner: [系统] label + content vertically centered, single row
@@ -252,15 +262,15 @@ public class MentionNotificationBanner {
             int lineH = mc.textRenderer.fontHeight;
             int totalH = lineH * msgLines.size();
             int textY = y + (bannerH - totalH) / 2;
-            g.drawText(mc.textRenderer, nameSeq, textX, textY, nameColor, false);
+            RenderHelper.drawText(g, mc.textRenderer, nameSeq, textX, textY, nameColor, false);
             int contentX = textX + mc.textRenderer.getWidth(nameSeq);
-            g.drawText(mc.textRenderer, msgLines.get(0), contentX, textY, msgColor, false);
+            RenderHelper.drawText(g, mc.textRenderer, msgLines.get(0), contentX, textY, msgColor, false);
             for (int i = 1; i < msgLines.size(); i++)
-                g.drawText(mc.textRenderer, msgLines.get(i), textX,
+                RenderHelper.drawText(g, mc.textRenderer, msgLines.get(i), textX,
                     textY + i * lineH, msgColor, false);
         }
 
-        if (bscale != 1f) g.getMatrices().pop();
+        if (bscale != 1f) RenderHelper.popMatrix(g);
     }
 
     public int currentMessageIndex() {
@@ -271,22 +281,55 @@ public class MentionNotificationBanner {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             var info = mc.getNetworkHandler().getPlayerListEntry(uuid);
-            if (info != null) return info.getSkinTextures().texture();
+            if (info != null) {
+                //#if MC >= 12004
+                //#if MC >= 12109
+                return info.getSkinTextures().body().texturePath();
+                //#else
+                return info.getSkinTextures().texture();
+                //#endif
+                //#else
+                //$$ return info.getSkinTexture();
+                //#endif
+            }
         }
         if (uuid != null && !uuid.equals(NIL_UUID)) {
             Identifier cached = skinCache.get(uuid);
             if (cached != null) return cached;
+            //#if MC >= 12004
+            //#if MC >= 12109
+            SkinTextures skin = mc.getSkinProvider().supplySkinTextures(
+                new GameProfile(uuid, name != null ? name : ""), false).get();
+            if (skin != null) {
+                Identifier tex = skin.body().texturePath();
+                if (tex != null) {
+                    skinCache.put(uuid, tex);
+                    return tex;
+                }
+            }
+            //#else
             SkinTextures skin = mc.getSkinProvider().getSkinTextures(
                 new GameProfile(uuid, name != null ? name : ""));
             if (skin != null && skin.texture() != null) {
                 skinCache.put(uuid, skin.texture());
                 return skin.texture();
             }
+            //#endif
+            //#endif
         }
+        //#if MC >= 12004
+        //#if MC >= 12109
+        return DefaultSkinHelper.getSkinTextures(
+            new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : "")).body().texturePath();
+        //#else
         return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID).texture();
+        //#endif
+        //#else
+        //$$ return DefaultSkinHelper.getTexture();
+        //#endif
     }
 
-    private void drawPlayerHead(DrawContext g, Identifier skin, int x, int y,
+    private void drawPlayerHead(Object g, Identifier skin, int x, int y,
                                  int baseSize, int hatSize, float alpha) {
         if (alpha <= 0.003f) return;
         ColoredTextureRenderer.drawWithAlpha(g, skin, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64, alpha);
@@ -299,22 +342,22 @@ public class MentionNotificationBanner {
     private static Text truncateStyled(Text src, int maxWidth,
                                        net.minecraft.client.font.TextRenderer font, String suffix) {
         int budget = maxWidth - font.getWidth(suffix);
-        MutableText out = Text.empty();
+        MutableText out = com.niuqu.chatbubble.Txt.empty();
         int[] used = {0};
         src.visit((style, text) -> {
             if (used[0] >= budget) return java.util.Optional.<Object>empty();
             int w = font.getWidth(text);
             if (used[0] + w <= budget) {
-                out.append(Text.literal(text).fillStyle(style));
+                out.append(com.niuqu.chatbubble.Txt.literal(text).fillStyle(style));
                 used[0] += w;
             } else {
                 String sub = font.trimToWidth(text, budget - used[0]);
-                out.append(Text.literal(sub).fillStyle(style));
+                out.append(com.niuqu.chatbubble.Txt.literal(sub).fillStyle(style));
                 used[0] = budget;
             }
             return java.util.Optional.<Object>empty();
         }, net.minecraft.text.Style.EMPTY);
-        return out.append(Text.literal(suffix));
+        return out.append(com.niuqu.chatbubble.Txt.literal(suffix));
     }
 
     private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }

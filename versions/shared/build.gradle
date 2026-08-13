@@ -154,6 +154,50 @@ abstract class PreprocessTask extends DefaultTask {
                         if (targetMcVersion >= 26000) {
                             processed = applyMojangMapping(processed, targetMcVersion)
                         }
+                        // Pre-1.19: Text API uses constructors instead of factory methods (Text.literal introduced in 1.19)
+                        if (targetMcVersion < 11900 && targetMcVersion < 26000) {
+                            processed = processed.replaceAll("Text\\.literal\\(", "new LiteralText(")
+                            processed = processed.replaceAll("Text\\.translatable\\(", "new TranslatableText(")
+                            processed = processed.replaceAll("Text\\.empty\\(\\)", 'new LiteralText("")')
+                            // Pre-1.19: Style.withObfuscated/withStrikethrough → withFormatting
+                            processed = processed.replaceAll("\\.withObfuscated\\(true\\)", ".withFormatting(Formatting.OBFUSCATED)")
+                            processed = processed.replaceAll("\\.withObfuscated\\(false\\)", "")
+                            processed = processed.replaceAll("\\.withStrikethrough\\(true\\)", ".withFormatting(Formatting.STRIKETHROUGH)")
+                            processed = processed.replaceAll("\\.withStrikethrough\\(false\\)", "")
+                            // Pre-1.19: fillStyle → setStyle (fillStyle introduced in 1.19)
+                            processed = processed.replaceAll("\\.fillStyle\\(", ".setStyle(")
+                            // Pre-1.19: networkHandler.sendChatCommand/sendChatMessage → player.sendChatMessage
+                            // (ClientPlayNetworkHandler doesn't have these in pre-1.19; PlayerEntity does)
+                            processed = processed.replaceAll("client\\.player\\.networkHandler\\.sendChatCommand\\(", 'client.player.sendChatMessage("/" + ')
+                            processed = processed.replaceAll("client\\.player\\.networkHandler\\.sendChatMessage\\(", "client.player.sendChatMessage(")
+                            // Pre-1.19: Identifier.of() → new Identifier()
+                            processed = processed.replaceAll("Identifier\\.of\\(", "new Identifier(")
+                            // Pre-1.19: Formatting.getColorValue() returns Integer, use Formatting directly
+                            processed = processed.replaceAll("Formatting\\.([A-Z_]+)\\.getColorValue\\(\\) != null \\? Formatting\\.\\1\\.getColorValue\\(\\) : null", 'Formatting.$1')
+                        }
+                        if (targetMcVersion < 11700) {
+                            // 1.16.5 only: setScreen → openScreen
+                            processed = processed.replaceAll("client\\.setScreen\\(", "client.openScreen(")
+                            processed = processed.replaceAll("MinecraftClient\\.getInstance\\(\\)\\.setScreen\\(", "MinecraftClient.getInstance().openScreen(")
+                            // 1.16.5: chatKey → keyChat (field renamed in 1.17)
+                            processed = processed.replaceAll("\\bchatKey\\b", "keyChat")
+                            // 1.16.5: addDrawableChild → addButton (addDrawableChild introduced in 1.17)
+                            processed = processed.replaceAll("\\baddDrawableChild\\(", "addButton(")
+                            // 1.16.5: NativeImage(NativeImage.Format.RGBA, w, h, useLinear) → NativeImage(w, h, useLinear) (no Format enum)
+                            processed = processed.replaceAll("new NativeImage\\(NativeImage\\.Format\\.RGBA, ", "new NativeImage(")
+                            // 1.16.5: JsonParser.parseString(x) → new JsonParser().parse(x) (parse is instance method in older Gson)
+                            processed = processed.replaceAll("JsonParser\\.parseString\\(", "new JsonParser().parse(")
+                            // 1.16.5: VertexFormat.DrawMode.QUADS → 7 (GL_QUADS int, no DrawMode enum)
+                            processed = processed.replaceAll("VertexFormat\\.DrawMode\\.QUADS", "7")
+                            // 1.16.5: RenderSystem.setShaderTexture(0, tex) → TextureManager.bindTexture(tex)
+                            processed = processed.replaceAll("RenderSystem\\.setShaderTexture\\(0, ([^)]+)\\)", 'MinecraftClient.getInstance().getTextureManager().bindTexture($1)')
+                            // 1.16.5: Remove RenderSystem.setShader(GameRenderer::getPositionTexShader) - fixed-function pipeline
+                            processed = processed.replaceAll("RenderSystem\\.setShader\\(GameRenderer::getPositionTexShader\\);", "// shader not needed in 1.16.5")
+                            // 1.16.5: buffer.end() → Tessellator.getInstance().draw() (1.17+ split into end+draw)
+                            processed = processed.replaceAll("buffer\\.end\\(\\);", "Tessellator.getInstance().draw();")
+                            // 1.16.5: BufferRenderer.draw(buffer) already handled by Tessellator.draw()
+                            processed = processed.replaceAll("BufferRenderer\\.draw\\(buffer\\);", "// handled by Tessellator.draw()")
+                        }
                         outLines.add(processed)
                     }
                 }
@@ -162,6 +206,21 @@ abstract class PreprocessTask extends DefaultTask {
                     def extraImports = [
                         "import net.minecraft.util.FormattedCharSequence;",
                         "import net.minecraft.network.chat.contents.TranslatableContents;"
+                    ]
+                    def insertIdx = 0
+                    for (int i = 0; i < outLines.size(); i++) {
+                        if (outLines[i].startsWith("package ")) {
+                            insertIdx = i + 1
+                            break
+                        }
+                    }
+                    outLines.addAll(insertIdx, extraImports)
+                }
+                // Pre-1.19: 注入 LiteralText/TranslatableText import
+                if (targetMcVersion < 11900 && targetMcVersion < 26000) {
+                    def extraImports = [
+                        "import net.minecraft.text.LiteralText;",
+                        "import net.minecraft.text.TranslatableText;"
                     ]
                     def insertIdx = 0
                     for (int i = 0; i < outLines.size(); i++) {
@@ -239,6 +298,19 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("net\\.minecraft\\.client\\.multiplayer\\.message\\b", "net.minecraft.client.multiplayer.chat")
         line = line.replaceAll("net\\.minecraft\\.util\\.WorldSavePath\\b", "net.minecraft.world.level.storage.LevelResource")
         line = line.replaceAll("net\\.minecraft\\.client\\.network\\.message\\b", "net.minecraft.client.multiplayer.chat")
+        line = line.replaceAll("net\\.minecraft\\.client\\.sound\\.SimpleSoundInstance\\b", "net.minecraft.client.resources.sounds.SimpleSoundInstance")
+        line = line.replaceAll("net\\.minecraft\\.registry\\.RegistryWrapper\\.WrapperLookup\\b", "net.minecraft.core.HolderLookup.Provider")
+        line = line.replaceAll("net\\.minecraft\\.registry\\.RegistryWrapper\\.Impl\\b", "net.minecraft.core.HolderLookup.RegistryLookup")
+        line = line.replaceAll("net\\.minecraft\\.registry\\.RegistryWrapper\\b", "net.minecraft.core.HolderLookup")
+        line = line.replaceAll("net\\.minecraft\\.registry\\.RegistryKey\\b", "net.minecraft.resources.ResourceKey")
+        line = line.replaceAll("net\\.minecraft\\.registry\\.RegistryOps\\b", "net.minecraft.resources.RegistryOps")
+        line = line.replaceAll("net\\.minecraft\\.registry\\.BuiltinRegistries\\b", "net.minecraft.core.registries.BuiltInRegistries")
+        line = line.replaceAll("net\\.minecraft\\.client\\.render\\.RenderLayer\\b", "net.minecraft.client.renderer.rendertype.RenderType")
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.navigation\\.GuiNavigationPath\\b", "net.minecraft.client.gui.ComponentPath")
+        // 26.x: InputUtil moved to blaze3d package
+        line = line.replaceAll("net\\.minecraft\\.client\\.util\\.InputUtil\\b", "com.mojang.blaze3d.platform.InputConstants")
+        // 26.x: HoveredTooltipPositioner package moved
+        line = line.replaceAll("net\\.minecraft\\.client\\.gui\\.tooltip\\.", "net.minecraft.client.gui.screens.inventory.tooltip.")
 
         // Step 2: Package name replacements (longest first to avoid partial matches)
         line = line.replace("net.minecraft.network.packet.c2s.play", "net.minecraft.network.protocol.game")
@@ -280,7 +352,7 @@ abstract class PreprocessTask extends DefaultTask {
             line = line.replaceAll("\\bgetWorld\\b", "getLevel")
             line = line.replaceAll("(?<!net\\.minecraft)\\.world\\b", ".level")
             line = line.replaceAll("\\bthis\\.client\\b", "this.minecraft")
-            line = line.replaceAll("(?<![.\\-])\\bclient\\b(?!\\()", "minecraft")
+            line = line.replaceAll("(?<![.\\-/])\\bclient\\b(?!\\()", "minecraft")
             line = line.replaceAll("\\.mouse\\b", ".mouseHandler")
             line = line.replaceAll("\\.keyboard\\b", ".keyboardHandler")
             line = line.replaceAll("\\bchatKey\\b", "keyChat")
@@ -348,7 +420,7 @@ abstract class PreprocessTask extends DefaultTask {
         // 26.2: Gui.getChat() 迁移到 Hud.getChat()
         if (is26_2) {
             line = line.replaceAll("\\.gui\\.getChat\\(\\)", ".gui.hud.getChat()")
-            // 26.2: Minecraft.setScreen() 迁移到 Gui.setScreen()
+            // 26.2: Minecraft.setScreen() 迁移到 Gui.setScreen() (minecraft 变量名)
             line = line.replaceAll("minecraft\\.setScreen\\(", "minecraft.gui.setScreen(")
         }
         line = line.replaceAll("\\bwithUnderline\\b", "withUnderlined")
@@ -366,7 +438,27 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("\\bgetOperatingSystem\\b", "getPlatform")
         // 26.x: Util.OS.open() → openUri() (方法重命名，适用于所有 26.x)
         line = line.replaceAll("getPlatform\\(\\)\\.open\\(", "getPlatform().openUri(")
-        line = line.replaceAll("\\.write\\(", ".insertText(")
+        line = line.replaceAll("chatField\\.write\\(", "chatField.insertText(")
+        // 26.x: ChatScreen.chatField → ChatScreen.input (field rename)
+        line = line.replaceAll("\\bchatField\\b", "input")
+        // 26.x: TextureManager.destroyTexture → release, DefaultPlayerSkin.getTexture → getDefaultTexture
+        line = line.replaceAll("\\bdestroyTexture\\b", "release")
+        line = line.replaceAll("\\bgetTexture\\(\\)", "getDefaultTexture()")
+        // 26.x: HoverEvent.getAction → action (interface method)
+        line = line.replaceAll("\\bgetAction\\b", "action")
+        // 26.x: RegistryOps.of → RegistryOps.create
+        line = line.replaceAll("RegistryOps\\.of\\(", "RegistryOps.create(")
+        // 26.x: Screen.handleClickEvent → defaultHandleClickEvent
+        line = line.replaceAll("\\bhandleClickEvent\\b", "defaultHandleClickEvent")
+        // 26.x: ChatScreen.setChatFromHistory → moveInHistory
+        line = line.replaceAll("\\bsetChatFromHistory\\b", "moveInHistory")
+        // 26.x: Screen.onFilesDropped → onFilesDrop (no trailing 'd')
+        line = line.replaceAll("\\bonFilesDropped\\b", "onFilesDrop")
+        // 26.x: InputConstants.GLFW_MOD_SHIFT → MOD_SHIFT (prefix dropped)
+        line = line.replaceAll("\\bGLFW_MOD_SHIFT\\b", "MOD_SHIFT")
+        // 26.x: FormattedText.concat → composite (method renamed)
+        line = line.replaceAll("FormattedText\\.concat\\b", "FormattedText.composite")
+        line = line.replaceAll("Language\\.getInstance\\(\\)\\.reorder\\b", "Language.getInstance().getVisualOrder")
         line = line.replaceAll("\\bsetWindowActive\\b", "setAllowSuggestions")
         line = line.replaceAll("\\brefresh\\b", "updateCommandInfo")
         line = line.replaceAll("\\bIdentifier\\.of\\b", "Identifier.fromNamespaceAndPath")
@@ -403,8 +495,20 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("\\bsendFeedback\\b", "sendSuccess")
         // PlayerSkinDrawer.draw → PlayerFaceExtractor.extractRenderState
         line = line.replaceAll("PlayerSkinDrawer\\.draw\\b", "PlayerFaceExtractor.extractRenderState")
-        // Undo .write(→.insertText( for java.io.Writer
-        line = line.replaceAll("([wW]riter)\\.insertText\\(", "\$1.write(")
+        // Additional Mojang method name mappings
+        line = line.replaceAll("\\bgetColorValue\\b", "getColor")
+        line = line.replaceAll("\\baddDrawableChild\\b", "addWidget")
+        line = line.replaceAll("\\bgetScoreboardTeam\\b", "getTeam")
+        line = line.replaceAll("\\bgetRegistryManager\\b", "registryAccess")
+        line = line.replaceAll("\\bcreateWrapperLookup\\b", "createAccess")
+        line = line.replaceAll("\\bstreamAllRegistryKeys\\b", "listRegistryKeys")
+        line = line.replaceAll("\\bgetOptional\\b", "lookup")
+        // Navigation system mappings (26.x: GuiNavigation → FocusNavigationEvent)
+        line = line.replaceAll("\\bgetNavigationPath\\b", "nextFocusPath")
+        line = line.replaceAll("\\bswitchFocus\\b", "changeFocus")
+        line = line.replaceAll("\\bblur\\(\\)", "clearFocus()")
+        // Simplify withColor ternary: ChatFormatting.X.getColor() != null ? ChatFormatting.X.getColor() : null → ChatFormatting.X.getColor()
+        line = line.replaceAll("ChatFormatting\\.(\\w+)\\.getColor\\(\\) != null \\? ChatFormatting\\.\\1\\.getColor\\(\\) : null", "ChatFormatting.\$1.getColor()")
         // Style.withFormatting → applyFormat
         line = line.replaceAll("\\bwithFormatting\\b", "applyFormat")
         // Resource.getInputStream → open
@@ -415,6 +519,17 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("\\bsetPixelRGBA\\b", "setPixelABGR")
 
         // Step 5: Class name replacements (word-boundary regex, longest names first)
+        line = line.replaceAll("\\bRegistryWrapper\\.WrapperLookup\\b", "HolderLookup.Provider")
+        line = line.replaceAll("\\bRegistryWrapper\\.Impl\\b", "HolderLookup.RegistryLookup")
+        line = line.replaceAll("\\bRegistryWrapper\\b", "HolderLookup")
+        line = line.replaceAll("\\bRegistryKey\\b", "ResourceKey")
+        line = line.replaceAll("\\bRenderLayer\\b", "RenderType")
+        line = line.replaceAll("\\bBuiltinRegistries\\b", "BuiltInRegistries")
+        line = line.replaceAll("\\bGuiNavigation\\.Tab\\b", "FocusNavigationEvent.TabNavigation")
+        line = line.replaceAll("\\bGuiNavigation\\.Arrow\\b", "FocusNavigationEvent.ArrowNavigation")
+        line = line.replaceAll("\\bGuiNavigation\\b", "FocusNavigationEvent")
+        line = line.replaceAll("\\bNavigationDirection\\b", "ScreenDirection")
+        line = line.replaceAll("\\bGuiNavigationPath\\b", "ComponentPath")
         line = line.replaceAll("\\bNativeImageBackedTexture\\b", "DynamicTexture")
         line = line.replaceAll("\\bServerPlayerEntity\\b", "ServerPlayer")
         line = line.replaceAll("\\bPlayerEntity\\b", "Player")
@@ -468,15 +583,26 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("\\bDrawable\\b", "Renderable")
         line = line.replaceAll("\\bSelectable\\b", "NarratableEntry")
         line = line.replaceAll("\\bClick\\b", "MouseButtonEvent")
+        line = line.replaceAll("\\bInputUtil\\b", "InputConstants")
+        line = line.replaceAll("\\bHoveredTooltipPositioner\\b", "DefaultTooltipPositioner")
         // Standalone Text must come last (after all *Text and Text* names)
         line = line.replaceAll("\\bText\\b", "Component")
 
         // Step 5b: Post-class-name method mappings (need Mojang class names from Step 5)
         line = line.replaceAll("FormattedText\\.plain\\b", "FormattedText.of")
+        line = line.replaceAll("FormattedText\\.concat\\b", "FormattedText.composite")
         line = line.replaceAll("DefaultPlayerSkin\\.getSkin\\b", "DefaultPlayerSkin.get")
         line = line.replaceAll("CommonComponents\\.DONE\\b", "CommonComponents.GUI_DONE")
         line = line.replaceAll("CommonComponents\\.ON\\b", "CommonComponents.OPTION_ON")
         line = line.replaceAll("CommonComponents\\.OFF\\b", "CommonComponents.OPTION_OFF")
+
+        // Step 5c: 26.2 post-mapping fixes (must run after Formatting→ChatFormatting and getColorValue→getColor)
+        if (is26_2) {
+            // 26.2: Minecraft.getInstance().setScreen() → Minecraft.getInstance().gui.setScreen()
+            line = line.replaceAll("Minecraft\\.getInstance\\(\\)\\.setScreen\\(", "Minecraft.getInstance().gui.setScreen(")
+            // 26.2: ChatFormatting.getColor() removed — replace ternary with ChatFormatting enum directly
+            line = line.replaceAll("ChatFormatting\\.([A-Z_]+)\\.getColor\\(\\) != null \\? ChatFormatting\\.\\1\\.getColor\\(\\) : null", 'ChatFormatting.$1')
+        }
 
         // Step 6: Registry static reference + inner class mappings
         line = line.replaceAll("\\bRegistry\\.", "BuiltInRegistries.")
@@ -484,6 +610,11 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("\\bId<", "Type<")
         line = line.replaceAll("ChatType\\.Parameters\\b", "ChatType.Bound")
         line = line.replaceAll("ServerboundClientCommandPacket\\.Mode\\b", "ServerboundClientCommandPacket.Action")
+
+        // Step 7: Fix JNI-style method descriptors (slash-separated paths in @Inject/@Invoker strings)
+        line = line.replaceAll("net/minecraft/text/", "net/minecraft/network/chat/")
+        line = line.replaceAll("net/minecraft/network/message/", "net/minecraft/network/chat/")
+        line = line.replaceAll("net/minecraft/client/gui/hud/", "net/minecraft/client/gui/components/")
 
         return line
     }
