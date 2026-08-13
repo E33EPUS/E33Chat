@@ -8,6 +8,9 @@ import net.minecraft.client.MinecraftClient;
 //#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
 //#endif
+//#if MC >= 12111
+import net.minecraft.client.font.TextRenderer;
+//#endif
 //#if MC < 12000
 import net.minecraft.client.util.math.MatrixStack;
 //#endif
@@ -44,6 +47,30 @@ public abstract class ChatComponentMixin {
     //#endif
 
     //#if MC >= 12000
+    //#if MC >= 12111
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    private void onRender(DrawContext context, TextRenderer textRenderer, int currentTick,
+                          int mouseX, int mouseY, boolean interactable, boolean bool, CallbackInfo ci) {
+        e33chat$shifted = false;
+        if (ChatBubbleClientSetup.config().enabled()) {
+            if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
+                ci.cancel();
+                return;
+            }
+            context.getMatrices().pushMatrix();
+            context.getMatrices().translate(0, -8);
+            e33chat$shifted = true;
+        }
+    }
+
+    @Inject(method = "render", at = @At("RETURN"))
+    private void onRenderReturn(DrawContext context, TextRenderer textRenderer, int currentTick,
+                                int mouseX, int mouseY, boolean interactable, boolean bool, CallbackInfo ci) {
+        if (e33chat$shifted) {
+            context.getMatrices().popMatrix();
+        }
+    }
+    //#else
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void onRender(DrawContext context, int tickDelta, int mouseX, int mouseY,
                           boolean focused, CallbackInfo ci) {
@@ -75,6 +102,7 @@ public abstract class ChatComponentMixin {
             //#endif
         }
     }
+    //#endif
     //#else
     //$$ @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     //$$ private void onRender(MatrixStack context, int ticks, CallbackInfo ci) {
