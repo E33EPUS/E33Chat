@@ -81,6 +81,13 @@ public class BlurRenderer {
     }
     //#endif
 
+    /** Called on disconnect to free GL framebuffer resources. */
+    public static void cleanup() {
+        //#if MC >= 11700
+        destroy();
+        //#endif
+    }
+
     /**
      * Draw a blurred panel background over the given region.
      *
@@ -106,12 +113,13 @@ public class BlurRenderer {
         int fbH = mc.getWindow().getHeight();
         if (w <= 0 || h <= 0) return;
 
-        try {
-            int oldFb = GL30.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-            int[] vp = new int[4];
-            GL30.glGetIntegerv(GL30.GL_VIEWPORT, vp);
-            boolean scissor = GL30.glIsEnabled(GL30.GL_SCISSOR_TEST);
+        int oldFb = GL30.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        int[] vp = new int[4];
+        GL30.glGetIntegerv(GL30.GL_VIEWPORT, vp);
+        boolean scissor = GL30.glIsEnabled(GL30.GL_SCISSOR_TEST);
+        boolean scissorDisabled = false;
 
+        try {
             int s = (int) mc.getWindow().getScaleFactor();
             x *= s; y *= s; w *= s; h *= s;
 
@@ -126,6 +134,7 @@ public class BlurRenderer {
             int glY1 = fbH - y;
 
             GL30.glDisable(GL30.GL_SCISSOR_TEST);
+            scissorDisabled = true;
 
             // Full frame: copy panel region -> 5-level downsample -> upsample,
             // fbo0 caches the latest blur result; intermediate frames skip the
@@ -143,17 +152,13 @@ public class BlurRenderer {
 
                 blit(fbo4, 0, 0, w / 16, h / 16, fbo3, 0, 0, w / 8, h / 8);
                 blit(fbo3, 0, 0, w / 8, h / 8,   fbo2, 0, 0, w / 4, h / 4);
-                blit(fbo2, 0, 0, w / 4, h / 4,   fbo1, 0, 0, w / 2, h / 2);
+                blit(fbo2, 0, 0, w / 4, h / 4,   fbo1, 0,0, w / 2, h / 2);
                 blit(fbo1, 0, 0, w / 2, h / 2,   fbo0, 0, 0, w, h);
                 recreated = false;
             }
 
             // Full frame: write back the just-generated blur; intermediate: re-blit previous blur cache
             blit(fbo0, 0, 0, w, h, mainFb, x, glY0, w, h);
-
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, oldFb);
-            GL30.glViewport(vp[0], vp[1], vp[2], vp[3]);
-            if (scissor) GL30.glEnable(GL30.GL_SCISSOR_TEST);
         } catch (Throwable t) {
             //#if MC >= 26000
             //$$ // 26.x: the GL fallback overlay looks like an extra world shadow
@@ -163,6 +168,13 @@ public class BlurRenderer {
             // Fallback to overlay if GL operations fail
             overlayFallback(g, guiX, guiY, guiW, guiH);
             //#endif
+        } finally {
+            // Always restore GL state — if a blit/ensure throws after binding
+            // a custom FBO, leaving it bound causes all subsequent rendering
+            // to write to the wrong framebuffer (black screen).
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, oldFb);
+            GL30.glViewport(vp[0], vp[1], vp[2], vp[3]);
+            if (scissorDisabled && scissor) GL30.glEnable(GL30.GL_SCISSOR_TEST);
         }
         //#else
         //$$ overlayFallback(g, x, y, w, h);

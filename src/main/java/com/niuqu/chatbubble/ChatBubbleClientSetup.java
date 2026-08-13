@@ -30,6 +30,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
     private static ChatBubbleConfig config = ChatBubbleConfig.defaults();
     private static Path configPath;
     private static boolean leftWasDown;
+    private static boolean wasInWorld;
 
     public static ChatBubbleConfig config() { return config; }
 
@@ -98,6 +99,15 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ImageLoader.tick();
+
+            // Clean up GL resources when leaving a world — BlurRenderer FBOs must
+            // be freed to prevent stale framebuffer binding on disconnect.
+            boolean inWorld = client.world != null && client.player != null;
+            if (wasInWorld && !inWorld) {
+                BlurRenderer.cleanup();
+            }
+            wasInWorld = inWorld;
+
             // 纹理全部走 drawTexture(Identifier) 懒加载（getTexture 自动 new ResourceTexture），F3+T 重载后自动重读资源包新 PNG
             if (!config.enabled()) return;
 

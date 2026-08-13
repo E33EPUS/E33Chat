@@ -2951,7 +2951,9 @@ public class ChatBubbleScreen extends ChatScreen {
     public void removed() {
         if (ChatBubbleClientSetup.config().preserveInput()) savedInput = chatField.getText();
         ChatMessageStore.setScreenOpen(false);
-        client.inGameHud.getChatHud().reset();
+        if (client != null && client.inGameHud != null) {
+            client.inGameHud.getChatHud().reset();
+        }
     }
 
     public void onClose() {
