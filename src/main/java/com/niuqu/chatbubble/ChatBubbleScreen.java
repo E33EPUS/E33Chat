@@ -53,7 +53,6 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int TITLE_H = 24;
     private int titleY, msgTop, msgBottom, barTop;
     private static final int PAD = 8;
-    private static final int AVATAR = 20;
     private static final int BUBBLE_PAD_X = 6;
     private static final int BUBBLE_PAD_Y = 4;
     private static final int NAME_H = 10;
@@ -913,10 +912,10 @@ public class ChatBubbleScreen extends ChatScreen {
             for (int[] r : bubbleRects) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem()) continue;
-                int avatarX = msg.isOwn() ? r[0] + r[2] + 4 : r[0] - AVATAR - 4;
+                int avatarX = msg.isOwn() ? r[0] + r[2] + 4 : r[0] - Appearance.avatarSize() - 4;
                 int avatarY = msg.replyContent() != null ? r[1] - font.lineHeight - 2 : r[1] - NAME_H;
-                if (mouseX >= avatarX && mouseX <= avatarX + AVATAR
-                    && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
+                if (mouseX >= avatarX && mouseX <= avatarX + Appearance.avatarSize()
+                    && mouseY >= avatarY && mouseY <= avatarY + Appearance.avatarSize()) {
                     String mentionName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
                         ? msg.rawPlayerName() : msg.senderName().getString();
                     String mention = "@" + mentionName + " ";
@@ -932,10 +931,10 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem() || msg.isOwn()) continue;
                 if (msg.rawPlayerName() == null || msg.rawPlayerName().isEmpty()) continue;
-                int avatarX = r[0] - AVATAR - 4;
+                int avatarX = r[0] - Appearance.avatarSize() - 4;
                 int avatarY = msg.replyContent() != null ? r[1] - font.lineHeight - 2 : r[1] - NAME_H;
-                if (mouseX >= avatarX && mouseX <= avatarX + AVATAR
-                    && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
+                if (mouseX >= avatarX && mouseX <= avatarX + Appearance.avatarSize()
+                    && mouseY >= avatarY && mouseY <= avatarY + Appearance.avatarSize()) {
                     contextAvatarIndex = r[4];
                     contextAvatarX = (int) mouseX;
                     contextAvatarY = (int) mouseY;
@@ -1566,12 +1565,12 @@ public class ChatBubbleScreen extends ChatScreen {
             if (mScale != 1f) {
                 // Bubble top-left for the ZOOM pivot (mirrors ChatMessageRenderer's layout)
                 int zW = 0;
-                for (var zl : ChatMessageRenderer.wrapContent(msg.content(), font, panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2 - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16))
+                for (var zl : ChatMessageRenderer.wrapContent(msg.content(), font, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16))
                     zW = Math.max(zW, font.width(zl));
                 int zBubbleW = zW + ChatMessageRenderer.BUBBLE_PAD_X * 2;
                 int zBubbleX = msg.isOwn()
-                    ? panelX + panelW - ChatLayout.PAD - ChatMessageRenderer.AVATAR - 4 - zBubbleW
-                    : panelX + ChatLayout.PAD + ChatMessageRenderer.AVATAR + 4;
+                    ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() - 4 - zBubbleW
+                    : panelX + ChatLayout.PAD + Appearance.avatarSize() + 4;
                 int zBubbleY = screenY + 10; // ChatMessageRenderer.NAME_H (package-private)
                 g.pose().translate(zBubbleX + zBubbleW / 2f, zBubbleY, 0);
                 g.pose().scale(mScale, mScale, 1f);
@@ -1624,7 +1623,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private int getMsgHeight(ChatMessageStore.ChatMessage msg) {
         Integer cached = msgHeightCache.get(msg);
         if (cached != null) return cached;
-        int bubbleMaxW = panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2
+        int bubbleMaxW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2
             - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
         int h = ChatMessageRenderer.msgHeight(msg, font, bubbleMaxW, panelW);
         msgHeightCache.put(msg, h);
@@ -1635,7 +1634,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private void renderBubble(GuiGraphics g, ChatMessageStore.ChatMessage msg,
                                int index, int baseY, int mouseX, int mouseY, float alpha) {
         boolean own = msg.isOwn();
-        int bubbleMaxW = panelW - ChatMessageRenderer.AVATAR - ChatLayout.PAD * 2
+        int bubbleMaxW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2
             - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
         int ownBg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_BUBBLE_COLOR.get(), 0xFF1E90FF);
         int otherBg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_BUBBLE_COLOR.get(), c().contextHover());

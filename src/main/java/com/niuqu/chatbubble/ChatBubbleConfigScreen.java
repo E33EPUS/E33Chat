@@ -160,6 +160,8 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleConfig.OTHER_TEXT_COLOR::get));
         chat.add(new Opt("e33chat.config.message_gap",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.MESSAGE_GAP.get()), 0, 12, 2, ChatBubbleConfig.MESSAGE_GAP::set), null));
+        chat.add(new Opt("e33chat.config.avatar_size",
+            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.AVATAR_SIZE.get()), 12, 32, 2, ChatBubbleConfig.AVATAR_SIZE::set), null));
         chat.add(Opt.header("e33chat.config.section.msgdisplay"));
         chat.add(new Opt("e33chat.config.enabled", y -> mkBoolButton(y, ChatBubbleConfig.ENABLED), null));
         chat.add(new Opt("e33chat.config.system_chat_as_bubble", y -> mkBoolButton(y, ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE), null));
