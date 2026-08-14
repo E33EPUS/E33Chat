@@ -103,10 +103,18 @@ public class ChatBubbleMod implements ModInitializer {
                     return;
                 }
                 DiskMediaStore store = mediaStore(context.server());
-                String result = payload.index() == 0
-                    ? store.beginUpload(payload.uploadId(), player.getName().getString(),
-                        payload.totalChunks(), payload.totalBytes(), payload.contentType())
-                    : store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                String result;
+                if (payload.index() == 0) {
+                    result = store.beginUpload(payload.uploadId(), player.getName().getString(),
+                        payload.totalChunks(), payload.totalBytes(), payload.contentType());
+                    if (result == null) {
+                        // Chunk 0 also carries data — feed it through acceptChunk so a
+                        // single-chunk upload completes (and acks) instead of hanging.
+                        result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                    }
+                } else {
+                    result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                }
                 if (result == null) return; // upload still in progress
                 store.discardUpload(payload.uploadId());
                 if (DiskMediaStore.isValidMediaId(result)) {
