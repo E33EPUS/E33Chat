@@ -79,7 +79,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
     private String panelBgColor, accentColor;
-    private int uiCornerRadius, messageGap;
+    private int uiCornerRadius, messageGap, avatarSize;
     private List<String> sidebarHidePatterns;
     private List<String> blockedPlayers;
 
@@ -171,6 +171,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> accentColor, v -> accentColor = v));
         tracked.add(track(() -> uiCornerRadius, v -> uiCornerRadius = v));
         tracked.add(track(() -> messageGap, v -> messageGap = v));
+        tracked.add(track(() -> avatarSize, v -> avatarSize = v));
         tracked.add(track(() -> panelWidth, v -> panelWidth = v));
         tracked.add(track(() -> blurEnabled, v -> blurEnabled = v));
         tracked.add(track(() -> panelOpacity, v -> panelOpacity = v));
@@ -228,7 +229,7 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().uploadResponse(),
             panelBgColor.isEmpty() ? null : panelBgColor,
             accentColor.isEmpty() ? null : accentColor,
-            uiCornerRadius, messageGap));
+            uiCornerRadius, messageGap, avatarSize));
     }
 
     private void loadFromConfig() {
@@ -270,6 +271,7 @@ public class ChatBubbleConfigScreen extends Screen {
         accentColor = cfg.accentColor() != null ? cfg.accentColor() : "";
         uiCornerRadius = cfg.uiCornerRadius() != null ? cfg.uiCornerRadius() : 4;
         messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
+        avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
     }
 
     // ---- ChatScrollbar geometry inline ----
@@ -430,6 +432,8 @@ public class ChatBubbleConfigScreen extends Screen {
             () -> otherTextColor));
         chat.add(new Opt("e33chat.config.message_gap",
             y -> mkIntBox(y, String.valueOf(messageGap), 0, 12, 2, v -> messageGap = v), null));
+        chat.add(new Opt("e33chat.config.avatar_size",
+            y -> mkIntBox(y, String.valueOf(avatarSize), 12, 32, 2, v -> avatarSize = v), null));
         chat.add(Opt.header("e33chat.config.section.msgdisplay"));
         chat.add(new Opt("e33chat.config.enabled", y -> mkBoolButton(y, () -> enabled, v -> enabled = v), null));
         chat.add(new Opt("e33chat.config.system_chat_as_bubble", y -> mkBoolButton(y, () -> systemChatAsBubble, v -> systemChatAsBubble = v), null));

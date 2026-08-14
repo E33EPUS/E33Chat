@@ -47,7 +47,6 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int TITLE_H = 24;
     private int titleY, msgTop, msgBottom, barTop;
     private static final int PAD = 8;
-    private static final int AVATAR = 20;
     private static final int BUBBLE_PAD_X = 6;
     private static final int BUBBLE_PAD_Y = 4;
     private static final int NAME_H = 10;
@@ -916,10 +915,10 @@ public class ChatBubbleScreen extends ChatScreen {
             for (int[] r : bubbleRects) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem()) continue;
-                int avatarX = msg.isOwn() ? r[0] + r[2] + 4 : r[0] - AVATAR - 4;
+                int avatarX = msg.isOwn() ? r[0] + r[2] + 4 : r[0] - Appearance.avatarSize() - 4;
                 int avatarY = msg.replyContent() != null ? r[1] - textRenderer.fontHeight - 2 : r[1] - NAME_H;
-                if (mouseX >= avatarX && mouseX <= avatarX + AVATAR
-                    && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
+                if (mouseX >= avatarX && mouseX <= avatarX + Appearance.avatarSize()
+                    && mouseY >= avatarY && mouseY <= avatarY + Appearance.avatarSize()) {
                     String mentionName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
                         ? msg.rawPlayerName() : msg.senderName().getString();
                     chatField.setText(chatField.getText() + "@" + mentionName + " ");
@@ -935,10 +934,10 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem() || msg.isOwn()) continue;
                 if (msg.rawPlayerName() == null || msg.rawPlayerName().isEmpty()) continue;
-                int avatarX = r[0] - AVATAR - 4;
+                int avatarX = r[0] - Appearance.avatarSize() - 4;
                 int avatarY = msg.replyContent() != null ? r[1] - textRenderer.fontHeight - 2 : r[1] - NAME_H;
-                if (mouseX >= avatarX && mouseX <= avatarX + AVATAR
-                    && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
+                if (mouseX >= avatarX && mouseX <= avatarX + Appearance.avatarSize()
+                    && mouseY >= avatarY && mouseY <= avatarY + Appearance.avatarSize()) {
                     contextAvatarIndex = r[4]; contextAvatarX = (int) mouseX; contextAvatarY = (int) mouseY;
                     return true;
                 }
@@ -1560,12 +1559,12 @@ public class ChatBubbleScreen extends ChatScreen {
             if (mScale != 1f) {
                 // Bubble top-left for the ZOOM pivot (mirrors renderBubble's layout)
                 int zW = 0;
-                for (var zl : wrapContent(msg.content(), panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16))
+                for (var zl : wrapContent(msg.content(), panelW - Appearance.avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16))
                     zW = Math.max(zW, textRenderer.getWidth(zl));
                 int zBubbleW = zW + BUBBLE_PAD_X * 2;
                 int zBubbleX = msg.isOwn()
-                    ? panelX + panelW - PAD - AVATAR - 4 - zBubbleW
-                    : panelX + PAD + AVATAR + 4;
+                    ? panelX + panelW - PAD - Appearance.avatarSize() - 4 - zBubbleW
+                    : panelX + PAD + Appearance.avatarSize() + 4;
                 int zBubbleY = screenY + NAME_H;
                 g.getMatrices().translate(zBubbleX + zBubbleW / 2f, zBubbleY, 0);
                 g.getMatrices().scale(mScale, mScale, 1f);
@@ -1669,7 +1668,7 @@ public class ChatBubbleScreen extends ChatScreen {
             List<OrderedText> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
             h = lines.size() * textRenderer.fontHeight + 4;
         } else {
-            int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
+            int bubbleMaxW = panelW - Appearance.avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
             BracketCodec.ParseResult parsed = parseImages(msg);
             if (!parsed.images().isEmpty()
                     && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
@@ -1712,7 +1711,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     /** Height in px for one bubble-less image (state-dependent, panel-clamped, never upscaled). */
     private int imageEdgeHeight(String url) {
-        int maxW = Math.max(80, panelW - AVATAR - PAD * 2 - 16);
+        int maxW = Math.max(80, panelW - Appearance.avatarSize() - PAD * 2 - 16);
         ImageEntry entry = ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED
                 && entry.width() > 0 && entry.height() > 0) {
@@ -1739,7 +1738,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         boolean own = msg.isOwn();
-        int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
+        int bubbleMaxW = panelW - Appearance.avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
         BracketCodec.ParseResult parsed = parseImages(msg);
 
         // E33Emote-only messages render bubble-less: max 64px, aligned by direction (QQ style).
@@ -1766,17 +1765,17 @@ public class ChatBubbleScreen extends ChatScreen {
 
         int avatarX, bubbleX;
         if (own) {
-            avatarX = panelX + panelW - PAD - AVATAR;
+            avatarX = panelX + panelW - PAD - Appearance.avatarSize();
             bubbleX = avatarX - 4 - bubbleW;
         } else {
             avatarX = panelX + PAD;
-            bubbleX = avatarX + AVATAR + 4;
+            bubbleX = avatarX + Appearance.avatarSize() + 4;
         }
 
         int nameY = baseY;
 
         if (!msg.senderName().getString().isEmpty()) {
-            int maxNameW = panelW - AVATAR - PAD * 2 - 20;
+            int maxNameW = panelW - Appearance.avatarSize() - PAD * 2 - 20;
             Text sn = msg.senderName();
             OrderedText nameSeq;
             if (textRenderer.getWidth(sn) > maxNameW) {
@@ -1825,7 +1824,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         if (msg.replyContent() != null) {
-            int quoteMaxW = panelW - PAD * 2 - AVATAR - 24;
+            int quoteMaxW = panelW - PAD * 2 - Appearance.avatarSize() - 24;
             String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
             String quoteDisplay = textRenderer.trimToWidth(quoteText, quoteMaxW - 10);
             if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
@@ -1852,10 +1851,10 @@ public class ChatBubbleScreen extends ChatScreen {
      * (320px long-edge, aspect preserved, stacked vertically, direction-aligned). */
     private void renderNoBubbleMessage(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY,
             boolean own, float alpha, BracketCodec.ParseResult parsed, List<OrderedText> lines) {
-        int avatarX = own ? panelX + panelW - PAD - AVATAR : panelX + PAD;
+        int avatarX = own ? panelX + panelW - PAD - Appearance.avatarSize() : panelX + PAD;
 
         if (!msg.senderName().getString().isEmpty()) {
-            int maxNameW = panelW - AVATAR - PAD * 2 - 20;
+            int maxNameW = panelW - Appearance.avatarSize() - PAD * 2 - 20;
             Text sn = msg.senderName();
             OrderedText nameSeq;
             if (textRenderer.getWidth(sn) > maxNameW) {
@@ -1866,7 +1865,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 nameSeq = sn.asOrderedText();
             }
             int nameW = textRenderer.getWidth(nameSeq);
-            int startX = own ? (avatarX - 8 - nameW) : (avatarX + AVATAR + 4);
+            int startX = own ? (avatarX - 8 - nameW) : (avatarX + Appearance.avatarSize() + 4);
             g.drawText(textRenderer, nameSeq, startX, baseY,
                 ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), false);
         }
@@ -1876,7 +1875,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         int maxTextW = 0;
         for (var line : lines) maxTextW = Math.max(maxTextW, textRenderer.getWidth(line));
-        int textX = own ? (avatarX - 8 - maxTextW) : (avatarX + AVATAR + 4);
+        int textX = own ? (avatarX - 8 - maxTextW) : (avatarX + Appearance.avatarSize() + 4);
 
         int y = baseY + NAME_H;
         if (!lines.isEmpty()) {
@@ -1892,7 +1891,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         // Long-edge clamped to the panel's usable width so a narrow window/guiScale
         // can never push the image off-screen; small images keep their real size.
-        int maxImgW = Math.max(80, panelW - AVATAR - PAD * 2 - 16);
+        int maxImgW = Math.max(80, panelW - Appearance.avatarSize() - PAD * 2 - 16);
 
         for (var ref : parsed.images()) {
             int w = maxImgW, h = maxImgW;
@@ -1905,7 +1904,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 w = Math.max(1, (int) (entry.width() * ratio));
                 h = Math.max(1, (int) (entry.height() * ratio));
             }
-            int imgX = own ? (avatarX - 8 - w) : (avatarX + AVATAR + 4);
+            int imgX = own ? (avatarX - 8 - w) : (avatarX + Appearance.avatarSize() + 4);
             if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
                 g.drawTexture(entry.textureId(), imgX, y, w, h,
                     0, 0, entry.width(), entry.height(), entry.width(), entry.height());
@@ -1930,18 +1929,18 @@ public class ChatBubbleScreen extends ChatScreen {
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
-            int lx = own ? (avatarX - 8 - textRenderer.getWidth(label) - 3) : (avatarX + AVATAR + 4 + 3);
+            int lx = own ? (avatarX - 8 - textRenderer.getWidth(label) - 3) : (avatarX + Appearance.avatarSize() + 4 + 3);
             g.drawText(textRenderer, label, lx, baseY + NAME_H + 2,
                 ChatBubbleTheme.alphaBlend(c().duplicateLabel(), (int) (255 * alpha)), false);
         }
 
         if (msg.replyContent() != null) {
-            int quoteMaxW = panelW - PAD * 2 - AVATAR - 24;
+            int quoteMaxW = panelW - PAD * 2 - Appearance.avatarSize() - 24;
             String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
             String quoteDisplay = textRenderer.trimToWidth(quoteText, quoteMaxW - 10);
             if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
             int quoteW = Math.min(textRenderer.getWidth(quoteDisplay) + 8, quoteMaxW);
-            int quoteX = own ? (avatarX - 8 - quoteW) : (avatarX + AVATAR + 4);
+            int quoteX = own ? (avatarX - 8 - quoteW) : (avatarX + Appearance.avatarSize() + 4);
             if (quoteX < panelX + PAD) quoteX = panelX + PAD;
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
             RoundRectRenderer.fill(g, quoteX, y, quoteX + quoteW, y + textRenderer.fontHeight + 4, 3,
@@ -1951,7 +1950,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         // Hit-test region for avatar clicks / context menus: the message span.
-        bubbleRects.add(new int[]{own ? avatarX - 8 - maxTextW : avatarX + AVATAR + 4,
+        bubbleRects.add(new int[]{own ? avatarX - 8 - maxTextW : avatarX + Appearance.avatarSize() + 4,
             baseY, Math.max(maxTextW, maxImgW), y - baseY, index});
     }
 
@@ -1961,11 +1960,11 @@ public class ChatBubbleScreen extends ChatScreen {
         if (parsed.images().isEmpty()) return;
         BracketCodec.ImageRef ref = parsed.images().get(0);
 
-        int avatarX = own ? panelX + panelW - PAD - AVATAR : panelX + PAD;
+        int avatarX = own ? panelX + panelW - PAD - Appearance.avatarSize() : panelX + PAD;
         int nameY = baseY;
 
         if (!msg.senderName().getString().isEmpty()) {
-            int maxNameW = panelW - AVATAR - PAD * 2 - 20;
+            int maxNameW = panelW - Appearance.avatarSize() - PAD * 2 - 20;
             Text sn = msg.senderName();
             OrderedText nameSeq;
             if (textRenderer.getWidth(sn) > maxNameW) {
@@ -1976,7 +1975,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 nameSeq = sn.asOrderedText();
             }
             int nameW = textRenderer.getWidth(nameSeq);
-            int startX = own ? (avatarX - 8 - nameW) : (avatarX + AVATAR + 4);
+            int startX = own ? (avatarX - 8 - nameW) : (avatarX + Appearance.avatarSize() + 4);
             g.drawText(textRenderer, nameSeq, startX, nameY,
                 ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), false);
         }
@@ -1985,7 +1984,7 @@ public class ChatBubbleScreen extends ChatScreen {
         drawPlayerHead(g, skin, avatarX, baseY, 20, 22, alpha);
 
         int emoteY = baseY + NAME_H + 2;
-        int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - AVATAR - PAD * 2 - 16));
+        int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - PAD * 2 - 16));
         int w = maxE, h = maxE;
         ImageEntry entry = ImageLoader.getOrLoad(ref.url());
         if (entry != null && entry.state() == ImageEntry.State.LOADED
@@ -1996,7 +1995,7 @@ public class ChatBubbleScreen extends ChatScreen {
             w = Math.max(1, (int) (entry.width() * ratio));
             h = Math.max(1, (int) (entry.height() * ratio));
         }
-        int emoteX = own ? (avatarX - 8 - w) : (avatarX + AVATAR + 4);
+        int emoteX = own ? (avatarX - 8 - w) : (avatarX + Appearance.avatarSize() + 4);
         if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
             g.drawTexture(entry.textureId(), emoteX, emoteY, w, h,
                 0, 0, entry.width(), entry.height(), entry.width(), entry.height());

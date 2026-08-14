@@ -68,6 +68,8 @@
   "e33chat.config.ui_corner_radius.desc": "右键菜单/toast 等 UI 元素的圆角大小（0–12，0 为直角）",
   "e33chat.config.message_gap": "消息间距",
   "e33chat.config.message_gap.desc": "聊天消息之间的垂直间距（像素）",
+  "e33chat.config.avatar_size": "头像大小",
+  "e33chat.config.avatar_size.desc": "聊天气泡中头像的大小（12–32 像素）",
   "e33chat.config.system_chat_as_bubble": "系统消息渲染为聊天气泡",
   "e33chat.config.system_chat_as_bubble.desc": "把系统消息也显示成聊天气泡，而非灰色小字",
   "e33chat.config.anti_spam": "防刷屏",

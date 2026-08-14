@@ -83,7 +83,8 @@ public final class ConfigManager {
             c.panelBgColor() != null ? c.panelBgColor() : d.panelBgColor(),
             c.accentColor() != null ? c.accentColor() : d.accentColor(),
             c.uiCornerRadius() != null ? c.uiCornerRadius() : d.uiCornerRadius(),
-            c.messageGap() != null ? c.messageGap() : d.messageGap());
+            c.messageGap() != null ? c.messageGap() : d.messageGap(),
+            c.avatarSize() != null ? c.avatarSize() : d.avatarSize());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {
