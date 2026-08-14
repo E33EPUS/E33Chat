@@ -234,7 +234,7 @@
   "e33chat.upload.tooltip": "选择本地图片上传并插入消息（也可直接 Ctrl+V 粘贴剪贴板图片）",
   "e33chat.upload.failed": "上传失败",
   "e33chat.upload.wait": "图片上传中，稍候再发",
-  "e33chat.emoji.tab_custom": "自定义",
+  "e33chat.emoji.tab_custom": "表情包",
   "e33chat.config.section.upload": "图片上传",
   "e33chat.upload.start": "上传中…"
 }
