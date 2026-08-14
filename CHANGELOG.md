@@ -12,6 +12,16 @@
 - **Configurable message gap & avatar size**: new "Message Gap" (Chat → Message Display) and "Avatar Size" (Chat → Panel, 12–32 px) options; avatar size affects both layout and render size
 - **Server media hosting toggle**: the server-config GUI's General tab gains a "Server Media Hosting" toggle (default on); off = images never reach the server and go through the third-party host only (previously config-file only)
 
+**修复（2.3.13 补发，三端同步）**
+- 上下栏背景：渐显渐隐改为线性曲线（150ms，跟面板开合动画同步）——此前 easeOutCubic 前 75ms 就接近不透明，观感为"瞬间出现/消失"
+- 滚动条渐显修复（此前只显示最后一帧）：改用纯色填充渲染，绕开消息渲染路径的 blend/flush 状态污染；明/暗主题色保留
+- 滚动后滚动条短暂保持显示恢复正常（时间戳时钟错配修复）
+
+**Fixes (2.3.13 hotfix, all loaders)**
+- Title/bottom bar fade: linear curve (150ms, synced with the panel animation) — the previous easeOutCubic reached ~87% opacity within the first 75ms and looked like an instant pop-in/out
+- Scrollbar fade-in fixed (it used to show only the final frame): now rendered with solid fill to bypass blend/flush state pollution from the message render path; dark/light theme colors preserved
+- Scrollbar now stays visible briefly after scrolling (clock mismatch fix)
+
 ## v2.3.12
 
 **新功能（2.3.12，三端同步：Fabric / Forge / NeoForge）**

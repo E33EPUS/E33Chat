@@ -1,7 +1,7 @@
 package com.niuqu.chatbubble;
 
 /**
- * 外观快照：从主题预设 + 配置覆盖生成一帧用的颜色集合。
+ * 外观快照：当前主题的颜色集合统一取色入口。
  * 消费点（ChatBubbleScreen.c() 等）只读快照，不再散落魔法数字。
  */
 public final class Appearance {
