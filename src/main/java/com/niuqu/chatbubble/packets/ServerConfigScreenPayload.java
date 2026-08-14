@@ -18,6 +18,7 @@ import java.util.List;
  * register them) never verifies a reference to the client-only Screen class.
  */
 public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
+                                        boolean mediaEnabled,
                                         List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPacketPayload {
 
@@ -30,9 +31,10 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
             boolean useTpa = buf.readBoolean();
             boolean history = buf.readBoolean();
             boolean debug = buf.readBoolean();
+            boolean media = buf.readBoolean();
             List<String> chat = ConfigSyncV2Payload.readList(buf);
             List<String> whisper = ConfigSyncV2Payload.readList(buf);
-            return new ServerConfigScreenPayload(useTpa, history, debug, chat, whisper);
+            return new ServerConfigScreenPayload(useTpa, history, debug, media, chat, whisper);
         }
 
         @Override
@@ -40,6 +42,7 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
             buf.writeBoolean(payload.useTpa());
             buf.writeBoolean(payload.historyEnabled());
             buf.writeBoolean(payload.templateDebug());
+            buf.writeBoolean(payload.mediaEnabled());
             ConfigSyncV2Payload.writeList(buf, payload.chatTemplates());
             ConfigSyncV2Payload.writeList(buf, payload.whisperTemplates());
         }

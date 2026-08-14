@@ -3,12 +3,14 @@
 ## v2.3.13
 
 **新功能（2.3.13，三端同步：Fabric / Forge / NeoForge）**
-- **外观快照化**：聊天界面颜色从硬编码的 DARK/LIGHT 枚举升级为「外观快照」，渲染层统一从快照取色，颜色/圆角/间距/头像大小不再散落在各渲染方法里
-- **自定义主题**：新增「面板背景色」「强调色」两项颜色覆盖 + 「UI 圆角半径」「消息间距」「头像大小」三项布局配置（设置 → 聊天框 → 面板），留空自动回落 DARK/LIGHT 预设
+- **外观快照化**：聊天界面颜色统一为「外观快照」取色入口（Appearance），渲染层不再散落硬编码取色
+- **消息间距 / 头像大小可调**：新增「消息间距」（聊天框 → 消息显示）与「头像大小」（聊天框 → 面板，12–32 像素）；头像大小同时作用于布局与渲染尺寸
+- **服务端图片托管开关**：服务端配置界面「常规」分类新增「服务端图片托管」开关（默认开）；关闭后图片不进服务端，只能走第三方图床（此前只能手改配置文件）
 
 **New (2.3.13, all loaders: Fabric / Forge / NeoForge)**
-- **Appearance snapshot**: chat UI colors upgraded from the hardcoded DARK/LIGHT enum to a config-driven snapshot; renderers read the snapshot instead of magic numbers scattered across render methods
-- **Custom theme**: new "Panel Background Color" and "Accent Color" overrides plus "UI Corner Radius", "Message Gap", and "Avatar Size" options (Settings → Chat → Panel); empty falls back to the DARK/LIGHT preset
+- **Appearance snapshot**: chat UI colors unified behind an appearance snapshot entry point; renderers no longer read scattered hardcoded values
+- **Configurable message gap & avatar size**: new "Message Gap" (Chat → Message Display) and "Avatar Size" (Chat → Panel, 12–32 px) options; avatar size affects both layout and render size
+- **Server media hosting toggle**: the server-config GUI's General tab gains a "Server Media Hosting" toggle (default on); off = images never reach the server and go through the third-party host only (previously config-file only)
 
 ## v2.3.12
 
