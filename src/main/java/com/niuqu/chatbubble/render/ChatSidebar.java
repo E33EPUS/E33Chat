@@ -23,7 +23,12 @@ public final class ChatSidebar {
     private static final int SEARCH_H = 14;
     private static final UUID NIL_UUID = new UUID(0, 0);
 
-    private static final Map<UUID, ResourceLocation> skinCache = new HashMap<>();
+    private static final Map<UUID, ResourceLocation> skinCache = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<UUID, ResourceLocation> eldest) {
+            return size() > 256;
+        }
+    };
 
     private ChatSidebar() {}
 
