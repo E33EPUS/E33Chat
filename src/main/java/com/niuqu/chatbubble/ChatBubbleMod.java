@@ -9,6 +9,11 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.fml.loading.FMLPaths;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 @Mod(ChatBubbleMod.MODID)
 public class ChatBubbleMod {
@@ -25,8 +30,9 @@ public class ChatBubbleMod {
         // ChatBubbleClientSetup still touches client-only classes, so it stays
         // in the FMLClientSetupEvent handler below.
         if (FMLEnvironment.dist.isClient()) {
+            migrateClientConfig();
             ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT,
-                ChatBubbleConfig.CLIENT_CONFIG, "e33chat-client.toml");
+                ChatBubbleConfig.CLIENT_CONFIG, "e33chat/e33chat-client.toml");
         }
 
         // FMLClientSetupEvent fires only on the client, so ChatBubbleClientSetup
@@ -49,6 +55,24 @@ public class ChatBubbleMod {
 
         MinecraftForge.EVENT_BUS.register(new ChatServerListener());
         MinecraftForge.EVENT_BUS.register(new com.niuqu.chatbubble.command.E33ChatCommands());
+    }
+
+    // 2.3.12: client config moved from config/e33chat-client.toml to
+    // config/e33chat/e33chat-client.toml (next to the emote pack). Runs before
+    // registerConfig so Forge loads the migrated file on first start.
+    private static void migrateClientConfig() {
+        Path configDir = FMLPaths.CONFIGDIR.get();
+        Path oldPath = configDir.resolve("e33chat-client.toml");
+        Path newPath = configDir.resolve("e33chat").resolve("e33chat-client.toml");
+        if (!Files.exists(oldPath) || Files.exists(newPath)) return;
+        try {
+            Files.createDirectories(newPath.getParent());
+            Files.move(oldPath, newPath, StandardCopyOption.REPLACE_EXISTING);
+            com.mojang.logging.LogUtils.getLogger().info(
+                "[e33chat] Migrated config from config/e33chat-client.toml to config/e33chat/e33chat-client.toml");
+        } catch (Exception e) {
+            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Config migration failed", e);
+        }
     }
 
     // Captured at config-load time; the /e33chat template commands use it to

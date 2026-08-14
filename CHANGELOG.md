@@ -8,7 +8,7 @@
 - **图床切换**：默认图床上传从 Litterbox 改为 uguu.se——Litterbox 的下载 CDN 在部分网络不可达（图传得上去但永远加载不出来），uguu.se 上传/下载全链路可达；自定义图床的响应解析新增 JSON 路径语法（如 `json:files[0].url`）
 - **上传链路重构**：上传任务排队串行（最多 8 个），回车一次即可——上传完成后自动发送，不再需要按第二次回车；上传失败恢复输入框内容，可重试
 - **配置修复**：音量 0（静音）/面板透明度 0/圆角 0 等合法设置不再被重置为默认值；配置写入改为原子替换（游戏崩溃不再损坏配置文件，损坏文件保留 .bak 供恢复）
-- **配置目录**：客户端配置迁移到 `config/e33chat/client.json`（旧路径自动迁移，设置不丢）；聊天历史仍在 `runDir/e33chat/history/`
+- **配置目录**：客户端配置统一到 `config/e33chat/e33chat-client.toml`（Forge / NeoForge）与 `config/e33chat/e33chat-client.json`（Fabric），旧路径自动迁移，设置不丢；聊天历史仍在 `runDir/e33chat/history/`
 
 **New (2.3.12, all loaders: Fabric / Forge / NeoForge)**
 - **Custom emote pack**: the emoji panel gains an "Emote Pack" tab loading up to 10 images from `config/e33chat/emotes/` (png/jpg/gif first frame); clicking an emote sends it immediately as a bubble-less small image; hover shows a delete badge; the "+" slot opens the OS file picker; with the emote tab open, Ctrl+V adds the clipboard image to the pack
@@ -16,7 +16,7 @@
 - **Default image host switched**: uploads now go to uguu.se by default — Litterbox's download CDN is unreachable on some networks (uploads succeed but the image can never load), uguu.se is reachable end-to-end; custom hosts gain JSON path response parsing (e.g. `json:files[0].url`)
 - **Upload pipeline rework**: uploads queue and run serially (up to 8), and one Enter press is enough — the message sends automatically once the upload finishes; failed uploads restore the input text so you can retry
 - **Config fixes**: zero values (muted volume / fully transparent panel / square corners) are no longer reset to defaults; config writes are atomic (a crash can no longer corrupt the file, and a corrupt file is kept as .bak)
-- **Config dir**: client config moved to `config/e33chat/client.json` (auto-migrated from legacy paths, nothing lost); chat history stays in `runDir/e33chat/history/`
+- **Config dir**: client config unified to `config/e33chat/e33chat-client.toml` (Forge / NeoForge) and `config/e33chat/e33chat-client.json` (Fabric), auto-migrated from legacy paths, nothing lost; chat history stays in `runDir/e33chat/history/`
 
 **修复（2.3.12 补发）**
 - 修复服务器媒体直传单块图（<512KB）永不回执、客户端上传挂起 30 秒
