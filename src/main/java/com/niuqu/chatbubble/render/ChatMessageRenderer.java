@@ -1,10 +1,12 @@
 package com.niuqu.chatbubble.render;
 
+import com.niuqu.chatbubble.Appearance;
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.UiLayout;
+import com.niuqu.chatbubble.UiPrimitives;
 import com.niuqu.chatbubble.image.BracketCodec;
 import com.niuqu.chatbubble.image.ImageEntry;
 import com.niuqu.chatbubble.image.ImageLoader;
@@ -27,7 +29,6 @@ public final class ChatMessageRenderer {
     public static final int AVATAR = 20;
     public static final int BUBBLE_PAD_X = 6;
     public static final int BUBBLE_PAD_Y = 4;
-    static final int GAP = 6;
     static final int NAME_H = 10;
     static final int TIME_SEP_H = 14;
 
@@ -288,7 +289,7 @@ public final class ChatMessageRenderer {
         int totalH = 0;
         String lastKey = null;
         for (var msg : messages) {
-            totalH += msgHeight(msg, font, bubbleMaxW, panelW) + GAP;
+            totalH += msgHeight(msg, font, bubbleMaxW, panelW) + Appearance.messageGap();
             if (!msg.isSystem()) {
                 String key = timeKey(msg.time(), interval);
                 if (lastKey == null || !key.equals(lastKey)) { lastKey = key; }
@@ -560,14 +561,14 @@ public final class ChatMessageRenderer {
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
             // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, Appearance.cornerRadius(), ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
             g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)), false);
         }
 
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
 
         if (index == searchHighlightIndex)
-            g.renderOutline(bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2,
-                com.niuqu.chatbubble.ChatSearchPanel.HIGHLIGHT);
+            UiPrimitives.strokeRounded(g, bubbleX - 1, bubbleY - 1, bubbleX + bubbleW + 1, bubbleY + bubbleH + 1,
+                cornerRadius, 1, com.niuqu.chatbubble.ChatSearchPanel.HIGHLIGHT);
     }
 }
