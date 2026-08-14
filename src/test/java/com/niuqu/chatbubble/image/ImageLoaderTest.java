@@ -27,23 +27,23 @@ class ImageLoaderTest {
     @Test
     void scaledSizeDownscalesWideImages() {
         int[] r = ImageLoader.scaledSize(2000, 1125);
-        assertEquals(320, r[0]);
-        assertEquals(180, r[1]); // 1125 * 320/2000 = 180
+        assertEquals(512, r[0]);
+        assertEquals(288, r[1]); // 1125 * 512/2000 = 288
     }
 
     @Test
     void scaledSizeDownscalesTallImages() {
         int[] r = ImageLoader.scaledSize(500, 1000);
-        assertEquals(90, r[0]); // 500 * 180/1000 = 90
-        assertEquals(180, r[1]);
+        assertEquals(256, r[0]); // 500 * 512/1000 = 256
+        assertEquals(512, r[1]);
     }
 
     @Test
     void scaledSizeKeepsAspectRatio() {
         int[] r = ImageLoader.scaledSize(4000, 3000);
-        assertEquals(240, r[0]); // 4000 * 180/3000 = 240
-        assertEquals(180, r[1]);
-        // aspect preserved within rounding: 240/180 == 4/3
+        assertEquals(512, r[0]); // 4000 * 512/3000 = 512
+        assertEquals(384, r[1]);
+        // aspect preserved within rounding: 512/384 == 4/3
         assertTrue(Math.abs(r[0] / (double) r[1] - 4.0 / 3.0) < 0.01);
     }
 

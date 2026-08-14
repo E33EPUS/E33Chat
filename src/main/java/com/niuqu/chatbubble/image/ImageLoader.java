@@ -73,8 +73,10 @@ public final class ImageLoader {
     static final long RATE_WINDOW_MS = 10_000;
     static final int QUEUE_CAP = 32;
     static final int CACHE_CAP = 64;
-    static final int CARD_W = 320;
-    static final int CARD_H = 180;
+    // Decode cap: large images keep enough pixels to fill the panel (which can
+    // be wider than the old 180px card), while small images are never upscaled.
+    static final int CARD_W = 512;
+    static final int CARD_H = 512;
 
     // Dead links (bad URLs, 404s) used to retry every 10s, spamming the log and
     // stealing anti-flood download slots from real images; 2 minutes is plenty.

@@ -31,9 +31,9 @@ public final class ChatMessageRenderer {
     static final int NAME_H = 10;
     static final int TIME_SEP_H = 14;
 
-    // Bubble-less image rendering: 240px long-edge cap, clamped to the panel
-    // width so narrow windows/guiScale can never push images off-screen.
-    public static final int IMAGE_EDGE = 240;
+    // Bubble-less image rendering: long-edge clamped to the panel width so
+    // narrow windows/guiScale never push images off-screen; small images keep
+    // their real size (never upscaled).
     public static final int EMOTE_MAX_SIZE = 32;
 
     private ChatMessageRenderer() {}
@@ -79,9 +79,9 @@ public final class ChatMessageRenderer {
         return BracketCodec.parseOrExtract(c);
     }
 
-    /** Height in px for one bubble-less image (state-dependent, long-edge ≤240, panel-clamped). */
+    /** Height in px for one bubble-less image (state-dependent, panel-clamped, never upscaled). */
     public static int imageEdgeHeight(String url, int panelW) {
-        int maxW = Math.max(80, Math.min(IMAGE_EDGE, panelW - AVATAR - ChatLayout.PAD * 2 - 16));
+        int maxW = Math.max(80, panelW - AVATAR - ChatLayout.PAD * 2 - 16);
         ImageEntry entry = ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED
                 && entry.width() > 0 && entry.height() > 0) {
@@ -148,7 +148,7 @@ public final class ChatMessageRenderer {
             y += lines.size() * font.lineHeight;
         }
 
-        int maxImgW = Math.max(80, Math.min(IMAGE_EDGE, panelW - AVATAR - ChatLayout.PAD * 2 - 16));
+        int maxImgW = Math.max(80, panelW - AVATAR - ChatLayout.PAD * 2 - 16);
         for (var ref : parsed.images()) {
             int w = maxImgW, h = maxImgW;
             ImageEntry entry = ImageLoader.getOrLoad(ref.url());

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
@@ -111,7 +112,8 @@ public final class BracketCodec {
         Matcher m = BRACKET.matcher(text.getString());
         if (!m.find()) return text;
         MutableComponent out = Component.empty();
-        Component placeholder = Component.translatable("e33chat.image.placeholder");
+        Component placeholder = Component.translatable("e33chat.image.placeholder")
+            .withStyle(ChatFormatting.GREEN);
         text.visit((style, part) -> {
             int partStart = 0;
             Matcher local = BRACKET.matcher(part);
