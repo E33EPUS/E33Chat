@@ -40,19 +40,29 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         Path configDir = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat");
-        configPath = configDir.resolve("client.json");
-        // Directory move (2.3.12): config/e33chat-client.json -> config/e33chat/client.json.
-        // Also carries the older flat config/e33chat.json legacy chain.
+        configPath = configDir.resolve("e33chat-client.json");
+        // Migration chain for the client config path (most recent first):
+        // config/e33chat/client.json -> config/e33chat/e33chat-client.json
+        // config/e33chat-client.json (2.3.1+) and config/e33chat.json (legacy) also move here.
+        var logger = com.mojang.logging.LogUtils.getLogger();
+        Path recentDirPath = configDir.resolve("client.json");
         Path legacyPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat-client.json");
         Path oldFlatPath = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/e33chat.json");
         if (!Files.exists(configPath)) {
-            if (Files.exists(legacyPath)) {
+            if (Files.exists(recentDirPath)) {
+                try {
+                    Files.move(recentDirPath, configPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    logger.info("[e33chat] Migrated config from config/e33chat/client.json to config/e33chat/e33chat-client.json");
+                } catch (Exception e) {
+                    logger.warn("[e33chat] Config migration failed", e);
+                }
+            } else if (Files.exists(legacyPath)) {
                 try {
                     Files.createDirectories(configDir);
                     Files.move(legacyPath, configPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                    com.mojang.logging.LogUtils.getLogger().info("[e33chat] Migrated config from config/e33chat-client.json to config/e33chat/client.json");
+                    logger.info("[e33chat] Migrated config from config/e33chat-client.json to config/e33chat/e33chat-client.json");
                 } catch (Exception e) {
-                    com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Config migration failed", e);
+                    logger.warn("[e33chat] Config migration failed", e);
                 }
             } else if (Files.exists(oldFlatPath)) {
                 config = ConfigManager.load(oldFlatPath);
@@ -60,18 +70,20 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                 try {
                     Files.delete(oldFlatPath);
                 } catch (Exception e) {
-                    com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Legacy config cleanup failed", e);
+                    logger.warn("[e33chat] Legacy config cleanup failed", e);
                 }
-                com.mojang.logging.LogUtils.getLogger().info("[e33chat] Migrated config from config/e33chat.json to config/e33chat/client.json");
+                logger.info("[e33chat] Migrated config from config/e33chat.json to config/e33chat/e33chat-client.json");
             }
         }
         // Load is unconditional once the new path exists — the static field
         // starts as defaults() (non-null), so a null check can never trigger.
         if (Files.exists(configPath)) {
             config = ConfigManager.load(configPath);
-        } else if (Files.exists(legacyPath)) {
+        } else if (Files.exists(recentDirPath)) {
             // Migration move failed earlier (locked/IO) — read in place so
             // settings are never silently replaced by defaults.
+            config = ConfigManager.load(recentDirPath);
+        } else if (Files.exists(legacyPath)) {
             config = ConfigManager.load(legacyPath);
         } else if (Files.exists(oldFlatPath)) {
             config = ConfigManager.load(oldFlatPath);
