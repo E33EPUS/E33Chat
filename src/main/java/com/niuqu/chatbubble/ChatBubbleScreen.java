@@ -95,7 +95,13 @@ public class ChatBubbleScreen extends ChatScreen {
     private boolean scrollToBottom = true;
     private boolean firstRender = true;
     private static String savedInput = "";
-    private static final java.util.Map<UUID, Identifier> skinCache = new java.util.HashMap<>();
+    private static final java.util.Map<UUID, Identifier> skinCache = new java.util.LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(java.util.Map.Entry<UUID, Identifier> eldest) {
+            return size() > SKIN_CACHE_CAP;
+        }
+    };
+    private static final int SKIN_CACHE_CAP = 256;
 
     final ChatEmojiPanel emojiPanel = new ChatEmojiPanel();
     final ChatSettingsMenu settingsMenu = new ChatSettingsMenu();
@@ -2419,7 +2425,12 @@ public class ChatBubbleScreen extends ChatScreen {
     // Name-keyed skin cache: an offline player seen in chat history keeps the
     // real head when the UUID lookup fails (cracked servers, uuid dropped in
     // old history files). Key is the §-stripped lowercase name.
-    private static final java.util.Map<String, Identifier> skinNameCache = new java.util.HashMap<>();
+    private static final java.util.Map<String, Identifier> skinNameCache = new java.util.LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(java.util.Map.Entry<String, Identifier> eldest) {
+            return size() > SKIN_CACHE_CAP;
+        }
+    };
 
     private static String skinNameKey(String name) {
         if (name == null) return null;
