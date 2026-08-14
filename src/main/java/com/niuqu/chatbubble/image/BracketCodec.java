@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 /**
  * Parses image bracket codes out of chat content.
@@ -113,7 +114,8 @@ public final class BracketCodec {
         Matcher m = BRACKET.matcher(text.getString());
         if (!m.find()) return text;
         MutableText out = Text.empty();
-        Text placeholder = Text.translatable("e33chat.image.placeholder");
+        Text placeholder = Text.translatable("e33chat.image.placeholder")
+            .formatted(Formatting.GREEN);
         text.visit((style, part) -> {
             int partStart = 0;
             Matcher local = BRACKET.matcher(part);

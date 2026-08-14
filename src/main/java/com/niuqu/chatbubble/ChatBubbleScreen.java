@@ -169,7 +169,6 @@ public class ChatBubbleScreen extends ChatScreen {
     private int uploadToastTicks = 0;
     /** Upload-in-progress hint; set while a job is running, cleared on completion. */
     private int uploadBusyTicks = 0;
-    private static final int IMAGE_EDGE = 240;
     private static final int EMOTE_MAX_SIZE = 32;
     private static final int MAX_UPLOAD_JOBS = 8;
 
@@ -1709,9 +1708,9 @@ public class ChatBubbleScreen extends ChatScreen {
         return cached;
     }
 
-    /** Height in px for one bubble-less image (state-dependent, long-edge ≤240, panel-clamped). */
+    /** Height in px for one bubble-less image (state-dependent, panel-clamped, never upscaled). */
     private int imageEdgeHeight(String url) {
-        int maxW = Math.max(80, Math.min(IMAGE_EDGE, panelW - AVATAR - PAD * 2 - 16));
+        int maxW = Math.max(80, panelW - AVATAR - PAD * 2 - 16);
         ImageEntry entry = ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED
                 && entry.width() > 0 && entry.height() > 0) {
@@ -1889,9 +1888,9 @@ public class ChatBubbleScreen extends ChatScreen {
             y += lines.size() * textRenderer.fontHeight;
         }
 
-        // Hard 240px cap, clamped to the panel's usable width so a narrow
-        // window/guiScale can never push the image off-screen.
-        int maxImgW = Math.max(80, Math.min(IMAGE_EDGE, panelW - AVATAR - PAD * 2 - 16));
+        // Long-edge clamped to the panel's usable width so a narrow window/guiScale
+        // can never push the image off-screen; small images keep their real size.
+        int maxImgW = Math.max(80, panelW - AVATAR - PAD * 2 - 16);
 
         for (var ref : parsed.images()) {
             int w = maxImgW, h = maxImgW;
