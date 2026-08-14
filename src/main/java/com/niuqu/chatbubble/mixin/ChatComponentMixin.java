@@ -67,12 +67,14 @@ public class ChatComponentMixin {
     //   <sender>[引用] content   (quote reply, detected via the echo's quoted flag)
     // The sender component keeps its style so colored nicknames/prefixes survive.
     private void repostToVanilla(Component name, String content, boolean quoting) {
+        // banner.quote/whisper carry a trailing space (banner prefix convention),
+        // so content is appended without an extra separator.
         Component tag = (quoting
-            ? Component.literal("[引用]").withStyle(ChatFormatting.YELLOW)
-            : Component.literal("[私聊]").withStyle(ChatFormatting.LIGHT_PURPLE));
+            ? Component.translatable("e33chat.banner.quote").withStyle(ChatFormatting.YELLOW)
+            : Component.translatable("e33chat.banner.whisper").withStyle(ChatFormatting.LIGHT_PURPLE));
         Component reformatted = Component.empty()
             .append("<").append(name).append(">").append(tag)
-            .append(Component.literal(" " + content));
+            .append(Component.literal(content));
         String repostStr = reformatted.getString();
         long nowMs = System.currentTimeMillis();
         // Server echoes a whisper twice (signed outgoing + incoming) within ~15ms;

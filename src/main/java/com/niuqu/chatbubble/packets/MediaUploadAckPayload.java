@@ -35,7 +35,7 @@ public record MediaUploadAckPayload(long uploadId, String mediaId, String error)
     };
 
     private static String readUtf(ByteBuf buf) {
-        return buf.readCharSequence(buf.readInt(), java.nio.charset.StandardCharsets.UTF_8).toString();
+        return MediaUploadPayload.readUtf(buf);
     }
 
     private static void writeUtf(ByteBuf buf, String s) {

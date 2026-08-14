@@ -133,6 +133,20 @@ public class ChatServerListener {
         return s;
     }
 
+    @SubscribeEvent
+    public void onServerStopping(net.neoforged.neoforge.event.server.ServerStoppingEvent event) {
+        com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
+        if (s != null) s.discardAllUploads();
+        mediaStore = null;
+    }
+
+    @SubscribeEvent
+    public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
+        if (s != null) s.discardUploadsFor(player.getName().getString());
+    }
+
     private static ConfigSyncV2Payload buildConfigV2() {
         return new ConfigSyncV2Payload(
             ChatServerConfig.USE_TPA.get(),

@@ -75,14 +75,22 @@ public final class MediaClient {
                 CompletableFuture<byte[]> f = FETCHES.remove(id);
                 if (f != null) {
                     int total = 0;
-                    for (byte[] c : buf) total += c.length;
-                    byte[] all = new byte[total];
-                    int off = 0;
+                    boolean complete = true;
                     for (byte[] c : buf) {
-                        System.arraycopy(c, 0, all, off, c.length);
-                        off += c.length;
+                        if (c == null) { complete = false; break; }
+                        total += c.length;
                     }
-                    f.complete(all);
+                    if (!complete) {
+                        f.completeExceptionally(new RuntimeException("media chunk missing: " + id));
+                    } else {
+                        byte[] all = new byte[total];
+                        int off = 0;
+                        for (byte[] c : buf) {
+                            System.arraycopy(c, 0, all, off, c.length);
+                            off += c.length;
+                        }
+                        f.complete(all);
+                    }
                 }
             }
         });

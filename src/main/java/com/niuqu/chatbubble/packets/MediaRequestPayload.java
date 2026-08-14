@@ -19,7 +19,7 @@ public record MediaRequestPayload(String mediaId) implements CustomPacketPayload
         @Override
         public MediaRequestPayload decode(ByteBuf buf) {
             return new MediaRequestPayload(
-                buf.readCharSequence(buf.readInt(), java.nio.charset.StandardCharsets.UTF_8).toString());
+                MediaUploadPayload.readUtf(buf));
         }
 
         @Override
@@ -36,6 +36,12 @@ public record MediaRequestPayload(String mediaId) implements CustomPacketPayload
         ctx.enqueueWork(() -> {
             String id = payload.mediaId();
             DiskMediaStore store = ChatServerListener.mediaStore();
+            String playerName = ctx.player() != null ? ctx.player().getName().getString() : "?";
+            if (!store.allowTransfer(playerName)) {
+                PacketDistributor.sendToPlayer((net.minecraft.server.level.ServerPlayer) ctx.player(),
+                    new MediaResponsePayload(id, 0, 1, new byte[0]));
+                return;
+            }
             long size = store.sizeOf(id);
             if (size < 0) {
                 PacketDistributor.sendToPlayer((net.minecraft.server.level.ServerPlayer) ctx.player(),

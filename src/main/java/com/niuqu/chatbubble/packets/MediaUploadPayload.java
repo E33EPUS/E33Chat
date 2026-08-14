@@ -30,7 +30,7 @@ public record MediaUploadPayload(long uploadId, int index, int totalChunks,
                 buf.readInt(),
                 buf.readInt(),
                 buf.readInt(),
-                buf.readCharSequence(buf.readInt(), java.nio.charset.StandardCharsets.UTF_8).toString(),
+                readUtf(buf),
                 readByteArray(buf)
             );
         }
@@ -49,11 +49,19 @@ public record MediaUploadPayload(long uploadId, int index, int totalChunks,
         }
     };
 
+    private static final int MAX_CHUNK_BYTES = DiskMediaStore.CHUNK_BYTES;
+    private static final int MAX_STRING_LEN = 256;
+
     static byte[] readByteArray(ByteBuf buf) {
-        int len = buf.readInt();
+        int len = Math.min(Math.max(buf.readInt(), 0), MAX_CHUNK_BYTES);
         byte[] out = new byte[len];
         buf.readBytes(out);
         return out;
+    }
+
+    static String readUtf(ByteBuf buf) {
+        int len = Math.min(Math.max(buf.readInt(), 0), MAX_STRING_LEN);
+        return buf.readCharSequence(len, java.nio.charset.StandardCharsets.UTF_8).toString();
     }
 
     @Override
@@ -66,10 +74,14 @@ public record MediaUploadPayload(long uploadId, int index, int totalChunks,
                 return;
             }
             DiskMediaStore store = ChatServerListener.mediaStore();
+            String playerName = ctx.player() != null ? ctx.player().getName().getString() : "?";
             String result;
             if (payload.index() == 0) {
-                result = store.beginUpload(payload.uploadId(), ctx.player() != null
-                    ? ctx.player().getName().getString() : "?",
+                if (!store.allowTransfer(playerName)) {
+                    sendAck(ctx, payload.uploadId(), null, "rate limited");
+                    return;
+                }
+                result = store.beginUpload(payload.uploadId(), playerName,
                     payload.totalChunks(), payload.totalBytes(), payload.contentType());
                 if (result == null) {
                     // Chunk 0 also carries data — feed it through acceptChunk so a

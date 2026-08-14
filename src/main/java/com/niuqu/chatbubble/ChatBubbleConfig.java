@@ -131,19 +131,19 @@ public class ChatBubbleConfig {
             .define("receive_images", true);
 
         UPLOAD_URL = builder
-            .comment("Image upload host (blank = Litterbox default). Custom hosts need multipart POST")
+            .comment("Image upload host (blank = uguu.se, ~3h expiry). Custom hosts need multipart POST")
             .translation("e33chat.config.upload_url")
             .define("upload_url", "");
         UPLOAD_FIELD = builder
-            .comment("Multipart file field name (blank = fileToUpload)")
+            .comment("Multipart file field name (blank = files[])")
             .translation("e33chat.config.upload_field")
             .define("upload_field", "");
         UPLOAD_EXTRA = builder
-            .comment("Extra form fields, comma-separated key=value (blank = time=72h)")
+            .comment("Extra form fields, comma-separated key=value (blank = none)")
             .translation("e33chat.config.upload_extra")
             .define("upload_extra", "");
         UPLOAD_RESPONSE = builder
-            .comment("Upload response mode: text (body is the URL) or json:<field> (blank = text)")
+            .comment("Upload response mode: text (body is the URL) or json:<field> (blank = json:files[0].url)")
             .translation("e33chat.config.upload_response")
             .define("upload_response", "");
 

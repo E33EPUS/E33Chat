@@ -1087,31 +1087,34 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void addClipboardEmote() {
-        LocalImageSource.PreparedImage prep;
-        try {
-            prep = LocalImageSource.fromClipboard();
-        } catch (Throwable t) {
-            prep = null;
-        }
-        if (prep == null) return; // no image in clipboard
-        EmoteStore.addBytes(prep.bytes(), "paste_" + System.currentTimeMillis() + ".png");
+        com.niuqu.chatbubble.image.ImageLoader.executor().execute(() -> {
+            LocalImageSource.PreparedImage prep = readClipboard();
+            if (prep == null) return; // no image in clipboard
+            minecraft.execute(() -> EmoteStore.addBytes(prep.bytes(), "paste_" + System.currentTimeMillis() + ".png"));
+        });
     }
 
     private void startUploadFromClipboard() {
-        LocalImageSource.PreparedImage prep;
-        try {
-            prep = LocalImageSource.fromClipboard();
-        } catch (Throwable t) {
-            prep = null;
-        }
-        if (prep == null) return; // no image in clipboard — let vanilla paste text
-        enqueueUpload(new UploadJob(null, prep.bytes(), "clipboard", false, null));
+        com.niuqu.chatbubble.image.ImageLoader.executor().execute(() -> {
+            LocalImageSource.PreparedImage prep = readClipboard();
+            if (prep == null) return; // no image in clipboard — let vanilla paste text
+            minecraft.execute(() -> enqueueUpload(new UploadJob(null, prep.bytes(), "clipboard", false, null)));
+        });
     }
 
-    private void enqueueUpload(UploadJob job) {
-        if (uploadJobs.size() >= MAX_UPLOAD_JOBS) return;
+    private static LocalImageSource.PreparedImage readClipboard() {
+        try {
+            return LocalImageSource.fromClipboard();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private boolean enqueueUpload(UploadJob job) {
+        if (uploadJobs.size() >= MAX_UPLOAD_JOBS) return false;
         uploadJobs.addLast(job);
         drainUploads();
+        return true;
     }
 
     /** Runs queued uploads one at a time; the completion callback in
@@ -2129,11 +2132,14 @@ public class ChatBubbleScreen extends ChatScreen {
                 sendMessageText(raw);
                 return;
             }
-            input.setValue("");
-            savedInput = "";
-            enqueueUpload(new UploadJob(new java.io.File(localPath), null, null, false, raw));
-            Minecraft.getInstance().player.sendSystemMessage(Component.translatable("e33chat.upload.wait"));
-            ChatMessageStore.debugLog(() -> "[e33chat] upload block | queued=" + uploadJobs.size() + " | raw=" + raw);
+            if (enqueueUpload(new UploadJob(new java.io.File(localPath), null, null, false, raw))) {
+                input.setValue("");
+                savedInput = "";
+                Minecraft.getInstance().player.sendSystemMessage(Component.translatable("e33chat.upload.wait"));
+                ChatMessageStore.debugLog(() -> "[e33chat] upload block | queued=" + uploadJobs.size() + " | raw=" + raw);
+            } else {
+                Minecraft.getInstance().player.sendSystemMessage(Component.translatable("e33chat.upload.queue_full"));
+            }
             return;
         }
         sendMessageText(raw);

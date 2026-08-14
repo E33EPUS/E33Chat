@@ -129,6 +129,44 @@ public final class DiskMediaStore {
         }
     }
 
+    /** Discard every in-flight upload (server stop). Removes temp files. */
+    public synchronized void discardAllUploads() {
+        for (Session s : sessions.values()) {
+            try { Files.deleteIfExists(s.tmpFile()); } catch (IOException ignored) {}
+        }
+        sessions.clear();
+    }
+
+    /** Discard in-flight uploads started by a player who left (disconnect). */
+    public synchronized void discardUploadsFor(String playerName) {
+        for (Session s : sessions.values()) {
+            if (playerName != null && playerName.equals(s.playerName())) {
+                sessions.remove(s.uploadId());
+                try { Files.deleteIfExists(s.tmpFile()); } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    private static final int RATE_LIMIT_PER_WINDOW = 4;
+    private static final long RATE_WINDOW_MS = 10_000;
+    private final Map<String, java.util.ArrayDeque<Long>> rateWindows = new ConcurrentHashMap<>();
+
+    /**
+     * Per-player sliding-window throttle for media transfers (one upload session
+     * or one download request = one call). Call once per upload session (index 0),
+     * not per chunk.
+     */
+    public boolean allowTransfer(String playerName) {
+        long now = System.currentTimeMillis();
+        java.util.ArrayDeque<Long> q = rateWindows.computeIfAbsent(playerName, k -> new java.util.ArrayDeque<>());
+        synchronized (q) {
+            while (!q.isEmpty() && now - q.peekFirst() > RATE_WINDOW_MS) q.removeFirst();
+            if (q.size() >= RATE_LIMIT_PER_WINDOW) return false;
+            q.addLast(now);
+            return true;
+        }
+    }
+
     /** Size in bytes of a stored file, or -1 when absent. */
     public long sizeOf(String mediaId) {
         Path f = dir.resolve(mediaId);
@@ -175,7 +213,8 @@ public final class DiskMediaStore {
             try (var stream = Files.list(dir)) {
                 for (Path p : (Iterable<Path>) stream::iterator) {
                     String name = p.getFileName().toString();
-                    if (!isValidMediaId(name)) continue;
+                    boolean orphanTmp = name.startsWith(".upload-");
+                    if (!isValidMediaId(name) && !orphanTmp) continue;
                     long modified = Files.getLastModifiedTime(p).toMillis();
                     if (now - modified > ttlMillis) {
                         Files.deleteIfExists(p);

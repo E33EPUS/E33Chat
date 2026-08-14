@@ -20,7 +20,7 @@ public record MediaResponsePayload(String mediaId, int index, int totalChunks, b
         @Override
         public MediaResponsePayload decode(ByteBuf buf) {
             return new MediaResponsePayload(
-                buf.readCharSequence(buf.readInt(), java.nio.charset.StandardCharsets.UTF_8).toString(),
+                MediaUploadPayload.readUtf(buf),
                 buf.readInt(),
                 buf.readInt(),
                 MediaUploadPayload.readByteArray(buf)
