@@ -50,8 +50,8 @@ public record ChatBubbleConfig(
     String messageAnimStyle,
     Boolean imageRenderEnabled,
     Boolean receiveImages,
-    // Image upload host (2.3.11). null/blank = Litterbox default; response:
-    // "text" (body is the URL) or "json:<field>".
+    // Image upload host (2.3.11). null/blank = uguu.se default (~3h expiry);
+    // response: "text" (body is the URL) or "json:<field>" (default json:files[0].url).
     String uploadUrl,
     String uploadField,
     String uploadExtra,

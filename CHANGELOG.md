@@ -3,22 +3,45 @@
 ## v2.3.12
 
 **新功能（2.3.12，三端同步：Fabric / Forge / NeoForge）**
-- **自定义表情包**：表情面板新增「自定义」标签页，从 `config/e33chat/emotes/` 目录加载最多 10 个表情图片（png/jpg/gif 首帧）；点击表情立即发送（无气泡小图）；悬停显示删除角标；点「+」打开系统文件选择器添加；表情标签页打开时 Ctrl+V 直接把剪贴板图片加入表情包
-- **图片消息无气泡化**：所有图片消息改为无气泡渲染（保留头像与昵称），长边 240 上限并随面板宽度自适应（窄窗口不再溢出）；多图纵向堆叠；点击图片打开原图 URL，悬停显示链接
+- **自定义表情包**：表情面板新增「表情包」标签页，从 `config/e33chat/emotes/` 目录加载最多 10 个表情图片（png/jpg/gif 首帧）；点击表情立即发送（无气泡小图）；悬停显示删除角标；点「+」打开系统文件选择器添加；表情标签页打开时 Ctrl+V 直接把剪贴板图片加入表情包
+- **图片消息无气泡化**：所有图片消息改为无气泡渲染（保留头像与昵称），图片按真实尺寸缩放（小图不放大、大图按面板宽度自适应，窄窗口不再溢出）；多图纵向堆叠；点击图片打开原图 URL，悬停显示链接
 - **图床切换**：默认图床上传从 Litterbox 改为 uguu.se——Litterbox 的下载 CDN 在部分网络不可达（图传得上去但永远加载不出来），uguu.se 上传/下载全链路可达；自定义图床的响应解析新增 JSON 路径语法（如 `json:files[0].url`）
 - **上传链路重构**：上传任务排队串行（最多 8 个），回车一次即可——上传完成后自动发送，不再需要按第二次回车；上传失败恢复输入框内容，可重试
 - **配置修复**：音量 0（静音）/面板透明度 0/圆角 0 等合法设置不再被重置为默认值；配置写入改为原子替换（游戏崩溃不再损坏配置文件，损坏文件保留 .bak 供恢复）
 - **配置目录**：客户端配置迁移到 `config/e33chat/client.json`（旧路径自动迁移，设置不丢）；聊天历史仍在 `runDir/e33chat/history/`
 
 **New (2.3.12, all loaders: Fabric / Forge / NeoForge)**
-- **Custom emote pack**: the emoji panel gains a "Custom" tab loading up to 10 images from `config/e33chat/emotes/` (png/jpg/gif first frame); clicking an emote sends it immediately as a bubble-less small image; hover shows a delete badge; the "+" slot opens the OS file picker; with the emote tab open, Ctrl+V adds the clipboard image to the pack
-- **Bubble-less image messages**: image messages now render without a bubble (avatar + name kept), capped at 240px long edge and clamped to the panel width (no more overflow on narrow windows); multiple images stack vertically; clicking an image opens the original URL, hover shows it
+- **Custom emote pack**: the emoji panel gains an "Emote Pack" tab loading up to 10 images from `config/e33chat/emotes/` (png/jpg/gif first frame); clicking an emote sends it immediately as a bubble-less small image; hover shows a delete badge; the "+" slot opens the OS file picker; with the emote tab open, Ctrl+V adds the clipboard image to the pack
+- **Bubble-less image messages**: image messages now render without a bubble (avatar + name kept), scaled to their real size (small images never upscaled, large images clamped to the panel width); multiple images stack vertically; clicking an image opens the original URL, hover shows it
 - **Default image host switched**: uploads now go to uguu.se by default — Litterbox's download CDN is unreachable on some networks (uploads succeed but the image can never load), uguu.se is reachable end-to-end; custom hosts gain JSON path response parsing (e.g. `json:files[0].url`)
 - **Upload pipeline rework**: uploads queue and run serially (up to 8), and one Enter press is enough — the message sends automatically once the upload finishes; failed uploads restore the input text so you can retry
 - **Config fixes**: zero values (muted volume / fully transparent panel / square corners) are no longer reset to defaults; config writes are atomic (a crash can no longer corrupt the file, and a corrupt file is kept as .bak)
 - **Config dir**: client config moved to `config/e33chat/client.json` (auto-migrated from legacy paths, nothing lost); chat history stays in `runDir/e33chat/history/`
 
-## v2.3.11
+**修复（2.3.12 补发）**
+- 修复服务器媒体直传单块图（<512KB）永不回执、客户端上传挂起 30 秒
+- 修复上传 worker 异常卡死队列、上传中提示样式错位
+- 修复原版聊天框把图片代码渲染成长 URL 刷屏（改为绿色 `[图片]` 占位符）
+- 修复上传队列满时静默丢消息且误弹「稍候再发」（现恢复输入框并提示队列已满）
+- 修复 4 项内存/状态债：皮肤缓存无上限、待定引用元数据不过期、待定回声按索引而非内容匹配、私聊回声不排队
+- 修复服务器媒体存储缓存不随世界切换重置、上传会话/临时文件断线泄漏
+- 修复 NeoForge 媒体包解码无长度上限（恶意包可致内存耗尽）
+- 修复下载分块重组缺块时崩溃（缺块丢弃该媒体而非空指针）
+- 服务器媒体直传加每玩家限速（10 秒 4 次）；剪贴板图片解码移出渲染线程
+- `[引用]`/`[私聊]` 原版标签改走本地化；图床文档对齐 uguu.se、删除失效配置说明
+
+**Fixes (2.3.12 respin)**
+- Fixed single-chunk server media uploads (<512KB) never acking, hanging the client for 30s
+- Fixed the upload worker crashing the queue, and the upload-in-progress hint styling
+- Fixed the vanilla chat rendering image codes as a long URL (now a green `[Image]` placeholder)
+- Fixed upload-queue overflow silently dropping the message with a misleading "wait" hint (input restored + queue-full hint)
+- Fixed 4 memory/state debts: unbounded skin cache, non-expiring pending-quote metadata, pending-echo matching by index instead of content, whisper echoes not queued
+- Fixed the server media store cache not resetting on world switch, and upload sessions/temp files leaking on disconnect
+- Fixed NeoForge media packet decoding with no length cap (a hostile packet could exhaust memory)
+- Fixed download-chunk reassembly crashing on a missing chunk (dropped instead of a null-pointer)
+- Added per-player throttling for server media transfers (4 per 10s); clipboard image decoding moved off the render thread
+- `[引用]`/`[私聊]` vanilla tags now localize; upload host docs aligned with uguu.se and stale entries removed
+
 ## v2.3.11
 
 **新功能（2.3.11）**
@@ -44,23 +67,6 @@
 - Fixed clicking file:// image messages throwing URISyntaxException (only http(s) links respond to clicks)
 
 ## v2.3.10
-## v2.3.10
-# Changelog
-
-## v2.3.14
-
-**改动（2.3.14）**
-- 移除输入框左侧的 `+` 上传按钮（不再需要点按钮选图）
-- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp，取第一个图片）；Ctrl+V 粘贴上传保留
-
-**Changes (2.3.14)**
-- Removed the `+` upload button next to the chat input
-- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp, first image wins); Ctrl+V paste upload kept
-
-## v2.3.13
-
-
-## v2.3.10
 
 **新功能（2.3.10）**
 - **气泡内图片渲染（三端）**：聊天消息里的 `[[CICode,url=...]]`（ChatImage 协议）和 `[[ChatUpgrade,url=...,type=image]]`（第三方富文本协议）图片代码现在直接在气泡内原生渲染成图片卡片——不依赖任何 mod，协议层与 ChatImage 等第三方 mod 互通（它们发的图我们能显示，我们发的代码它们也能解析）。历史记录里的旧图片消息（含 ChatImage 转换前的样式组件）自动兼容，重进存档后图片重新加载显示。点击图片卡片用系统浏览器打开原图，悬停显示完整 URL
@@ -79,22 +85,6 @@
 **Fixes (2.3.10)**
 - **Icons/title text tinted by panel opacity (all platforms, 2.3.7 regression)**: the 2.3.7 animation update fed `panelOpacity` (default 0.8) into the icon/text alpha — the four icons (menu/settings/emoji/send) and title-bar text rendered permanently 80% opaque, visibly lighter than the PNG colour on light themes. Content (icons/text) now follows only the panel open/close animation and returns to 100% original colour afterwards; panel opacity affects the background only
 - **JPEG/GIF images rendered with red and blue swapped (all platforms)**: AWT-decoded non-PNG pixels were written as big-endian ARGB into NativeImage's ABGR memory layout, swapping the R and B channels. Pixels are now converted to ABGR32, so JPEG/GIF/BMP colours are correct
-
-## v2.3.9
-# Changelog
-
-## v2.3.14
-
-**改动（2.3.14）**
-- 移除输入框左侧的 `+` 上传按钮（不再需要点按钮选图）
-- **拖拽上传**：直接把图片文件拖进游戏窗口即可上传（支持 png/jpg/jpeg/gif/bmp，取第一个图片）；Ctrl+V 粘贴上传保留
-
-**Changes (2.3.14)**
-- Removed the `+` upload button next to the chat input
-- **Drag & drop upload**: drop an image file onto the game window to upload it (png/jpg/jpeg/gif/bmp, first image wins); Ctrl+V paste upload kept
-
-## v2.3.13
-
 
 ## v2.3.9
 

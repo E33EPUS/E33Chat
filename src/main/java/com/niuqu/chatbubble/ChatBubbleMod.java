@@ -18,6 +18,7 @@ import com.niuqu.chatbubble.server.DiskMediaStore;
 import net.fabricmc.api.ModInitializer;
 import com.mojang.brigadier.ParseResults;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -105,6 +106,11 @@ public class ChatBubbleMod implements ModInitializer {
                 DiskMediaStore store = mediaStore(context.server());
                 String result;
                 if (payload.index() == 0) {
+                    if (!store.allowTransfer(player.getName().getString())) {
+                        ServerPlayNetworking.send(player,
+                            new MediaUploadAckPayload(payload.uploadId(), null, "rate limited"));
+                        return;
+                    }
                     result = store.beginUpload(payload.uploadId(), player.getName().getString(),
                         payload.totalChunks(), payload.totalBytes(), payload.contentType());
                     if (result == null) {
@@ -132,6 +138,11 @@ public class ChatBubbleMod implements ModInitializer {
             context.server().execute(() -> {
                 String id = payload.mediaId();
                 DiskMediaStore store = mediaStore(context.server());
+                if (!store.allowTransfer(player.getName().getString())) {
+                    ServerPlayNetworking.send(player,
+                        new MediaResponsePayload(id, 0, 1, new byte[0]));
+                    return;
+                }
                 long size = store.sizeOf(id);
                 if (size < 0) {
                     ServerPlayNetworking.send(player,
@@ -235,6 +246,21 @@ public class ChatBubbleMod implements ModInitializer {
 
         // /e33chat template commands + /e33chat gui
         com.niuqu.chatbubble.command.E33ChatCommands.register();
+
+        // Drop the per-world media store on server stop so the next world (which may
+        // be a different save directory) lazily rebuilds it against its own path;
+        // also discard any in-flight upload sessions and their temp files.
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            DiskMediaStore s = mediaStore;
+            if (s != null) s.discardAllUploads();
+            mediaStore = null;
+        });
+
+        // Discard a leaving player's in-flight upload session (and temp file).
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            DiskMediaStore s = mediaStore;
+            if (s != null) s.discardUploadsFor(handler.player.getName().getString());
+        });
     }
 
     // Called from CommandManagerMixin.execute (parity with Forge ChatServerListener.onCommand):
