@@ -24,7 +24,7 @@ public class ChatBubbleHudOverlay {
     }
 
     private static ChatBubbleTheme.Colors c() {
-        return ChatBubbleConfig.THEME.get().colors();
+        return Appearance.snapshot();
     }
 
     public static void render(GuiGraphics g) {

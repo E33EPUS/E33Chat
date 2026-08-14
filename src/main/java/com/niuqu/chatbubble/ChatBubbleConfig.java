@@ -26,6 +26,10 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.ConfigValue<String> OWN_BUBBLE_COLOR;
     public static final ModConfigSpec.ConfigValue<String> OTHER_BUBBLE_COLOR;
     public static final ModConfigSpec.IntValue BUBBLE_CORNER_RADIUS;
+    public static final ModConfigSpec.ConfigValue<String> PANEL_BG_COLOR;
+    public static final ModConfigSpec.ConfigValue<String> ACCENT_COLOR;
+    public static final ModConfigSpec.IntValue UI_CORNER_RADIUS;
+    public static final ModConfigSpec.IntValue MESSAGE_GAP;
     public static final ModConfigSpec.ConfigValue<String> OWN_TEXT_COLOR;
     public static final ModConfigSpec.ConfigValue<String> OTHER_TEXT_COLOR;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> QUICK_CHAT_PHRASES;
@@ -194,6 +198,29 @@ public class ChatBubbleConfig {
             .comment("Bubble corner radius (0 = square, max 10)")
             .translation("e33chat.config.bubble_corner_radius")
             .defineInRange("corner_radius", 4, 0, 10);
+
+        builder.pop();
+        builder.push("appearance");
+
+        PANEL_BG_COLOR = builder
+            .comment("Panel background color override (hex RRGGBB, empty = theme preset)")
+            .translation("e33chat.config.panel_bg_color")
+            .define("panel_bg_color", "");
+
+        ACCENT_COLOR = builder
+            .comment("Accent color override for notifications and banners (hex RRGGBB, empty = theme preset)")
+            .translation("e33chat.config.accent_color")
+            .define("accent_color", "");
+
+        UI_CORNER_RADIUS = builder
+            .comment("Corner radius for UI elements (context menus, popups, toasts; 0 = square)")
+            .translation("e33chat.config.ui_corner_radius")
+            .defineInRange("corner_radius", 4, 0, 12);
+
+        MESSAGE_GAP = builder
+            .comment("Vertical gap between chat messages (pixels)")
+            .translation("e33chat.config.message_gap")
+            .defineInRange("message_gap", 6, 0, 12);
 
         builder.pop();
         builder.push("text");
