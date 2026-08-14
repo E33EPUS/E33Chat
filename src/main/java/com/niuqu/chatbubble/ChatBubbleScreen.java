@@ -1845,8 +1845,7 @@ public class ChatBubbleScreen extends ChatScreen {
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
 
         if (index == searchHighlightIndex)
-            UiPrimitives.strokeRounded(g, bubbleX - 1, bubbleY - 1, bubbleX + bubbleW + 1, bubbleY + bubbleH + 1,
-                ChatBubbleClientSetup.config().bubbleCornerRadius(), 1, ChatSearchPanel.HIGHLIGHT);
+            g.drawBorder(bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2, ChatSearchPanel.HIGHLIGHT);
     }
 
     /** Bubble-less image message: name + avatar + optional text + images
