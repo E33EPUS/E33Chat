@@ -191,14 +191,13 @@ public class ChatMessageStore {
     private static final List<PendingEcho> pendingEchoes = new ArrayList<>();
     public record EchoMatch(boolean matched, boolean quoted) {}
 
-    private static long pendingWhisperEchoTime;
-    private static String pendingWhisperEchoTarget;
+    private record PendingWhisperEcho(String target, long time) {}
+    private static final Deque<PendingWhisperEcho> pendingWhisperEchoes = new ArrayDeque<>();
     private static long suppressCaptureTime;
     private static boolean suppressQuoted;
 
     public static void markPendingWhisperEcho(String target) {
-        pendingWhisperEchoTime = System.currentTimeMillis();
-        pendingWhisperEchoTarget = target;
+        pendingWhisperEchoes.addLast(new PendingWhisperEcho(target, System.currentTimeMillis()));
     }
     public static void markSuppressCapture() {
         suppressCaptureTime = System.currentTimeMillis();
@@ -213,11 +212,23 @@ public class ChatMessageStore {
         return q;
     }
 
-    public static boolean hasPendingWhisperEcho() {
-        return pendingWhisperEchoTime != 0 && System.currentTimeMillis() - pendingWhisperEchoTime < 10_000;
+    private static void purgeStaleWhisperEchoes() {
+        long cutoff = System.currentTimeMillis() - 10_000;
+        while (!pendingWhisperEchoes.isEmpty() && pendingWhisperEchoes.peekFirst().time() < cutoff) {
+            pendingWhisperEchoes.pollFirst();
+        }
     }
-    public static String getPendingWhisperTarget() { return pendingWhisperEchoTarget; }
-    public static void consumeWhisperEcho() { pendingWhisperEchoTime = 0; pendingWhisperEchoTarget = null; }
+
+    public static boolean hasPendingWhisperEcho() {
+        purgeStaleWhisperEchoes();
+        return !pendingWhisperEchoes.isEmpty();
+    }
+    public static String getPendingWhisperTarget() {
+        purgeStaleWhisperEchoes();
+        PendingWhisperEcho head = pendingWhisperEchoes.peekFirst();
+        return head != null ? head.target() : null;
+    }
+    public static void consumeWhisperEcho() { pendingWhisperEchoes.pollFirst(); }
 
     // 5s TTL: if the outgoing-whisper echo never reaches addMessage (another
     // mod cancelled it), a stale flag must not swallow an unrelated message
