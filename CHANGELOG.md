@@ -3,14 +3,12 @@
 ## v2.3.13
 
 **新功能（2.3.13，三端同步：Fabric / Forge / NeoForge）**
-- **外观快照化**：聊天界面颜色从硬编码的 DARK/LIGHT 枚举升级为「外观快照」，渲染层统一从快照取色，颜色/圆角/间距不再散落在各渲染方法里
-- **自定义主题**：新增「面板背景色」「强调色」两项颜色覆盖 + 「UI 圆角半径」「消息间距」两项布局配置（设置 → 聊天框 → 面板），留空自动回落 DARK/LIGHT 预设
-- **几何原语统一**：新增 UiPrimitives（圆角填充/描边/裁剪/命中一套函数）；气泡搜索高亮描边从方角修正为圆角；引用块圆角改为可配置
+- **外观快照化**：聊天界面颜色从硬编码的 DARK/LIGHT 枚举升级为「外观快照」，渲染层统一从快照取色，颜色/圆角/间距/头像大小不再散落在各渲染方法里
+- **自定义主题**：新增「面板背景色」「强调色」两项颜色覆盖 + 「UI 圆角半径」「消息间距」「头像大小」三项布局配置（设置 → 聊天框 → 面板），留空自动回落 DARK/LIGHT 预设
 
 **New (2.3.13, all loaders: Fabric / Forge / NeoForge)**
 - **Appearance snapshot**: chat UI colors upgraded from the hardcoded DARK/LIGHT enum to a config-driven snapshot; renderers read the snapshot instead of magic numbers scattered across render methods
-- **Custom theme**: new "Panel Background Color" and "Accent Color" overrides plus "UI Corner Radius" and "Message Gap" options (Settings → Chat → Panel); empty falls back to the DARK/LIGHT preset
-- **Unified geometry primitives**: added UiPrimitives (rounded fill/stroke/clip/hit); the bubble search-highlight border is now rounded (was square); quote-block corner radius is configurable
+- **Custom theme**: new "Panel Background Color" and "Accent Color" overrides plus "UI Corner Radius", "Message Gap", and "Avatar Size" options (Settings → Chat → Panel); empty falls back to the DARK/LIGHT preset
 
 ## v2.3.12
 
