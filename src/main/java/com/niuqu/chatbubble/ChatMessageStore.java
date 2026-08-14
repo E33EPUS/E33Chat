@@ -265,7 +265,7 @@ public class ChatMessageStore {
         debugLog(() -> msg);
     }
 
-    public static EchoMatch consumeEchoIfSenderMatches(UUID senderUUID, Text senderName) {
+    public static EchoMatch consumeEchoIfSenderMatches(UUID senderUUID, Text senderName, String incomingText) {
         purgeStaleEchoes();
         if (pendingEchoes.isEmpty()) return new EchoMatch(false, false);
         var player = net.minecraft.client.MinecraftClient.getInstance().player;
@@ -286,6 +286,21 @@ public class ChatMessageStore {
             }
         }
         if (match) {
+            // The server echoes our own text back, so match by content (most recent
+            // first) to pinpoint WHICH send produced this echo. Blind remove(0) would
+            // grab an older unconsumed echo from a filtered message and mis-tag the
+            // quote flag onto the wrong send.
+            if (incomingText != null) {
+                for (int i = pendingEchoes.size() - 1; i >= 0; i--) {
+                    if (incomingText.equals(pendingEchoes.get(i).text())) {
+                        boolean quoted = pendingEchoes.get(i).quoted();
+                        pendingEchoes.remove(i);
+                        updateLatestOwnSenderName(senderName);
+                        return new EchoMatch(true, quoted);
+                    }
+                }
+            }
+            // Fallback: the server decorated/translated the content — take the oldest.
             PendingEcho e = pendingEchoes.remove(0);
             updateLatestOwnSenderName(senderName);
             return new EchoMatch(true, e.quoted());
