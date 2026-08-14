@@ -15,15 +15,15 @@ public final class Appearance {
         return theme.colors();
     }
 
-    /** 消息之间的垂直间距。 */
+    /** 消息之间的垂直间距（手改配置文件也可能越界，钳制到 UI 范围）。 */
     public static int messageGap() {
         Integer g = ChatBubbleClientSetup.config().messageGap();
-        return g == null ? 6 : g;
+        return g == null ? 6 : Math.max(0, Math.min(12, g));
     }
 
-    /** 消息气泡头像尺寸（像素）。 */
+    /** 消息气泡头像尺寸（像素，钳制到 UI 范围）。 */
     public static int avatarSize() {
         Integer a = ChatBubbleClientSetup.config().avatarSize();
-        return a == null ? 20 : a;
+        return a == null ? 20 : Math.max(12, Math.min(32, a));
     }
 }

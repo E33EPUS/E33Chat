@@ -568,6 +568,18 @@ public class ChatBubbleScreen extends ChatScreen {
         return Animation.styleCurve(style, t);
     }
 
+    // 上下栏背景透明度：跟面板开合动画同步（150ms），但用线性曲线——
+    // easeOutCubic 前 75ms 就到 87% 不透明，观感=瞬间出现（2.3.13 用户反馈）。
+    private float getBarAlpha() {
+        if (!ChatBubbleClientSetup.config().animationEnabled()) return 1.0f;
+        AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle());
+        if (style == AnimationStyle.NONE) return 1.0f;
+        long elapsed = Util.getMeasuringTimeMs() - animStart;
+        float t = MathHelper.clamp((float) elapsed / ANIM_MS, 0f, 1f);
+        if (closing) return 1.0f - t;
+        return t;
+    }
+
     // Popup open animation (opening only — closing stays instant). The panel
     // renders itself with the given alpha (per-element fade); ZOOM additionally
     // scales it in around the screen center with overshoot.
@@ -1298,7 +1310,7 @@ public class ChatBubbleScreen extends ChatScreen {
             fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
 
         // 上下栏背景只跟开合动画（fade 终点 1.0 不透明），不乘 PANEL_OPACITY（2.3.7 起永久半透明回归）
-        renderTitleBar(g, mouseX, mouseY, getAnimProgress());
+        renderTitleBar(g, mouseX, mouseY, getBarAlpha());
         renderMessages(g, mouseX, mouseY);
         Style hovered = getHoveredStyle(mouseX, mouseY);
         if (hovered != null && hovered.getHoverEvent() != null) {
@@ -1311,7 +1323,7 @@ public class ChatBubbleScreen extends ChatScreen {
         renderContextMenu(g, mouseX, mouseY);
         renderAvatarContextMenu(g, mouseX, mouseY);
         renderToast(g);
-        renderBottomBar(g, mouseX, mouseY, getAnimProgress());
+        renderBottomBar(g, mouseX, mouseY, getBarAlpha());
         renderMentionPopup(g, mouseX, mouseY);
         // 弹层面板（设置/表情/快捷/搜索）画在底栏之上，z 高一层——侧边栏同 z 后画
         // 会盖住它们，提升弹层 z 到侧边栏之上避免遮挡
