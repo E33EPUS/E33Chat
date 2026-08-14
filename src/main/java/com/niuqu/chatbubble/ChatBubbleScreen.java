@@ -416,6 +416,18 @@ public class ChatBubbleScreen extends ChatScreen {
         return Animation.styleCurve(style, t);
     }
 
+    // 上下栏背景透明度：跟面板开合动画同步（150ms），但用线性曲线——
+    // easeOutCubic 前 75ms 就到 87% 不透明，观感=瞬间出现（2.3.13 用户反馈）。
+    private float getBarAlpha() {
+        if (!ChatBubbleConfig.ANIMATION_ENABLED.get()) return 1.0f;
+        AnimationStyle style = ChatBubbleConfig.PANEL_ANIM_STYLE.get();
+        if (style == AnimationStyle.NONE) return 1.0f;
+        long elapsed = net.minecraft.Util.getMillis() - animStart;
+        float t = Mth.clamp((float) elapsed / ANIM_MS, 0f, 1f);
+        if (closing) return 1.0f - t;
+        return t;
+    }
+
     // Popup open animation (opening only — closing stays instant). FADE fades the
     // whole panel in; ZOOM scales it in around the screen center with overshoot.
     private void renderPopupWithAnim(GuiGraphics g, long startMs, java.util.function.Function<Float, Runnable> renderer) {
@@ -1394,7 +1406,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
         // 上下栏背景只跟开合动画（fade 终点 1.0 不透明），不乘 PANEL_OPACITY（2.3.7 起永久半透明回归）
-        float barAlpha = getAnimProgress();
+        float barAlpha = getBarAlpha();
         ChatBars.renderTitleBar(g, font, mouseX, mouseY, c(), panelX, panelW,
             getDisplayTitle(), LocalTime.now().format(TIME_FMT), iconTex("menu"), barAlpha, getAnimProgress());
     }
@@ -1591,7 +1603,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         ChatLayout layout = new ChatLayout(panelX, panelW, titleY, msgTop, msgBottom, barTop, width, height);
         ChatScrollbar.render(g, layout, mouseX, mouseY, maxScroll, messageTotalH, scrollOffset,
-            scrollbarDragging, scrollbarAlpha, effectiveMsgBottom);
+            scrollbarDragging, scrollbarAlpha, effectiveMsgBottom, c().scrollbar());
     }
 
     private void renderTimeSeparator(GuiGraphics g, long timeMillis, int y) {
@@ -1902,7 +1914,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private void renderBottomBar(GuiGraphics g, int mouseX, int mouseY) {
         // 上下栏背景只跟开合动画（fade 终点 1.0 不透明），不乘 PANEL_OPACITY（2.3.7 起永久半透明回归）
-        float barAlpha = getAnimProgress();
+        float barAlpha = getBarAlpha();
         ChatBars.renderBottomBar(g, font, mouseX, mouseY, c(), panelX, panelW, barTop, height,
             inputX, inputY, input.getWidth(), input.isFocused(), emojiPanel.visible,
             iconTex("settings"), iconTex("emoji"), iconTex("send"), barAlpha, getAnimProgress());
