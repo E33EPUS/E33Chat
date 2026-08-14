@@ -50,7 +50,6 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int AVATAR = 20;
     private static final int BUBBLE_PAD_X = 6;
     private static final int BUBBLE_PAD_Y = 4;
-    private static final int GAP = 6;
     private static final int NAME_H = 10;
     private static final int TIME_SEP_H = 14;
     static final int BAR_H = 26;
@@ -59,7 +58,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int SIDEBAR_ICON_S = 20;
 
     private ChatBubbleTheme.Colors c() {
-        return theme().colors();
+        return Appearance.snapshot();
     }
 
     private ChatBubbleTheme theme() {
@@ -1446,13 +1445,13 @@ public class ChatBubbleScreen extends ChatScreen {
         String lastKey = null;
         int totalH = 0;
         for (var msg : messages) {
-            totalH += getMsgHeight(msg) + GAP;
+            totalH += getMsgHeight(msg) + Appearance.messageGap();
             if (!msg.isSystem()) {
                 String key = timeKey(msg.time());
                 if (lastKey == null || !key.equals(lastKey)) { timeSeps++; lastKey = key; }
             }
         }
-        totalH += timeSeps * (TIME_SEP_H + GAP);
+        totalH += timeSeps * (TIME_SEP_H + Appearance.messageGap());
         int prevMaxScroll = maxScroll;
         maxScroll = Math.max(0, totalH - areaH);
         this.messageTotalH = totalH;
@@ -1517,13 +1516,13 @@ public class ChatBubbleScreen extends ChatScreen {
                     int ssy = effectiveMsgTop + contentY - scrollOffset;
                     if (ssy + TIME_SEP_H > effectiveMsgTop && ssy < effectiveMsgBottom)
                         renderTimeSeparator(g, msg.time(), ssy);
-                    contentY += TIME_SEP_H + GAP;
+                    contentY += TIME_SEP_H + Appearance.messageGap();
                 }
             }
 
             int h = getMsgHeight(msg);
             int screenY = effectiveMsgTop + contentY - scrollOffset;
-            contentY += h + GAP;
+            contentY += h + Appearance.messageGap();
 
             if (screenY + h <= effectiveMsgTop || screenY >= effectiveMsgBottom) { fullIdx++; continue; }
 
@@ -1839,14 +1838,15 @@ public class ChatBubbleScreen extends ChatScreen {
             if (quoteX < panelX + PAD) quoteX = panelX + PAD;
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
             // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, Appearance.cornerRadius(), ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
             g.drawText(textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
         }
 
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
 
         if (index == searchHighlightIndex)
-            g.drawBorder(bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2, ChatSearchPanel.HIGHLIGHT);
+            UiPrimitives.strokeRounded(g, bubbleX - 1, bubbleY - 1, bubbleX + bubbleW + 1, bubbleY + bubbleH + 1,
+                ChatBubbleClientSetup.config().bubbleCornerRadius(), 1, ChatSearchPanel.HIGHLIGHT);
     }
 
     /** Bubble-less image message: name + avatar + optional text + images
@@ -2506,9 +2506,9 @@ public class ChatBubbleScreen extends ChatScreen {
             var m = msgs.get(i);
             if (!m.isSystem()) {
                 String k = timeKey(m.time());
-                if (lk == null || !k.equals(lk)) { lk = k; cy += TIME_SEP_H + GAP; }
+                if (lk == null || !k.equals(lk)) { lk = k; cy += TIME_SEP_H + Appearance.messageGap(); }
             }
-            cy += getMsgHeight(m) + GAP;
+            cy += getMsgHeight(m) + Appearance.messageGap();
         }
         scrollOffset = Math.max(0, cy - 20);
         newMessageCount = 0; hasNewMentionOrQuote = false;

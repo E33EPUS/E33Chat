@@ -28,7 +28,7 @@ public class ChatBubbleHudOverlay {
         return "light".equalsIgnoreCase(cfg().theme()) ? ChatBubbleTheme.LIGHT : ChatBubbleTheme.DARK;
     }
 
-    private static ChatBubbleTheme.Colors c() { return theme().colors(); }
+    private static ChatBubbleTheme.Colors c() { return Appearance.snapshot(); }
 
     public static void render(DrawContext g) {
         MinecraftClient mc = MinecraftClient.getInstance();

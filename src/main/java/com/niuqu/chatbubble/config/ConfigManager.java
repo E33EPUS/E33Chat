@@ -79,7 +79,11 @@ public final class ConfigManager {
             c.uploadUrl() != null ? c.uploadUrl() : d.uploadUrl(),
             c.uploadField() != null ? c.uploadField() : d.uploadField(),
             c.uploadExtra() != null ? c.uploadExtra() : d.uploadExtra(),
-            c.uploadResponse() != null ? c.uploadResponse() : d.uploadResponse());
+            c.uploadResponse() != null ? c.uploadResponse() : d.uploadResponse(),
+            c.panelBgColor() != null ? c.panelBgColor() : d.panelBgColor(),
+            c.accentColor() != null ? c.accentColor() : d.accentColor(),
+            c.uiCornerRadius() != null ? c.uiCornerRadius() : d.uiCornerRadius(),
+            c.messageGap() != null ? c.messageGap() : d.messageGap());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {
