@@ -40,7 +40,12 @@ public class MentionNotificationBanner {
     private long stateStartMs;
     private long visibleDurationMs;
 
-    private static final Map<UUID, ResourceLocation> skinCache = new HashMap<>();
+    private static final Map<UUID, ResourceLocation> skinCache = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<UUID, ResourceLocation> eldest) {
+            return size() > 256;
+        }
+    };
 
     private MentionNotificationBanner() {}
 

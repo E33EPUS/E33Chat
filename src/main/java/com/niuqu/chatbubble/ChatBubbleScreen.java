@@ -40,6 +40,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,7 +87,13 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private static int inputX, inputY;
     // Caches resolved head skins per player uuid so the SkinManager isn't hit every frame
-    private static final Map<UUID, ResourceLocation> skinCache = new HashMap<>();
+    private static final Map<UUID, ResourceLocation> skinCache = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<UUID, ResourceLocation> eldest) {
+            return size() > SKIN_CACHE_CAP;
+        }
+    };
+    private static final int SKIN_CACHE_CAP = 256;
     private CommandSuggestions suggestions;
     private final String initialText;
     private String historyBuffer = "";
@@ -1930,7 +1937,12 @@ public class ChatBubbleScreen extends ChatScreen {
     // Name-keyed skin cache: an offline player seen in chat history keeps the
     // real head when the UUID lookup fails (cracked servers, uuid dropped in
     // old history files). Key is the §-stripped lowercase name.
-    private static final java.util.Map<String, ResourceLocation> skinNameCache = new HashMap<>();
+    private static final java.util.Map<String, ResourceLocation> skinNameCache = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, ResourceLocation> eldest) {
+            return size() > SKIN_CACHE_CAP;
+        }
+    };
 
     private static String skinNameKey(String name) {
         if (name == null) return null;
