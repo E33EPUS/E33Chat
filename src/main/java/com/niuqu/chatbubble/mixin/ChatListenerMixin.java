@@ -150,6 +150,8 @@ public class ChatListenerMixin {
             if (!tabStr.isEmpty()
                 && !tabStr.equals(profile)          // tab name differs from bare name
                 && !tabStr.equals(currentStr)) {    // and current name isn't already it
+                ChatMessageStore.debugLog("[e33chat] enrich: using tabDisplay '" + tabStr + "' for '" + currentStr + "'");
+                com.niuqu.chatbubble.E33Log.info("[e33chat] enrich: using tabDisplay '" + tabStr + "' for '" + currentStr + "'");
                 return tabDisplay;
             }
         }
@@ -187,9 +189,12 @@ public class ChatListenerMixin {
             if (!pfxStr.isEmpty()) out.append(pfx);
             out.append(currentName);
             if (!sfxStr.isEmpty()) out.append(sfx);
+            ChatMessageStore.debugLog("[e33chat] enrich: applied team prefix '" + pfxStr + "'/'"+ sfxStr + "' to '" + currentStr + "'");
+            com.niuqu.chatbubble.E33Log.info("[e33chat] enrich: applied team prefix '" + pfxStr + "'/'"+ sfxStr + "' to '" + currentStr + "'");
             return out;
         }
-
+        ChatMessageStore.debugLog("[e33chat] enrich: no prefix source for '" + currentStr + "' (tab=null team=null)");
+        com.niuqu.chatbubble.E33Log.info("[e33chat] enrich: no prefix source for '" + currentStr + "' (tab=null team=null)");
         return currentName;
     }
 
