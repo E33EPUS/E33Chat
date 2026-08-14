@@ -2285,8 +2285,9 @@ public class ChatBubbleScreen extends ChatScreen {
             text = Text.translatable("e33chat.upload.failed").getString();
         } else if (uploadBusyTicks > 0) {
             // Upload-in-progress hint; cleared by the worker when the job finishes.
+            // Same look as the copy toast (TOAST_BG texture + toastText color).
             alpha = 200;
-            color = (alpha << 24) | 0x00FFAA00;
+            color = (alpha << 24) | (c().toastText() & 0x00FFFFFF);
             text = Text.translatable("e33chat.upload.start").getString();
         } else {
             if (copyToastTicks <= 0) return;
