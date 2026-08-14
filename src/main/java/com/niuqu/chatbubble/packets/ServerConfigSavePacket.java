@@ -22,14 +22,17 @@ public class ServerConfigSavePacket {
     private final boolean useTpa;
     private final boolean historyEnabled;
     private final boolean templateDebug;
+    private final boolean mediaEnabled;
     private final List<String> chatTemplates;
     private final List<String> whisperTemplates;
 
     public ServerConfigSavePacket(boolean useTpa, boolean historyEnabled, boolean templateDebug,
+                                  boolean mediaEnabled,
                                   List<String> chatTemplates, List<String> whisperTemplates) {
         this.useTpa = useTpa;
         this.historyEnabled = historyEnabled;
         this.templateDebug = templateDebug;
+        this.mediaEnabled = mediaEnabled;
         this.chatTemplates = chatTemplates;
         this.whisperTemplates = whisperTemplates;
     }
@@ -38,6 +41,7 @@ public class ServerConfigSavePacket {
         buf.writeBoolean(packet.useTpa);
         buf.writeBoolean(packet.historyEnabled);
         buf.writeBoolean(packet.templateDebug);
+        buf.writeBoolean(packet.mediaEnabled);
         buf.writeCollection(packet.chatTemplates, FriendlyByteBuf::writeUtf);
         buf.writeCollection(packet.whisperTemplates, FriendlyByteBuf::writeUtf);
     }
@@ -46,9 +50,10 @@ public class ServerConfigSavePacket {
         boolean useTpa = buf.readBoolean();
         boolean history = buf.readBoolean();
         boolean debug = buf.readBoolean();
+        boolean media = buf.readBoolean();
         List<String> chat = new ArrayList<>(buf.readCollection(ArrayList::new, FriendlyByteBuf::readUtf));
         List<String> whisper = new ArrayList<>(buf.readCollection(ArrayList::new, FriendlyByteBuf::readUtf));
-        return new ServerConfigSavePacket(useTpa, history, debug, chat, whisper);
+        return new ServerConfigSavePacket(useTpa, history, debug, media, chat, whisper);
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
@@ -77,6 +82,8 @@ public class ServerConfigSavePacket {
             ChatServerConfig.WHISPER_TEMPLATES.clearCache();
             ChatServerConfig.TEMPLATE_DEBUG.set(templateDebug);
             ChatServerConfig.TEMPLATE_DEBUG.clearCache();
+            ChatServerConfig.MEDIA_ENABLED.set(mediaEnabled);
+            ChatServerConfig.MEDIA_ENABLED.clearCache();
             ChatBubbleMod.saveServerConfig();
             ChatServerListener.broadcastServerConfig();
             player.sendSystemMessage(Component.translatable("e33chat.server.saved"));

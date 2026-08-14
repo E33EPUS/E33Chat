@@ -101,13 +101,15 @@ public final class ChatMessageRenderer {
                 net.minecraft.network.chat.FormattedText.of("...")));
     }
 
-    /** 20x22 head + hat, direction-independent (mirrors the bubble avatar). */
+    /** avatarSize head + hat (hat = size + 2), direction-independent (mirrors the bubble avatar). */
     private static void drawAvatar(GuiGraphics g, ResourceLocation skin, int avatarX, int avatarY, float alpha) {
         if (alpha > 0.003f) {
-            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX, avatarY, 20, 20,
+            int size = Appearance.avatarSize();
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX, avatarY, size, size,
                 8.0F, 8.0F, 8, 8, 64, 64, alpha);
-            int hatOff = 1;
-            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX - hatOff, avatarY - hatOff, 22, 22,
+            int hatSize = size + 2;
+            int hatOff = (hatSize - size) / 2;
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, avatarX - hatOff, avatarY - hatOff, hatSize, hatSize,
                 40.0F, 8.0F, 8, 8, 64, 64, alpha);
         }
     }
@@ -559,7 +561,7 @@ public final class ChatMessageRenderer {
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
             // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, Appearance.cornerRadius(), ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
             g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)), false);
         }
 

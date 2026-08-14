@@ -135,14 +135,8 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.panel_anim_style", this::mkPanelStyleButton, null));
         chat.add(new Opt("e33chat.config.popup_anim_style", this::mkPopupStyleButton, null));
         chat.add(new Opt("e33chat.config.message_anim_style", this::mkMessageStyleButton, null));
-        chat.add(new Opt("e33chat.config.panel_bg_color",
-            y -> mkHexBox(y, ChatBubbleConfig.PANEL_BG_COLOR.get(), ChatBubbleConfig.PANEL_BG_COLOR::set),
-            () -> { String v = ChatBubbleConfig.PANEL_BG_COLOR.get(); return v.isEmpty() ? "#1E1E1E" : v; }));
-        chat.add(new Opt("e33chat.config.accent_color",
-            y -> mkHexBox(y, ChatBubbleConfig.ACCENT_COLOR.get(), ChatBubbleConfig.ACCENT_COLOR::set),
-            () -> { String v = ChatBubbleConfig.ACCENT_COLOR.get(); return v.isEmpty() ? "#FFAA00" : v; }));
-        chat.add(new Opt("e33chat.config.ui_corner_radius",
-            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.UI_CORNER_RADIUS.get()), 0, 12, 2, ChatBubbleConfig.UI_CORNER_RADIUS::set), null));
+        chat.add(new Opt("e33chat.config.avatar_size",
+            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.AVATAR_SIZE.get()), 12, 32, 2, ChatBubbleConfig.AVATAR_SIZE::set), null));
         chat.add(Opt.header("e33chat.config.section.bubble_font"));
         chat.add(new Opt("e33chat.config.bubble_corner_radius",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get()), 0, 10, 2, ChatBubbleConfig.BUBBLE_CORNER_RADIUS::set), null));
@@ -158,11 +152,9 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.other_text_color",
             y -> mkHexBox(y, ChatBubbleConfig.OTHER_TEXT_COLOR.get(), ChatBubbleConfig.OTHER_TEXT_COLOR::set),
             ChatBubbleConfig.OTHER_TEXT_COLOR::get));
+        chat.add(Opt.header("e33chat.config.section.msgdisplay"));
         chat.add(new Opt("e33chat.config.message_gap",
             y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.MESSAGE_GAP.get()), 0, 12, 2, ChatBubbleConfig.MESSAGE_GAP::set), null));
-        chat.add(new Opt("e33chat.config.avatar_size",
-            y -> mkIntBox(y, String.valueOf(ChatBubbleConfig.AVATAR_SIZE.get()), 12, 32, 2, ChatBubbleConfig.AVATAR_SIZE::set), null));
-        chat.add(Opt.header("e33chat.config.section.msgdisplay"));
         chat.add(new Opt("e33chat.config.enabled", y -> mkBoolButton(y, ChatBubbleConfig.ENABLED), null));
         chat.add(new Opt("e33chat.config.system_chat_as_bubble", y -> mkBoolButton(y, ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE), null));
         chat.add(new Opt("e33chat.config.anti_spam", y -> mkBoolButton(y, ChatBubbleConfig.ANTI_SPAM), null));

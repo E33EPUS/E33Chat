@@ -76,6 +76,7 @@ public class E33ChatCommands {
         NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
             new ServerConfigScreenPacket(ChatServerConfig.USE_TPA.get(),
                 ChatServerConfig.HISTORY_ENABLED.get(), ChatServerConfig.TEMPLATE_DEBUG.get(),
+                ChatServerConfig.MEDIA_ENABLED.get(),
                 new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
                 new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get())));
         return 1;

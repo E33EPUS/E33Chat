@@ -19,9 +19,10 @@ import java.util.List;
 public class ClientServerConfigGui {
 
     public static void open(boolean useTpa, boolean historyEnabled, boolean templateDebug,
+                            boolean mediaEnabled,
                             List<String> chatTemplates, List<String> whisperTemplates) {
         Minecraft.getInstance().setScreen(new ServerConfigScreen(
             Minecraft.getInstance().screen,
-            useTpa, historyEnabled, templateDebug, chatTemplates, whisperTemplates));
+            useTpa, historyEnabled, templateDebug, mediaEnabled, chatTemplates, whisperTemplates));
     }
 }
