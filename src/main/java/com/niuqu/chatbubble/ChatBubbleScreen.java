@@ -8,6 +8,7 @@ import com.niuqu.chatbubble.image.BracketCodec;
 import com.niuqu.chatbubble.image.ImageEntry;
 import com.niuqu.chatbubble.image.ImageLoader;
 import com.niuqu.chatbubble.image.ImageUploader;
+import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.image.LocalImageSource;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
@@ -1593,8 +1594,10 @@ public class ChatBubbleScreen extends ChatScreen {
         int trackBottom = effectiveMsgBottom;
         int trackH = trackBottom - trackTop;
 
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_TRACK),
-            trackX, trackTop, SCROLLBAR_WIDTH, trackBottom - trackTop, 0x1A / 255f * scrollbarAlpha);
+        // 纯色填充替代 drawWithAlpha：绕开消息路径 blend/flush 污染
+        // （4844270a 同机制：上游 drawWithAlpha → scrollbar 渐显只显最后一帧）
+        g.fill(trackX, trackTop, trackX + SCROLLBAR_WIDTH, trackBottom,
+            ChatBubbleTheme.alphaBlend(c().scrollbar(), (int) (0x1A * scrollbarAlpha)));
 
         int thumbH = Math.max(MIN_THUMB_H, (int) ((long) trackH * trackH / messageTotalH));
         thumbH = Math.min(thumbH, trackH);
@@ -1607,8 +1610,8 @@ public class ChatBubbleScreen extends ChatScreen {
         scrollbarHovered = hovering || scrollbarDragging;
 
         float thumbBase = scrollbarDragging ? 0xAA : scrollbarHovered ? 0x88 : 0x66;
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_THUMB),
-            trackX, thumbY, SCROLLBAR_WIDTH, thumbH, thumbBase / 255f * scrollbarAlpha);
+        g.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH,
+            ChatBubbleTheme.alphaBlend(c().scrollbar(), (int) (thumbBase * scrollbarAlpha)));
     }
 
     private void renderTimeSeparator(DrawContext g, long timeMillis, int y) {
