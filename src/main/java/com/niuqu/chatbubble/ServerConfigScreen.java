@@ -79,8 +79,8 @@ public class ServerConfigScreen extends Screen {
     };
 
     // 打开时的快照（用于变更检测）+ 可编辑的本地副本（发送前不生效）
-    private final boolean initUseTpa, initHistory, initDebug;
-    private boolean useTpaV, historyV, debugV;
+    private final boolean initUseTpa, initHistory, initDebug, initMedia;
+    private boolean useTpaV, historyV, debugV, mediaV;
     private final List<String> initChat, initWhisper;
     private final List<String> chatV = new ArrayList<>();
     private final List<String> whisperV = new ArrayList<>();
@@ -120,17 +120,20 @@ public class ServerConfigScreen extends Screen {
     private ButtonWidget doneBtn, exitBtn, saveBtn;
 
     public ServerConfigScreen(Screen lastScreen, boolean useTpa, boolean history, boolean debug,
+                              boolean mediaEnabled,
                               List<String> chat, List<String> whisper) {
         super(Text.translatable("e33chat.server.title"));
         this.lastScreen = lastScreen;
         initUseTpa = useTpa;
         initHistory = history;
         initDebug = debug;
+        initMedia = mediaEnabled;
         initChat = new ArrayList<>(chat);
         initWhisper = new ArrayList<>(whisper);
         useTpaV = useTpa;
         historyV = history;
         debugV = debug;
+        mediaV = mediaEnabled;
         chatV.addAll(chat);
         whisperV.addAll(whisper);
     }
@@ -193,6 +196,8 @@ public class ServerConfigScreen extends Screen {
                     List.of(mkToggle(() -> useTpaV, nv -> useTpaV = nv)), null, "e33chat.server.use_tpa"));
                 rows.add(row(Text.translatable("e33chat.server.history"),
                     List.of(mkToggle(() -> historyV, nv -> historyV = nv)), null, "e33chat.server.history"));
+                rows.add(row(Text.translatable("e33chat.server.media_enabled"),
+                    List.of(mkToggle(() -> mediaV, nv -> mediaV = nv)), null, "e33chat.server.media_enabled"));
             }
             case 1 -> buildTemplateRows(chatV, true);
             case 2 -> buildTemplateRows(whisperV, false);
@@ -381,6 +386,7 @@ public class ServerConfigScreen extends Screen {
 
     private boolean changed() {
         return useTpaV != initUseTpa || historyV != initHistory || debugV != initDebug
+            || mediaV != initMedia
             || !Objects.equals(chatV, initChat) || !Objects.equals(whisperV, initWhisper);
     }
 
@@ -392,7 +398,7 @@ public class ServerConfigScreen extends Screen {
             return;
         }
         ClientPlayNetworking.send(new ServerConfigSavePayload(
-            useTpaV, historyV, debugV, new ArrayList<>(chatV), new ArrayList<>(whisperV)));
+            useTpaV, historyV, debugV, mediaV, new ArrayList<>(chatV), new ArrayList<>(whisperV)));
         doClose();
     }
 
@@ -430,6 +436,7 @@ public class ServerConfigScreen extends Screen {
         if (useTpaV != initUseTpa) n++;
         if (historyV != initHistory) n++;
         if (debugV != initDebug) n++;
+        if (mediaV != initMedia) n++;
         if (!Objects.equals(chatV, initChat)) n++;
         if (!Objects.equals(whisperV, initWhisper)) n++;
         return n;

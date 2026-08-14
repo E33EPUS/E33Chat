@@ -78,8 +78,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private String panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle;
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
-    private String panelBgColor, accentColor;
-    private int uiCornerRadius, messageGap, avatarSize;
+    private int messageGap, avatarSize;
     private List<String> sidebarHidePatterns;
     private List<String> blockedPlayers;
 
@@ -167,9 +166,6 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> bubbleCornerRadius, v -> bubbleCornerRadius = v));
         tracked.add(track(() -> ownTextColor, v -> ownTextColor = v));
         tracked.add(track(() -> otherTextColor, v -> otherTextColor = v));
-        tracked.add(track(() -> panelBgColor, v -> panelBgColor = v));
-        tracked.add(track(() -> accentColor, v -> accentColor = v));
-        tracked.add(track(() -> uiCornerRadius, v -> uiCornerRadius = v));
         tracked.add(track(() -> messageGap, v -> messageGap = v));
         tracked.add(track(() -> avatarSize, v -> avatarSize = v));
         tracked.add(track(() -> panelWidth, v -> panelWidth = v));
@@ -227,9 +223,7 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().uploadField(),
             ChatBubbleClientSetup.config().uploadExtra(),
             ChatBubbleClientSetup.config().uploadResponse(),
-            panelBgColor.isEmpty() ? null : panelBgColor,
-            accentColor.isEmpty() ? null : accentColor,
-            uiCornerRadius, messageGap, avatarSize));
+            messageGap, avatarSize));
     }
 
     private void loadFromConfig() {
@@ -267,9 +261,6 @@ public class ChatBubbleConfigScreen extends Screen {
         ownTextColor = cfg.ownTextColor(); otherTextColor = cfg.otherTextColor();
         sidebarHidePatterns = new ArrayList<>(cfg.sidebarHidePatterns());
         blockedPlayers = new ArrayList<>(cfg.blockedPlayers());
-        panelBgColor = cfg.panelBgColor() != null ? cfg.panelBgColor() : "";
-        accentColor = cfg.accentColor() != null ? cfg.accentColor() : "";
-        uiCornerRadius = cfg.uiCornerRadius() != null ? cfg.uiCornerRadius() : 4;
         messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
         avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
     }
@@ -407,14 +398,8 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.panel_anim_style", this::mkPanelStyleButton, null));
         chat.add(new Opt("e33chat.config.popup_anim_style", this::mkPopupStyleButton, null));
         chat.add(new Opt("e33chat.config.message_anim_style", this::mkMessageStyleButton, null));
-        chat.add(new Opt("e33chat.config.panel_bg_color",
-            y -> mkHexBox(y, panelBgColor, v -> panelBgColor = v),
-            () -> panelBgColor.isEmpty() ? "#1E1E1E" : panelBgColor));
-        chat.add(new Opt("e33chat.config.accent_color",
-            y -> mkHexBox(y, accentColor, v -> accentColor = v),
-            () -> accentColor.isEmpty() ? "#FFAA00" : accentColor));
-        chat.add(new Opt("e33chat.config.ui_corner_radius",
-            y -> mkIntBox(y, String.valueOf(uiCornerRadius), 0, 12, 2, v -> uiCornerRadius = v), null));
+        chat.add(new Opt("e33chat.config.avatar_size",
+            y -> mkIntBox(y, String.valueOf(avatarSize), 12, 32, 2, v -> avatarSize = v), null));
         chat.add(Opt.header("e33chat.config.section.bubble_font"));
         chat.add(new Opt("e33chat.config.bubble_corner_radius",
             y -> mkIntBox(y, String.valueOf(bubbleCornerRadius), 0, 10, 2, v -> bubbleCornerRadius = v), null));
@@ -430,11 +415,9 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.other_text_color",
             y -> mkHexBox(y, otherTextColor, v -> otherTextColor = v),
             () -> otherTextColor));
+        chat.add(Opt.header("e33chat.config.section.msgdisplay"));
         chat.add(new Opt("e33chat.config.message_gap",
             y -> mkIntBox(y, String.valueOf(messageGap), 0, 12, 2, v -> messageGap = v), null));
-        chat.add(new Opt("e33chat.config.avatar_size",
-            y -> mkIntBox(y, String.valueOf(avatarSize), 12, 32, 2, v -> avatarSize = v), null));
-        chat.add(Opt.header("e33chat.config.section.msgdisplay"));
         chat.add(new Opt("e33chat.config.enabled", y -> mkBoolButton(y, () -> enabled, v -> enabled = v), null));
         chat.add(new Opt("e33chat.config.system_chat_as_bubble", y -> mkBoolButton(y, () -> systemChatAsBubble, v -> systemChatAsBubble = v), null));
         chat.add(new Opt("e33chat.config.anti_spam", y -> mkBoolButton(y, () -> antiSpam, v -> antiSpam = v), null));
@@ -974,8 +957,6 @@ public class ChatBubbleConfigScreen extends Screen {
                             case "e33chat.config.other_bubble_color" -> otherBubbleColor = hex;
                             case "e33chat.config.own_text_color" -> ownTextColor = hex;
                             case "e33chat.config.other_text_color" -> otherTextColor = hex;
-                            case "e33chat.config.panel_bg_color" -> panelBgColor = hex;
-                            case "e33chat.config.accent_color" -> accentColor = hex;
                         }
                         if (wi < scrollWidgets.size() && scrollWidgets.get(wi) instanceof TextFieldWidget eb)
                             eb.setText(hex);

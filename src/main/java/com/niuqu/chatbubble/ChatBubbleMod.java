@@ -310,6 +310,7 @@ public class ChatBubbleMod implements ModInitializer {
     public static boolean useTpa() { return useTpa; }
     public static boolean historyEnabled() { return historyEnabled; }
     public static boolean templateDebug() { return templateDebug; }
+    public static boolean mediaEnabled() { return mediaEnabled; }
     public static List<String> chatTemplates() { return chatTemplates; }
     public static List<String> whisperTemplates() { return whisperTemplates; }
     public static void setTemplates(List<String> chat, List<String> whisper, boolean debug) {

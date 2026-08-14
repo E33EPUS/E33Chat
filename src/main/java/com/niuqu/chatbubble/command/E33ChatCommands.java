@@ -85,7 +85,8 @@ public class E33ChatCommands {
         }
         ServerPlayNetworking.send(player,
             new ServerConfigScreenPayload(ChatBubbleMod.useTpa(), ChatBubbleMod.historyEnabled(),
-                ChatBubbleMod.templateDebug(), new ArrayList<>(ChatBubbleMod.chatTemplates()),
+                ChatBubbleMod.templateDebug(), ChatBubbleMod.mediaEnabled(),
+                new ArrayList<>(ChatBubbleMod.chatTemplates()),
                 new ArrayList<>(ChatBubbleMod.whisperTemplates())));
         return 1;
     }

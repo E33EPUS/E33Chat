@@ -110,6 +110,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             context.client().execute(() -> MinecraftClient.getInstance().setScreen(new ServerConfigScreen(
                 MinecraftClient.getInstance().currentScreen,
                 payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
+                payload.mediaEnabled(),
                 payload.chatTemplates(), payload.whisperTemplates())));
         });
 

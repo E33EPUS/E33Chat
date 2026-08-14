@@ -19,6 +19,7 @@ import java.util.List;
  * every template, persists to the JSON file, and rebroadcasts to all players.
  */
 public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
+                                      boolean mediaEnabled,
                                       List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPayload {
 
@@ -30,10 +31,12 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
             buf.writeBoolean(value.useTpa);
             buf.writeBoolean(value.historyEnabled);
             buf.writeBoolean(value.templateDebug);
+            buf.writeBoolean(value.mediaEnabled);
             ConfigSyncV2Payload.writeList(buf, value.chatTemplates);
             ConfigSyncV2Payload.writeList(buf, value.whisperTemplates);
         },
         buf -> new ServerConfigSavePayload(
+            buf.readBoolean(),
             buf.readBoolean(),
             buf.readBoolean(),
             buf.readBoolean(),
@@ -59,6 +62,7 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
         cfg.use_tpa = payload.useTpa();
         cfg.history_enabled = payload.historyEnabled();
         cfg.template_debug = payload.templateDebug();
+        cfg.media_enabled = payload.mediaEnabled();
         cfg.chat_templates = new ArrayList<>(payload.chatTemplates());
         cfg.whisper_templates = new ArrayList<>(payload.whisperTemplates());
         applyAndSave.accept(cfg);

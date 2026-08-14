@@ -15,6 +15,7 @@ import java.util.List;
  * client-only Screen class.
  */
 public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
+                                        boolean mediaEnabled,
                                         List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPayload {
 
@@ -26,10 +27,12 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
             buf.writeBoolean(value.useTpa);
             buf.writeBoolean(value.historyEnabled);
             buf.writeBoolean(value.templateDebug);
+            buf.writeBoolean(value.mediaEnabled);
             ConfigSyncV2Payload.writeList(buf, value.chatTemplates);
             ConfigSyncV2Payload.writeList(buf, value.whisperTemplates);
         },
         buf -> new ServerConfigScreenPayload(
+            buf.readBoolean(),
             buf.readBoolean(),
             buf.readBoolean(),
             buf.readBoolean(),

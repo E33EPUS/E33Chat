@@ -1813,7 +1813,7 @@ public class ChatBubbleScreen extends ChatScreen {
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
         Identifier skin = getSkin(msg.senderUUID(), skinName);
-        drawPlayerHead(g, skin, avatarX, avatarY, 20, 22, alpha);
+        drawPlayerHead(g, skin, avatarX, avatarY, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
@@ -1837,7 +1837,7 @@ public class ChatBubbleScreen extends ChatScreen {
             if (quoteX < panelX + PAD) quoteX = panelX + PAD;
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
             // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, Appearance.cornerRadius(), ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
             g.drawText(textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
         }
 
@@ -1871,7 +1871,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         Identifier skin = getSkin(msg.senderUUID(), msg.rawPlayerName());
-        drawPlayerHead(g, skin, avatarX, baseY, 20, 22, alpha);
+        drawPlayerHead(g, skin, avatarX, baseY, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
 
         int maxTextW = 0;
         for (var line : lines) maxTextW = Math.max(maxTextW, textRenderer.getWidth(line));
@@ -1981,7 +1981,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         Identifier skin = getSkin(msg.senderUUID(), msg.rawPlayerName());
-        drawPlayerHead(g, skin, avatarX, baseY, 20, 22, alpha);
+        drawPlayerHead(g, skin, avatarX, baseY, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
 
         int emoteY = baseY + NAME_H + 2;
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - PAD * 2 - 16));
