@@ -58,10 +58,18 @@ public class MediaUploadPacket {
                 return;
             }
             DiskMediaStore store = ChatServerListener.mediaStore();
-            String result = index == 0
-                ? store.beginUpload(uploadId, sender.getName().getString(),
-                    totalChunks, totalBytes, contentType)
-                : store.acceptChunk(uploadId, index, chunk);
+            String result;
+            if (index == 0) {
+                result = store.beginUpload(uploadId, sender.getName().getString(),
+                    totalChunks, totalBytes, contentType);
+                if (result == null) {
+                    // Chunk 0 also carries data — feed it through acceptChunk so a
+                    // single-chunk upload completes (and acks) instead of hanging.
+                    result = store.acceptChunk(uploadId, index, chunk);
+                }
+            } else {
+                result = store.acceptChunk(uploadId, index, chunk);
+            }
             if (result == null) return; // upload still in progress
             store.discardUpload(uploadId);
             NetworkHandler.CHANNEL.send(
