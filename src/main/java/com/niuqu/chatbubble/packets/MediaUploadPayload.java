@@ -66,11 +66,19 @@ public record MediaUploadPayload(long uploadId, int index, int totalChunks,
                 return;
             }
             DiskMediaStore store = ChatServerListener.mediaStore();
-            String result = payload.index() == 0
-                ? store.beginUpload(payload.uploadId(), ctx.player() != null
+            String result;
+            if (payload.index() == 0) {
+                result = store.beginUpload(payload.uploadId(), ctx.player() != null
                     ? ctx.player().getName().getString() : "?",
-                    payload.totalChunks(), payload.totalBytes(), payload.contentType())
-                : store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                    payload.totalChunks(), payload.totalBytes(), payload.contentType());
+                if (result == null) {
+                    // Chunk 0 also carries data — feed it through acceptChunk so a
+                    // single-chunk upload completes (and acks) instead of hanging.
+                    result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                }
+            } else {
+                result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+            }
             if (result == null) return; // upload still in progress
             store.discardUpload(payload.uploadId());
             if (DiskMediaStore.isValidMediaId(result)) {
