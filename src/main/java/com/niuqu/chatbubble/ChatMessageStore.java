@@ -1352,6 +1352,11 @@ public class ChatMessageStore {
             }
         }
         if (!quoteContent.isEmpty()) {
+            // A pending meta whose chat message never arrived (swallowed by another
+            // mod, or older than the 5s apply window) would leak forever — drop stale
+            // ones here, matching the 10s TTL the consume path already enforces.
+            long cutoff = System.currentTimeMillis() - 10_000;
+            pendingMetas.entrySet().removeIf(e -> e.getValue().createdAt() < cutoff);
             pendingMetas.put(messageHash, new PendingMeta(senderUUID, quoteSender, quoteContent,
                 mentionTargets, System.currentTimeMillis()));
         }
