@@ -25,8 +25,7 @@ public final class ColoredTextureRenderer {
         g.flush();
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-        // 保存调用前 blend 状态，绘制后恢复——避免消息渲染路径（scrollbar 之前）的
-        // blend 修改污染 scrollbar 渐显（4844270a 同机制：2.2.8 time separator）
+        // 保存调用前 blend 状态，绘制后恢复——保持调用方 blend 状态不变（GL 状态卫生）
         boolean blendEnabled = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_BLEND);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -51,8 +50,7 @@ public final class ColoredTextureRenderer {
         g.flush();
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-        // 保存调用前 blend 状态，绘制后恢复——避免消息渲染路径（scrollbar 之前）的
-        // blend 修改污染 scrollbar 渐显（4844270a 同机制：2.2.8 time separator）
+        // 保存调用前 blend 状态，绘制后恢复——保持调用方 blend 状态不变（GL 状态卫生）
         boolean blendEnabled = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_BLEND);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -79,8 +77,7 @@ public final class ColoredTextureRenderer {
         g.flush();
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-        // 保存调用前 blend 状态，绘制后恢复——避免消息渲染路径（scrollbar 之前）的
-        // blend 修改污染 scrollbar 渐显（4844270a 同机制：2.2.8 time separator）
+        // 保存调用前 blend 状态，绘制后恢复——保持调用方 blend 状态不变（GL 状态卫生）
         boolean blendEnabled = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_BLEND);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
