@@ -1816,14 +1816,16 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         if (uploadBusyTicks > 0) {
             // Upload-in-progress hint; cleared by the worker when the job finishes.
+            // Same look as the copy toast (TOAST_BG texture + toastText color).
             int alpha = 200;
-            int color = (alpha << 24) | 0x00FFAA00;
             String text = Component.translatable("e33chat.upload.start").getString();
             int tw = font.width(text);
             int tx = UiLayout.centerX(panelX, panelW, tw);
             int ty = msgBottom - 24;
-            g.fill(tx - 4, ty - 2, tx + tw + 4, ty + font.lineHeight + 2, (alpha << 24) | 0x000000);
-            g.drawString(font, text, tx, ty, color, false);
+            ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TOAST_BG),
+                tx - 6, ty - 2, tw + 12, font.lineHeight + 4, (alpha / 2) / 255f);
+            g.drawString(font, Component.literal(text), tx, ty,
+                (alpha << 24) | (c().toastText() & 0x00FFFFFF), false);
             return;
         }
         int alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
