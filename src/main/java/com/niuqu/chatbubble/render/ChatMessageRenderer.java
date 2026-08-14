@@ -6,7 +6,6 @@ import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.UiLayout;
-import com.niuqu.chatbubble.UiPrimitives;
 import com.niuqu.chatbubble.image.BracketCodec;
 import com.niuqu.chatbubble.image.ImageEntry;
 import com.niuqu.chatbubble.image.ImageLoader;
@@ -568,7 +567,7 @@ public final class ChatMessageRenderer {
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
 
         if (index == searchHighlightIndex)
-            UiPrimitives.strokeRounded(g, bubbleX - 1, bubbleY - 1, bubbleX + bubbleW + 1, bubbleY + bubbleH + 1,
-                cornerRadius, 1, com.niuqu.chatbubble.ChatSearchPanel.HIGHLIGHT);
+            g.renderOutline(bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2,
+                com.niuqu.chatbubble.ChatSearchPanel.HIGHLIGHT);
     }
 }
