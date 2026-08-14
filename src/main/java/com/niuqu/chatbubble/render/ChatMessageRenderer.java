@@ -25,7 +25,6 @@ import java.util.*;
 
 public final class ChatMessageRenderer {
 
-    public static final int AVATAR = 20;
     public static final int BUBBLE_PAD_X = 6;
     public static final int BUBBLE_PAD_Y = 4;
     static final int NAME_H = 10;
@@ -81,7 +80,7 @@ public final class ChatMessageRenderer {
 
     /** Height in px for one bubble-less image (state-dependent, panel-clamped, never upscaled). */
     public static int imageEdgeHeight(String url, int panelW) {
-        int maxW = Math.max(80, panelW - AVATAR - ChatLayout.PAD * 2 - 16);
+        int maxW = Math.max(80, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16);
         ImageEntry entry = ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED
                 && entry.width() > 0 && entry.height() > 0) {
@@ -120,13 +119,13 @@ public final class ChatMessageRenderer {
             BracketCodec.ParseResult parsed, List<FormattedCharSequence> lines,
             ChatBubbleTheme.Colors c, ResourceLocation skin, int panelX, int panelW,
             List<int[]> bubbleRects, List<ClickableSpan> clickableSpans) {
-        int avatarX = own ? panelX + panelW - ChatLayout.PAD - AVATAR : panelX + ChatLayout.PAD;
+        int avatarX = own ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() : panelX + ChatLayout.PAD;
 
         if (!msg.senderName().getString().isEmpty()) {
-            int maxNameW = panelW - AVATAR - ChatLayout.PAD * 2 - 20;
+            int maxNameW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 20;
             FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
             int nameW = font.width(nameSeq);
-            int startX = own ? (avatarX - 8 - nameW) : (avatarX + AVATAR + 4);
+            int startX = own ? (avatarX - 8 - nameW) : (avatarX + Appearance.avatarSize() + 4);
             g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
         }
 
@@ -134,7 +133,7 @@ public final class ChatMessageRenderer {
 
         int maxTextW = 0;
         for (var line : lines) maxTextW = Math.max(maxTextW, font.width(line));
-        int textX = own ? (avatarX - 8 - maxTextW) : (avatarX + AVATAR + 4);
+        int textX = own ? (avatarX - 8 - maxTextW) : (avatarX + Appearance.avatarSize() + 4);
 
         int y = baseY + NAME_H;
         if (!lines.isEmpty()) {
@@ -148,7 +147,7 @@ public final class ChatMessageRenderer {
             y += lines.size() * font.lineHeight;
         }
 
-        int maxImgW = Math.max(80, panelW - AVATAR - ChatLayout.PAD * 2 - 16);
+        int maxImgW = Math.max(80, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16);
         for (var ref : parsed.images()) {
             int w = maxImgW, h = maxImgW;
             ImageEntry entry = ImageLoader.getOrLoad(ref.url());
@@ -160,7 +159,7 @@ public final class ChatMessageRenderer {
                 w = Math.max(1, (int) (entry.width() * ratio));
                 h = Math.max(1, (int) (entry.height() * ratio));
             }
-            int imgX = own ? (avatarX - 8 - w) : (avatarX + AVATAR + 4);
+            int imgX = own ? (avatarX - 8 - w) : (avatarX + Appearance.avatarSize() + 4);
             if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
                 g.blit(entry.textureId(), imgX, y, w, h, 0, 0,
                     entry.width(), entry.height(), entry.width(), entry.height());
@@ -186,18 +185,18 @@ public final class ChatMessageRenderer {
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
             int labelW = font.width(label);
-            int lx = own ? (avatarX - 8 - labelW - 3) : (avatarX + AVATAR + 4 + 3);
+            int lx = own ? (avatarX - 8 - labelW - 3) : (avatarX + Appearance.avatarSize() + 4 + 3);
             g.drawString(font, Component.literal(label), lx, baseY + NAME_H + 2,
                 ChatBubbleTheme.alphaBlend(c.duplicateLabel(), (int)(255 * alpha)), false);
         }
 
         if (msg.replyContent() != null) {
-            int quoteMaxW = panelW - ChatLayout.PAD * 2 - AVATAR - 24;
+            int quoteMaxW = panelW - ChatLayout.PAD * 2 - Appearance.avatarSize() - 24;
             String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
             String quoteDisplay = font.plainSubstrByWidth(quoteText, quoteMaxW - 10);
             if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
             int quoteW = Math.min(font.width(quoteDisplay) + 8, quoteMaxW);
-            int quoteX = own ? (avatarX - 8 - quoteW) : (avatarX + AVATAR + 4);
+            int quoteX = own ? (avatarX - 8 - quoteW) : (avatarX + Appearance.avatarSize() + 4);
             if (quoteX < panelX + ChatLayout.PAD) quoteX = panelX + ChatLayout.PAD;
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
@@ -208,7 +207,7 @@ public final class ChatMessageRenderer {
         }
 
         // Hit-test region for avatar clicks / context menus: the message span.
-        bubbleRects.add(new int[]{own ? avatarX - 8 - maxTextW : avatarX + AVATAR + 4,
+        bubbleRects.add(new int[]{own ? avatarX - 8 - maxTextW : avatarX + Appearance.avatarSize() + 4,
             baseY, Math.max(maxTextW, maxImgW), y - baseY, index});
     }
 
@@ -221,19 +220,19 @@ public final class ChatMessageRenderer {
         if (parsed.images().isEmpty()) return;
         BracketCodec.ImageRef ref = parsed.images().get(0);
 
-        int avatarX = own ? panelX + panelW - ChatLayout.PAD - AVATAR : panelX + ChatLayout.PAD;
+        int avatarX = own ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() : panelX + ChatLayout.PAD;
         if (!msg.senderName().getString().isEmpty()) {
-            int maxNameW = panelW - AVATAR - ChatLayout.PAD * 2 - 20;
+            int maxNameW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 20;
             FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
             int nameW = font.width(nameSeq);
-            int startX = own ? (avatarX - 8 - nameW) : (avatarX + AVATAR + 4);
+            int startX = own ? (avatarX - 8 - nameW) : (avatarX + Appearance.avatarSize() + 4);
             g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
         }
 
         drawAvatar(g, skin, avatarX, baseY, alpha);
 
         int emoteY = baseY + NAME_H + 2;
-        int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - AVATAR - ChatLayout.PAD * 2 - 16));
+        int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16));
         int w = maxE, h = maxE;
         ImageEntry entry = ImageLoader.getOrLoad(ref.url());
         if (entry != null && entry.state() == ImageEntry.State.LOADED
@@ -243,7 +242,7 @@ public final class ChatMessageRenderer {
             w = Math.max(1, (int) (entry.width() * ratio));
             h = Math.max(1, (int) (entry.height() * ratio));
         }
-        int emoteX = own ? (avatarX - 8 - w) : (avatarX + AVATAR + 4);
+        int emoteX = own ? (avatarX - 8 - w) : (avatarX + Appearance.avatarSize() + 4);
         if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
             g.blit(entry.textureId(), emoteX, emoteY, w, h, 0, 0,
                 entry.width(), entry.height(), entry.width(), entry.height());
@@ -501,17 +500,17 @@ public final class ChatMessageRenderer {
 
         int avatarX, bubbleX;
         if (own) {
-            avatarX = panelX + panelW - ChatLayout.PAD - AVATAR;
+            avatarX = panelX + panelW - ChatLayout.PAD - Appearance.avatarSize();
             bubbleX = avatarX - 4 - bubbleW;
         } else {
             avatarX = panelX + ChatLayout.PAD;
-            bubbleX = avatarX + AVATAR + 4;
+            bubbleX = avatarX + Appearance.avatarSize() + 4;
         }
 
         int nameY = baseY;
 
         if (!msg.senderName().getString().isEmpty()) {
-            int maxNameW = panelW - AVATAR - ChatLayout.PAD * 2 - 20;
+            int maxNameW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 20;
             FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
             int nameW = font.width(nameSeq);
             int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
@@ -547,7 +546,7 @@ public final class ChatMessageRenderer {
         }
 
         if (msg.replyContent() != null) {
-            int quoteMaxW = panelW - ChatLayout.PAD * 2 - AVATAR - 24;
+            int quoteMaxW = panelW - ChatLayout.PAD * 2 - Appearance.avatarSize() - 24;
             String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
             String quoteDisplay = font.plainSubstrByWidth(quoteText, quoteMaxW - 10);
             if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";

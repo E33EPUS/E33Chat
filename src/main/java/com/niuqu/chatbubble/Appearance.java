@@ -51,6 +51,11 @@ public final class Appearance {
         return ChatBubbleConfig.MESSAGE_GAP.get();
     }
 
+    /** 消息气泡头像尺寸（像素）。 */
+    public static int avatarSize() {
+        return ChatBubbleConfig.AVATAR_SIZE.get();
+    }
+
     private static int override(int base, String hex) {
         if (hex == null || hex.trim().isEmpty()) return base;
         return ChatBubbleConfig.parseHexColor(hex, base);
