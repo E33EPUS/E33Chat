@@ -1,8 +1,6 @@
 package com.niuqu.chatbubble.render;
 
-import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
-import com.niuqu.chatbubble.texture.UiElement;
-import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.ChatBubbleTheme;
 import net.minecraft.client.gui.GuiGraphics;
 
 public final class ChatScrollbar {
@@ -27,7 +25,7 @@ public final class ChatScrollbar {
     }
 
     public static float alphaTarget(boolean inZone, boolean dragging, long lastScrollTime) {
-        long since = System.currentTimeMillis() - lastScrollTime;
+        long since = net.minecraft.Util.getMillis() - lastScrollTime; // lastScrollTime 由 Util.getMillis() 赋值，同钟比较
         return (inZone || dragging || since < FADE_MS) ? 1f : 0f;
     }
 
@@ -47,7 +45,7 @@ public final class ChatScrollbar {
     public static void render(GuiGraphics g, ChatLayout layout, int mouseX, int mouseY,
                               int maxScroll, int messageTotalH, int scrollOffset,
                               boolean dragging, float alpha,
-                              int effectiveMsgBottom) {
+                              int effectiveMsgBottom, int colorRgb) {
         if (maxScroll <= 0) return;
         if (alpha <= 0.005f && !dragging) return;
 
@@ -56,11 +54,13 @@ public final class ChatScrollbar {
         int thumbH = thumbHeight(trackH, messageTotalH);
         int thumbY = thumbY(layout.msgTop(), trackH, thumbH, scrollOffset, maxScroll);
 
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_TRACK),
-            trackX, layout.msgTop(), WIDTH, trackH, 0x1A / 255f * alpha);
+        // 纯色填充替代 drawWithAlpha：绕开消息路径 blend/flush 污染
+        // （4844270a 同机制：上游 drawWithAlpha → scrollbar 渐显只显最后一帧）
+        g.fill(trackX, layout.msgTop(), trackX + WIDTH, layout.msgTop() + trackH,
+            ChatBubbleTheme.alphaBlend(colorRgb, (int) (0x1A * alpha)));
 
         float thumbBase = dragging ? 0xAA : isHoveringThumb(mouseX, mouseY, trackX, thumbY, thumbH) ? 0x88 : 0x66;
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_THUMB),
-            trackX, thumbY, WIDTH, thumbH, thumbBase / 255f * alpha);
+        g.fill(trackX, thumbY, trackX + WIDTH, thumbY + thumbH,
+            ChatBubbleTheme.alphaBlend(colorRgb, (int) (thumbBase * alpha)));
     }
 }

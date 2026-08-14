@@ -1593,7 +1593,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         ChatLayout layout = new ChatLayout(panelX, panelW, titleY, msgTop, msgBottom, barTop, width, height);
         ChatScrollbar.render(g, layout, mouseX, mouseY, maxScroll, messageTotalH, scrollOffset,
-            scrollbarDragging, scrollbarAlpha, effectiveMsgBottom);
+            scrollbarDragging, scrollbarAlpha, effectiveMsgBottom, c().scrollbar());
     }
 
     private void renderTimeSeparator(GuiGraphics g, long timeMillis, int y) {
