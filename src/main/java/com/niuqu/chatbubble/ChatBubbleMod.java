@@ -10,6 +10,10 @@ import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+
 @Mod(ChatBubbleMod.MODID)
 public class ChatBubbleMod {
     public static final String MODID = "e33chat";
@@ -19,8 +23,9 @@ public class ChatBubbleMod {
         modEventBus.register(NetworkHandler.class);
 
         if (dist == Dist.CLIENT) {
+            migrateClientConfig();
             modContainer.registerConfig(ModConfig.Type.CLIENT,
-                ChatBubbleConfig.CLIENT_CONFIG, "e33chat-client.toml");
+                ChatBubbleConfig.CLIENT_CONFIG, "e33chat/e33chat-client.toml");
         }
 
         modContainer.registerConfig(ModConfig.Type.SERVER,
@@ -33,6 +38,23 @@ public class ChatBubbleMod {
 
         NeoForge.EVENT_BUS.register(new ChatServerListener());
         NeoForge.EVENT_BUS.register(new com.niuqu.chatbubble.command.E33ChatCommands());
+    }
+
+    // 2.3.12: client config moved from config/e33chat-client.toml to
+    // config/e33chat/e33chat-client.toml (next to the emote pack). Runs before
+    // registerConfig so NeoForge loads the migrated file on first start.
+    private static void migrateClientConfig() {
+        Path configDir = net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get();
+        Path oldPath = configDir.resolve("e33chat-client.toml");
+        Path newPath = configDir.resolve("e33chat").resolve("e33chat-client.toml");
+        if (!Files.exists(oldPath) || Files.exists(newPath)) return;
+        try {
+            Files.createDirectories(newPath.getParent());
+            Files.move(oldPath, newPath, StandardCopyOption.REPLACE_EXISTING);
+            LOGGER.info("[e33chat] Migrated config from config/e33chat-client.toml to config/e33chat/e33chat-client.toml");
+        } catch (Exception e) {
+            LOGGER.warn("[e33chat] Config migration failed", e);
+        }
     }
 
     // Captured at config-load time; the /e33chat template commands use it to

@@ -297,7 +297,7 @@ No. Installing it additionally unlocks quote sync, @ mention sync, chat-history 
 
 Bottom-left gear → Menu → Settings.
 
-Client config: `config/e33chat-client.toml` (Fabric: `config/e33chat-client.json`) ｜ Server config: `saves/<world>/serverconfig/e33chat-server.toml` (Fabric: `.json`)
+Client config: `config/e33chat/e33chat-client.toml` (Fabric: `config/e33chat/e33chat-client.json`) ｜ Server config: `saves/<world>/serverconfig/e33chat-server.toml` (Fabric: `.json`)
 
 ### Where is chat history stored?
 
@@ -351,7 +351,7 @@ Yes, no extra permission needed.
 1. Confirm the Minecraft version matches the mod version
 2. Confirm the mod loader is installed correctly
 3. Confirm you have not mixed platform JARs (e.g. Forge and Fabric at once)
-4. Back up `config/e33chat-client.toml`, then delete it to test for config corruption
+4. Back up `config/e33chat/e33chat-client.toml`, then delete it to test for config corruption
 5. Keep only E33Chat to isolate mod conflicts
 6. Check for custom fonts or resource packs
 7. Look for `[e33chat]` errors in `.minecraft/logs/latest.log`

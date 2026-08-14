@@ -296,7 +296,7 @@ E33Chat 重做了聊天 HUD 的「谁说的」判定层，目标是把玩家消�
 
 聊天面板左下角齿轮 → 菜单 → 设置。
 
-客户端配置：`config/e33chat-client.toml`（Fabric 为 `config/e33chat-client.json`）｜ 服务端配置：`saves/<世界名>/serverconfig/e33chat-server.toml`（Fabric 为 `.json`）
+客户端配置：`config/e33chat/e33chat-client.toml`（Fabric 为 `config/e33chat/e33chat-client.json`）｜ 服务端配置：`saves/<世界名>/serverconfig/e33chat-server.toml`（Fabric 为 `.json`）
 
 ### 聊天记录存在哪？
 
@@ -350,7 +350,7 @@ E33Chat 重做了聊天 HUD 的「谁说的」判定层，目标是把玩家消�
 1. 确认 Minecraft 版本与模组版本匹配
 2. 确认模组加载器已正确安装
 3. 确认没有混装多个平台的 JAR（如同时装 Forge 版和 Fabric 版）
-4. 备份 `config/e33chat-client.toml`，删除测试是否配置损坏
+4. 备份 `config/e33chat/e33chat-client.toml`，删除测试是否配置损坏
 5. 只保留 E33Chat 排查模组冲突
 6. 检查是否使用了自定义字体或资源包
 7. 查看 `.minecraft/logs/latest.log` 中 `[e33chat]` 相关错误
