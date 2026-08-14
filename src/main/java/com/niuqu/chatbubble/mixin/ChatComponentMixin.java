@@ -4,6 +4,7 @@ import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
+import com.niuqu.chatbubble.image.BracketCodec;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.ChatHud;
@@ -91,6 +92,18 @@ public class ChatComponentMixin {
         e33chat$reposting = false;
     }
 
+    // The vanilla chat gets the raw [[CICode,url=...]] line (long URL → spammy).
+    // Rewrite it to a "[图片]" placeholder so the bubble renders the image while
+    // the vanilla surface stays compact, independent of ChatImage being installed.
+    private void rewriteVanillaImageCode(Text finalComponent, CallbackInfo ci) {
+        Text placeholder = BracketCodec.toPlaceholderText(finalComponent);
+        if (placeholder == finalComponent) return; // no image code, nothing to do
+        ci.cancel();
+        e33chat$reposting = true;
+        ((ChatHud) (Object) this).addMessage(placeholder, null, null);
+        e33chat$reposting = false;
+    }
+
     private void captureMessage(Text finalComponent, CallbackInfo ci) {
         if (!ChatBubbleClientSetup.config().enabled()) return;
         if (e33chat$reposting) return;
@@ -159,10 +172,15 @@ public class ChatComponentMixin {
             if (meta.whisper() || echo.quoted()) {
                 ci.cancel();
                 repostToVanilla(meta.senderName(), ChatMessageStore.extractWhisperContent(text, meta), echo.quoted());
+            } else {
+                rewriteVanillaImageCode(finalComponent, ci);
             }
             return;
         }
-        if (ChatMessageStore.consumeEchoBySystemChat(text).matched()) return;
+        if (ChatMessageStore.consumeEchoBySystemChat(text).matched()) {
+            rewriteVanillaImageCode(finalComponent, ci);
+            return;
+        }
 
         // Incoming whisper (someone whispers you): same unified format, sender's name
         if (meta.whisper()) {
@@ -186,6 +204,7 @@ public class ChatComponentMixin {
         Text logComp = finalComponent, logContent = content;
         SenderMeta logMeta = meta;
         ChatMessageStore.debugLog(() -> "[e33chat] Capture | final='" + logComp.getString() + "' | content='" + logContent.getString() + "' | whisper=" + logMeta.whisper() + " | partner=" + logMeta.whisperPartner() + " | isSystem=" + logMeta.isSystem());
+        rewriteVanillaImageCode(finalComponent, ci);
         ChatMessageStore.addMessage(content, meta.senderUUID(), meta.senderName(), meta.isSystem(), meta.rawPlayerName(), meta.whisper(), meta.whisperPartner(), false);
     }
 }
