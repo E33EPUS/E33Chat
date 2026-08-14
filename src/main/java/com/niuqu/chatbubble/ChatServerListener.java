@@ -107,6 +107,20 @@ public class ChatServerListener {
         return s;
     }
 
+    @SubscribeEvent
+    public void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+        com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
+        if (s != null) s.discardAllUploads();
+        mediaStore = null;
+    }
+
+    @SubscribeEvent
+    public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
+        if (s != null) s.discardUploadsFor(player.getName().getString());
+    }
+
     // Current server config snapshot for sync packets. Both ids are sent so old
     // clients (which only know id 3) still receive use_tpa without desyncing.
     public static void broadcastServerConfig() {

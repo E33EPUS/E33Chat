@@ -29,6 +29,12 @@ public class MediaRequestPacket {
             var sender = ctx.get().getSender();
             if (sender == null) return;
             DiskMediaStore store = ChatServerListener.mediaStore();
+            if (!store.allowTransfer(sender.getName().getString())) {
+                NetworkHandler.CHANNEL.send(
+                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
+                    new MediaResponsePacket(mediaId, 0, 1, new byte[0]));
+                return;
+            }
             long size = store.sizeOf(mediaId);
             if (size < 0) {
                 NetworkHandler.CHANNEL.send(

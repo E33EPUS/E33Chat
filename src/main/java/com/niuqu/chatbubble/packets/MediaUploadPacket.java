@@ -60,6 +60,12 @@ public class MediaUploadPacket {
             DiskMediaStore store = ChatServerListener.mediaStore();
             String result;
             if (index == 0) {
+                if (!store.allowTransfer(sender.getName().getString())) {
+                    NetworkHandler.CHANNEL.send(
+                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
+                        new MediaUploadAckPacket(uploadId, null, "rate limited"));
+                    return;
+                }
                 result = store.beginUpload(uploadId, sender.getName().getString(),
                     totalChunks, totalBytes, contentType);
                 if (result == null) {
