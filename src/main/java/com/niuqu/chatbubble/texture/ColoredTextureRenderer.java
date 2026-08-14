@@ -25,6 +25,9 @@ public final class ColoredTextureRenderer {
         g.flush();
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionColorTexShader);
+        // 保存调用前 blend 状态，绘制后恢复——避免消息渲染路径（scrollbar 之前）的
+        // blend 修改污染 scrollbar 渐显（4844270a 同机制：2.2.8 time separator）
+        boolean blendEnabled = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_BLEND);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         Matrix4f pose = g.pose().last().pose();
@@ -35,7 +38,7 @@ public final class ColoredTextureRenderer {
         bb.vertex(pose, x + w, y + h, 0).color(1f, 1f, 1f, alpha).uv(1f, 1f).endVertex();
         bb.vertex(pose, x + w, y, 0).color(1f, 1f, 1f, alpha).uv(1f, 0f).endVertex();
         BufferUploader.drawWithShader(bb.end());
-        RenderSystem.disableBlend();
+        if (!blendEnabled) RenderSystem.disableBlend();
     }
 
     /** 带整体 tint 色的纹理渲染：纹理色 × tint(r,g,b,a)。用于白色默认纹理 × 主题色动态着色。 */
@@ -49,6 +52,9 @@ public final class ColoredTextureRenderer {
         g.flush();
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionColorTexShader);
+        // 保存调用前 blend 状态，绘制后恢复——避免消息渲染路径（scrollbar 之前）的
+        // blend 修改污染 scrollbar 渐显（4844270a 同机制：2.2.8 time separator）
+        boolean blendEnabled = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_BLEND);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         Matrix4f pose = g.pose().last().pose();
@@ -59,7 +65,7 @@ public final class ColoredTextureRenderer {
         bb.vertex(pose, x + w, y + h, 0).color(r, gr, b, a).uv(1f, 1f).endVertex();
         bb.vertex(pose, x + w, y, 0).color(r, gr, b, a).uv(1f, 0f).endVertex();
         BufferUploader.drawWithShader(bb.end());
-        RenderSystem.disableBlend();
+        if (!blendEnabled) RenderSystem.disableBlend();
     }
 
     /**
@@ -75,6 +81,9 @@ public final class ColoredTextureRenderer {
         g.flush();
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionColorTexShader);
+        // 保存调用前 blend 状态，绘制后恢复——避免消息渲染路径（scrollbar 之前）的
+        // blend 修改污染 scrollbar 渐显（4844270a 同机制：2.2.8 time separator）
+        boolean blendEnabled = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_BLEND);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         float u1 = u / texW, u2 = (u + regionW) / texW;
@@ -87,6 +96,6 @@ public final class ColoredTextureRenderer {
         bb.vertex(pose, x + w, y + h, 0).color(1f, 1f, 1f, alpha).uv(u2, v2).endVertex();
         bb.vertex(pose, x + w, y, 0).color(1f, 1f, 1f, alpha).uv(u2, v1).endVertex();
         BufferUploader.drawWithShader(bb.end());
-        RenderSystem.disableBlend();
+        if (!blendEnabled) RenderSystem.disableBlend();
     }
 }
