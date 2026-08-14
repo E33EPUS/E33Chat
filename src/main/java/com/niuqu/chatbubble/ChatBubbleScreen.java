@@ -1395,9 +1395,10 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void renderTitleBar(GuiGraphics g, int mouseX, int mouseY) {
-        float panelAlpha = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * getAnimProgress();
+        // 上下栏背景只跟开合动画（fade 终点 1.0 不透明），不乘 PANEL_OPACITY（2.3.7 起永久半透明回归）
+        float barAlpha = getAnimProgress();
         ChatBars.renderTitleBar(g, font, mouseX, mouseY, c(), panelX, panelW,
-            getDisplayTitle(), LocalTime.now().format(TIME_FMT), iconTex("menu"), panelAlpha, getAnimProgress());
+            getDisplayTitle(), LocalTime.now().format(TIME_FMT), iconTex("menu"), barAlpha, getAnimProgress());
     }
 
     private boolean isMouseOverHamburger(double mx, double my) {
@@ -1903,10 +1904,11 @@ public class ChatBubbleScreen extends ChatScreen {
 
 
     private void renderBottomBar(GuiGraphics g, int mouseX, int mouseY) {
-        float panelAlpha = ChatBubbleConfig.PANEL_OPACITY.get() / 100f * getAnimProgress();
+        // 上下栏背景只跟开合动画（fade 终点 1.0 不透明），不乘 PANEL_OPACITY（2.3.7 起永久半透明回归）
+        float barAlpha = getAnimProgress();
         ChatBars.renderBottomBar(g, font, mouseX, mouseY, c(), panelX, panelW, barTop, height,
             inputX, inputY, input.getWidth(), input.isFocused(), emojiPanel.visible,
-            iconTex("settings"), iconTex("emoji"), iconTex("send"), panelAlpha, getAnimProgress());
+            iconTex("settings"), iconTex("emoji"), iconTex("send"), barAlpha, getAnimProgress());
 
         int iconY2 = barTop + (BAR_H - ICON_S) / 2;
         int sendX2 = panelX + panelW - ChatLayout.PAD - ICON_S + 2;
