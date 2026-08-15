@@ -546,37 +546,9 @@ public class ChatListenerMixin {
         if (classifyByKey(message)) return;
 
         String sysText = message.getString();
-        // Suppress outgoing whisper echo
-        boolean hasEchoFlag = ChatMessageStore.hasPendingWhisperEcho();
-        boolean hasKw = com.niuqu.chatbubble.chat.WhisperSignal.containsZh(sysText)
-            || com.niuqu.chatbubble.chat.WhisperSignal.EN.matcher(sysText.toLowerCase()).find();
-        ChatMessageStore.debugLog(() -> "[e33chat] System(echo check) | text='" + sysText + "' | flag=" + hasEchoFlag + " | kw=" + hasKw);
-        if (hasEchoFlag && hasKw) {
-            var player = Minecraft.getInstance().player;
-            boolean otherPlayerFound = false;
-            if (player != null && player.connection != null) {
-                String myName = player.getName().getString();
-                String skipTarget = ChatMessageStore.getPendingWhisperTarget();
-                for (var info : player.connection.getOnlinePlayers()) {
-                    for (String cand : nameCandidates(info)) {
-                        if (cand.equals(myName) || cand.isEmpty()) continue;
-                        if (cand.equals(skipTarget)) continue;
-                        int idx = sysText.indexOf(cand);
-                        if (idx >= 0 && idx < 30) {
-                            otherPlayerFound = true;
-                            break;
-                        }
-                    }
-                    if (otherPlayerFound) break;
-                }
-            }
-            if (!otherPlayerFound) {
-                ChatMessageStore.consumeWhisperEcho();
-                ChatMessageStore.markSuppressCapture();
-                ChatMessageStore.debugLog(() -> "[e33chat] System(echo suppressed) | text='" + sysText + "'");
-                return;
-            }
-        }
+        // Suppress outgoing whisper echo (text path; the key path lives in
+        // ChatClassifier.classifyByKey)
+        if (com.niuqu.chatbubble.chat.capture.EchoSuppressor.trySuppressOutgoingEcho(sysText)) return;
         ChatMessageStore.debugLog(() -> "[e33chat] System | text='" + sysText + "' | overlay=" + overlay);
 
         String text = message.getString();
