@@ -121,17 +121,18 @@ public class ChatListenerMixin {
      * but other players need this explicit lookup.
      */
     private static Text enrichWithTeamPrefix(UUID senderUuid, Text currentName) {
-        if (senderUuid == null) return currentName;
+        if (senderUuid == null) { com.niuqu.chatbubble.E33Log.info("[e33chat] enrich: early return - senderUuid is null"); return currentName; }
         var player = MinecraftClient.getInstance().player;
-        if (player == null || player.networkHandler == null) return currentName;
+        if (player == null || player.networkHandler == null) { com.niuqu.chatbubble.E33Log.info("[e33chat] enrich: early return - player or networkHandler null"); return currentName; }
         var info = player.networkHandler.getPlayerListEntry(senderUuid);
         // Fallback: the given uuid may not match a tab entry (e.g. offline/uuid
         // mangled by the server). Look the player up by their bare name instead so
         // the team prefix / tab display name can still be applied.
         if (info == null) {
             String bare = currentName.getString().replaceAll("§.", "").trim();
+            com.niuqu.chatbubble.E33Log.info("[e33chat] enrich: uuid lookup failed, trying name='" + bare + "' uuid=" + senderUuid);
             info = findOnlinePlayer(bare);
-            if (info == null) return currentName;
+            if (info == null) { com.niuqu.chatbubble.E33Log.info("[e33chat] enrich: name lookup also failed for '" + bare + "'"); return currentName; }
         }
         //#if MC >= 12109
         String profile = info.getProfile().name();
@@ -139,6 +140,7 @@ public class ChatListenerMixin {
         //$$ String profile = info.getProfile().getName();
         //#endif
         String currentStr = currentName.getString().replaceAll("§.", "").trim();
+        com.niuqu.chatbubble.E33Log.info("[e33chat] enrich: lookup ok | profile='" + profile + "' | currentStr='" + currentStr + "' | tabDisplay=" + (info.getDisplayName() != null ? "'" + info.getDisplayName().getString() + "'" : "null") + " | team=" + (info.getScoreboardTeam() != null ? info.getScoreboardTeam().getName() : "null"));
 
         // Priority 1: the tab-list display name. Servers commonly expose the
         // player's prefix/tag via the tab-list display name (getDisplayName),
