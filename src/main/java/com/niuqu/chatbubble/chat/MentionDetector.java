@@ -50,7 +50,7 @@ public final class MentionDetector {
     }
 
     private static boolean isNameCharacter(char c) {
-        return Character.isLetterOrDigit(c) || c == '_';
+        return Names.isNameChar(c);
     }
 
     public record MentionRange(int start, int end) {}
