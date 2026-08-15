@@ -1,4 +1,6 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.render;
+import com.niuqu.chatbubble.ChatBubbleMod;
+import com.niuqu.chatbubble.store.ChatMessageStore;
 import com.niuqu.chatbubble.config.ChatBubbleConfigScreen;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.render.Animation;

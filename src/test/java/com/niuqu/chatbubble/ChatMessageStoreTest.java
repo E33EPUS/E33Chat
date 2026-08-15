@@ -1,5 +1,5 @@
 package com.niuqu.chatbubble;
-import com.niuqu.chatbubble.ChatMessageStore;
+import com.niuqu.chatbubble.store.ChatMessageStore;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 
 import java.util.List;

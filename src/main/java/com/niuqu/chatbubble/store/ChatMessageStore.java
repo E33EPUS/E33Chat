@@ -1,4 +1,4 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.store;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 
 import com.google.gson.Gson;
@@ -26,8 +26,8 @@ public class ChatMessageStore {
     private static String pendingReplyContent;
     private static String pendingReplySender;
     private static long lastQuoteSendTime;
-    static final long QUOTE_ECHO_WINDOW_MS = 5_000;
-    static final long REPOST_DEDUP_MS = 1_000;
+    public static final long QUOTE_ECHO_WINDOW_MS = 5_000;
+    public static final long REPOST_DEDUP_MS = 1_000;
 
     // True when a repost would duplicate one just sent: the server echoes a whisper
     // twice (signed outgoing + incoming variants) within ~15ms, and both would be
@@ -318,7 +318,7 @@ public class ChatMessageStore {
 
     // True when needle occurs in haystack with no name character (letter/digit/_)
     // adjacent — "[VIP]Steve" and "<Steve>" hit, "SteveAdmin" and "Steve2" do not.
-    static boolean containsWholeName(String haystack, String needle) {
+    public static boolean containsWholeName(String haystack, String needle) {
         if (haystack == null || needle == null || needle.isEmpty()) return false;
         // §6Steve: the code's digit would read as a name character — strip codes first
         String h = haystack.replaceAll("§.", "");
@@ -336,7 +336,7 @@ public class ChatMessageStore {
         }
     }
 
-    static boolean isNamePart(char c) {
+    public static boolean isNamePart(char c) {
         return Character.isLetterOrDigit(c) || c == '_';
     }
 
@@ -437,7 +437,7 @@ public class ChatMessageStore {
 
     // package-private test seam: headless unit tests stub this to return null
     // so addMessage never touches Minecraft.getInstance()
-    static java.util.function.Supplier<net.minecraft.world.entity.player.Player> localPlayerSupplier =
+    public static java.util.function.Supplier<net.minecraft.world.entity.player.Player> localPlayerSupplier =
         () -> net.minecraft.client.Minecraft.getInstance().player;
 
     // package-private test seams: ModConfigSpec values throw until a config is
@@ -730,7 +730,7 @@ public class ChatMessageStore {
     // True when a quote reply was sent within the echo window: the local bubble's
     // addMessage consumes pendingReplyContent before the server echo returns, so
     // the vanilla-chat [引用] tag can't read it — this timestamp is the residue.
-    static boolean wasRecentQuoteAt(long quoteSendTime, long now) {
+    public static boolean wasRecentQuoteAt(long quoteSendTime, long now) {
         return quoteSendTime != 0 && now - quoteSendTime < QUOTE_ECHO_WINDOW_MS;
     }
 
@@ -948,7 +948,7 @@ public class ChatMessageStore {
 
     // Commands that carry credentials must never land in the history file —
     // mirrors the AuthMe-family login/register aliases
-    static boolean isSensitiveCommand(String text) {
+    public static boolean isSensitiveCommand(String text) {
         if (text == null) return false;
         String s = ChatFormatting.stripFormatting(text);
         if (s == null) return false;
@@ -967,7 +967,7 @@ public class ChatMessageStore {
         }
     }
 
-    static String toLine(ChatMessage msg) {
+    public static String toLine(ChatMessage msg) {
         if (isSensitiveCommand(msg.content().getString())) return null;
         // JSONL, one message per line. senderJson/contentJson are full styled
         // components (colors, click/hover events survive the reload) and uuid
@@ -997,7 +997,7 @@ public class ChatMessageStore {
         return GSON.toJson(obj);
     }
 
-    static ChatMessage fromLine(String line) {
+    public static ChatMessage fromLine(String line) {
         if (line.startsWith("{")) return fromJsonLine(line);
         String[] parts = line.split("\t", -1);
         if (parts.length < 3) return null;
@@ -1235,7 +1235,7 @@ public class ChatMessageStore {
 
     // Retention cleanup: files older than the configured days are dropped on
     // world join (0 = keep forever, the default)
-    static boolean isExpired(long fileMtime, long now, int retentionDays) {
+    public static boolean isExpired(long fileMtime, long now, int retentionDays) {
         return retentionDays > 0 && now - fileMtime > retentionDays * 24L * 3600_000L;
     }
 
