@@ -79,215 +79,42 @@ public class ChatListenerMixin {
     // Plugins attach "click to whisper" events to sender names — the command holds the
     // real profile name, giving deterministic attribution even on nickname servers
     private static SenderMeta detectByTellClick(Component message, String text) {
-        if (isVanillaBroadcast(message)) return null;
-        var player = Minecraft.getInstance().player;
-        if (player == null || player.connection == null) return null;
-        final int[] pos = {0};
-        final int[] range = {-1, -1};
-        final String[] tellName = {null};
-        final String[] clickedText = {null};
-        message.visit((style, str) -> {
-            int s = pos[0], e = s + str.length();
-            pos[0] = e;
-            var click = style.getClickEvent();
-            if (tellName[0] == null && click != null
-                && click.getAction() == net.minecraft.network.chat.ClickEvent.Action.SUGGEST_COMMAND
-                && click.getValue() != null) {
-                String cmd = click.getValue();
-                for (String p : new String[]{"/tell ", "/msg ", "/w ", "/whisper "}) {
-                    if (cmd.startsWith(p)) {
-                        String n = cmd.substring(p.length()).trim();
-                        int sp = n.indexOf(' ');
-                        if (sp > 0) n = n.substring(0, sp);
-                        if (!n.isEmpty()) {
-                            tellName[0] = n;
-                            range[0] = s;
-                            range[1] = e;
-                            clickedText[0] = str;
-                        }
-                        break;
-                    }
-                }
-            }
-            return java.util.Optional.<Object>empty();
-        }, net.minecraft.network.chat.Style.EMPTY);
-        int nameRangeLimit = Math.max(32, text.length() / 3);
-        if (tellName[0] == null || range[0] > nameRangeLimit) return null;
-
-        net.minecraft.client.multiplayer.PlayerInfo sender = null;
-        for (var info : player.connection.getOnlinePlayers()) {
-            String profile = info.getProfile().getName();
-            if (profile.equals(tellName[0]) || profile.replaceAll("§.", "").equals(tellName[0])) {
-                sender = info;
-                break;
-            }
-        }
-        UUID cachedId = null;
-        if (sender == null) {
-            cachedId = ChatMessageStore.findSeenUuid(tellName[0]);
-            if (cachedId == null) return null;
-        }
-
-        if (sender != null) {
-            // The clicked segment must actually be the sender's displayed name — feedback like
-            // "杀死了E33EPUS" carries a whole-line /tell click whose first segment is not a name
-            String clicked = clickedText[0].replaceAll("§.", "").trim();
-            boolean clickedIsName = false;
-            for (String cand : nameCandidates(sender)) {
-                if (!cand.isEmpty() && clicked.contains(cand)) { clickedIsName = true; break; }
-            }
-            if (!clickedIsName) return null;
-        }
-
-        int b = range[1];
-        if (b < text.length() && text.charAt(b) == '>') b++;
-        int contentStart = MessagePresentation.skipSeparators(text, b);
-        if (contentStart >= text.length()) return null;
-
-        String profile = sender != null ? sender.getProfile().getName() : tellName[0];
-        UUID id = sender != null ? sender.getProfile().getId() : cachedId;
-        Component displayName = cleanNameArea(message, 0, b, tellName[0], Component.literal(profile));
-        Component content = ChatMessageStore.sliceStyled(message, contentStart, text.length());
-        ChatMessageStore.debugLog(() -> "[e33chat] System(tell click) | text='" + text + "' | name=" + profile + " | display='" + displayName.getString() + "' | content='" + content.getString() + "'");
-        return new SenderMeta(
-            id,
-            displayName,
-            content,
-            false,
-            profile,
-            false, null
-        );
+        return com.niuqu.chatbubble.chat.capture.TellClickDetector.detectByTellClick(message, text);
     }
+
 
     private static SenderMeta detectWhisperInSystemMessage(String text, String logTag) {
-        var connection = Minecraft.getInstance().player.connection;
-        if (connection == null) return null;
-        // G3: 消息嵌 legacy 色码（S§6t§beve）时整条剥 § 再做名字锚点匹配
-        String clean = text.replaceAll("§.", "");
-        for (var info : connection.getOnlinePlayers()) {
-            String profile = info.getProfile().getName();
-            for (String cand : nameCandidates(info)) {
-                int idx = clean.indexOf(cand);
-                if (idx >= 0 && idx < 30) {
-                    if (MessagePresentation.hasWhisperKeywordBeforeColon(clean)) {
-                        String content = MessagePresentation.extractWhisperContent(clean, cand);
-                        UUID senderId = info.getProfile().getId();
-                        ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + ") | text='" + clean + "' | name=" + cand + " | content='" + content + "'");
-                        return new SenderMeta(
-                            senderId,
-                            Component.literal(cand),
-                            Component.literal(content),
-                            false,
-                            profile,
-                            true, profile
-                        );
-                    }
-                }
-            }
-        }
-        // cache fallback: try seen (offline) players
-        for (var sp : ChatMessageStore.knownNameVariants()) {
-            int idx = clean.indexOf(sp);
-            if (idx >= 0 && idx < 30) {
-                if (MessagePresentation.hasWhisperKeywordBeforeColon(clean)) {
-                    UUID su = ChatMessageStore.findSeenUuid(sp);
-                    if (su != null) {
-                        String content = MessagePresentation.extractWhisperContent(clean, sp);
-                        ChatMessageStore.debugLog(() -> "[e33chat] System(" + logTag + "/cache) | text='" + clean + "' | name=" + sp + " | content='" + content + "'");
-                        return new SenderMeta(
-                            su,
-                            Component.literal(sp),
-                            Component.literal(content),
-                            false,
-                            sp,
-                            true, sp
-                        );
-                    }
-                }
-            }
-        }
-        return null;
+        return com.niuqu.chatbubble.chat.capture.WhisperDetector.detectWhisperInSystemMessage(text, logTag);
     }
 
-    private static long templateMissWindowStart;
-    private static int templateMissBurst;
+    // ===== Template layer (server-declared message formats) =====
 
     private static void logTemplateMiss(String text) {
-        if (!ChatMessageStore.serverTemplateDebug()) return;
-        long now = System.currentTimeMillis();
-        if (now - templateMissWindowStart >= 60_000) {
-            templateMissWindowStart = now;
-            templateMissBurst = 0;
-        }
-        if (++templateMissBurst > 5) return;
-        String s = text.length() <= 100 ? text : text.substring(0, 100) + "…";
-        // G4: 诊断信息含已配置模板列表（原始串），方便核对模板是否写错/漏配
-        StringBuilder tpl = new StringBuilder();
-        for (var t : ChatMessageStore.serverChatTemplates()) tpl.append("\n  chat: ").append(t.raw());
-        for (var t : ChatMessageStore.serverWhisperTemplates()) tpl.append("\n  whisper: ").append(t.raw());
-        ChatMessageStore.debugLog(() -> "[e33chat] System(template miss) | text='" + s + "' | templates=" + tpl);
+        com.niuqu.chatbubble.chat.capture.TemplateLayer.logTemplateMiss(text);
     }
 
+
     private static boolean isTemplateNameKnown(String name) {
-        if (name == null || name.isEmpty()) return false;
-        var player = Minecraft.getInstance().player;
-        if (player != null) {
-            String myName = player.getName().getString();
-            if (!myName.isEmpty() && (name.equals(myName) || name.contains(myName))) return true;
-        }
-        return findOnlinePlayer(name) != null || ChatMessageStore.findSeenUuid(name) != null;
+        return com.niuqu.chatbubble.chat.capture.TemplateLayer.isTemplateNameKnown(name);
     }
+
 
     // Server template parse: exact field split with style-preserving offsets.
     // Returns null on no match (fall back to the guards) or when the line is our
     // own echo (already bubbled via the authoritative player channel / suppressed).
     private static SenderMeta matchByTemplate(Component message, String text) {
-        var r = com.niuqu.chatbubble.chat.TemplateMatcher.match(text, ChatMessageStore.serverChatTemplates(),
-            ChatMessageStore.serverWhisperTemplates(), ChatListenerMixin::isTemplateNameKnown);
-        if (r.isEmpty()) {
-            logTemplateMiss(text);
-            return null;
-        }
-        var tpl = r.orElseThrow();
-        String verified = tpl.verifiedName();
-        var info = findOnlinePlayer(verified);
-        UUID uid = info != null ? info.getProfile().getId() : ChatMessageStore.findSeenUuid(verified);
-        String rawName = info != null ? info.getProfile().getName() : verified;
-        boolean isSelf = uid != null && Minecraft.getInstance().player != null
-            && uid.equals(Minecraft.getInstance().player.getUUID());
-        if (isSelf) {
-            if (tpl.whisper()) {
-                // outgoing whisper echo — never bubble a second copy; the suppress
-                // flag absorbs it when the pipeline reaches addMessage
-                ChatMessageStore.markSuppressCapture();
-                ChatMessageStore.debugLog(() -> "[e33chat] System(template outgoing whisper) | text='" + text + "'");
-                return null;
-            }
-            // own public echo: the authoritative player channel already bubbled it;
-            // keep the decorated name for repost/echo rendering
-            ChatMessageStore.cacheOwnDecoratedName(
-                templateSlice(message, text, tpl.nameStart(), tpl.nameEnd()));
-            ChatMessageStore.debugLog(() -> "[e33chat] System(template own line) | text='" + text + "'");
-            return null;
-        }
-        Component nameComp = templateSlice(message, text, tpl.nameStart(), tpl.nameEnd());
-        Component contentComp = templateSlice(message, text, tpl.contentStart(), tpl.contentEnd());
-        boolean whisper = tpl.whisper();
-        String partner = whisper ? tpl.sender() : null;
-        ChatMessageStore.debugLog(() -> "[e33chat] System(template) | text='" + text + "' | name='" + nameComp.getString() + "' | whisper=" + whisper + " | partner=" + partner + " | content='" + contentComp.getString() + "'");
-        return new SenderMeta(uid != null ? uid : new UUID(0, 0), nameComp, contentComp,
-            false, rawName, whisper, partner);
+        return com.niuqu.chatbubble.chat.capture.TemplateLayer.matchByTemplate(message, text);
     }
+
 
     // Template-path field slicing: if the captured region contains literal §-codes
     // (some plugins embed raw "§6" text instead of real styles), rebuild it with
     // parseStyledText to render actual colors; otherwise keep the original
     // component slice (preserves real per-run styles like the guards do).
     private static Component templateSlice(Component message, String text, int from, int to) {
-        String sub = text.substring(from, to);
-        if (sub.indexOf('§') >= 0) return ChatMessageStore.parseStyledText(sub);
-        return ChatMessageStore.sliceStyled(message, from, to);
+        return com.niuqu.chatbubble.chat.capture.TemplateLayer.templateSlice(message, text, from, to);
     }
+
 
     @Inject(method = "handlePlayerChatMessage", at = @At("HEAD"))
     private void onPlayerChat(PlayerChatMessage message, GameProfile gameProfile,
