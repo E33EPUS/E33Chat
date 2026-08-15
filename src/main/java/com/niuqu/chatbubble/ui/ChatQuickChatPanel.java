@@ -1,4 +1,8 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.ui;
+import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.ChatBubbleConfig;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -11,8 +15,8 @@ public class ChatQuickChatPanel {
     private static final int ROW_H = 14;
     private static final int MAX_VISIBLE = 8;
 
-    boolean visible;
-    int scrollOffset;
+    public boolean visible;
+    public int scrollOffset;
 
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,

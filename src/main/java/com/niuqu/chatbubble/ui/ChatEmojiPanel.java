@@ -1,4 +1,8 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.ui;
+import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.ChatBubbleScreen;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -63,9 +67,9 @@ public class ChatEmojiPanel {
         "(∪.∪ )...zzz",
     };
 
-    boolean visible;
-    int scroll;
-    int tab;
+    public boolean visible;
+    public int scroll;
+    public int tab;
 
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,

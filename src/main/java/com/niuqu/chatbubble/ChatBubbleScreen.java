@@ -1,4 +1,10 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.ui.BedScreen;
+import com.niuqu.chatbubble.ui.EmoteStore;
+import com.niuqu.chatbubble.ui.ChatQuickChatPanel;
+import com.niuqu.chatbubble.ui.ChatSearchPanel;
+import com.niuqu.chatbubble.ui.ChatSettingsMenu;
+import com.niuqu.chatbubble.ui.ChatEmojiPanel;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -57,7 +63,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int BUBBLE_PAD_Y = 4;
     private static final int NAME_H = 10;
     private static final int TIME_SEP_H = 14;
-    static final int BAR_H = 26;
+    public static final int BAR_H = 26;
     private static final int SIDEBAR_W = 90;
     private static final int SIDEBAR_ITEM_H = 22;
     private static final int SIDEBAR_ICON_S = 20;
@@ -1941,7 +1947,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     /** 带透明度图标的绘制：与 drawTextureIcon 同采样语义，但走带 alpha 的渲染路径（弹层淡入用）。 */
-    static void drawTextureIconAlpha(GuiGraphics g, ResourceLocation tex, int x, int y, int size, float alpha) {
+    public static void drawTextureIconAlpha(GuiGraphics g, ResourceLocation tex, int x, int y, int size, float alpha) {
         if (alpha <= 0.003f) return;
         if (size < 16) {
             com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16, alpha);

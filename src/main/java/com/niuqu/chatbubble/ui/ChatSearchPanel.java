@@ -1,4 +1,7 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.ui;
+import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.ChatBubbleTheme;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -9,11 +12,11 @@ public class ChatSearchPanel {
     static final int INPUT_H = 14;
     public static final int HIGHLIGHT = 0xFFFFFF55;
 
-    boolean visible;
+    public boolean visible;
 
     // 弹层 x 夹在聊天面板内且不超屏幕左右（与表情面板同一模式）——6x 时
     // panelW 收缩到 ~166 < 180，固定居中会溢出屏幕左边
-    static int clampX(int px, int pw, int panelX, int panelW) {
+    public static int clampX(int px, int pw, int panelX, int panelW) {
         int screenW = net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScaledWidth();
         int max = Math.min(panelX + panelW - pw - 2, screenW - pw - 2);
         return net.minecraft.util.Mth.clamp(px, Math.min(panelX + 2, max), max);

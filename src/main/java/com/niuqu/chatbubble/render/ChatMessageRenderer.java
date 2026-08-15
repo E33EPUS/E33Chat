@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.render;
+import com.niuqu.chatbubble.ui.ChatSearchPanel;
 
 import com.niuqu.chatbubble.Appearance;
 import com.niuqu.chatbubble.ChatBubbleConfig;
@@ -569,6 +570,6 @@ public final class ChatMessageRenderer {
 
         if (index == searchHighlightIndex)
             g.renderOutline(bubbleX - 1, bubbleY - 1, bubbleW + 2, bubbleH + 2,
-                com.niuqu.chatbubble.ChatSearchPanel.HIGHLIGHT);
+                ChatSearchPanel.HIGHLIGHT);
     }
 }
