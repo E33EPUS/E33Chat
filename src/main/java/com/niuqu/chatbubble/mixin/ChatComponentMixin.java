@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.mixin;
+import com.niuqu.chatbubble.store.EchoTracker;
 import com.niuqu.chatbubble.store.BlockList;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
@@ -169,7 +170,7 @@ public class ChatComponentMixin {
         // (quote replies travel as plain chat, so the echo's quoted flag is their
         // only rewrite signal). meta is trusted here (freshly consumed) and carries
         // the server-decorated name + content, e.g. "[称号]E33EPUS" / "1234533425".
-        ChatMessageStore.EchoMatch echo = ChatMessageStore.consumeEchoIfSenderMatches(meta.senderUUID(), meta.senderName(), text);
+        EchoTracker.EchoMatch echo = ChatMessageStore.consumeEchoIfSenderMatches(meta.senderUUID(), meta.senderName(), text);
         if (echo.matched()) {
             if (meta.whisper() || echo.quoted()) {
                 ci.cancel();

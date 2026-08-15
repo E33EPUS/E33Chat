@@ -23,19 +23,16 @@ public class ChatMessageStore {
     private static boolean screenOpen = false;
     private static String pendingReplyContent;
     private static String pendingReplySender;
-    private static long lastQuoteSendTime;
-    public static final long QUOTE_ECHO_WINDOW_MS = 5_000;
-    public static final long REPOST_DEDUP_MS = 1_000;
 
     // True when a repost would duplicate one just sent: the server echoes a whisper
     // twice (signed outgoing + incoming variants) within ~15ms, and both would be
     // rewritten to the same <name>[私聊] line without this guard.
     public static boolean isRepostDuplicate(String lastRepostText, long lastRepostTime, String newText, long now) {
-        return newText.equals(lastRepostText) && now - lastRepostTime < REPOST_DEDUP_MS;
+        return EchoTracker.isRepostDuplicate(lastRepostText, lastRepostTime, newText, now);
     }
 
+
     private static String currentWorldKey;
-    private static final Map<String, PendingMeta> pendingMetas = new HashMap<>();
 
     public record SeenPlayer(UUID uuid, String profileName, String displayName) {}
     // LRU cap: bounds the per-message full scan in knownNameVariants/findSeenUuid
@@ -164,105 +161,78 @@ public class ChatMessageStore {
                              String rawPlayerName,
                              boolean whisper, String whisperPartner) {}
 
-    private static final ThreadLocal<SenderMeta> PENDING_META = new ThreadLocal<>();
-    private static long pendingMetaSetTime;
 
     public static void setPendingMeta(SenderMeta meta) {
-        PENDING_META.set(meta);
-        pendingMetaSetTime = System.currentTimeMillis();
+        EchoTracker.setPendingMeta(meta);
     }
+
 
     // 2s TTL: if addMessage never runs (another mod cancelled it), a stale
     // note must not misattribute an unrelated later message
     public static SenderMeta consumePendingMeta() {
-        SenderMeta m = PENDING_META.get();
-        PENDING_META.remove();
-        if (m != null && System.currentTimeMillis() - pendingMetaSetTime > 2_000) return null;
-        return m;
+        return EchoTracker.consumePendingMeta();
     }
+
 
     // quoted: the sent message was a quote reply — carried on the echo record so a
     // later unrelated message can never inherit the [引用] tag (quote replies travel
     // as plain chat, so the echo's quoted flag is their only rewrite signal)
-    private record PendingEcho(String text, long time, boolean quoted) {}
-    private static final List<PendingEcho> pendingEchoes = new ArrayList<>();
-    public record EchoMatch(boolean matched, boolean quoted) {}
-
-    private record PendingWhisperEcho(String target, long time) {}
-    private static final Deque<PendingWhisperEcho> pendingWhisperEchoes = new ArrayDeque<>();
-    private static long suppressCaptureTime;
-    private static boolean suppressQuoted;
-
+    
+    
     public static void markPendingWhisperEcho(String target) {
-        pendingWhisperEchoes.addLast(new PendingWhisperEcho(target, System.currentTimeMillis()));
+        EchoTracker.markPendingWhisperEcho(target);
     }
+
     public static void markSuppressCapture() {
-        suppressCaptureTime = System.currentTimeMillis();
-        // Snapshot the most recent send's quote flag: the suppress echo arrives right
-        // after its own send, so the queue tail matches it better than the FIFO head
-        // (which can hold an older unconsumed echo from a filtered message)
-        suppressQuoted = !pendingEchoes.isEmpty() && pendingEchoes.get(pendingEchoes.size() - 1).quoted();
+        EchoTracker.markSuppressCapture();
     }
+
     public static boolean consumeSuppressQuoted() {
-        boolean q = suppressQuoted;
-        suppressQuoted = false;
-        return q;
+        return EchoTracker.consumeSuppressQuoted();
     }
+
 
     private static void purgeStaleWhisperEchoes() {
-        long cutoff = System.currentTimeMillis() - 10_000;
-        while (!pendingWhisperEchoes.isEmpty() && pendingWhisperEchoes.peekFirst().time() < cutoff) {
-            pendingWhisperEchoes.pollFirst();
-        }
+        EchoTracker.purgeStaleWhisperEchoes();
     }
 
+
     public static boolean hasPendingWhisperEcho() {
-        purgeStaleWhisperEchoes();
-        return !pendingWhisperEchoes.isEmpty();
+        return EchoTracker.hasPendingWhisperEcho();
     }
+
     public static String getPendingWhisperTarget() {
-        purgeStaleWhisperEchoes();
-        PendingWhisperEcho head = pendingWhisperEchoes.peekFirst();
-        return head != null ? head.target() : null;
+        return EchoTracker.getPendingWhisperTarget();
     }
-    public static void consumeWhisperEcho() { pendingWhisperEchoes.pollFirst(); }
+
+    public static void consumeWhisperEcho() {
+        EchoTracker.consumeWhisperEcho();
+    }
+
 
     // 5s TTL: if the outgoing-whisper echo never reaches addMessage (another
     // mod cancelled it), a stale flag must not swallow an unrelated message
     public static boolean consumeSuppressCapture() {
-        if (suppressCaptureTime == 0) return false;
-        boolean fresh = System.currentTimeMillis() - suppressCaptureTime < 5_000;
-        suppressCaptureTime = 0;
-        return fresh;
+        return EchoTracker.consumeSuppressCapture();
     }
+
 
     // Echoes not consumed within 10s (e.g. commands with no chat feedback) would
     // otherwise poison the counter and swallow later self-attributed messages
     private static void purgeStaleEchoes() {
-        long cutoff = System.currentTimeMillis() - 10_000;
-        pendingEchoes.removeIf(e -> e.time() < cutoff);
+        EchoTracker.purgeStaleEchoes();
     }
+
 
     public static void incrementPendingEcho(String sentText) {
-        purgeStaleEchoes();
-        // Snapshot the quote residue onto this echo and clear it, so the next send
-        // (e.g. a plain follow-up) does not inherit the [引用] marker
-        boolean quoted = wasRecentQuoteAt(lastQuoteSendTime, System.currentTimeMillis());
-        lastQuoteSendTime = 0;
-        pendingEchoes.add(new PendingEcho(sentText, System.currentTimeMillis(), quoted));
+        EchoTracker.incrementPendingEcho(sentText);
     }
 
-    public static EchoMatch consumeEchoBySystemChat(String incomingText) {
-        purgeStaleEchoes();
-        for (int i = 0; i < pendingEchoes.size(); i++) {
-            if (incomingText.equals(pendingEchoes.get(i).text())) {
-                boolean quoted = pendingEchoes.get(i).quoted();
-                pendingEchoes.remove(i);
-                return new EchoMatch(true, quoted);
-            }
-        }
-        return new EchoMatch(false, false);
+
+    public static EchoTracker.EchoMatch consumeEchoBySystemChat(String incomingText) {
+        return EchoTracker.consumeEchoBySystemChat(incomingText);
     }
+
 
 
     public static void debugLog(java.util.function.Supplier<String> msg) {
@@ -270,72 +240,22 @@ public class ChatMessageStore {
             com.mojang.logging.LogUtils.getLogger().info(msg.get());
     }
 
-    public static EchoMatch consumeEchoIfSenderMatches(UUID senderUUID, Component senderName, String incomingText) {
-        purgeStaleEchoes();
-        if (pendingEchoes.isEmpty()) return new EchoMatch(false, false);
-        var player = net.minecraft.client.Minecraft.getInstance().player;
-        if (player == null) return new EchoMatch(false, false);
-        // Deterministic: signed-channel echoes carry the sender's real UUID
-        boolean match = senderUUID != null && senderUUID.equals(player.getUUID());
-        // Whole-word boundary match for decorated / color-translated servers
-        // (substring contains misattributed e.g. SteveAdmin to Steve)
-        if (!match) {
-            String s = senderName.getString();
-            match = containsWholeName(s, player.getName().getString());
-            if (!match && player.connection != null) {
-                var info = player.connection.getPlayerInfo(player.getUUID());
-                if (info != null && info.getTabListDisplayName() != null) {
-                    String tab = info.getTabListDisplayName().getString().trim();
-                    match = !tab.isEmpty() && containsWholeName(s, tab);
-                }
-            }
-        }
-        if (match) {
-            // The server echoes our own text back, so match by content (most recent
-            // first) to pinpoint WHICH send produced this echo. Blind remove(0) would
-            // grab an older unconsumed echo from a filtered message and mis-tag the
-            // quote flag onto the wrong send.
-            if (incomingText != null) {
-                for (int i = pendingEchoes.size() - 1; i >= 0; i--) {
-                    if (incomingText.equals(pendingEchoes.get(i).text())) {
-                        boolean quoted = pendingEchoes.get(i).quoted();
-                        pendingEchoes.remove(i);
-                        updateLatestOwnSenderName(senderName);
-                        return new EchoMatch(true, quoted);
-                    }
-                }
-            }
-            // Fallback: the server decorated/translated the content — take the oldest.
-            PendingEcho e = pendingEchoes.remove(0);
-            updateLatestOwnSenderName(senderName);
-            return new EchoMatch(true, e.quoted());
-        }
-        return new EchoMatch(false, false);
+    public static EchoTracker.EchoMatch consumeEchoIfSenderMatches(UUID senderUUID, Component senderName, String incomingText) {
+        return EchoTracker.consumeEchoIfSenderMatches(senderUUID, senderName, incomingText);
     }
+
 
     // True when needle occurs in haystack with no name character (letter/digit/_)
     // adjacent — "[VIP]Steve" and "<Steve>" hit, "SteveAdmin" and "Steve2" do not.
     public static boolean containsWholeName(String haystack, String needle) {
-        if (haystack == null || needle == null || needle.isEmpty()) return false;
-        // §6Steve: the code's digit would read as a name character — strip codes first
-        String h = haystack.replaceAll("§.", "");
-        String n = needle.replaceAll("§.", "");
-        if (n.isEmpty()) return false;
-        int from = 0;
-        while (true) {
-            int idx = h.indexOf(n, from);
-            if (idx < 0) return false;
-            int end = idx + n.length();
-            boolean leftOk = idx == 0 || !isNamePart(h.charAt(idx - 1));
-            boolean rightOk = end >= h.length() || !isNamePart(h.charAt(end));
-            if (leftOk && rightOk) return true;
-            from = idx + 1;
-        }
+        return EchoTracker.containsWholeName(haystack, needle);
     }
 
+
     public static boolean isNamePart(char c) {
-        return Character.isLetterOrDigit(c) || c == '_';
+        return EchoTracker.isNamePart(c);
     }
+
 
     // The local echo bubble is created with the bare name before the server's
     // decorated version (titles/prefixes) is known — patch it when the echo arrives
@@ -361,9 +281,6 @@ public class ChatMessageStore {
         }
         return false;
     }
-
-    private record PendingMeta(UUID senderUUID, String quoteSender, String quoteContent,
-                               List<String> mentionTargets, long createdAt) {}
 
     // time is epoch millis so history spans days/weeks without losing the date
     public record ChatMessage(
@@ -449,7 +366,7 @@ public class ChatMessageStore {
                 // The merged bubble's quote block must reflect THIS send, not
                 // inherit the previous one's — an unquoted identical follow-up
                 // after a quoted send otherwise keeps a stale [引用] block.
-                PendingMeta pending = pendingMetas.remove(messageHash);
+                EchoTracker.PendingMeta pending = EchoTracker.removePendingMeta(messageHash);
                 if (pending != null && System.currentTimeMillis() - pending.createdAt() > 10_000) {
                     pending = null;
                 }
@@ -477,7 +394,7 @@ public class ChatMessageStore {
             }
         }
 
-        PendingMeta pending = pendingMetas.remove(messageHash);
+        EchoTracker.PendingMeta pending = EchoTracker.removePendingMeta(messageHash);
         if (pending != null && System.currentTimeMillis() - pending.createdAt() > 10_000) {
             pending = null;
         }
@@ -692,19 +609,21 @@ public class ChatMessageStore {
     public static void setPendingReply(String content, String sender) {
         pendingReplyContent = content;
         pendingReplySender = sender;
-        lastQuoteSendTime = System.currentTimeMillis();
+        EchoTracker.markQuoteSent();
     }
 
     // True when a quote reply was sent within the echo window: the local bubble's
     // addMessage consumes pendingReplyContent before the server echo returns, so
     // the vanilla-chat [引用] tag can't read it — this timestamp is the residue.
     public static boolean wasRecentQuoteAt(long quoteSendTime, long now) {
-        return quoteSendTime != 0 && now - quoteSendTime < QUOTE_ECHO_WINDOW_MS;
+        return EchoTracker.wasRecentQuoteAt(quoteSendTime, now);
     }
 
+
     public static boolean wasRecentQuote() {
-        return wasRecentQuoteAt(lastQuoteSendTime, System.currentTimeMillis());
+        return EchoTracker.wasRecentQuote();
     }
+
 
     // Content extraction from a vanilla whisper line ("你悄悄对 Steve 说: hi" -> "hi").
     // meta wins when it is trusted (incoming whisper sets it); the outgoing-echo path
@@ -1150,9 +1069,8 @@ public class ChatMessageStore {
             // mod, or older than the 5s apply window) would leak forever — drop stale
             // ones here, matching the 10s TTL the consume path already enforces.
             long cutoff = System.currentTimeMillis() - 10_000;
-            pendingMetas.entrySet().removeIf(e -> e.getValue().createdAt() < cutoff);
-            pendingMetas.put(messageHash, new PendingMeta(senderUUID, quoteSender, quoteContent,
-                mentionTargets, System.currentTimeMillis()));
+            EchoTracker.prunePendingMetas(cutoff);
+            EchoTracker.putPendingMeta(messageHash, senderUUID, quoteSender, quoteContent, mentionTargets);
         }
     }
 }
