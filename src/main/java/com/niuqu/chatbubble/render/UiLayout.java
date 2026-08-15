@@ -1,4 +1,4 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.render;
 
 public final class UiLayout {
     private UiLayout() {}

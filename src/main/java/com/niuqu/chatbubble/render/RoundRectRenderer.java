@@ -1,4 +1,5 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.render;
+import com.niuqu.chatbubble.ChatBubbleMod;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;

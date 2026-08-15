@@ -7,7 +7,7 @@ import com.niuqu.chatbubble.AnimationStyle;
 import com.niuqu.chatbubble.Appearance;
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatMessageStore;
-import com.niuqu.chatbubble.RoundRectRenderer;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.DefaultPlayerSkin;

@@ -1,4 +1,7 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.render.UiLayout;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
+import com.niuqu.chatbubble.render.BlurRenderer;
 import com.niuqu.chatbubble.compat.NativeFileDialog;
 import com.niuqu.chatbubble.compat.IMBlockerCompat;
 import com.niuqu.chatbubble.ui.BedScreen;
