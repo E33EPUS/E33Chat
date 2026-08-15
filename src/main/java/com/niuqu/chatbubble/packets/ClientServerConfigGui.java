@@ -1,7 +1,7 @@
 package com.niuqu.chatbubble.packets;
 import com.niuqu.chatbubble.network.NetworkHandler;
 
-import com.niuqu.chatbubble.ServerConfigScreen;
+import com.niuqu.chatbubble.config.ServerConfigScreen;
 import net.minecraft.client.Minecraft;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
