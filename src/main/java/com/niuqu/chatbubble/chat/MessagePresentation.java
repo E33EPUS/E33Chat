@@ -26,12 +26,8 @@ public final class MessagePresentation {
         return onlineNames.stream()
             .filter(n -> n != null && !n.isBlank())
             .sorted(Comparator.comparingInt(String::length).reversed())
-            .flatMap(name -> parseForName(text, name).stream())
+            .flatMap(name -> parseGeneric(text, name).stream())
             .findFirst();
-    }
-
-    private static Optional<PlayerLine> parseForName(String text, String name) {
-        return parseGeneric(text, name);
     }
 
     /**

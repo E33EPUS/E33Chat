@@ -196,7 +196,7 @@ public final class EchoTracker {
     }
 
     public static boolean isNamePart(char c) {
-        return Character.isLetterOrDigit(c) || c == '_';
+        return com.niuqu.chatbubble.chat.Names.isNameChar(c);
     }
 
     public static void markQuoteSent() {
