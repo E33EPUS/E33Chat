@@ -198,6 +198,81 @@ public class ChatListenerMixin {
         return currentName;
     }
 
+    private static SenderMeta enrichSenderName(SenderMeta meta) {
+        if (meta.senderUUID() == null || new UUID(0, 0).equals(meta.senderUUID())) return meta;
+        Text enriched = enrichWithTeamPrefix(meta.senderUUID(), meta.senderName());
+        if (enriched == meta.senderName()) return meta;
+        return new SenderMeta(meta.senderUUID(), enriched, meta.rawContent(),
+            meta.isSystem(), meta.rawPlayerName(), meta.whisper(), meta.whisperPartner());
+    }
+
+    /**
+     * Fallback parser for messages that reach ChatHud.addMessage without
+     * passing through MessageHandler (servers using custom packet handling
+     * or mods that intercept chat delivery). Returns a SenderMeta if the
+     * message is recognized as a player line, null otherwise.
+     */
+    static SenderMeta tryParseAsPlayerMessage(Text message, String text) {
+        var connection = MinecraftClient.getInstance().player != null
+            ? MinecraftClient.getInstance().player.networkHandler : null;
+        if (connection == null) return null;
+
+        if (!ChatMessageStore.serverChatTemplates().isEmpty()
+                || !ChatMessageStore.serverWhisperTemplates().isEmpty()) {
+            SenderMeta tpl = matchByTemplate(message, text);
+            if (tpl != null) return tpl;
+        }
+
+        SenderMeta wm = detectWhisperInSystemMessage(text, "capture-fallback");
+        if (wm != null) return enrichSenderName(wm);
+
+        var namesSet = new LinkedHashSet<String>();
+        connection.getPlayerList().forEach(info -> {
+            for (String cand : nameCandidates(info)) namesSet.add(cand);
+        });
+        namesSet.addAll(ChatMessageStore.knownNameVariants());
+        var onlineNames = new ArrayList<>(namesSet);
+        var parsed = MessagePresentation.parseDecoratedPlayerLine(text, onlineNames);
+        if (parsed.isPresent()) {
+            var pl = parsed.orElseThrow();
+            var info = connection.getPlayerList().stream()
+                .filter(i -> {
+                    for (String cand : nameCandidates(i))
+                        if (cand.equals(pl.playerName())) return true;
+                    return false;
+                }).findFirst().orElse(null);
+            UUID uid = info != null ?
+                //#if MC >= 12109
+                info.getProfile().id() : new UUID(0, 0);
+                //#else
+                //$$ info.getProfile().getId() : new UUID(0, 0);
+                //#endif
+            int nameIdx = pl.nameStart();
+            int cStart = pl.contentStart();
+            if (MessagePresentation.isWhitespaceOnlyGap(text, nameIdx + pl.playerName().length(), cStart)) {
+                ChatMessageStore.debugLog(() -> "[e33chat] Capture-fallback(line skip: broadcast) | text='" + text + "'");
+                return null;
+            }
+            Text displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
+                Text.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
+            Text contentComp = ChatMessageStore.sliceStyled(message, cStart, text.length());
+            displayName = enrichWithTeamPrefix(uid, displayName);
+            String rawName = info != null ?
+                //#if MC >= 12109
+                info.getProfile().name() : pl.playerName();
+                //#else
+                //$$ info.getProfile().getName() : pl.playerName();
+                //#endif
+            ChatMessageStore.debugLog(() -> "[e33chat] Capture-fallback(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
+            return new SenderMeta(uid, displayName, contentComp, false, rawName, false, null);
+        }
+
+        SenderMeta tc = detectByTellClick(message, text);
+        if (tc != null) return enrichSenderName(tc);
+
+        return null;
+    }
+
     private static void addNameVariants(Set<String> out, String name) {
         if (name == null || name.isEmpty()) return;
         out.add(name);
@@ -798,6 +873,7 @@ public class ChatListenerMixin {
                 Text displayName = extractDecoratedName(content, pl.content(), pl.playerName(),
                     Text.literal((msgStr.substring(0, nameIdx) + pl.playerName()).trim()));
                 Text contentComp = ChatMessageStore.sliceStyled(content, cStart, msgStr.length());
+                displayName = enrichWithTeamPrefix(uid, displayName);
                 ChatMessageStore.debugLog("[e33chat] Disguised(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
                 ChatMessageStore.setPendingMeta(new SenderMeta(
                     uid, displayName, contentComp, false,
@@ -914,6 +990,7 @@ public class ChatListenerMixin {
                     Text displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
                         Text.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
                     Text contentComp = ChatMessageStore.sliceStyled(message, cStart, text.length());
+                    displayName = enrichWithTeamPrefix(uid, displayName);
                     ChatMessageStore.debugLog("[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
                     ChatMessageStore.setPendingMeta(new SenderMeta(
                         uid, displayName, contentComp, false,

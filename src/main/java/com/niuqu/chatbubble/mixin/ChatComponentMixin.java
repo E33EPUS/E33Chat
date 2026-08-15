@@ -245,14 +245,24 @@ public abstract class ChatComponentMixin {
         SenderMeta meta = ChatMessageStore.consumePendingMeta();
         if (meta == null) {
             if (ChatMessageStore.isRecentDuplicate(text)) return;
-            meta = new SenderMeta(
-                new UUID(0, 0),
-                Text.translatable("e33chat.sender.system"),
-                finalComponent,
-                true,
-                null,
-                false, null
-            );
+            //#if MC >= 11900
+            // Server may bypass MessageHandler entirely (custom packets, other
+            // mods intercepting chat) — try to parse the line as a player
+            // message before falling back to the generic system sender.
+            meta = ChatListenerMixin.tryParseAsPlayerMessage(finalComponent, text);
+            if (meta == null) {
+            //#endif
+                meta = new SenderMeta(
+                    new UUID(0, 0),
+                    Text.translatable("e33chat.sender.system"),
+                    finalComponent,
+                    true,
+                    null,
+                    false, null
+                );
+            //#if MC >= 11900
+            }
+            //#endif
         }
 
         // Blocked sender: vanish completely — no vanilla line, no bubble, no
