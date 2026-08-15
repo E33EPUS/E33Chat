@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.server;
+import com.niuqu.chatbubble.ChatServerConfig;
 import com.niuqu.chatbubble.network.NetworkHandler;
 
 import com.niuqu.chatbubble.packets.ChatMetaPacket;

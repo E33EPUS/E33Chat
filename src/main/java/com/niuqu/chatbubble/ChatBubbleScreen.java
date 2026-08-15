@@ -82,7 +82,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int INPUT_H = 14;
     private static final int ICON_S = 14;
 
-    static ResourceLocation iconTex(String name) {
+    public static ResourceLocation iconTex(String name) {
         String theme = ChatBubbleConfig.THEME.get().name().toLowerCase();
         return ResourceLocation.fromNamespaceAndPath(ChatBubbleMod.MODID, "textures/gui/" + theme + "/" + name + ".png");
     }

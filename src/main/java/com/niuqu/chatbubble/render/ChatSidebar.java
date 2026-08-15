@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.render;
+import com.niuqu.chatbubble.ChatBubbleScreen;
 
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatBubbleTheme;
