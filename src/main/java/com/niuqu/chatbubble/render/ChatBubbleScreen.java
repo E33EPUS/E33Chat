@@ -103,13 +103,6 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private static int inputX, inputY;
     // Caches resolved head skins per player uuid so the SkinManager isn't hit every frame
-    private static final Map<UUID, ResourceLocation> skinCache = new LinkedHashMap<>(16, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<UUID, ResourceLocation> eldest) {
-            return size() > SKIN_CACHE_CAP;
-        }
-    };
-    private static final int SKIN_CACHE_CAP = 256;
     private CommandSuggestions suggestions;
     private final String initialText;
     private String historyBuffer = "";
@@ -1672,7 +1665,7 @@ public class ChatBubbleScreen extends ChatScreen {
         int otherFg = ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_TEXT_COLOR.get(), c().textPrimary());
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
-        ResourceLocation skin = getSkin(msg.senderUUID(), skinName);
+        ResourceLocation skin = SkinResolver.getSkin(msg.senderUUID(), skinName);
 
         ChatMessageRenderer.renderBubble(g, font, msg, index, baseY, mouseX, mouseY,
             panelX, panelW, ownBg, otherBg, ownFg, otherFg, own,
@@ -1947,76 +1940,6 @@ public class ChatBubbleScreen extends ChatScreen {
             com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16, alpha);
         } else {
             com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 0f, 0f, size, size, size, size, alpha);
-        }
-    }
-
-    private static final UUID NIL_UUID = new UUID(0, 0);
-    // Name-keyed skin cache: an offline player seen in chat history keeps the
-    // real head when the UUID lookup fails (cracked servers, uuid dropped in
-    // old history files). Key is the §-stripped lowercase name.
-    private static final java.util.Map<String, ResourceLocation> skinNameCache = new LinkedHashMap<>(16, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<String, ResourceLocation> eldest) {
-            return size() > SKIN_CACHE_CAP;
-        }
-    };
-
-    private static String skinNameKey(String name) {
-        if (name == null) return null;
-        String key = name.replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
-        return key.isEmpty() ? null : key;
-    }
-
-    private void rememberSkin(UUID uuid, String name, ResourceLocation tex) {
-        if (tex == null) return;
-        if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, tex);
-        String key = skinNameKey(name);
-        if (key != null) skinNameCache.put(key, tex);
-    }
-
-    private ResourceLocation getSkin(UUID uuid, String name) {
-        // Online players: read PlayerInfo fresh every frame. getSkinLocation() returns
-        // the default skin and kicks off an async download on first call, then updates
-        // in place once done. Caching that first (default) result froze the head on
-        // Steve/Alex forever even after the real skin loaded — the entity model reads
-        // this fresh each frame, which is why the body showed the skin but the head didn't.
-        // CSL intercepts the underlying SkinManager lookup, so CSL skins flow through too.
-        if (minecraft.getConnection() != null && uuid != null && !uuid.equals(NIL_UUID)) {
-            PlayerInfo info = minecraft.getConnection().getPlayerInfo(uuid);
-            if (info != null) {
-                ResourceLocation tex = info.getSkinLocation();
-                rememberSkin(uuid, name, tex);
-                return tex;
-            }
-        }
-        // Not in the tab list (offline player / history mention): route through the
-        // SkinManager with a GameProfile carrying the name. CSL keys off the name, so
-        // offline players with an imported skin resolve; otherwise vanilla (real skin
-        // for paid accounts carrying textures, Steve/Alex otherwise). The first result
-        // is final here, so cache it to avoid repeating the lookup every frame.
-        if (uuid != null && !uuid.equals(NIL_UUID)) {
-            ResourceLocation cached = skinCache.get(uuid);
-            if (cached != null) return cached;
-        }
-        String nameKey = skinNameKey(name);
-        if (nameKey != null) {
-            ResourceLocation cachedByName = skinNameCache.get(nameKey);
-            if (cachedByName != null) return cachedByName;
-        }
-        ResourceLocation resolved = resolveSkin(uuid, name);
-        rememberSkin(uuid, name, resolved);
-        return resolved;
-    }
-
-    private ResourceLocation resolveSkin(UUID uuid, String name) {
-        if (name == null || name.isEmpty())
-            return DefaultPlayerSkin.getDefaultSkin(uuid != null ? uuid : NIL_UUID);
-        try {
-            GameProfile profile = new GameProfile(
-                uuid != null && !uuid.equals(NIL_UUID) ? uuid : NIL_UUID, name);
-            return minecraft.getSkinManager().getInsecureSkinLocation(profile);
-        } catch (Exception e) {
-            return DefaultPlayerSkin.getDefaultSkin(uuid != null ? uuid : NIL_UUID);
         }
     }
 
