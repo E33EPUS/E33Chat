@@ -23,7 +23,7 @@ public class ChatListenerMixin {
     // 出站回显不触发抑制 → 误判入站私聊，且 pendingEcho 残留 → 10s 内 partner 真回复被当 echo 吞
     // 裸 "to you" 与 MessagePresentation 同步排除——tpa "wants to teleport to you" 会误判为回显
     private static final java.util.regex.Pattern ECHO_WHISPER_PATTERN =
-        java.util.regex.Pattern.compile("\b(?:pm|message|msg|tell)\b");
+        java.util.regex.Pattern.compile("\\b(?:pm|message|msg|tell)\\b");
 
 
 
