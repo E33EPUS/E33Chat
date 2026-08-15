@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.packets;
+import com.niuqu.chatbubble.network.NetworkHandler;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;

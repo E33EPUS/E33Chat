@@ -1,4 +1,4 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.network;
 
 import com.niuqu.chatbubble.packets.ChatMetaPacket;
 import com.niuqu.chatbubble.packets.ConfigSyncPacket;

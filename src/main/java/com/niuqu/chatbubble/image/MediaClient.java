@@ -1,7 +1,7 @@
 package com.niuqu.chatbubble.image;
 
 import com.mojang.logging.LogUtils;
-import com.niuqu.chatbubble.NetworkHandler;
+import com.niuqu.chatbubble.network.NetworkHandler;
 import com.niuqu.chatbubble.packets.MediaCapPacket;
 import com.niuqu.chatbubble.packets.MediaRequestPacket;
 import com.niuqu.chatbubble.packets.MediaResponsePacket;

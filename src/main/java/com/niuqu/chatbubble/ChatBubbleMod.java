@@ -1,4 +1,6 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.server.ChatServerListener;
+import com.niuqu.chatbubble.network.NetworkHandler;
 
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.ModLoadingContext;

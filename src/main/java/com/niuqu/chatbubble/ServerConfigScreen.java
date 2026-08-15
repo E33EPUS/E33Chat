@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.network.NetworkHandler;
 import com.niuqu.chatbubble.render.Animation;
 
 import com.niuqu.chatbubble.chat.TemplateMatcher;

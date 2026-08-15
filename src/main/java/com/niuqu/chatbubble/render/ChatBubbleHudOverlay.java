@@ -1,4 +1,5 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.render;
+import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.render.Appearance;
 
 import com.mojang.blaze3d.systems.RenderSystem;

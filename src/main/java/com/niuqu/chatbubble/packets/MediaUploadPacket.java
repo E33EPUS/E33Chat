@@ -1,8 +1,8 @@
 package com.niuqu.chatbubble.packets;
 
 import com.niuqu.chatbubble.ChatServerConfig;
-import com.niuqu.chatbubble.ChatServerListener;
-import com.niuqu.chatbubble.NetworkHandler;
+import com.niuqu.chatbubble.server.ChatServerListener;
+import com.niuqu.chatbubble.network.NetworkHandler;
 import com.niuqu.chatbubble.server.DiskMediaStore;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
