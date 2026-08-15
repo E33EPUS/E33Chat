@@ -1,4 +1,4 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.ui;
 
 import com.niuqu.chatbubble.image.RasterImageDecoder;
 import com.mojang.blaze3d.platform.NativeImage;

@@ -1,4 +1,5 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.ui;
+import com.niuqu.chatbubble.ChatBubbleScreen;
 
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;

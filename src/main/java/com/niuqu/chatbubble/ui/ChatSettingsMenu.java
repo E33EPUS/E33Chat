@@ -1,4 +1,8 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.ui;
+import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.ChatBubbleScreen;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -9,7 +13,7 @@ public class ChatSettingsMenu {
     private static final int ROW_H = 18;
     private static final int COUNT = 4;
 
-    boolean visible;
+    public boolean visible;
 
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,

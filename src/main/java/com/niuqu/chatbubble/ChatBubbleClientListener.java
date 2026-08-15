@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.ui.BedScreen;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
