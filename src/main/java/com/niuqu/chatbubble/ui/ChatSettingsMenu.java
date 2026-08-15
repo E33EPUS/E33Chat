@@ -2,7 +2,7 @@ package com.niuqu.chatbubble.ui;
 import com.niuqu.chatbubble.texture.UiTextureManager;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
-import com.niuqu.chatbubble.ChatBubbleScreen;
+import com.niuqu.chatbubble.render.ChatBubbleScreen;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;

@@ -1,4 +1,6 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.store.ChatMessageStore;
+import com.niuqu.chatbubble.render.ChatBubbleScreen;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.render.ChatBubbleHudOverlay;
 import com.niuqu.chatbubble.ui.BedScreen;

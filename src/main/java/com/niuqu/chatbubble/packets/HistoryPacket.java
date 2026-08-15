@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.packets;
 
-import com.niuqu.chatbubble.ChatMessageStore;
+import com.niuqu.chatbubble.store.ChatMessageStore;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;

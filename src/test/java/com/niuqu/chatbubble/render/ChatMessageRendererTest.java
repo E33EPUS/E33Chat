@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.render;
 
-import com.niuqu.chatbubble.ChatMessageStore;
+import com.niuqu.chatbubble.store.ChatMessageStore;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.ClickEvent;

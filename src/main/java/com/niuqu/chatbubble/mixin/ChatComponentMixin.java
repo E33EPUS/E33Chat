@@ -1,9 +1,9 @@
 package com.niuqu.chatbubble.mixin;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
-import com.niuqu.chatbubble.ChatBubbleScreen;
-import com.niuqu.chatbubble.ChatMessageStore;
-import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
+import com.niuqu.chatbubble.render.ChatBubbleScreen;
+import com.niuqu.chatbubble.store.ChatMessageStore;
+import com.niuqu.chatbubble.store.ChatMessageStore.SenderMeta;
 import com.niuqu.chatbubble.image.BracketCodec;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;

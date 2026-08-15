@@ -1,8 +1,8 @@
 package com.niuqu.chatbubble.chat.notification;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
-import com.niuqu.chatbubble.ChatBubbleScreen;
-import com.niuqu.chatbubble.ChatMessageStore;
+import com.niuqu.chatbubble.render.ChatBubbleScreen;
+import com.niuqu.chatbubble.store.ChatMessageStore;
 import com.niuqu.chatbubble.chat.MentionDetector;
 import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner.NotificationType;
 import net.minecraft.client.Minecraft;
