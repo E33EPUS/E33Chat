@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.render;
+import com.niuqu.chatbubble.store.BlockList;
 import com.niuqu.chatbubble.ChatBubbleMod;
 import com.niuqu.chatbubble.store.ChatMessageStore;
 import com.niuqu.chatbubble.config.ChatBubbleConfigScreen;
@@ -1289,7 +1290,7 @@ public class ChatBubbleScreen extends ChatScreen {
         final String target = name;
 
         List<String> blocked = new ArrayList<>(ChatBubbleConfig.BLOCKED_PLAYERS.get());
-        boolean nowBlocked = ChatMessageStore.isPlayerBlocked(
+        boolean nowBlocked = BlockList.isPlayerBlocked(
             msg.rawPlayerName(), msg.senderName(), blocked);
         if (nowBlocked) {
             blocked.removeIf(b -> b != null && b.trim().equalsIgnoreCase(target));
@@ -1743,7 +1744,7 @@ public class ChatBubbleScreen extends ChatScreen {
         if (contextAvatarIndex < 0) return;
         ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextAvatarIndex);
         boolean isBlocked = msg != null
-            && ChatMessageStore.isPlayerBlocked(msg.rawPlayerName(), msg.senderName(),
+            && BlockList.isPlayerBlocked(msg.rawPlayerName(), msg.senderName(),
                 ChatBubbleConfig.BLOCKED_PLAYERS.get());
         ChatContextMenus.renderAvatarMenu(g, font, mouseX, mouseY, c(), panelX, panelW,
             msgTop, iconTex("tp"), iconTex("whisper"), iconTex("block"), isBlocked,
