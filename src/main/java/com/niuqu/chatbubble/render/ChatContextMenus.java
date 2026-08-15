@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.render;
 
-import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.gui.Font;

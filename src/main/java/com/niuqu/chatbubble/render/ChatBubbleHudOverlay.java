@@ -3,7 +3,7 @@ import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatBubbleScreen;
 import com.niuqu.chatbubble.ChatBubbleMod;
 import com.niuqu.chatbubble.ChatBubbleConfig;
-import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.render.Appearance;
 
 import com.mojang.blaze3d.systems.RenderSystem;

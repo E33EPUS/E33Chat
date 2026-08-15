@@ -3,7 +3,7 @@ import com.niuqu.chatbubble.ui.ChatSearchPanel;
 
 import com.niuqu.chatbubble.render.Appearance;
 import com.niuqu.chatbubble.ChatBubbleConfig;
-import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.render.RoundRectRenderer;
 import com.niuqu.chatbubble.render.UiLayout;

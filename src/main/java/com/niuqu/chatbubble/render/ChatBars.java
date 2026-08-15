@@ -1,7 +1,7 @@
 package com.niuqu.chatbubble.render;
 import com.niuqu.chatbubble.render.Animation;
 
-import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.render.UiLayout;
 import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;

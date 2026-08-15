@@ -33,7 +33,7 @@ import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
-import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.chat.notification.MentionNotificationBanner;
 import com.niuqu.chatbubble.packets.QuoteSyncPayload;
 import com.niuqu.chatbubble.render.ChatBars;

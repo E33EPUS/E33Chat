@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.render;
 
-import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import net.minecraft.client.gui.GuiGraphics;
 
 public final class ChatScrollbar {
