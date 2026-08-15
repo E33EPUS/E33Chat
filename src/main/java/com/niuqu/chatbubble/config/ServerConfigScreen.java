@@ -105,19 +105,8 @@ public class ServerConfigScreen extends Screen {
     private String pendingPreviewText;
 
     private int selectedCat;
-    private int scrollOffset, treeScroll;
-    private float rAnimFrom, rAnimTo;
-    private long rAnimStart;
-    private int rAnimDur;
-    private boolean rAnimOn;
-    private boolean rBarDrag;
-    private int rBarDragY, rBarDragOff;
-    private float tAnimFrom, tAnimTo;
-    private long tAnimStart;
-    private int tAnimDur;
-    private boolean tAnimOn;
-    private boolean tBarDrag;
-    private int tBarDragY, tBarDragOff;
+    private final com.niuqu.chatbubble.render.SmoothScrollPane rightPane = new com.niuqu.chatbubble.render.SmoothScrollPane();
+    private final com.niuqu.chatbubble.render.SmoothScrollPane treePane = new com.niuqu.chatbubble.render.SmoothScrollPane();
 
     // 右区行：label 左对齐 optLabelX；widgets 右对齐 inputX（模板行的 ✕ 例外：紧跟 label 后）
     // extraText 渲染在行内下半部（预览结果）；tooltipKey 非空时悬停显示 key+".desc"
@@ -449,8 +438,8 @@ public class ServerConfigScreen extends Screen {
     @Override
     protected void init() {
         buildRows();
-        scrollOffset = Mth.clamp(scrollOffset, 0, calcMaxScroll());
-        treeScroll = Mth.clamp(treeScroll, 0, calcTreeMaxScroll());
+        rightPane.setOffset(Mth.clamp(rightPane.offset(), 0, calcMaxScroll()));
+        treePane.setOffset(Mth.clamp(treePane.offset(), 0, calcTreeMaxScroll()));
 
         doneBtn = addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> doClose())
             .bounds(width / 2 - 100, height - 32, 200, 20).build());
@@ -463,7 +452,7 @@ public class ServerConfigScreen extends Screen {
     }
 
     private void rebuild() {
-        scrollOffset = 0;
+        rightPane.setOffset(0);
         setFocused(null);
         clearWidgets();
         boxErrors.clear();
@@ -476,9 +465,9 @@ public class ServerConfigScreen extends Screen {
         rebuild();
     }
 
-    // 按当前 scrollOffset 重排右侧控件 y 与可见性（控件顶对齐行 y，同客户端）
+    // 按当前 rightPane.offset() 重排右侧控件 y 与可见性（控件顶对齐行 y，同客户端）
     private void relayoutWidgets() {
-        int y = viewTop() - scrollOffset;
+        int y = viewTop() - rightPane.offset();
         for (Row row : rows) {
             for (AbstractWidget w : row.widgets()) {
                 w.setY(y);
@@ -498,34 +487,16 @@ public class ServerConfigScreen extends Screen {
     private int tTotalH() { return calcTreeMaxScroll() + tTrackH(); }
 
     private void startR(float target, int dur) {
-        rAnimFrom = scrollOffset;
-        rAnimTo = Mth.clamp(target, 0, calcMaxScroll());
-        rAnimStart = net.minecraft.Util.getMillis();
-        rAnimDur = dur;
-        rAnimOn = true;
+        rightPane.animateTo(target, calcMaxScroll(), dur);
     }
 
     private void startT(float target, int dur) {
-        tAnimFrom = treeScroll;
-        tAnimTo = Mth.clamp(target, 0, calcTreeMaxScroll());
-        tAnimStart = net.minecraft.Util.getMillis();
-        tAnimDur = dur;
-        tAnimOn = true;
+        treePane.animateTo(target, calcTreeMaxScroll(), dur);
     }
 
     private void tickAnims() {
-        if (rAnimOn) {
-            float t = Animation.progress(rAnimStart, rAnimDur, false);
-            scrollOffset = Math.round(rAnimFrom + (rAnimTo - rAnimFrom) * t);
-            if (t >= 1.0f) { scrollOffset = Math.round(rAnimTo); rAnimOn = false; }
-        }
-        if (tAnimOn) {
-            float t = Animation.progress(tAnimStart, tAnimDur, false);
-            treeScroll = Math.round(tAnimFrom + (tAnimTo - tAnimFrom) * t);
-            if (t >= 1.0f) { treeScroll = Math.round(tAnimTo); tAnimOn = false; }
-        }
-        scrollOffset = Mth.clamp(scrollOffset, 0, calcMaxScroll());
-        treeScroll = Mth.clamp(treeScroll, 0, calcTreeMaxScroll());
+        rightPane.tick(calcMaxScroll());
+        treePane.tick(calcTreeMaxScroll());
         relayoutWidgets();
     }
 
@@ -556,24 +527,24 @@ public class ServerConfigScreen extends Screen {
         if (rMax > 0 && mouseX >= rTrackX() && mouseX < rTrackX() + w
                 && mouseY >= viewTop() && mouseY < viewBottom()) {
             int th = ChatScrollbar.thumbHeight(rTrackH(), rTotalH());
-            int ty = ChatScrollbar.thumbY(viewTop(), rTrackH(), th, scrollOffset, rMax);
-            if (mouseY < ty) startR(scrollOffset - rTrackH(), 120);
-            else if (mouseY > ty + th) startR(scrollOffset + rTrackH(), 120);
-            else { rBarDrag = true; rBarDragY = (int) mouseY; rBarDragOff = scrollOffset; }
+            int ty = ChatScrollbar.thumbY(viewTop(), rTrackH(), th, rightPane.offset(), rMax);
+            if (mouseY < ty) startR(rightPane.offset() - rTrackH(), 120);
+            else if (mouseY > ty + th) startR(rightPane.offset() + rTrackH(), 120);
+            else rightPane.dragStart((int) mouseY, rightPane.offset());
             return true;
         }
         int tMax = calcTreeMaxScroll();
         if (tMax > 0 && mouseX >= tTrackX() && mouseX < tTrackX() + w
                 && mouseY >= START_Y && mouseY < viewBottom()) {
             int th = ChatScrollbar.thumbHeight(tTrackH(), tTotalH());
-            int ty = ChatScrollbar.thumbY(START_Y, tTrackH(), th, treeScroll, tMax);
-            if (mouseY < ty) startT(treeScroll - tTrackH(), 120);
-            else if (mouseY > ty + th) startT(treeScroll + tTrackH(), 120);
-            else { tBarDrag = true; tBarDragY = (int) mouseY; tBarDragOff = treeScroll; }
+            int ty = ChatScrollbar.thumbY(START_Y, tTrackH(), th, treePane.offset(), tMax);
+            if (mouseY < ty) startT(treePane.offset() - tTrackH(), 120);
+            else if (mouseY > ty + th) startT(treePane.offset() + tTrackH(), 120);
+            else treePane.dragStart((int) mouseY, treePane.offset());
             return true;
         }
         if (button == 0) {
-            int ly = START_Y - treeScroll;
+            int ly = START_Y - treePane.offset();
             for (int i = 0; i < CAT_KEYS.length; i++) {
                 if (mouseY >= ly && mouseY < ly + CAT_ROW_H && mouseX >= CAT_X && mouseX <= CAT_X + CAT_W) {
                     switchCategory(i);
@@ -589,30 +560,22 @@ public class ServerConfigScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (mouseX < dividerX()) {
             if (calcTreeMaxScroll() <= 0) return false;
-            startT(treeScroll - (float) (delta * 20), 120);
+            treePane.wheel(delta, calcTreeMaxScroll(), 120);
             return true;
         }
         if (calcMaxScroll() <= 0) return false;
-        startR(scrollOffset - (float) (delta * 20), 120);
+        rightPane.wheel(delta, calcMaxScroll(), 120);
         return true;
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
-        if (rBarDrag && calcMaxScroll() > 0) {
-            int travel = rTrackH() - ChatScrollbar.thumbHeight(rTrackH(), rTotalH());
-            if (travel > 0) {
-                int d = (int) mouseY - rBarDragY;
-                startR(rBarDragOff + (float) d * calcMaxScroll() / travel, 80);
-            }
+        if (rightPane.dragging()) {
+            rightPane.dragTo((int) mouseY, rTrackH(), rTotalH(), calcMaxScroll(), 80);
             return true;
         }
-        if (tBarDrag && calcTreeMaxScroll() > 0) {
-            int travel = tTrackH() - ChatScrollbar.thumbHeight(tTrackH(), tTotalH());
-            if (travel > 0) {
-                int d = (int) mouseY - tBarDragY;
-                startT(tBarDragOff + (float) d * calcTreeMaxScroll() / travel, 80);
-            }
+        if (treePane.dragging()) {
+            treePane.dragTo((int) mouseY, tTrackH(), tTotalH(), calcTreeMaxScroll(), 80);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dx, dy);
@@ -620,8 +583,8 @@ public class ServerConfigScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        rBarDrag = false;
-        tBarDrag = false;
+        rightPane.dragEnd();
+        treePane.dragEnd();
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -638,7 +601,7 @@ public class ServerConfigScreen extends Screen {
 
         // 左侧分类树（照抄客户端：选中高亮 + 左侧竖条，裁剪到视口）
         g.enableScissor(CAT_X, START_Y, dividerX(), viewBottom());
-        int ly = START_Y - treeScroll;
+        int ly = START_Y - treePane.offset();
         for (int i = 0; i < CAT_KEYS.length; i++) {
             boolean sel = i == selectedCat;
             boolean hover = mouseX >= CAT_X && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + CAT_ROW_H;
@@ -652,8 +615,8 @@ public class ServerConfigScreen extends Screen {
             ly += CAT_ROW_H;
         }
         g.disableScissor();
-        drawBar(g, tTrackX(), START_Y, viewBottom(), tTotalH(), treeScroll, calcTreeMaxScroll(),
-            mouseX, mouseY, tBarDrag);
+        drawBar(g, tTrackX(), START_Y, viewBottom(), tTotalH(), treePane.offset(), calcTreeMaxScroll(),
+            mouseX, mouseY, treePane.dragging());
 
         // 分类与选项区分隔线
         g.blit(UiTextureManager.rl(UiElement.DIVIDER, ChatBubbleTheme.DARK),
@@ -661,7 +624,7 @@ public class ServerConfigScreen extends Screen {
 
         // 右区选项行，硬裁剪到视口；普通行 label 垂直居中对齐按钮（y+6），教程小行顶部对齐（y+2）
         g.enableScissor(optLabelX() - 4, viewTop(), width, viewBottom());
-        int y = viewTop() - scrollOffset;
+        int y = viewTop() - rightPane.offset();
         for (Row row : rows) {
             if (row.title()) {
                 // 分区标题：灰字左对齐 + 字右侧延伸一条细分隔线（同客户端配置界面）
@@ -702,8 +665,8 @@ public class ServerConfigScreen extends Screen {
             y += row.height();
         }
         g.disableScissor();
-        drawBar(g, rTrackX(), viewTop(), viewBottom(), rTotalH(), scrollOffset, calcMaxScroll(),
-            mouseX, mouseY, rBarDrag);
+        drawBar(g, rTrackX(), viewTop(), viewBottom(), rTotalH(), rightPane.offset(), calcMaxScroll(),
+            mouseX, mouseY, rightPane.dragging());
 
         int changed = changeCount();
         doneBtn.visible = changed == 0;
