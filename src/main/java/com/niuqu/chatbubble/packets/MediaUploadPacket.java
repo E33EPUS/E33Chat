@@ -50,39 +50,8 @@ public class MediaUploadPacket {
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             var sender = ctx.get().getSender();
-            if (sender == null) return;
-            if (!ChatServerConfig.MEDIA_ENABLED.get()) {
-                NetworkHandler.CHANNEL.send(
-                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                    new MediaUploadAckPacket(uploadId, null, "disabled"));
-                return;
-            }
-            DiskMediaStore store = ChatServerListener.mediaStore();
-            String result;
-            if (index == 0) {
-                if (!store.allowTransfer(sender.getName().getString())) {
-                    NetworkHandler.CHANNEL.send(
-                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                        new MediaUploadAckPacket(uploadId, null, "rate limited"));
-                    return;
-                }
-                result = store.beginUpload(uploadId, sender.getName().getString(),
-                    totalChunks, totalBytes, contentType);
-                if (result == null) {
-                    // Chunk 0 also carries data — feed it through acceptChunk so a
-                    // single-chunk upload completes (and acks) instead of hanging.
-                    result = store.acceptChunk(uploadId, index, chunk);
-                }
-            } else {
-                result = store.acceptChunk(uploadId, index, chunk);
-            }
-            if (result == null) return; // upload still in progress
-            store.discardUpload(uploadId);
-            NetworkHandler.CHANNEL.send(
-                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                DiskMediaStore.isValidMediaId(result)
-                    ? new MediaUploadAckPacket(uploadId, result, null)
-                    : new MediaUploadAckPacket(uploadId, null, result));
+            if (sender != null) com.niuqu.chatbubble.server.MediaService.handleUpload(
+                sender, uploadId, index, totalChunks, totalBytes, contentType, chunk);
         });
         ctx.get().setPacketHandled(true);
     }

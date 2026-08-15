@@ -27,34 +27,7 @@ public class MediaRequestPacket {
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             var sender = ctx.get().getSender();
-            if (sender == null) return;
-            DiskMediaStore store = ChatServerListener.mediaStore();
-            if (!store.allowTransfer(sender.getName().getString())) {
-                NetworkHandler.CHANNEL.send(
-                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                    new MediaResponsePacket(mediaId, 0, 1, new byte[0]));
-                return;
-            }
-            long size = store.sizeOf(mediaId);
-            if (size < 0) {
-                NetworkHandler.CHANNEL.send(
-                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                    new MediaResponsePacket(mediaId, 0, 1, new byte[0]));
-                return;
-            }
-            int total = DiskMediaStore.totalChunksFor(size);
-            for (int i = 0; i < total; i++) {
-                byte[] chunk = store.readChunk(mediaId, i, total);
-                if (chunk == null) {
-                    NetworkHandler.CHANNEL.send(
-                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                        new MediaResponsePacket(mediaId, 0, 1, new byte[0]));
-                    return;
-                }
-                NetworkHandler.CHANNEL.send(
-                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                    new MediaResponsePacket(mediaId, i, total, chunk));
-            }
+            if (sender != null) com.niuqu.chatbubble.server.MediaService.handleRequest(sender, mediaId);
         });
         ctx.get().setPacketHandled(true);
     }
