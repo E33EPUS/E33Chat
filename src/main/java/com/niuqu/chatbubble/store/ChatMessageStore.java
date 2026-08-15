@@ -264,11 +264,7 @@ public class ChatMessageStore {
             ChatMessage m = messages.get(i);
             if (!m.isOwn()) continue;
             if (!m.senderName().getString().equals(senderName.getString())) {
-                messages.set(i, new ChatMessage(
-                    m.senderUUID(), senderName, m.content(), m.time(),
-                    m.isOwn(), m.isSystem(), m.replyContent(), m.replySender(),
-                    m.messageHash(), m.duplicateCount(), m.rawPlayerName(),
-                    m.whisper(), m.whisperPartner()));
+                messages.set(i, m.withSenderName(senderName));
             }
             return;
         }
@@ -297,7 +293,26 @@ public class ChatMessageStore {
         String rawPlayerName,
         boolean whisper,
         String whisperPartner
-    ) {}
+    ) {
+        // Wither helpers: field-level updates without rebuilding 13-arg constructors.
+        public ChatMessage withSenderName(Component newSenderName) {
+            return new ChatMessage(senderUUID, newSenderName, content, time,
+                isOwn, isSystem, replyContent, replySender, messageHash, duplicateCount,
+                rawPlayerName, whisper, whisperPartner);
+        }
+
+        public ChatMessage withMerge(String newReplyContent, String newReplySender, long newTime, int newDupCount) {
+            return new ChatMessage(senderUUID, senderName, content, newTime,
+                isOwn, isSystem, newReplyContent, newReplySender, messageHash, newDupCount,
+                rawPlayerName, whisper, whisperPartner);
+        }
+
+        public ChatMessage withReply(String newReplyContent, String newReplySender) {
+            return new ChatMessage(senderUUID, senderName, content, time,
+                isOwn, isSystem, newReplyContent, newReplySender, messageHash, duplicateCount,
+                rawPlayerName, whisper, whisperPartner);
+        }
+    }
 
     // Display names can't identify a sender reliably: the local echo bubble's name
     // gets patched from bare to decorated once the server echo arrives, so the next
@@ -381,15 +396,9 @@ public class ChatMessageStore {
                 }
                 pendingReplyContent = null;
                 pendingReplySender = null;
-                messages.set(messages.size() - 1, new ChatMessage(
-                    last.senderUUID(), last.senderName(), last.content(),
-                    System.currentTimeMillis(),
-                    last.isOwn(), last.isSystem(),
-                    mergeReplyContent, mergeReplySender, last.messageHash(),
-                    last.duplicateCount() + 1,
-                    last.rawPlayerName(),
-                    last.whisper(), last.whisperPartner()
-                ));
+                messages.set(messages.size() - 1, last.withMerge(
+                    mergeReplyContent, mergeReplySender, System.currentTimeMillis(),
+                    last.duplicateCount() + 1));
                 return;
             }
         }
@@ -1046,11 +1055,7 @@ public class ChatMessageStore {
                 if (msg.duplicateCount() > 1) continue;
                 if (System.currentTimeMillis() - msg.time() > 5_000) continue;
                 if (!quoteContent.isEmpty()) {
-                    messages.set(i, new ChatMessage(
-                        msg.senderUUID(), msg.senderName(), msg.content(), msg.time(),
-                        msg.isOwn(), msg.isSystem(), quoteContent, quoteSender, msg.messageHash(),
-                        msg.duplicateCount(), msg.rawPlayerName(),
-                        msg.whisper(), msg.whisperPartner()));
+                    messages.set(i, msg.withReply(quoteContent, quoteSender));
                     String playerName = localPlayerSupplier.get() != null
                         ? localPlayerSupplier.get().getName().getString() : "";
                     if (!msg.isOwn() && !playerName.isEmpty()
