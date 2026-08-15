@@ -22,15 +22,6 @@ public final class ChatSidebar {
     private static final int ITEM_H = 22;
     private static final int ICON_S = 20;
     private static final int SEARCH_H = 14;
-    private static final UUID NIL_UUID = new UUID(0, 0);
-
-    private static final Map<UUID, ResourceLocation> skinCache = new LinkedHashMap<>(16, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<UUID, ResourceLocation> eldest) {
-            return size() > 256;
-        }
-    };
-
     private ChatSidebar() {}
 
     public static boolean handleMouseClicked(double mouseX, double mouseY,
@@ -153,7 +144,7 @@ public final class ChatSidebar {
                         else if (hoverRow)
                             com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, WIDTH, ITEM_H, alpha);
 
-                        ResourceLocation skin = getSkin(info.getProfile().getId(), name);
+                        ResourceLocation skin = SkinResolver.getSkin(info.getProfile().getId(), name);
                         drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18, alpha);
 
                         int tipW = ChatMessageStore.hasUnreadWhisper(name) ? 16 : 0;
@@ -187,25 +178,7 @@ public final class ChatSidebar {
         return newMaxScroll;
     }
 
-    private static ResourceLocation getSkin(UUID uuid, String name) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.getConnection() != null && uuid != null && !uuid.equals(NIL_UUID)) {
-            var info = mc.getConnection().getPlayerInfo(uuid);
-            if (info != null) return info.getSkin().texture();
-        }
-        if (uuid != null && !uuid.equals(NIL_UUID)) {
-            ResourceLocation cached = skinCache.get(uuid);
-            if (cached != null) return cached;
-            var skin = mc.getSkinManager().getInsecureSkin(
-                new com.mojang.authlib.GameProfile(uuid, name != null ? name : ""));
-            if (skin != null) {
-                ResourceLocation tex = skin.texture();
-                skinCache.put(uuid, tex);
-                return tex;
-            }
-        }
-        return DefaultPlayerSkin.get(uuid != null ? uuid : NIL_UUID).texture();
-    }
+    // ---- Helpers ----
 
     private static void drawPlayerHead(GuiGraphics g, ResourceLocation skin, int x, int y,
                                          int baseSize, int hatSize, float alpha) {
