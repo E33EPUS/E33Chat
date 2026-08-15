@@ -307,6 +307,8 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(ChatBubbleConfig.OWN_QUOTE_NOTIFY));
         tracked.add(track(ChatBubbleConfig.OWN_WHISPER_NOTIFY));
         tracked.add(track(ChatBubbleConfig.BANNER_CORNER_RADIUS));
+        tracked.add(track(ChatBubbleConfig.BANNER_OFFSET_X));
+        tracked.add(track(ChatBubbleConfig.BANNER_OFFSET_Y));
     }
 
     @Override
