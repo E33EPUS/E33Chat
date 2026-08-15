@@ -1,13 +1,9 @@
 package com.niuqu.chatbubble.packets;
 
-import com.niuqu.chatbubble.config.ChatServerConfig;
-import com.niuqu.chatbubble.server.ChatServerListener;
-import com.niuqu.chatbubble.server.DiskMediaStore;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
@@ -69,40 +65,11 @@ public record MediaUploadPayload(long uploadId, int index, int totalChunks,
 
     public static void handleServer(MediaUploadPayload payload, IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            if (!ChatServerConfig.MEDIA_ENABLED.get()) {
-                sendAck(ctx, payload.uploadId(), null, "disabled");
-                return;
-            }
-            DiskMediaStore store = ChatServerListener.mediaStore();
-            String playerName = ctx.player() != null ? ctx.player().getName().getString() : "?";
-            String result;
-            if (payload.index() == 0) {
-                if (!store.allowTransfer(playerName)) {
-                    sendAck(ctx, payload.uploadId(), null, "rate limited");
-                    return;
-                }
-                result = store.beginUpload(payload.uploadId(), playerName,
-                    payload.totalChunks(), payload.totalBytes(), payload.contentType());
-                if (result == null) {
-                    // Chunk 0 also carries data — feed it through acceptChunk so a
-                    // single-chunk upload completes (and acks) instead of hanging.
-                    result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
-                }
-            } else {
-                result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
-            }
-            if (result == null) return; // upload still in progress
-            store.discardUpload(payload.uploadId());
-            if (DiskMediaStore.isValidMediaId(result)) {
-                sendAck(ctx, payload.uploadId(), result, null);
-            } else {
-                sendAck(ctx, payload.uploadId(), null, result);
+            if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sender) {
+                com.niuqu.chatbubble.server.MediaService.handleUpload(sender, payload.uploadId(),
+                    payload.index(), payload.totalChunks(), payload.totalBytes(),
+                    payload.contentType(), payload.chunk());
             }
         });
-    }
-
-    private static void sendAck(IPayloadContext ctx, long uploadId, String mediaId, String error) {
-        PacketDistributor.sendToPlayer((net.minecraft.server.level.ServerPlayer) ctx.player(),
-            new MediaUploadAckPayload(uploadId, mediaId, error));
     }
 }
