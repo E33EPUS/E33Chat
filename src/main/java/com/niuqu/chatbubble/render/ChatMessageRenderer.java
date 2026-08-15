@@ -2,7 +2,7 @@ package com.niuqu.chatbubble.render;
 import com.niuqu.chatbubble.ui.ChatSearchPanel;
 
 import com.niuqu.chatbubble.render.Appearance;
-import com.niuqu.chatbubble.ChatBubbleConfig;
+import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.render.RoundRectRenderer;

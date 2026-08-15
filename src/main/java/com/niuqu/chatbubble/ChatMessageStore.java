@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.config.ChatBubbleConfig;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;

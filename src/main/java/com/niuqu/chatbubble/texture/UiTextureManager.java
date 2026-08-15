@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.texture;
 
-import com.niuqu.chatbubble.ChatBubbleConfig;
+import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import net.minecraft.resources.ResourceLocation;
 

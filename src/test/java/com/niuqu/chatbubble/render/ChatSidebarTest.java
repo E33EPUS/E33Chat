@@ -1,4 +1,6 @@
 package com.niuqu.chatbubble.render;
+import com.niuqu.chatbubble.render.Animation;
+import com.niuqu.chatbubble.ChatBubbleScreen;
 
 import org.junit.jupiter.api.Test;
 

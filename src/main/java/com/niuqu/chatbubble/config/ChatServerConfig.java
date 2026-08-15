@@ -1,4 +1,4 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.config;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 

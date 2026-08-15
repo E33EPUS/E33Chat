@@ -1,7 +1,7 @@
 package com.niuqu.chatbubble.command;
 
 import com.niuqu.chatbubble.ChatBubbleMod;
-import com.niuqu.chatbubble.ChatServerConfig;
+import com.niuqu.chatbubble.config.ChatServerConfig;
 import com.niuqu.chatbubble.server.ChatServerListener;
 import com.niuqu.chatbubble.network.NetworkHandler;
 import com.niuqu.chatbubble.chat.TemplateMatcher;

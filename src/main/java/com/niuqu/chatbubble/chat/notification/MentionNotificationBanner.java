@@ -5,7 +5,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.niuqu.chatbubble.render.Animation;
 import com.niuqu.chatbubble.render.AnimationStyle;
 import com.niuqu.chatbubble.render.Appearance;
-import com.niuqu.chatbubble.ChatBubbleConfig;
+import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.render.RoundRectRenderer;
 import net.minecraft.client.Minecraft;
