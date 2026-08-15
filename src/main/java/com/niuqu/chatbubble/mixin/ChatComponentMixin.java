@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.mixin;
+import com.niuqu.chatbubble.store.BlockList;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.render.ChatBubbleScreen;
@@ -155,7 +156,7 @@ public class ChatComponentMixin {
         // banner/sound (addMessage below never runs). Checked before the echo and
         // whisper-repost branches so a blocked player's whisper can't resurface
         // as a [私聊] rewrite.
-        if (ChatMessageStore.isPlayerBlocked(meta.rawPlayerName(), meta.senderName(),
+        if (BlockList.isPlayerBlocked(meta.rawPlayerName(), meta.senderName(),
                 ChatBubbleConfig.BLOCKED_PLAYERS.get())) {
             final String blockedName = meta.senderName().getString();
             ci.cancel();

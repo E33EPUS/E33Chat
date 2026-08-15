@@ -397,42 +397,13 @@ public class ChatMessageStore {
     }
 
     // ==== Blocked players ====
-    // Exact-name matching (case-insensitive, §-stripped). rawPlayerName is the
-    // primary key — the disguised channel carries a nil UUID, so UUID-only
-    // matching would leak blocked players through that path.
-    public static boolean matchesBlocked(String name, List<? extends String> blocked) {
-        if (name == null || name.isEmpty() || blocked == null || blocked.isEmpty()) return false;
-        // Both sides §-stripped and trimmed so color-coded names and stray spaces
-        // in either the message or the config list can't break the match
-        String stripped = name.replaceAll("§.", "").trim();
-        for (String b : blocked) {
-            if (b == null || b.isBlank()) continue;
-            String candidate = b.replaceAll("§.", "").trim();
-            if (stripped.equalsIgnoreCase(candidate)) return true;
-        }
-        return false;
-    }
-
-    // senderName (tab-list display name) as fallback covers nickname plugins where
-    // the chat line carries the decorated name and rawPlayerName is the profile name
-    public static boolean isPlayerBlocked(String rawPlayerName, Component senderName, List<? extends String> blocked) {
-        if (blocked == null || blocked.isEmpty()) return false;
-        if (matchesBlocked(rawPlayerName, blocked)) return true;
-        return senderName != null && matchesBlocked(senderName.getString(), blocked);
-    }
-
-    // Blocking must also drop already-loaded history, or the sender's old messages
-    // keep showing in the chat panel after the block takes effect
+    // Matching rules live in BlockList (pure predicates); here we only operate
+    // on the message list. Blocking must also drop already-loaded history, or
+    // the sender's old messages keep showing after the block takes effect.
     public static void purgeBlocked(List<? extends String> blocked) {
         if (blocked == null || blocked.isEmpty()) return;
         messages.removeIf(m -> !m.isOwn() && !m.isSystem()
-            && isPlayerBlocked(m.rawPlayerName(), m.senderName(), blocked));
-    }
-
-    // History restored from disk / server packets must not re-import blocked
-    // senders' messages, or they reappear on the next world join
-    private static boolean isBlockedMessage(ChatMessage m) {
-        return isPlayerBlocked(m.rawPlayerName(), m.senderName(), ChatBubbleConfig.BLOCKED_PLAYERS.get());
+            && BlockList.isPlayerBlocked(m.rawPlayerName(), m.senderName(), blocked));
     }
 
     // package-private test seam: headless unit tests stub this to return null
@@ -1289,7 +1260,7 @@ public class ChatMessageStore {
         if (head.trim().startsWith("[")) {
             List<ChatMessage> legacy = loadLegacyFile(f);
             for (ChatMessage m : legacy) {
-                if (isBlockedMessage(m)) continue;
+                if (BlockList.isBlocked(m)) continue;
                 messages.add(m);
                 if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
                     rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
@@ -1302,7 +1273,7 @@ public class ChatMessageStore {
                     if (line.isBlank()) continue;
                     try {
                         ChatMessage m = fromLine(line);
-                        if (m == null || isBlockedMessage(m)) continue;
+                        if (m == null || BlockList.isBlocked(m)) continue;
                         messages.add(m);
                         if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
                             rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
@@ -1322,7 +1293,7 @@ public class ChatMessageStore {
         if (!messages.isEmpty() || entries.isEmpty()) return;
         for (var e : entries) {
             if (e.content().isBlank()) continue;
-            if (isPlayerBlocked(e.senderName(), Component.literal(e.senderName()),
+            if (BlockList.isPlayerBlocked(e.senderName(), Component.literal(e.senderName()),
                 ChatBubbleConfig.BLOCKED_PLAYERS.get())) continue;
             messages.add(new ChatMessage(
                 e.senderUUID(),

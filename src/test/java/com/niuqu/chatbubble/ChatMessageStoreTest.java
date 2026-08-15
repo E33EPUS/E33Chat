@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.store.BlockList;
 import com.niuqu.chatbubble.store.ChatMessageStore;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 
@@ -548,51 +549,51 @@ class ChatMessageStoreTest {
     // ---- blocked players: exact-name match (case-insensitive, §-stripped) ----
 
     @Test void blocked_exactNameHits() {
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("Steve")));
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("Alex", "Steve", "Bob")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("Steve")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("Alex", "Steve", "Bob")));
     }
 
     @Test void blocked_caseInsensitiveHits() {
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("steve")));
-        assertTrue(ChatMessageStore.matchesBlocked("STEVE", List.of("Steve")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("steve")));
+        assertTrue(BlockList.matchesBlocked("STEVE", List.of("Steve")));
     }
 
     @Test void blocked_colorCodesHit() {
-        assertTrue(ChatMessageStore.matchesBlocked("§6Steve§r", List.of("Steve")));
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("§6Steve§r")));
+        assertTrue(BlockList.matchesBlocked("§6Steve§r", List.of("Steve")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("§6Steve§r")));
     }
 
     @Test void blocked_whitespaceTrimmed() {
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("  Steve  ")));
-        assertTrue(ChatMessageStore.matchesBlocked("  Steve  ", List.of("Steve")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("  Steve  ")));
+        assertTrue(BlockList.matchesBlocked("  Steve  ", List.of("Steve")));
     }
 
     @Test void blocked_substringMisses() {
-        assertFalse(ChatMessageStore.matchesBlocked("SteveAdmin", List.of("Steve")));
-        assertFalse(ChatMessageStore.matchesBlocked("Steve", List.of("Stev")));
+        assertFalse(BlockList.matchesBlocked("SteveAdmin", List.of("Steve")));
+        assertFalse(BlockList.matchesBlocked("Steve", List.of("Stev")));
     }
 
     @Test void blocked_emptyOrNullSafe() {
-        assertFalse(ChatMessageStore.matchesBlocked(null, List.of("Steve")));
-        assertFalse(ChatMessageStore.matchesBlocked("", List.of("Steve")));
-        assertFalse(ChatMessageStore.matchesBlocked("Steve", null));
-        assertFalse(ChatMessageStore.matchesBlocked("Steve", List.of()));
-        assertFalse(ChatMessageStore.matchesBlocked("Steve", List.of("  ")));
+        assertFalse(BlockList.matchesBlocked(null, List.of("Steve")));
+        assertFalse(BlockList.matchesBlocked("", List.of("Steve")));
+        assertFalse(BlockList.matchesBlocked("Steve", null));
+        assertFalse(BlockList.matchesBlocked("Steve", List.of()));
+        assertFalse(BlockList.matchesBlocked("Steve", List.of("  ")));
     }
 
     @Test void blocked_senderNameFallbackHits() {
         // Nickname plugins put the tab-list display name in senderName; exact match
         // on the full decorated string (list holds the display name as shown)
         var decorated = net.minecraft.network.chat.Component.literal("[VIP]Steve");
-        assertTrue(ChatMessageStore.isPlayerBlocked(null, decorated, List.of("[VIP]Steve")));
-        assertTrue(ChatMessageStore.isPlayerBlocked("Alex", decorated, List.of("[vip]steve")));
+        assertTrue(BlockList.isPlayerBlocked(null, decorated, List.of("[VIP]Steve")));
+        assertTrue(BlockList.isPlayerBlocked("Alex", decorated, List.of("[vip]steve")));
         // Exact-name semantics: a bare profile name does NOT match a decorated display name
-        assertFalse(ChatMessageStore.isPlayerBlocked(null, decorated, List.of("Steve")));
+        assertFalse(BlockList.isPlayerBlocked(null, decorated, List.of("Steve")));
     }
 
     @Test void blocked_rawNamePrimaryKeyHits() {
-        assertTrue(ChatMessageStore.isPlayerBlocked("Steve", null, List.of("Steve")));
-        assertFalse(ChatMessageStore.isPlayerBlocked("Steve", null, List.of("Alex")));
+        assertTrue(BlockList.isPlayerBlocked("Steve", null, List.of("Steve")));
+        assertFalse(BlockList.isPlayerBlocked("Steve", null, List.of("Alex")));
     }
 
     @Test void blocked_purgeDropsSenderKeepsOwnAndSystem() throws Exception {
