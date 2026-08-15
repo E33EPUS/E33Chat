@@ -1,4 +1,6 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.ChatMessageStore;
+import com.niuqu.chatbubble.config.ChatBubbleConfig;
 
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;

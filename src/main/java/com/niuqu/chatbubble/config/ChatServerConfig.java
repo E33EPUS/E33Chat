@@ -1,4 +1,4 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 

@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.chat.notification;
 
-import com.niuqu.chatbubble.ChatBubbleConfig;
+import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatBubbleScreen;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.chat.MentionDetector;
