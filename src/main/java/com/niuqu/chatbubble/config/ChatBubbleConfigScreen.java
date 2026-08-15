@@ -277,9 +277,6 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(ChatBubbleConfig.ANTI_SPAM));
         tracked.add(track(ChatBubbleConfig.RECEIVE_IMAGES));
         tracked.add(track(ChatBubbleConfig.UPLOAD_URL));
-        tracked.add(track(ChatBubbleConfig.UPLOAD_FIELD));
-        tracked.add(track(ChatBubbleConfig.UPLOAD_EXTRA));
-        tracked.add(track(ChatBubbleConfig.UPLOAD_RESPONSE));
         tracked.add(track(ChatBubbleConfig.CHAT_HISTORY_ENABLED));
         tracked.add(track(ChatBubbleConfig.HISTORY_RETENTION_DAYS));
         tracked.add(track(ChatBubbleConfig.TIME_SEPARATOR_MINUTES));
