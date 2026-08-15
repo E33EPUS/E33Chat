@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.store.EchoTracker;
 import com.niuqu.chatbubble.store.BlockList;
 import com.niuqu.chatbubble.store.ChatMessageStore;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
@@ -14,10 +15,10 @@ class ChatMessageStoreTest {
     // Static echo/quote state lives across tests; reset so each test starts clean
     @BeforeEach
     void resetState() throws Exception {
-        var echoes = ChatMessageStore.class.getDeclaredField("pendingEchoes");
+        var echoes = EchoTracker.class.getDeclaredField("pendingEchoes");
         echoes.setAccessible(true);
         ((List<?>) echoes.get(null)).clear();
-        var quoteTime = ChatMessageStore.class.getDeclaredField("lastQuoteSendTime");
+        var quoteTime = EchoTracker.class.getDeclaredField("lastQuoteSendTime");
         quoteTime.setAccessible(true);
         quoteTime.setLong(null, 0);
         // Headless env: no Minecraft client, so addMessage must not touch it
@@ -149,12 +150,12 @@ class ChatMessageStoreTest {
 
     @Test void quoteWindow_edgeExactlyWindowIsFalse() {
         long now = System.currentTimeMillis();
-        assertFalse(ChatMessageStore.wasRecentQuoteAt(now - ChatMessageStore.QUOTE_ECHO_WINDOW_MS, now));
+        assertFalse(ChatMessageStore.wasRecentQuoteAt(now - EchoTracker.QUOTE_ECHO_WINDOW_MS, now));
     }
 
     @Test void quoteWindow_expiredFalse() {
         long now = System.currentTimeMillis();
-        assertFalse(ChatMessageStore.wasRecentQuoteAt(now - ChatMessageStore.QUOTE_ECHO_WINDOW_MS - 1, now));
+        assertFalse(ChatMessageStore.wasRecentQuoteAt(now - EchoTracker.QUOTE_ECHO_WINDOW_MS - 1, now));
     }
 
     @Test void quoteWindow_publicGetterAfterSetPendingReply() {
@@ -287,7 +288,7 @@ class ChatMessageStoreTest {
     }
 
     @Test void repostDedup_sameTextOutsideWindowNotDuplicate() {
-        assertFalse(ChatMessageStore.isRepostDuplicate("<A>[私聊] hi", 1000, "<A>[私聊] hi", 1000 + ChatMessageStore.REPOST_DEDUP_MS));
+        assertFalse(ChatMessageStore.isRepostDuplicate("<A>[私聊] hi", 1000, "<A>[私聊] hi", 1000 + EchoTracker.REPOST_DEDUP_MS));
     }
 
     @Test void repostDedup_firstRepostNeverDuplicate() {
@@ -687,7 +688,7 @@ class ChatMessageStoreTest {
         var messagesField = ChatMessageStore.class.getDeclaredField("messages");
         messagesField.setAccessible(true);
         ((List<?>) messagesField.get(null)).clear();
-        var metasField = ChatMessageStore.class.getDeclaredField("pendingMetas");
+        var metasField = EchoTracker.class.getDeclaredField("pendingMetas");
         metasField.setAccessible(true);
         ((java.util.Map<?, ?>) metasField.get(null)).clear();
     }
