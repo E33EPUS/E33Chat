@@ -1,4 +1,6 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.render.Animation;
+import com.niuqu.chatbubble.render.AnimationStyle;
 import com.niuqu.chatbubble.render.RoundRectRenderer;
 
 import java.util.ArrayList;
