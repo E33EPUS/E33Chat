@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.config.ChatBubbleConfigScreen;
 import com.niuqu.chatbubble.render.RoundRectRenderer;
 
 import java.util.concurrent.CompletableFuture;
