@@ -175,9 +175,6 @@ public final class MessagePresentation {
      * after the colon sits inside public chat content ("Steve: 不能用私聊") —
      * on NCR servers public chat reaches the whisper layer with its key stripped.
      */
-    private static final java.util.regex.Pattern EN_WHISPER_WORDS =
-        java.util.regex.Pattern.compile("\\b(?:pm|message|msg|tell)\\b");
-
     public static boolean hasWhisperKeywordBeforeColon(String text) {
         if (text == null) return false;
         int colon = -1;
@@ -189,16 +186,14 @@ public final class MessagePresentation {
         String lower = zone.toLowerCase();
         // 裸 "to you" 不算私聊词——"wants to teleport to you"（tpa 请求）/"says to you"
         // 会误伤；whisper 系由 whisper/悄悄/对你说 覆盖，PM 系由下方 EN 词表覆盖
-        if (zone.contains("悄悄") || zone.contains("whisper") || zone.contains("对你说")
-            || zone.contains("私聊") || zone.contains("密语")
-            || zone.contains("密聊") || zone.contains("私信") || zone.contains("密谈"))
+        if (WhisperSignal.containsZh(zone))
             return true;
         // 短英文词（pm/msg/tell/message）易撞玩家名/前缀（Msg: hi、[PM]Steve）——
         // 剥掉 []() 装饰块后，词命中且 zone 里还有别的 token 才算真私聊格式
         // （"Steve PM you"/"PM Steve" 有名字+词；名字恰是词或 [PM] 纯前缀不算）
         String zoneNoBrackets = zone.replaceAll("\\[[^\\]]*\\]|\\([^\\)]*\\)", "");
-        if (!EN_WHISPER_WORDS.matcher(zoneNoBrackets.toLowerCase()).find()) return false;
-        String rest = zoneNoBrackets.toLowerCase().replaceAll("\\b(?:pm|message|msg|tell)\\b", " ").trim();
+        if (!WhisperSignal.EN.matcher(zoneNoBrackets.toLowerCase()).find()) return false;
+        String rest = WhisperSignal.EN.matcher(zoneNoBrackets.toLowerCase()).replaceAll(" ").trim();
         return !rest.isEmpty();
     }
 
