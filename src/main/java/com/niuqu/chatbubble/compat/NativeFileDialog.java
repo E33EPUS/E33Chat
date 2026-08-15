@@ -1,4 +1,4 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.compat;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
