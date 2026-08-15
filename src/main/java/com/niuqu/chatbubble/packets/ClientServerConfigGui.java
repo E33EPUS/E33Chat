@@ -1,4 +1,5 @@
 package com.niuqu.chatbubble.packets;
+import com.niuqu.chatbubble.network.NetworkHandler;
 
 import com.niuqu.chatbubble.ServerConfigScreen;
 import net.minecraft.client.Minecraft;

@@ -1,4 +1,6 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.server.ChatServerListener;
+import com.niuqu.chatbubble.network.NetworkHandler;
 
 import com.mojang.logging.LogUtils;
 import net.neoforged.api.distmarker.Dist;

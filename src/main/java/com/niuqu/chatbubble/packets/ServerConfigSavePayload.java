@@ -2,7 +2,7 @@ package com.niuqu.chatbubble.packets;
 
 import com.niuqu.chatbubble.ChatBubbleMod;
 import com.niuqu.chatbubble.ChatServerConfig;
-import com.niuqu.chatbubble.ChatServerListener;
+import com.niuqu.chatbubble.server.ChatServerListener;
 import com.niuqu.chatbubble.chat.TemplateMatcher;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.ChatFormatting;

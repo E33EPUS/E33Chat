@@ -2,7 +2,8 @@ package com.niuqu.chatbubble.command;
 
 import com.niuqu.chatbubble.ChatBubbleMod;
 import com.niuqu.chatbubble.ChatServerConfig;
-import com.niuqu.chatbubble.ChatServerListener;
+import com.niuqu.chatbubble.network.NetworkHandler;
+import com.niuqu.chatbubble.server.ChatServerListener;
 import com.niuqu.chatbubble.chat.TemplateMatcher;
 import com.niuqu.chatbubble.packets.ServerConfigScreenPayload;
 import com.mojang.brigadier.arguments.IntegerArgumentType;

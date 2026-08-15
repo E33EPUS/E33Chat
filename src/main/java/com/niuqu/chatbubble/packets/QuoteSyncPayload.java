@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.packets;
 
-import com.niuqu.chatbubble.ChatServerListener;
+import com.niuqu.chatbubble.server.ChatServerListener;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
