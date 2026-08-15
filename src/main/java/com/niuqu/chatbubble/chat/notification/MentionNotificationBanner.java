@@ -2,9 +2,9 @@ package com.niuqu.chatbubble.chat.notification;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.niuqu.chatbubble.Animation;
-import com.niuqu.chatbubble.AnimationStyle;
-import com.niuqu.chatbubble.Appearance;
+import com.niuqu.chatbubble.render.Animation;
+import com.niuqu.chatbubble.render.AnimationStyle;
+import com.niuqu.chatbubble.render.Appearance;
 import com.niuqu.chatbubble.ChatBubbleConfig;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.render.RoundRectRenderer;

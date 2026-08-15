@@ -1,4 +1,5 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.render;
+import com.niuqu.chatbubble.render.Animation;
 
 /**
  * Per-element animation style. SLIDE keeps the classic slide-in/out, FADE

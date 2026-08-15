@@ -1,4 +1,6 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.render;
+import com.niuqu.chatbubble.ChatBubbleConfig;
+import com.niuqu.chatbubble.ChatBubbleTheme;
 
 /**
  * 外观快照：当前主题的颜色集合统一取色入口。

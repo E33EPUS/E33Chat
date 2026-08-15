@@ -1,4 +1,7 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.render.Animation;
+import com.niuqu.chatbubble.render.Appearance;
+import com.niuqu.chatbubble.render.AnimationStyle;
 import com.niuqu.chatbubble.render.UiLayout;
 import com.niuqu.chatbubble.render.RoundRectRenderer;
 import com.niuqu.chatbubble.render.BlurRenderer;
