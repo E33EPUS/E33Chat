@@ -1,4 +1,4 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.compat;
 
 import com.mojang.logging.LogUtils;
 import java.lang.reflect.Method;

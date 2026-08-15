@@ -1,4 +1,6 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.compat.NativeFileDialog;
+import com.niuqu.chatbubble.compat.IMBlockerCompat;
 import com.niuqu.chatbubble.ui.BedScreen;
 import com.niuqu.chatbubble.ui.EmoteStore;
 import com.niuqu.chatbubble.ui.ChatQuickChatPanel;
