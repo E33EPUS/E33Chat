@@ -185,24 +185,29 @@ public class ChatBubbleScreen extends ChatScreen {
     private int uploadToastTicks = 0;
     /** Upload-in-progress hint; set while a job is running, cleared on completion. */
     private int uploadBusyTicks = 0;
-    private static final int MAX_UPLOAD_JOBS = 8;
-
-    /** One queued upload; when pendingText is set the send is completed
-     * automatically after the upload (draft semantics: the user hits enter
-     * once, the message goes out when the file is up). */
-    private static final class UploadJob {
-        final java.io.File file;      // file source (emote / drag)
-        final byte[] bytes;           // clipboard source when file == null
-        final String fileName;
-        final boolean emote;          // send [[E33Emote,url=...]] immediately
-        final String pendingText;     // non-null: replace its file:// CICode and send
-        UploadJob(java.io.File file, byte[] bytes, String fileName, boolean emote, String pendingText) {
-            this.file = file; this.bytes = bytes; this.fileName = fileName;
-            this.emote = emote; this.pendingText = pendingText;
-        }
-    }
-    private final java.util.ArrayDeque<UploadJob> uploadJobs = new java.util.ArrayDeque<>();
-    private boolean uploadRunning = false;
+    // Serial upload pipeline (queue + worker live in UploadQueue; UI effects
+    // come back through the callbacks below)
+    private final com.niuqu.chatbubble.image.UploadQueue uploadQueue =
+        new com.niuqu.chatbubble.image.UploadQueue(new com.niuqu.chatbubble.image.UploadQueue.Callbacks() {
+            @Override public void onBusyStart() { uploadBusyTicks = 60; }
+            @Override public void onIdle() { uploadBusyTicks = 0; }
+            @Override public void onFailure() { uploadBusyTicks = 0; uploadToastTicks = 60; }
+            @Override public void onEmoteSent(String url) { sendMessageText(url); }
+            @Override public void onSendText(String text) { sendMessageText(text); }
+            @Override public void onInputImage(String code) {
+                String cur = input.getValue();
+                if (cur.contains("[[CICode,url=file://")) {
+                    // Replace the local file:// CICode (chatimage drag/paste) with
+                    // the real upload URL instead of appending a second link.
+                    cur = cur.replaceFirst("\\[\\[CICode,url=file://[^]]*]]", code);
+                } else {
+                    cur = cur.isEmpty() ? code : cur + " " + code;
+                }
+                input.setValue(cur);
+                input.setCursorPosition(input.getValue().length());
+            }
+            @Override public void onRestoreInput(String text) { input.setValue(text); }
+        });
 
     // Animations
     private long animStart;
@@ -880,7 +885,7 @@ public class ChatBubbleScreen extends ChatScreen {
                         java.io.File f = new java.io.File(emojiText.substring(7));
                         if (f.isFile()) {
                             emojiPanel.visible = false;
-                            enqueueUpload(new UploadJob(f, null, null, true, null));
+                            uploadQueue.enqueue(new com.niuqu.chatbubble.image.UploadQueue.UploadJob(f, null, null, true, null));
                         }
                     } else if (emojiText.startsWith("@EMOTE_DEL:")) {
                         java.io.File f = new java.io.File(emojiText.substring(11));
@@ -1099,7 +1104,7 @@ public class ChatBubbleScreen extends ChatScreen {
             String l = p.getFileName().toString().toLowerCase();
             if (l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg")
                     || l.endsWith(".gif") || l.endsWith(".bmp")) {
-                enqueueUpload(new UploadJob(p.toFile(), null, null, false, null));
+                uploadQueue.enqueue(new com.niuqu.chatbubble.image.UploadQueue.UploadJob(p.toFile(), null, null, false, null));
                 // The OS drop can steal window focus; give it back to the chat input
                 // so typing keeps working right after a drag.
                 Minecraft.getInstance().execute(() -> setFocused(input));
@@ -1120,7 +1125,7 @@ public class ChatBubbleScreen extends ChatScreen {
         com.niuqu.chatbubble.image.ImageLoader.executor().execute(() -> {
             LocalImageSource.PreparedImage prep = readClipboard();
             if (prep == null) return; // no image in clipboard — let vanilla paste text
-            minecraft.execute(() -> enqueueUpload(new UploadJob(null, prep.bytes(), "clipboard", false, null)));
+            minecraft.execute(() -> uploadQueue.enqueue(new com.niuqu.chatbubble.image.UploadQueue.UploadJob(null, prep.bytes(), "clipboard", false, null)));
         });
     }
 
@@ -1130,107 +1135,6 @@ public class ChatBubbleScreen extends ChatScreen {
         } catch (Throwable t) {
             return null;
         }
-    }
-
-    private boolean enqueueUpload(UploadJob job) {
-        if (uploadJobs.size() >= MAX_UPLOAD_JOBS) return false;
-        uploadJobs.addLast(job);
-        drainUploads();
-        return true;
-    }
-
-    /** Runs queued uploads one at a time; the completion callback in
-     * finishUpload calls this again for the next job. */
-    private void drainUploads() {
-        if (uploadRunning) return;
-        UploadJob job = uploadJobs.pollFirst();
-        if (job == null) return;
-        uploadRunning = true;
-        uploadBusyTicks = 60;
-        com.niuqu.chatbubble.image.ImageLoader.executor().execute(() -> {
-            try {
-                com.mojang.logging.LogUtils.getLogger().info(
-                    "[e33chat] upload start | file={} | emote={} | serverEnabled={}",
-                    job.file != null ? job.file.getName() : job.fileName, job.emote,
-                    com.niuqu.chatbubble.image.MediaClient.serverEnabled());
-                LocalImageSource.PreparedImage prep;
-                if (job.file != null) {
-                    prep = LocalImageSource.fromFile(job.file);
-                } else {
-                    prep = new LocalImageSource.PreparedImage(job.bytes, job.fileName);
-                }
-                if (prep == null) {
-                    minecraft.execute(() -> {
-                        uploadRunning = false;
-                        uploadBusyTicks = 0;
-                        uploadToastTicks = 60;
-                        if (job.pendingText != null) input.setValue(job.pendingText);
-                        drainUploads();
-                    });
-                    return;
-                }
-                finishUpload(job, prep);
-            } catch (Throwable t) {
-                // Never let a worker crash leak into the queue: reset the latch so
-                // queued jobs keep draining and the failure is visible.
-                com.mojang.logging.LogUtils.getLogger().error("[e33chat] upload worker crashed", t);
-                minecraft.execute(() -> {
-                    uploadRunning = false;
-                    uploadBusyTicks = 0;
-                    uploadToastTicks = 60;
-                    if (job.pendingText != null) input.setValue(job.pendingText);
-                    drainUploads();
-                });
-            }
-        });
-    }
-
-    private void finishUpload(UploadJob job, LocalImageSource.PreparedImage prep) {
-        String serverUrl = com.niuqu.chatbubble.image.MediaClient.serverEnabled()
-            ? com.niuqu.chatbubble.image.MediaClient.upload(prep.bytes(), "image/png")
-            : null;
-        // Server hosting unavailable (not installed / disabled / failed) — fall back to third-party
-        final String url = serverUrl != null
-            ? serverUrl
-            : com.niuqu.chatbubble.image.ImageUploader.upload(prep.bytes(), prep.fileName(),
-                ChatBubbleConfig.UPLOAD_URL.get(), ChatBubbleConfig.UPLOAD_FIELD.get(),
-                ChatBubbleConfig.UPLOAD_EXTRA.get(), ChatBubbleConfig.UPLOAD_RESPONSE.get());
-        com.mojang.logging.LogUtils.getLogger().info("[e33chat] upload {} -> {}", prep.fileName(), url == null ? "FAILED" : url);
-        minecraft.execute(() -> {
-            uploadRunning = false;
-            uploadBusyTicks = 0;
-            if (url == null) {
-                uploadToastTicks = 60;
-                // Failed send: restore the draft so the user sees what did not
-                // go out.
-                if (job.pendingText != null) input.setValue(job.pendingText);
-                drainUploads();
-                return;
-            }
-            if (job.emote) {
-                // Emote click = send immediately as a bubble-less emote message.
-                sendMessageText("[[E33Emote,url=" + url + "]]");
-            } else if (job.pendingText != null) {
-                // Enter was pressed on a file:// CICode: finish the send now —
-                // one enter, no second press, no lost message.
-                String finalText = job.pendingText.replaceFirst(
-                    "\\[\\[CICode,url=file://[^]]*]]", "[[CICode,url=" + url + "]]");
-                sendMessageText(finalText);
-            } else {
-                String code = "[[CICode,url=" + url + "]]";
-                String cur = input.getValue();
-                if (cur.contains("[[CICode,url=file://")) {
-                    // Replace the local file:// CICode (chatimage drag/paste) with
-                    // the real upload URL instead of appending a second link.
-                    cur = cur.replaceFirst("\\[\\[CICode,url=file://[^]]*]]", code);
-                } else {
-                    cur = cur.isEmpty() ? code : cur + " " + code;
-                }
-                input.setValue(cur);
-                input.setCursorPosition(input.getValue().length());
-            }
-            drainUploads();
-        });
     }
 
     private void handleContextClick(int mx, int my) {
@@ -2062,11 +1966,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 sendMessageText(raw);
                 return;
             }
-            if (enqueueUpload(new UploadJob(new java.io.File(localPath), null, null, false, raw))) {
+            if (uploadQueue.enqueue(new com.niuqu.chatbubble.image.UploadQueue.UploadJob(new java.io.File(localPath), null, null, false, raw))) {
                 input.setValue("");
                 savedInput = "";
                 Minecraft.getInstance().player.sendSystemMessage(Component.translatable("e33chat.upload.wait"));
-                ChatMessageStore.debugLog(() -> "[e33chat] upload block | queued=" + uploadJobs.size() + " | raw=" + raw);
+                ChatMessageStore.debugLog(() -> "[e33chat] upload block | queued=" + uploadQueue.pending() + " | raw=" + raw);
             } else {
                 Minecraft.getInstance().player.sendSystemMessage(Component.translatable("e33chat.upload.queue_full"));
             }
