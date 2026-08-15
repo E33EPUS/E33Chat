@@ -26,44 +26,15 @@ public class ChatListenerMixin {
     // Pulls styled server prefixes out of the decorated line: "[Group]<Steve> hi" -> "[Group]Steve"
     private static Component extractDecoratedName(Component fullLine, String contentStr,
                                                   String rawName, Component fallback) {
-        if (contentStr == null || contentStr.isEmpty()) return fallback;
-        String fullStr = fullLine.getString();
-        int idx = fullStr.lastIndexOf(contentStr);
-        if (idx <= 0) return fallback;
-        return cleanNameArea(fullLine, 0, idx, rawName, fallback);
+        return com.niuqu.chatbubble.chat.capture.ChatPipeline.extractDecoratedName(fullLine, contentStr, rawName, fallback);
     }
+
 
     private static Component cleanNameArea(Component fullLine, int a, int b,
                                            String rawName, Component fallback) {
-        String fullStr = fullLine.getString();
-        while (a < b && Character.isWhitespace(fullStr.charAt(a))) a++;
-        while (b > a) {
-            char ch = fullStr.charAt(b - 1);
-            if (Character.isWhitespace(ch) || ch == ':' || ch == '：' || ch == '»') b--;
-            else if (ch == '>' && b >= a + 2 && fullStr.charAt(b - 2) == '>') b -= 2;
-            else break;
-        }
-        if (a >= b) return fallback;
-        Component nameArea = ChatMessageStore.sliceStyled(fullLine, a, b);
-        String ns = nameArea.getString();
-        if (rawName != null && !rawName.isEmpty()) {
-            String bracketed = "<" + rawName + ">";
-            int p = ns.indexOf(bracketed);
-            if (p >= 0) {
-                var out = Component.empty();
-                if (p > 0) out.append(ChatMessageStore.sliceStyled(nameArea, 0, p));
-                out.append(ChatMessageStore.sliceStyled(nameArea, p + 1, p + 1 + rawName.length()));
-                int tail = p + bracketed.length();
-                if (tail < ns.length()) out.append(ChatMessageStore.sliceStyled(nameArea, tail, ns.length()));
-                return out;
-            }
-            // Team-decorated names sit inside the brackets: "<[Team]Steve>" -> "[Team]Steve"
-            if (ns.length() > 2 && ns.charAt(0) == '<' && ns.charAt(ns.length() - 1) == '>') {
-                return ChatMessageStore.sliceStyled(nameArea, 1, ns.length() - 1);
-            }
-        }
-        return nameArea;
+        return com.niuqu.chatbubble.chat.capture.ChatPipeline.cleanNameArea(fullLine, a, b, rawName, fallback);
     }
+
 
     // Nick plugins put the tab-list display name in chat instead of the profile name;
     // legacy plugins may embed section-sign color codes in names, so offer stripped variants too
@@ -467,48 +438,8 @@ public class ChatListenerMixin {
 
         // Layer 3: parse decorated player line — text-level fallback
         if (connection != null && !isWhisper) {
-            var namesSet = new java.util.LinkedHashSet<String>();
-            connection.getOnlinePlayers().forEach(info -> {
-                for (String cand : nameCandidates(info)) namesSet.add(cand);
-            });
-            namesSet.addAll(ChatMessageStore.knownNameVariants());
-            var onlineNames = new java.util.ArrayList<>(namesSet);
-            var parsed = MessagePresentation.parseDecoratedPlayerLine(msgStr, onlineNames);
-            if (parsed.isPresent()) {
-                var pl = parsed.orElseThrow();
-                // 偏移来自 parser（双侧剥 § 后的映射），嵌色名 S§6t§beve 也正确
-                int nameIdx = pl.nameStart();
-                int nameEnd = pl.nameEnd();
-                int contentStart = pl.contentStart();
-                // Whitespace-only gap = broadcast sentence (Steve joined the game),
-                // not chat: server chat formats always separate name and content
-                if (MessagePresentation.isWhitespaceOnlyGap(msgStr, nameEnd, contentStart)) {
-                    ChatMessageStore.debugLog(() -> "[e33chat] Disguised(line skip: broadcast sentence) | text='" + msgStr + "'");
-                } else {
-                    var info = connection.getOnlinePlayers().stream()
-                        .filter(i -> {
-                            for (String cand : nameCandidates(i))
-                                if (cand.equals(pl.playerName())) return true;
-                            return false;
-                        }).findFirst().orElse(null);
-                    UUID uid;
-                    if (info != null) {
-                        uid = info.getProfile().getId();
-                    } else {
-                        UUID su = ChatMessageStore.findSeenUuid(pl.playerName());
-                        uid = su != null ? su : new UUID(0, 0);
-                    }
-                    Component displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
-                        Component.literal((msgStr.substring(0, nameIdx) + pl.playerName()).trim()));
-                    Component contentComp = ChatMessageStore.sliceStyled(message, contentStart, msgStr.length());
-                    ChatMessageStore.debugLog(() -> "[e33chat] Disguised(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
-                    ChatMessageStore.setPendingMeta(new SenderMeta(
-                        uid, displayName, contentComp, false,
-                        info != null ? info.getProfile().getName() : pl.playerName(),
-                        false, null));
-                    return;
-                }
-            }
+            SenderMeta parsed = com.niuqu.chatbubble.chat.capture.ChatPipeline.tryParsePlayerLine(message, msgStr, "Disguised");
+            if (parsed != null) { ChatMessageStore.setPendingMeta(parsed); return; }
         }
 
         // 守卫全未命中 → 灰字兜底（系统消息）
@@ -561,48 +492,8 @@ public class ChatListenerMixin {
         // Layer 3: parse decorated player line — text-level fallback for servers
         // that strip click events from chat messages
         if (connection != null) {
-            var namesSet = new java.util.LinkedHashSet<String>();
-            connection.getOnlinePlayers().forEach(info -> {
-                for (String cand : nameCandidates(info)) namesSet.add(cand);
-            });
-            namesSet.addAll(ChatMessageStore.knownNameVariants());
-            var onlineNames = new java.util.ArrayList<>(namesSet);
-            var parsed = MessagePresentation.parseDecoratedPlayerLine(text, onlineNames);
-            if (parsed.isPresent()) {
-                var pl = parsed.orElseThrow();
-                // 偏移来自 parser（双侧剥 § 后的映射），嵌色名 S§6t§beve 也正确
-                int nameIdx = pl.nameStart();
-                int nameEnd = pl.nameEnd();
-                int contentStart = pl.contentStart();
-                // Whitespace-only gap = broadcast sentence (Steve joined the game),
-                // not chat: server chat formats always separate name and content
-                if (MessagePresentation.isWhitespaceOnlyGap(text, nameEnd, contentStart)) {
-                    ChatMessageStore.debugLog(() -> "[e33chat] System(line skip: broadcast sentence) | text='" + text + "'");
-                } else {
-                    var info = connection.getOnlinePlayers().stream()
-                        .filter(i -> {
-                            for (String cand : nameCandidates(i))
-                                if (cand.equals(pl.playerName())) return true;
-                            return false;
-                        }).findFirst().orElse(null);
-                    UUID uid;
-                    if (info != null) {
-                        uid = info.getProfile().getId();
-                    } else {
-                        UUID su = ChatMessageStore.findSeenUuid(pl.playerName());
-                        uid = su != null ? su : new UUID(0, 0);
-                    }
-                    Component displayName = extractDecoratedName(message, pl.content(), pl.playerName(),
-                        Component.literal((text.substring(0, nameIdx) + pl.playerName()).trim()));
-                    Component contentComp = ChatMessageStore.sliceStyled(message, contentStart, text.length());
-                    ChatMessageStore.debugLog(() -> "[e33chat] System(player line) | name=" + pl.playerName() + " | content='" + pl.content() + "'");
-                    ChatMessageStore.setPendingMeta(new SenderMeta(
-                        uid, displayName, contentComp, false,
-                        info != null ? info.getProfile().getName() : pl.playerName(),
-                        false, null));
-                    return;
-                }
-            }
+            SenderMeta parsed = com.niuqu.chatbubble.chat.capture.ChatPipeline.tryParsePlayerLine(message, text, "System");
+            if (parsed != null) { ChatMessageStore.setPendingMeta(parsed); return; }
         }
 
         // Fallback: real system message（模板 miss + 守卫1/2/3 全未命中 → 灰字兜底）
