@@ -1938,22 +1938,6 @@ public class ChatBubbleScreen extends ChatScreen {
             inputX, inputY, input.getWidth(), input.isFocused(), emojiPanel.visible,
             iconTex("settings"), iconTex("emoji"), iconTex("send"), barAlpha, getAnimProgress());
 
-        int iconY2 = barTop + (BAR_H - ICON_S) / 2;
-        int sendX2 = panelX + panelW - ChatLayout.PAD - ICON_S + 2;
-        int emojiX2 = sendX2 - ICON_S - 6;
-    }
-
-    static void drawTextureIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size) {
-        // getTexture 无缓存时自动 new SimpleTexture 懒加载（资源包可覆盖，F3+T 即时生效）
-        RenderSystem.setShaderTexture(0, tex);
-        RenderSystem.setShader(GameRenderer::getPositionTexShader);
-        RenderSystem.enableBlend();
-        if (size < 16) {
-            // 图标 16x16 内容居中占 14x14（1px 透明边）——全幅采样压缩会切出边缘切割
-            g.blit(tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16);
-        } else {
-            g.blit(tex, x, y, 0, 0, size, size, size, size);
-        }
     }
 
     /** 带透明度图标的绘制：与 drawTextureIcon 同采样语义，但走带 alpha 的渲染路径（弹层淡入用）。 */
@@ -1988,14 +1972,6 @@ public class ChatBubbleScreen extends ChatScreen {
         if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, tex);
         String key = skinNameKey(name);
         if (key != null) skinNameCache.put(key, tex);
-    }
-
-    private void drawPlayerHead(GuiGraphics g, ResourceLocation skin, int x, int y, int baseSize, int hatSize) {
-        RenderSystem.enableBlend();
-        g.blit(skin, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64);
-        int hatOff = (hatSize - baseSize) / 2;
-        g.blit(skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64);
-        RenderSystem.disableBlend();
     }
 
     private ResourceLocation getSkin(UUID uuid, String name) {

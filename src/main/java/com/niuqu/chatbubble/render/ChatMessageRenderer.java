@@ -285,20 +285,6 @@ public final class ChatMessageRenderer {
         return dt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
-    public static int computeTotalH(List<ChatMessageStore.ChatMessage> messages,
-                                     Font font, int bubbleMaxW, int panelW, int interval) {
-        int totalH = 0;
-        String lastKey = null;
-        for (var msg : messages) {
-            totalH += msgHeight(msg, font, bubbleMaxW, panelW) + Appearance.messageGap();
-            if (!msg.isSystem()) {
-                String key = timeKey(msg.time(), interval);
-                if (lastKey == null || !key.equals(lastKey)) { lastKey = key; }
-            }
-        }
-        return totalH;
-    }
-
     public static Style findClickStyle(Component c) {
         Style s = c.getStyle();
         if (s != null && s.getClickEvent() != null) return s;
