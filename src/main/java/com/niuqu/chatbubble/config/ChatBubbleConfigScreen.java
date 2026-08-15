@@ -49,25 +49,11 @@ public class ChatBubbleConfigScreen extends Screen {
     private int selectedCat;
     // 当前 tab 内选中的分区索引；-1 = 显示该 tab 全部分区
     private int selectedSub = -1;
-    private int scrollOffset;
-    private int treeScroll;
+    private final com.niuqu.chatbubble.render.SmoothScrollPane rightPane = new com.niuqu.chatbubble.render.SmoothScrollPane();
+    private final com.niuqu.chatbubble.render.SmoothScrollPane treePane = new com.niuqu.chatbubble.render.SmoothScrollPane();
     private final List<AbstractWidget> scrollWidgets = new ArrayList<>();
     // 左侧树折叠状态（cats 固定 5 个 tab）
     private final boolean[] expanded = {true, true, true, true, true};
-    // 右侧选项 / 左侧树各一套平滑滚动(easeOutCubic 时间轴)+滚动条拖拽；
-    // scrollOffset/treeScroll 是“当前显示值”，每帧由动画插值写回，wheel/拖拽只设目标
-    private float rAnimFrom, rAnimTo;
-    private long rAnimStart;
-    private int rAnimDur;
-    private boolean rAnimOn;
-    private boolean rBarDrag;
-    private int rBarDragY, rBarDragOff;
-    private float tAnimFrom, tAnimTo;
-    private long tAnimStart;
-    private int tAnimDur;
-    private boolean tAnimOn;
-    private boolean tBarDrag;
-    private int tBarDragY, tBarDragOff;
 
     private interface WidgetFactory {
         AbstractWidget create(int y);
@@ -336,10 +322,10 @@ public class ChatBubbleConfigScreen extends Screen {
         previewX = width - 26;
         inputX = previewX - 8 - INPUT_W;
 
-        scrollOffset = Mth.clamp(scrollOffset, 0, calcMaxScroll());
-        treeScroll = Mth.clamp(treeScroll, 0, calcTreeMaxScroll());
+        rightPane.setOffset(Mth.clamp(rightPane.offset(), 0, calcMaxScroll()));
+        treePane.setOffset(Mth.clamp(treePane.offset(), 0, calcTreeMaxScroll()));
 
-        int y = viewTop() - scrollOffset;
+        int y = viewTop() - rightPane.offset();
         for (Opt opt : visibleOpts()) {
             if (opt.isHeader()) { y += HEADER_H; continue; }
             if (opt.multiFactory() != null) {
@@ -383,7 +369,7 @@ public class ChatBubbleConfigScreen extends Screen {
     }
 
     private void rebuild() {
-        scrollOffset = 0;
+        rightPane.setOffset(0);
         setFocused(null);
         clearWidgets();
         init();
@@ -559,7 +545,7 @@ public class ChatBubbleConfigScreen extends Screen {
 
         // 左侧标签树：可滚动 + 裁剪到视口，避免全展开时挤出屏幕
         g.enableScissor(CAT_X, START_Y, dividerX, viewBottom());
-        int ly = START_Y - treeScroll;
+        int ly = START_Y - treePane.offset();
         for (int i = 0; i < cats.size(); i++) {
             boolean sel = i == selectedCat;
             boolean hover = mouseX >= CAT_X && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + CAT_ROW_H;
@@ -592,7 +578,7 @@ public class ChatBubbleConfigScreen extends Screen {
             }
         }
         g.disableScissor();
-        drawBar(g, tTrackX(), START_Y, viewBottom(), tTotalH(), treeScroll, calcTreeMaxScroll(), mouseX, mouseY, tBarDrag);
+        drawBar(g, tTrackX(), START_Y, viewBottom(), tTotalH(), treePane.offset(), calcTreeMaxScroll(), mouseX, mouseY, treePane.dragging());
 
         // Divider between categories and options
         g.blit(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER, ChatBubbleTheme.DARK),
@@ -603,7 +589,7 @@ public class ChatBubbleConfigScreen extends Screen {
 
         // Option rows hard-clipped to the viewport (scissor cuts anything past the bounds)
         g.enableScissor(optLabelX - 4, viewTop(), width, viewBottom());
-        int y = viewTop() - scrollOffset;
+        int y = viewTop() - rightPane.offset();
         for (Opt opt : visibleOpts()) {
             if (opt.isHeader()) {
                 // 分区标题：灰字左对齐 + 字右侧延伸一条细分隔线；字与线在行内垂直居中，上下留白对称
@@ -633,7 +619,7 @@ public class ChatBubbleConfigScreen extends Screen {
             y += ROW_H;
         }
         g.disableScissor();
-        drawBar(g, rTrackX(), viewTop(), viewBottom(), rTotalH(), scrollOffset, calcMaxScroll(), mouseX, mouseY, rBarDrag);
+        drawBar(g, rTrackX(), viewTop(), viewBottom(), rTotalH(), rightPane.offset(), calcMaxScroll(), mouseX, mouseY, rightPane.dragging());
 
         int changed = changeCount();
         doneBtn.visible = changed == 0;
@@ -701,24 +687,24 @@ public class ChatBubbleConfigScreen extends Screen {
         if (rMax > 0 && mouseX >= rTrackX() && mouseX < rTrackX() + w
                 && mouseY >= viewTop() && mouseY < viewBottom()) {
             int th = com.niuqu.chatbubble.render.ChatScrollbar.thumbHeight(rTrackH(), rTotalH());
-            int ty = com.niuqu.chatbubble.render.ChatScrollbar.thumbY(viewTop(), rTrackH(), th, scrollOffset, rMax);
-            if (mouseY < ty) startR(scrollOffset - rTrackH(), 120);
-            else if (mouseY > ty + th) startR(scrollOffset + rTrackH(), 120);
-            else { rBarDrag = true; rBarDragY = (int) mouseY; rBarDragOff = scrollOffset; }
+            int ty = com.niuqu.chatbubble.render.ChatScrollbar.thumbY(viewTop(), rTrackH(), th, rightPane.offset(), rMax);
+            if (mouseY < ty) startR(rightPane.offset() - rTrackH(), 120);
+            else if (mouseY > ty + th) startR(rightPane.offset() + rTrackH(), 120);
+            else rightPane.dragStart((int) mouseY, rightPane.offset());
             return true;
         }
         int tMax = calcTreeMaxScroll();
         if (tMax > 0 && mouseX >= tTrackX() && mouseX < tTrackX() + w
                 && mouseY >= START_Y && mouseY < viewBottom()) {
             int th = com.niuqu.chatbubble.render.ChatScrollbar.thumbHeight(tTrackH(), tTotalH());
-            int ty = com.niuqu.chatbubble.render.ChatScrollbar.thumbY(START_Y, tTrackH(), th, treeScroll, tMax);
-            if (mouseY < ty) startT(treeScroll - tTrackH(), 120);
-            else if (mouseY > ty + th) startT(treeScroll + tTrackH(), 120);
-            else { tBarDrag = true; tBarDragY = (int) mouseY; tBarDragOff = treeScroll; }
+            int ty = com.niuqu.chatbubble.render.ChatScrollbar.thumbY(START_Y, tTrackH(), th, treePane.offset(), tMax);
+            if (mouseY < ty) startT(treePane.offset() - tTrackH(), 120);
+            else if (mouseY > ty + th) startT(treePane.offset() + tTrackH(), 120);
+            else treePane.dragStart((int) mouseY, treePane.offset());
             return true;
         }
         if (button == 0) {
-            int ly = START_Y - treeScroll;
+            int ly = START_Y - treePane.offset();
             for (int i = 0; i < cats.size(); i++) {
                 if (mouseY >= ly && mouseY < ly + CAT_ROW_H && mouseX >= CAT_X && mouseX <= CAT_X + CAT_W) {
                     if (mouseX < CAT_X + 16) {
@@ -746,7 +732,7 @@ public class ChatBubbleConfigScreen extends Screen {
             // 颜色行的预设色板点击：填入 hex 并同步该行输入框
             int px = paletteX();
             if (mouseX >= px && mouseX < px + PALETTE_W) {
-                int y = viewTop() - scrollOffset;
+                int y = viewTop() - rightPane.offset();
                 int wi = 0;
                 for (Opt opt : visibleOpts()) {
                     if (opt.isHeader()) { y += HEADER_H; continue; }
@@ -821,9 +807,9 @@ public class ChatBubbleConfigScreen extends Screen {
         return Math.max(0, START_Y + total - viewBottom());
     }
 
-    // 按当前 scrollOffset 重排右侧控件的 y 与可见性
+    // 按当前 rightPane.offset() 重排右侧控件的 y 与可见性
     private void relayoutWidgets() {
-        int y = viewTop() - scrollOffset;
+        int y = viewTop() - rightPane.offset();
         int wi = 0;
         for (Opt opt : visibleOpts()) {
             if (opt.isHeader()) { y += HEADER_H; continue; }
@@ -850,35 +836,17 @@ public class ChatBubbleConfigScreen extends Screen {
     private int tTotalH() { return calcTreeMaxScroll() + tTrackH(); }
 
     private void startR(float target, int dur) {
-        rAnimFrom = scrollOffset;
-        rAnimTo = Mth.clamp(target, 0, calcMaxScroll());
-        rAnimStart = net.minecraft.Util.getMillis();
-        rAnimDur = dur;
-        rAnimOn = true;
+        rightPane.animateTo(target, calcMaxScroll(), dur);
     }
 
     private void startT(float target, int dur) {
-        tAnimFrom = treeScroll;
-        tAnimTo = Mth.clamp(target, 0, calcTreeMaxScroll());
-        tAnimStart = net.minecraft.Util.getMillis();
-        tAnimDur = dur;
-        tAnimOn = true;
+        treePane.animateTo(target, calcTreeMaxScroll(), dur);
     }
 
     // 每帧推进两区缓出动画并同步右侧控件 y；render 开头调一次
     private void tickAnims() {
-        if (rAnimOn) {
-            float t = Animation.progress(rAnimStart, rAnimDur, false);
-            scrollOffset = Math.round(rAnimFrom + (rAnimTo - rAnimFrom) * t);
-            if (t >= 1.0f) { scrollOffset = Math.round(rAnimTo); rAnimOn = false; }
-        }
-        if (tAnimOn) {
-            float t = Animation.progress(tAnimStart, tAnimDur, false);
-            treeScroll = Math.round(tAnimFrom + (tAnimTo - tAnimFrom) * t);
-            if (t >= 1.0f) { treeScroll = Math.round(tAnimTo); tAnimOn = false; }
-        }
-        scrollOffset = Mth.clamp(scrollOffset, 0, calcMaxScroll());
-        treeScroll = Mth.clamp(treeScroll, 0, calcTreeMaxScroll());
+        rightPane.tick(calcMaxScroll());
+        treePane.tick(calcTreeMaxScroll());
         relayoutWidgets();
     }
 
@@ -906,30 +874,22 @@ public class ChatBubbleConfigScreen extends Screen {
         // 鼠标在左树区域滚左树，否则滚右侧选项；wheel 只设目标、开缓出动画，不硬跳
         if (mouseX < dividerX) {
             if (calcTreeMaxScroll() <= 0) return false;
-            startT(treeScroll - (float) (delta * 20), 120);
+            treePane.wheel(delta, calcTreeMaxScroll(), 120);
             return true;
         }
         if (calcMaxScroll() <= 0) return false;
-        startR(scrollOffset - (float) (delta * 20), 120);
+        rightPane.wheel(delta, calcMaxScroll(), 120);
         return true;
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
-        if (rBarDrag && calcMaxScroll() > 0) {
-            int travel = rTrackH() - com.niuqu.chatbubble.render.ChatScrollbar.thumbHeight(rTrackH(), rTotalH());
-            if (travel > 0) {
-                int d = (int) mouseY - rBarDragY;
-                startR(rBarDragOff + (float) d * calcMaxScroll() / travel, 80);
-            }
+        if (rightPane.dragging()) {
+            rightPane.dragTo((int) mouseY, rTrackH(), rTotalH(), calcMaxScroll(), 80);
             return true;
         }
-        if (tBarDrag && calcTreeMaxScroll() > 0) {
-            int travel = tTrackH() - com.niuqu.chatbubble.render.ChatScrollbar.thumbHeight(tTrackH(), tTotalH());
-            if (travel > 0) {
-                int d = (int) mouseY - tBarDragY;
-                startT(tBarDragOff + (float) d * calcTreeMaxScroll() / travel, 80);
-            }
+        if (treePane.dragging()) {
+            treePane.dragTo((int) mouseY, tTrackH(), tTotalH(), calcTreeMaxScroll(), 80);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dx, dy);
@@ -937,8 +897,8 @@ public class ChatBubbleConfigScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        rBarDrag = false;
-        tBarDrag = false;
+        rightPane.dragEnd();
+        treePane.dragEnd();
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
