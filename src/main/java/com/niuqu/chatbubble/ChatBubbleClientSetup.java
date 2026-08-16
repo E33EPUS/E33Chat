@@ -124,6 +124,9 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             context.client().execute(() -> MediaCapPayload.handle(payload));
         });
 
+        ChatMessageStore.setMessageEffectObserver(
+            new com.niuqu.chatbubble.chat.notification.ChatMessageEffects());
+
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
             if (!config.enabled()) return;
             ChatBubbleHudOverlay.render(drawContext);
