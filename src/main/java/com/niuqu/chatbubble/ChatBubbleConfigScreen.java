@@ -73,6 +73,9 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean antiSpam, chatHistoryEnabled;
     private boolean receiveImages;
     private String uploadUrl = "";
+    private String uploadField = "";
+    private String uploadExtra = "";
+    private String uploadResponse = "";
     private boolean soundPublic, soundSystem, soundWhisper;
     private boolean debugLog, preserveInput, colorCodes;
     private boolean mentionBannerEnabled, systemBannerEnabled, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner;
@@ -85,6 +88,8 @@ public class ChatBubbleConfigScreen extends Screen {
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
     private List<String> sidebarHidePatterns;
     private List<String> blockedPlayers;
+    private int messageGap, avatarSize;
+    private boolean hideRepeatedAvatars;
 
     // 打开时的快照——用于 changeCount / revertAll
     private ChatBubbleConfig snapshot;
@@ -194,6 +199,13 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> bannerAnimStyle, v -> bannerAnimStyle = v));
         tracked.add(track(() -> popupAnimStyle, v -> popupAnimStyle = v));
         tracked.add(track(() -> messageAnimStyle, v -> messageAnimStyle = v));
+        tracked.add(track(() -> uploadUrl, v -> uploadUrl = v));
+        tracked.add(track(() -> uploadField, v -> uploadField = v));
+        tracked.add(track(() -> uploadExtra, v -> uploadExtra = v));
+        tracked.add(track(() -> uploadResponse, v -> uploadResponse = v));
+        tracked.add(track(() -> messageGap, v -> messageGap = v));
+        tracked.add(track(() -> avatarSize, v -> avatarSize = v));
+        tracked.add(track(() -> hideRepeatedAvatars, v -> hideRepeatedAvatars = v));
     }
 
     private int changeCount() {
@@ -222,9 +234,10 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().imageRenderEnabled(),
             receiveImages,
             uploadUrl.isEmpty() ? null : uploadUrl,
-            ChatBubbleClientSetup.config().uploadField(),
-            ChatBubbleClientSetup.config().uploadExtra(),
-            ChatBubbleClientSetup.config().uploadResponse()));
+            uploadField.isEmpty() ? null : uploadField,
+            uploadExtra.isEmpty() ? null : uploadExtra,
+            uploadResponse.isEmpty() ? null : uploadResponse,
+            messageGap, avatarSize, hideRepeatedAvatars));
     }
 
     private void loadFromConfig() {
@@ -235,6 +248,9 @@ public class ChatBubbleConfigScreen extends Screen {
         systemChatAsBubble = cfg.systemChatAsBubble(); antiSpam = cfg.antiSpam();
         receiveImages = cfg.receiveImages() != null && cfg.receiveImages();
         uploadUrl = cfg.uploadUrl() != null ? cfg.uploadUrl() : "";
+        uploadField = cfg.uploadField() != null ? cfg.uploadField() : "";
+        uploadExtra = cfg.uploadExtra() != null ? cfg.uploadExtra() : "";
+        uploadResponse = cfg.uploadResponse() != null ? cfg.uploadResponse() : "";
         chatHistoryEnabled = cfg.chatHistoryEnabled();
         soundPublic = cfg.soundPublic();
         soundSystem = cfg.soundSystem();
@@ -262,6 +278,9 @@ public class ChatBubbleConfigScreen extends Screen {
         ownTextColor = cfg.ownTextColor(); otherTextColor = cfg.otherTextColor();
         sidebarHidePatterns = new ArrayList<>(cfg.sidebarHidePatterns());
         blockedPlayers = new ArrayList<>(cfg.blockedPlayers());
+        messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
+        avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
+        hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null && cfg.hideRepeatedAvatars();
     }
 
     // ---- ChatScrollbar geometry inline ----
@@ -393,6 +412,11 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.blur_enabled", y -> mkBoolButton(y, () -> blurEnabled, v -> blurEnabled = v), null));
         chat.add(new Opt("e33chat.config.panel_opacity",
             y -> mkIntBox(y, String.valueOf(panelOpacity), 0, 100, 3, v -> panelOpacity = v), null));
+        chat.add(new Opt("e33chat.config.avatar_size",
+            y -> mkIntBox(y, String.valueOf(avatarSize), 12, 32, 2, v -> avatarSize = v), null));
+        chat.add(new Opt("e33chat.config.message_gap",
+            y -> mkIntBox(y, String.valueOf(messageGap), 0, 12, 2, v -> messageGap = v), null));
+        chat.add(new Opt("e33chat.config.hide_repeated_avatars", y -> mkBoolButton(y, () -> hideRepeatedAvatars, v -> hideRepeatedAvatars = v), null));
         chat.add(new Opt("e33chat.config.animation", y -> mkBoolButton(y, () -> animationEnabled, v -> animationEnabled = v), null));
         chat.add(new Opt("e33chat.config.panel_anim_style", this::mkPanelStyleButton, null));
         chat.add(new Opt("e33chat.config.popup_anim_style", this::mkPopupStyleButton, null));

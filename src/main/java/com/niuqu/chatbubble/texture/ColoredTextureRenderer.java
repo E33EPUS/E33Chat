@@ -36,6 +36,7 @@ public final class ColoredTextureRenderer {
         ctx.draw();
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+        boolean blendEnabled = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_BLEND);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         Matrix4f pose = ctx.getMatrices().peek().getPositionMatrix();
@@ -48,9 +49,9 @@ public final class ColoredTextureRenderer {
         bb.vertex(pose, x, y, 0).texture(0f, 0f).color(1f, 1f, 1f, alpha);
         bb.vertex(pose, x, y + h, 0).texture(0f, 1f).color(1f, 1f, 1f, alpha);
         bb.vertex(pose, x + w, y + h, 0).texture(1f, 1f).color(1f, 1f, 1f, alpha);
-        bb.vertex(pose, x + w, y, 0).texture(1f, 0f).color(1f, 1f, 1f, alpha);
+        bb.vertex(pose, x + w, y, 0).texture(0f, 0f).color(1f, 1f, 1f, alpha);
         BufferRenderer.drawWithGlobalProgram(bb.end());
-        RenderSystem.disableBlend();
+        if (!blendEnabled) RenderSystem.disableBlend();
         //#else
         //$$ int color = ((int) (alpha * 255) << 24) | 0xFFFFFF;
         //$$ RenderHelper.drawTexture(g, tex, x, y, w, h, 0, 0, w, h, w, h, color);
@@ -114,6 +115,7 @@ public final class ColoredTextureRenderer {
         ctx.draw();
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+        boolean blendEnabled = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_BLEND);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         float u1 = u / texW, u2 = (u + regionW) / texW;
@@ -130,7 +132,7 @@ public final class ColoredTextureRenderer {
         bb.vertex(pose, x + w, y + h, 0).texture(u2, v2).color(1f, 1f, 1f, alpha);
         bb.vertex(pose, x + w, y, 0).texture(u2, v1).color(1f, 1f, 1f, alpha);
         BufferRenderer.drawWithGlobalProgram(bb.end());
-        RenderSystem.disableBlend();
+        if (!blendEnabled) RenderSystem.disableBlend();
         //#else
         //$$ int color = ((int) (alpha * 255) << 24) | 0xFFFFFF;
         //$$ RenderHelper.drawTexture(g, tex, x, y, w, h, u, v, regionW, regionH, texW, texH, color);

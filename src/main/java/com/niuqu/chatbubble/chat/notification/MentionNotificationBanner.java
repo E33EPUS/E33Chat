@@ -54,7 +54,13 @@ public class MentionNotificationBanner {
     private long stateStartMs;
     private long visibleDurationMs;
 
-    private static final Map<UUID, Identifier> skinCache = new HashMap<>();
+    private static final int SKIN_CACHE_CAP = 256;
+    private static final Map<UUID, Identifier> skinCache = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<UUID, Identifier> eldest) {
+            return size() > SKIN_CACHE_CAP;
+        }
+    };
 
     private MentionNotificationBanner() {}
 

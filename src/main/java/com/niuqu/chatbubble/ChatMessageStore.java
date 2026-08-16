@@ -194,14 +194,16 @@ public class ChatMessageStore {
     private static final List<PendingEcho> pendingEchoes = new ArrayList<>();
     public record EchoMatch(boolean matched, boolean quoted) {}
 
-    private static long pendingWhisperEchoTime;
-    private static String pendingWhisperEchoTarget;
+    // Whisper echoes are queued FIFO rather than held in a single slot: rapid
+    // consecutive whispers (or ones whose echo was delayed by a filtered send)
+    // would otherwise clobber each other and misattribute the next incoming line.
+    private record PendingWhisperEcho(String target, long time) {}
+    private static final java.util.Deque<PendingWhisperEcho> pendingWhisperEchoes = new java.util.ArrayDeque<>();
     private static long suppressCaptureTime;
     private static boolean suppressQuoted;
 
     public static void markPendingWhisperEcho(String target) {
-        pendingWhisperEchoTime = System.currentTimeMillis();
-        pendingWhisperEchoTarget = target;
+        pendingWhisperEchoes.addLast(new PendingWhisperEcho(target, System.currentTimeMillis()));
     }
     public static void markSuppressCapture() {
         suppressCaptureTime = System.currentTimeMillis();
@@ -217,10 +219,20 @@ public class ChatMessageStore {
     }
 
     public static boolean hasPendingWhisperEcho() {
-        return pendingWhisperEchoTime != 0 && System.currentTimeMillis() - pendingWhisperEchoTime < 10_000;
+        purgeStaleWhisperEchoes();
+        return !pendingWhisperEchoes.isEmpty();
     }
-    public static String getPendingWhisperTarget() { return pendingWhisperEchoTarget; }
-    public static void consumeWhisperEcho() { pendingWhisperEchoTime = 0; pendingWhisperEchoTarget = null; }
+    public static String getPendingWhisperTarget() { return pendingWhisperEchoes.peekFirst().target(); }
+    public static void consumeWhisperEcho() { pendingWhisperEchoes.pollFirst(); }
+
+    // 10s TTL: an echo never matched (e.g. a filtered send with no chat feedback)
+    // must not poison the queue and swallow a later unrelated whisper
+    private static void purgeStaleWhisperEchoes() {
+        long cutoff = System.currentTimeMillis() - 10_000;
+        while (!pendingWhisperEchoes.isEmpty() && pendingWhisperEchoes.peekFirst().time() < cutoff) {
+            pendingWhisperEchoes.pollFirst();
+        }
+    }
 
     // 5s TTL: if the outgoing-whisper echo never reaches addMessage (another
     // mod cancelled it), a stale flag must not swallow an unrelated message
@@ -269,7 +281,7 @@ public class ChatMessageStore {
         debugLog(() -> msg);
     }
 
-    public static EchoMatch consumeEchoIfSenderMatches(UUID senderUUID, Text senderName) {
+    public static EchoMatch consumeEchoIfSenderMatches(UUID senderUUID, Text senderName, String incomingText) {
         purgeStaleEchoes();
         if (pendingEchoes.isEmpty()) return new EchoMatch(false, false);
         var player = net.minecraft.client.MinecraftClient.getInstance().player;
@@ -290,6 +302,21 @@ public class ChatMessageStore {
             }
         }
         if (match) {
+            // Prefer an echo whose recorded text matches the incoming line —
+            // several unconsumed echoes (e.g. filtered sends) would otherwise
+            // drain in FIFO order and misattribute the quoted flag. Scan newest-
+            // first since the most recent send usually pairs with this echo.
+            if (incomingText != null) {
+                for (int i = pendingEchoes.size() - 1; i >= 0; i--) {
+                    if (incomingText.equals(pendingEchoes.get(i).text())) {
+                        boolean quoted = pendingEchoes.get(i).quoted();
+                        pendingEchoes.remove(i);
+                        updateLatestOwnSenderName(senderName);
+                        return new EchoMatch(true, quoted);
+                    }
+                }
+            }
+            // Fallback: take the earliest pending echo
             PendingEcho e = pendingEchoes.remove(0);
             updateLatestOwnSenderName(senderName);
             return new EchoMatch(true, e.quoted());
@@ -1510,6 +1537,8 @@ public class ChatMessageStore {
             }
         }
         if (!quoteContent.isEmpty()) {
+            long cutoff = System.currentTimeMillis() - 10_000;
+            pendingMetas.entrySet().removeIf(e -> e.getValue().createdAt() < cutoff);
             pendingMetas.put(messageHash, new PendingMeta(senderUUID, quoteSender, quoteContent,
                 mentionTargets, System.currentTimeMillis()));
         }

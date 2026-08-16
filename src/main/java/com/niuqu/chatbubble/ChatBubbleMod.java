@@ -110,10 +110,16 @@ public class ChatBubbleMod implements ModInitializer {
                     return;
                 }
                 DiskMediaStore store = mediaStore(context.server());
-                String result = payload.index() == 0
-                    ? store.beginUpload(payload.uploadId(), player.getName().getString(),
-                        payload.totalChunks(), payload.totalBytes(), payload.contentType())
-                    : store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                String result;
+                if (payload.index() == 0) {
+                    result = store.beginUpload(payload.uploadId(), player.getName().getString(),
+                        payload.totalChunks(), payload.totalBytes(), payload.contentType());
+                    if (result == null) {
+                        result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                    }
+                } else {
+                    result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
+                }
                 if (result == null) return; // upload still in progress
                 store.discardUpload(payload.uploadId());
                 if (DiskMediaStore.isValidMediaId(result)) {
@@ -319,6 +325,10 @@ public class ChatBubbleMod implements ModInitializer {
         //#if MC >= 12005
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
             ServerPlayNetworking.send(p, v2);
+            // Re-broadcast the media-hosting capability so toggling media_enabled
+            // from the GUI takes effect for already-connected clients immediately
+            // (it is otherwise only sent on join).
+            ServerPlayNetworking.send(p, new MediaCapPayload(mediaEnabled));
         }
         //#endif
     }
@@ -332,6 +342,7 @@ public class ChatBubbleMod implements ModInitializer {
     public static boolean useTpa() { return useTpa; }
     public static boolean historyEnabled() { return historyEnabled; }
     public static boolean templateDebug() { return templateDebug; }
+    public static boolean mediaEnabled() { return mediaEnabled; }
     public static List<String> chatTemplates() { return chatTemplates; }
     public static List<String> whisperTemplates() { return whisperTemplates; }
     public static void setTemplates(List<String> chat, List<String> whisper, boolean debug) {

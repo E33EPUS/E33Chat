@@ -55,7 +55,10 @@ public record ChatBubbleConfig(
     String uploadUrl,
     String uploadField,
     String uploadExtra,
-    String uploadResponse
+    String uploadResponse,
+    Integer messageGap,
+    Integer avatarSize,
+    Boolean hideRepeatedAvatars
 ) {
     public static ChatBubbleConfig defaults() {
         return new ChatBubbleConfig(
@@ -66,10 +69,11 @@ public record ChatBubbleConfig(
             false, false, true, false, true, false,
             List.of(), List.of(), List.of(),
             true, true, 4, true, true, true,
-            true, 80, 80, false, false, false, 4, 0, 0,
+            false, 80, 80, false, false, false, 4, 0, 0,
             "slide", "slide", "fade", "fade",
             true, true,
-            null, null, null, null
+            null, null, null, null,
+            6, 20, true
         );
     }
 
@@ -93,7 +97,8 @@ public record ChatBubbleConfig(
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius, bannerOffsetX, bannerOffsetY,
             panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
-            uploadUrl, uploadField, uploadExtra, uploadResponse);
+            uploadUrl, uploadField, uploadExtra, uploadResponse,
+            messageGap, avatarSize, hideRepeatedAvatars);
     }
 
     public ChatBubbleConfig withQuickChatPhrases(List<String> phrases) {
@@ -105,7 +110,8 @@ public record ChatBubbleConfig(
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius, bannerOffsetX, bannerOffsetY,
             panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
-            uploadUrl, uploadField, uploadExtra, uploadResponse);
+            uploadUrl, uploadField, uploadExtra, uploadResponse,
+            messageGap, avatarSize, hideRepeatedAvatars);
     }
 
     public ChatBubbleConfig withSidebarHidePatterns(List<String> patterns) {
@@ -117,7 +123,8 @@ public record ChatBubbleConfig(
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius, bannerOffsetX, bannerOffsetY,
             panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
-            uploadUrl, uploadField, uploadExtra, uploadResponse);
+            uploadUrl, uploadField, uploadExtra, uploadResponse,
+            messageGap, avatarSize, hideRepeatedAvatars);
     }
 
     public ChatBubbleConfig withBlockedPlayers(List<String> blocked) {
@@ -129,7 +136,8 @@ public record ChatBubbleConfig(
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius, bannerOffsetX, bannerOffsetY,
             panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
-            uploadUrl, uploadField, uploadExtra, uploadResponse);
+            uploadUrl, uploadField, uploadExtra, uploadResponse,
+            messageGap, avatarSize, hideRepeatedAvatars);
     }
 
     public boolean isSidebarHidden(String playerName) {

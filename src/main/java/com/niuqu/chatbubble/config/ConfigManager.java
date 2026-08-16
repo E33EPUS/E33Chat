@@ -14,6 +14,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 public final class ConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -35,6 +36,11 @@ public final class ConfigManager {
                 }
             } catch (Exception e) {
                 LOGGER.warn("[e33chat] Failed to load config, using defaults", e);
+                try {
+                    Path bak = path.resolveSibling(path.getFileName() + ".bak");
+                    Files.move(path, bak, StandardCopyOption.REPLACE_EXISTING);
+                    LOGGER.warn("[e33chat] Corrupt config preserved as {}", bak);
+                } catch (Exception ignore) {}
             }
         }
         ChatBubbleConfig def = ChatBubbleConfig.defaults();
@@ -85,14 +91,23 @@ public final class ConfigManager {
             c.uploadUrl() != null ? c.uploadUrl() : d.uploadUrl(),
             c.uploadField() != null ? c.uploadField() : d.uploadField(),
             c.uploadExtra() != null ? c.uploadExtra() : d.uploadExtra(),
-            c.uploadResponse() != null ? c.uploadResponse() : d.uploadResponse());
+            c.uploadResponse() != null ? c.uploadResponse() : d.uploadResponse(),
+            c.messageGap() != null ? c.messageGap() : d.messageGap(),
+            c.avatarSize() != null ? c.avatarSize() : d.avatarSize(),
+            c.hideRepeatedAvatars() != null ? c.hideRepeatedAvatars() : d.hideRepeatedAvatars());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {
         try {
             Files.createDirectories(path.getParent());
-            try (Writer w = new OutputStreamWriter(Files.newOutputStream(path), StandardCharsets.UTF_8)) {
+            Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
+            try (Writer w = new OutputStreamWriter(Files.newOutputStream(tmp), StandardCharsets.UTF_8)) {
                 GSON.toJson(config, w);
+            }
+            try {
+                Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (Exception e) {
             LOGGER.warn("[e33chat] Failed to save config", e);

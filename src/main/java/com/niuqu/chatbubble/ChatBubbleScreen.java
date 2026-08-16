@@ -59,10 +59,16 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int TITLE_H = 24;
     private int titleY, msgTop, msgBottom, barTop;
     private static final int PAD = 8;
-    private static final int AVATAR = 20;
     private static final int BUBBLE_PAD_X = 6;
     private static final int BUBBLE_PAD_Y = 4;
-    private static final int GAP = 6;
+    private static int avatarSize() {
+        Integer a = ChatBubbleClientSetup.config().avatarSize();
+        return a == null ? 20 : Math.max(12, Math.min(32, a));
+    }
+    private static int messageGap() {
+        Integer g = ChatBubbleClientSetup.config().messageGap();
+        return g == null ? 6 : Math.max(0, Math.min(12, g));
+    }
     private static final int NAME_H = 10;
     private static final int TIME_SEP_H = 14;
     static final int BAR_H = 26;
@@ -115,7 +121,13 @@ public class ChatBubbleScreen extends ChatScreen {
     private boolean scrollToBottom = true;
     private boolean firstRender = true;
     private static String savedInput = "";
-    private static final java.util.Map<UUID, Identifier> skinCache = new java.util.HashMap<>();
+    private static final int SKIN_CACHE_CAP = 256;
+    private static final java.util.Map<UUID, Identifier> skinCache = new java.util.LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(java.util.Map.Entry<UUID, Identifier> eldest) {
+            return size() > SKIN_CACHE_CAP;
+        }
+    };
 
     final ChatEmojiPanel emojiPanel = new ChatEmojiPanel();
     final ChatSettingsMenu settingsMenu = new ChatSettingsMenu();
@@ -182,6 +194,11 @@ public class ChatBubbleScreen extends ChatScreen {
     private int lastImageVersion = -1;
     private boolean uploading = false;
     private int uploadToastTicks = 0;
+    // Safety-net "uploading" indicator: set to 60 (3s @ 20fps) when an upload
+    // starts, cleared on completion/failure. Lets the toast render an orange
+    // "uploading" hint and guards against the uploading flag hanging true if a
+    // worker throws before reaching its client.execute() reset.
+    private int uploadBusyTicks = 0;
     private static final int IMAGE_MAX_W = 320;
     private static final int IMAGE_MAX_H = 180;
     private static final int IMAGE_PLACEHOLDER_H = 56;
@@ -604,6 +621,8 @@ public class ChatBubbleScreen extends ChatScreen {
     @Override
     public void tick() {
         if (copyToastTicks > 0) copyToastTicks--;
+        if (uploadBusyTicks > 0) uploadBusyTicks--;
+        if (uploadToastTicks > 0) uploadToastTicks--;
         if (closing && Util.getMeasuringTimeMs() - animStart >= ANIM_MS)
             //#if MC >= 11700
             client.setScreen(null);
@@ -1076,10 +1095,10 @@ public class ChatBubbleScreen extends ChatScreen {
             for (int[] r : bubbleRects) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem()) continue;
-                int avatarX = msg.isOwn() ? r[0] + r[2] + 4 : r[0] - AVATAR - 4;
+                int avatarX = msg.isOwn() ? r[0] + r[2] + 4 : r[0] - avatarSize() - 4;
                 int avatarY = msg.replyContent() != null ? r[1] - textRenderer.fontHeight - 2 : r[1] - NAME_H;
-                if (mouseX >= avatarX && mouseX <= avatarX + AVATAR
-                    && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
+                if (mouseX >= avatarX && mouseX <= avatarX + avatarSize()
+                    && mouseY >= avatarY && mouseY <= avatarY + avatarSize()) {
                     String mentionName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
                         ? msg.rawPlayerName() : msg.senderName().getString();
                     chatField.setText(chatField.getText() + "@" + mentionName + " ");
@@ -1099,10 +1118,10 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem() || msg.isOwn()) continue;
                 if (msg.rawPlayerName() == null || msg.rawPlayerName().isEmpty()) continue;
-                int avatarX = r[0] - AVATAR - 4;
+                int avatarX = r[0] - avatarSize() - 4;
                 int avatarY = msg.replyContent() != null ? r[1] - textRenderer.fontHeight - 2 : r[1] - NAME_H;
-                if (mouseX >= avatarX && mouseX <= avatarX + AVATAR
-                    && mouseY >= avatarY && mouseY <= avatarY + AVATAR) {
+                if (mouseX >= avatarX && mouseX <= avatarX + avatarSize()
+                    && mouseY >= avatarY && mouseY <= avatarY + avatarSize()) {
                     contextAvatarIndex = r[4]; contextAvatarX = (int) mouseX; contextAvatarY = (int) mouseY;
                     return true;
                 }
@@ -1303,18 +1322,32 @@ public class ChatBubbleScreen extends ChatScreen {
         if (prep == null) return; // no image in clipboard — let vanilla paste text
         final LocalImageSource.PreparedImage fprep = prep;
         uploading = true;
-        ImageLoader.executor().execute(() -> finishUpload(fprep, "clipboard"));
+        uploadBusyTicks = 60;
+        ImageLoader.executor().execute(() -> {
+            try {
+                finishUpload(fprep, "clipboard");
+            } catch (Throwable t) {
+                E33Log.warn("[e33chat] clipboard upload worker crashed", t);
+                client.execute(() -> { uploading = false; uploadBusyTicks = 0; uploadToastTicks = 60; });
+            }
+        });
     }
 
     private void upload(java.io.File f) {
         uploading = true;
+        uploadBusyTicks = 60;
         ImageLoader.executor().execute(() -> {
-            LocalImageSource.PreparedImage prep = LocalImageSource.fromFile(f);
-            if (prep == null) {
-                client.execute(() -> { uploading = false; uploadToastTicks = 60; });
-                return;
+            try {
+                LocalImageSource.PreparedImage prep = LocalImageSource.fromFile(f);
+                if (prep == null) {
+                    client.execute(() -> { uploading = false; uploadBusyTicks = 0; uploadToastTicks = 60; });
+                    return;
+                }
+                finishUpload(prep, f.getName());
+            } catch (Throwable t) {
+                E33Log.warn("[e33chat] file upload worker crashed", t);
+                client.execute(() -> { uploading = false; uploadBusyTicks = 0; uploadToastTicks = 60; });
             }
-            finishUpload(prep, f.getName());
         });
     }
 
@@ -1331,6 +1364,7 @@ public class ChatBubbleScreen extends ChatScreen {
         E33Log.info("[e33chat] upload {} -> {}", srcName, url == null ? "FAILED" : url);
         client.execute(() -> {
             uploading = false;
+            uploadBusyTicks = 0;
             if (url == null) {
                 uploadToastTicks = 60;
                 return;
@@ -1496,7 +1530,7 @@ public class ChatBubbleScreen extends ChatScreen {
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
 
-        renderTitleBar(g, mouseX, mouseY, panelOpacity);
+        renderTitleBar(g, mouseX, mouseY, anim);
         renderMessages(g, mouseX, mouseY);
         Style hovered = getHoveredStyle(mouseX, mouseY);
         if (hovered != null && hovered.getHoverEvent() != null) {
@@ -1526,7 +1560,7 @@ public class ChatBubbleScreen extends ChatScreen {
         renderContextMenu(g, mouseX, mouseY);
         renderAvatarContextMenu(g, mouseX, mouseY);
         renderToast(g);
-        renderBottomBar(g, mouseX, mouseY, panelOpacity);
+        renderBottomBar(g, mouseX, mouseY, anim);
         renderMentionPopup(g, mouseX, mouseY);
         // 弹层面板（设置/表情/快捷/搜索）画在底栏之上，z 高一层——侧边栏同 z 后画
         // 会盖住它们，提升弹层 z 到侧边栏之上避免遮挡
@@ -1738,13 +1772,13 @@ public class ChatBubbleScreen extends ChatScreen {
         String lastKey = null;
         int totalH = 0;
         for (var msg : messages) {
-            totalH += getMsgHeight(msg) + GAP;
+            totalH += getMsgHeight(msg) + messageGap();
             if (!msg.isSystem()) {
                 String key = timeKey(msg.time());
                 if (lastKey == null || !key.equals(lastKey)) { timeSeps++; lastKey = key; }
             }
         }
-        totalH += timeSeps * (TIME_SEP_H + GAP);
+        totalH += timeSeps * (TIME_SEP_H + messageGap());
         int prevMaxScroll = maxScroll;
         maxScroll = Math.max(0, totalH - areaH);
         this.messageTotalH = totalH;
@@ -1798,10 +1832,14 @@ public class ChatBubbleScreen extends ChatScreen {
 
         int contentY = 0;
         lastKey = null;
+        ChatMessageStore.ChatMessage prevRenderMsg = null;
         for (int i = 0; i < messages.size(); i++) {
             var msg = messages.get(i);
             while (fullIdx < fullList.size() && fullList.get(fullIdx) != msg) fullIdx++;
 
+            boolean hideRep = ChatBubbleClientSetup.config().hideRepeatedAvatars() != null
+                && ChatBubbleClientSetup.config().hideRepeatedAvatars();
+            boolean showAvatar = !hideRep || !com.niuqu.chatbubble.chat.MessageGrouping.isSameGroup(prevRenderMsg, msg);
             if (!msg.isSystem()) {
                 String key = timeKey(msg.time());
                 if (lastKey == null || !key.equals(lastKey)) {
@@ -1809,13 +1847,13 @@ public class ChatBubbleScreen extends ChatScreen {
                     int ssy = effectiveMsgTop + contentY - scrollOffset;
                     if (ssy + TIME_SEP_H > effectiveMsgTop && ssy < effectiveMsgBottom)
                         renderTimeSeparator(g, msg.time(), ssy);
-                    contentY += TIME_SEP_H + GAP;
+                    contentY += TIME_SEP_H + messageGap();
                 }
             }
 
             int h = getMsgHeight(msg);
             int screenY = effectiveMsgTop + contentY - scrollOffset;
-            contentY += h + GAP;
+            contentY += h + messageGap();
 
             if (screenY + h <= effectiveMsgTop || screenY >= effectiveMsgBottom) { fullIdx++; continue; }
 
@@ -1861,12 +1899,12 @@ public class ChatBubbleScreen extends ChatScreen {
             if (mScale != 1f) {
                 // Bubble top-left for the ZOOM pivot (mirrors renderBubble's layout)
                 int zW = 0;
-                for (var zl : wrapContent(msg.content(), panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16))
+                for (var zl : wrapContent(msg.content(), panelW - avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16))
                     zW = Math.max(zW, textRenderer.getWidth(zl));
                 int zBubbleW = zW + BUBBLE_PAD_X * 2;
                 int zBubbleX = msg.isOwn()
-                    ? panelX + panelW - PAD - AVATAR - 4 - zBubbleW
-                    : panelX + PAD + AVATAR + 4;
+                    ? panelX + panelW - PAD - avatarSize() - 4 - zBubbleW
+                    : panelX + PAD + avatarSize() + 4;
                 int zBubbleY = screenY + NAME_H;
                 //#if MC >= 12106
                 g.getMatrices().translate(zBubbleX + zBubbleW / 2f, zBubbleY);
@@ -1884,13 +1922,14 @@ public class ChatBubbleScreen extends ChatScreen {
                 //$$ g.getMatrices().translate(-(zBubbleX + zBubbleW / 2f), -zBubbleY, 0);
                 //#endif
             }
-            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha);
+            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha, showAvatar);
             //#if MC >= 12106
             g.getMatrices().popMatrix();
             //#else
             //$$ g.getMatrices().pop();
             //#endif
             fullIdx++;
+            prevRenderMsg = msg;
         }
         renderScrollbar(g, mouseX, mouseY, effectiveMsgBottom);
         g.disableScissor();
@@ -1910,8 +1949,8 @@ public class ChatBubbleScreen extends ChatScreen {
         int trackBottom = effectiveMsgBottom;
         int trackH = trackBottom - trackTop;
 
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_TRACK),
-            trackX, trackTop, SCROLLBAR_WIDTH, trackBottom - trackTop, 0x1A / 255f * scrollbarAlpha);
+        g.fill(trackX, trackTop, trackX + SCROLLBAR_WIDTH, trackBottom,
+            ChatBubbleTheme.alphaBlend(c().scrollbar(), (int) (0x1A * scrollbarAlpha)));
 
         int thumbH = Math.max(MIN_THUMB_H, (int) ((long) trackH * trackH / messageTotalH));
         thumbH = Math.min(thumbH, trackH);
@@ -1924,8 +1963,8 @@ public class ChatBubbleScreen extends ChatScreen {
         scrollbarHovered = hovering || scrollbarDragging;
 
         float thumbBase = scrollbarDragging ? 0xAA : scrollbarHovered ? 0x88 : 0x66;
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SCROLLBAR_THUMB),
-            trackX, thumbY, SCROLLBAR_WIDTH, thumbH, thumbBase / 255f * scrollbarAlpha);
+        g.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH,
+            ChatBubbleTheme.alphaBlend(c().scrollbar(), (int) (thumbBase * scrollbarAlpha)));
     }
 
     private void renderTimeSeparator(DrawContext g, long timeMillis, int y) {
@@ -1986,7 +2025,7 @@ public class ChatBubbleScreen extends ChatScreen {
             List<OrderedText> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
             h = lines.size() * textRenderer.fontHeight + 4;
         } else {
-            int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
+            int bubbleMaxW = panelW - avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
             int cardW = Math.min(IMAGE_MAX_W, bubbleMaxW);
             BracketCodec.ParseResult parsed = parseImages(msg);
             List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
@@ -2025,7 +2064,7 @@ public class ChatBubbleScreen extends ChatScreen {
         return IMAGE_PLACEHOLDER_H;
     }
 
-    private void renderBubble(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY, float alpha) {
+    private void renderBubble(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY, int mouseX, int mouseY, float alpha, boolean showAvatar) {
         if (msg.isSystem()) {
             List<OrderedText> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
             int yy = baseY + 2;
@@ -2040,7 +2079,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         boolean own = msg.isOwn();
-        int bubbleMaxW = panelW - AVATAR - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
+        int bubbleMaxW = panelW - avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
         BracketCodec.ParseResult parsed = parseImages(msg);
         List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
 
@@ -2057,17 +2096,17 @@ public class ChatBubbleScreen extends ChatScreen {
 
         int avatarX, bubbleX;
         if (own) {
-            avatarX = panelX + panelW - PAD - AVATAR;
+            avatarX = panelX + panelW - PAD - avatarSize();
             bubbleX = avatarX - 4 - bubbleW;
         } else {
             avatarX = panelX + PAD;
-            bubbleX = avatarX + AVATAR + 4;
+            bubbleX = avatarX + avatarSize() + 4;
         }
 
         int nameY = baseY;
 
         if (!msg.senderName().getString().isEmpty()) {
-            int maxNameW = panelW - AVATAR - PAD * 2 - 20;
+            int maxNameW = panelW - avatarSize() - PAD * 2 - 20;
             Text sn = msg.senderName();
             OrderedText nameSeq;
             if (textRenderer.getWidth(sn) > maxNameW) {
@@ -2115,7 +2154,7 @@ public class ChatBubbleScreen extends ChatScreen {
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
         Identifier skin = getSkin(msg.senderUUID(), skinName);
-        drawPlayerHead(g, skin, avatarX, avatarY, 20, 22, alpha);
+        if (showAvatar) drawPlayerHead(g, skin, avatarX, avatarY, avatarSize(), avatarSize() + 2, alpha);
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
@@ -2126,7 +2165,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         if (msg.replyContent() != null) {
-            int quoteMaxW = panelW - PAD * 2 - AVATAR - 24;
+            int quoteMaxW = panelW - PAD * 2 - avatarSize() - 24;
             String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
             String quoteDisplay = textRenderer.trimToWidth(quoteText, quoteMaxW - 10);
             if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
@@ -2484,10 +2523,28 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void renderToast(DrawContext g) {
-        if (copyToastTicks <= 0) return;
-        int alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
-        int color = (alpha << 24) | (c().toastText() & 0x00FFFFFF);
-        String text = Text.translatable("e33chat.toast.copied").getString();
+        // Priority: upload-failed (red) > uploading (orange) > copied (theme).
+        int ticks;
+        int rgb;
+        String key;
+        if (uploadToastTicks > 0) {
+            ticks = uploadToastTicks;
+            rgb = 0xFF5555; // red — upload failed
+            key = "e33chat.upload.failed";
+        } else if (uploadBusyTicks > 0) {
+            ticks = uploadBusyTicks;
+            rgb = 0xFFAA00; // orange — upload in progress
+            key = "e33chat.upload.start";
+        } else if (copyToastTicks > 0) {
+            ticks = copyToastTicks;
+            rgb = c().toastText() & 0x00FFFFFF;
+            key = "e33chat.toast.copied";
+        } else {
+            return;
+        }
+        int alpha = Animation.fadeInOut(ticks, 5, 20, 5);
+        int color = (alpha << 24) | (rgb & 0x00FFFFFF);
+        String text = Text.translatable(key).getString();
         int tw = textRenderer.getWidth(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
@@ -2659,7 +2716,12 @@ public class ChatBubbleScreen extends ChatScreen {
     // Name-keyed skin cache: an offline player seen in chat history keeps the
     // real head when the UUID lookup fails (cracked servers, uuid dropped in
     // old history files). Key is the §-stripped lowercase name.
-    private static final java.util.Map<String, Identifier> skinNameCache = new java.util.HashMap<>();
+    private static final java.util.Map<String, Identifier> skinNameCache = new java.util.LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(java.util.Map.Entry<String, Identifier> eldest) {
+            return size() > SKIN_CACHE_CAP;
+        }
+    };
 
     private static String skinNameKey(String name) {
         if (name == null) return null;
@@ -2817,9 +2879,9 @@ public class ChatBubbleScreen extends ChatScreen {
             var m = msgs.get(i);
             if (!m.isSystem()) {
                 String k = timeKey(m.time());
-                if (lk == null || !k.equals(lk)) { lk = k; cy += TIME_SEP_H + GAP; }
+                if (lk == null || !k.equals(lk)) { lk = k; cy += TIME_SEP_H + messageGap(); }
             }
-            cy += getMsgHeight(m) + GAP;
+            cy += getMsgHeight(m) + messageGap();
         }
         scrollOffset = Math.max(0, cy - 20);
         newMessageCount = 0; hasNewMentionOrQuote = false;
