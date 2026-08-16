@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.texture;
 
-import com.niuqu.chatbubble.ChatBubbleTheme;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import net.minecraft.util.Identifier;
 
 /** UI 纹理元素：资源包路径。路径约定 assets/e33chat/textures/gui/{theme}/{path}.png，默认纹理为 jar 内置 16×16 PNG。 */

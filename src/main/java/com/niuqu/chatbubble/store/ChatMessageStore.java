@@ -1,7 +1,7 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.store;
+import com.niuqu.chatbubble.ChatBubbleClientSetup;
+import com.niuqu.chatbubble.config.ChatBubbleConfig;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import com.niuqu.chatbubble.chat.notification.MentionNotificationController;
 import net.minecraft.util.Formatting;
 import net.minecraft.client.MinecraftClient;
@@ -24,20 +24,16 @@ public class ChatMessageStore {
     private static boolean screenOpen = false;
     private static String pendingReplyContent;
     private static String pendingReplySender;
-    private static long lastQuoteSendTime;
-    static final long QUOTE_ECHO_WINDOW_MS = 5_000;
-    static final long REPOST_DEDUP_MS = 1_000;
 
     // True when a repost would duplicate one just sent: the server echoes a whisper
     // twice (signed outgoing + incoming variants) within ~15ms, and both would be
     // rewritten to the same <name>[私聊] line without this guard.
     public static boolean isRepostDuplicate(String lastRepostText, long lastRepostTime, String newText, long now) {
-        return newText.equals(lastRepostText) && now - lastRepostTime < REPOST_DEDUP_MS;
+        return EchoTracker.isRepostDuplicate(lastRepostText, lastRepostTime, newText, now);
     }
 
+
     private static String currentWorldKey;
-    private static final Gson GSON = new Gson();
-    private static final Map<String, PendingMeta> pendingMetas = new HashMap<>();
 
     public record SeenPlayer(UUID uuid, String profileName, String displayName) {}
     // LRU cap: bounds the per-message full scan in knownNameVariants/findSeenUuid
@@ -166,105 +162,78 @@ public class ChatMessageStore {
                              String rawPlayerName,
                              boolean whisper, String whisperPartner) {}
 
-    private static final ThreadLocal<SenderMeta> PENDING_META = new ThreadLocal<>();
-    private static long pendingMetaSetTime;
 
     public static void setPendingMeta(SenderMeta meta) {
-        PENDING_META.set(meta);
-        pendingMetaSetTime = System.currentTimeMillis();
+        EchoTracker.setPendingMeta(meta);
     }
+
 
     // 2s TTL: if addMessage never runs (another mod cancelled it), a stale
     // note must not misattribute an unrelated later message
     public static SenderMeta consumePendingMeta() {
-        SenderMeta m = PENDING_META.get();
-        PENDING_META.remove();
-        if (m != null && System.currentTimeMillis() - pendingMetaSetTime > 2_000) return null;
-        return m;
+        return EchoTracker.consumePendingMeta();
     }
+
 
     // quoted: the sent message was a quote reply — carried on the echo record so a
     // later unrelated message can never inherit the [引用] tag (quote replies travel
     // as plain chat, so the echo's quoted flag is their only rewrite signal)
-    private record PendingEcho(String text, long time, boolean quoted) {}
-    private static final List<PendingEcho> pendingEchoes = new ArrayList<>();
-    public record EchoMatch(boolean matched, boolean quoted) {}
-
-    private record PendingWhisperEcho(String target, long time) {}
-    private static final Deque<PendingWhisperEcho> pendingWhisperEchoes = new ArrayDeque<>();
-    private static long suppressCaptureTime;
-    private static boolean suppressQuoted;
-
+    
+    
     public static void markPendingWhisperEcho(String target) {
-        pendingWhisperEchoes.addLast(new PendingWhisperEcho(target, System.currentTimeMillis()));
+        EchoTracker.markPendingWhisperEcho(target);
     }
+
     public static void markSuppressCapture() {
-        suppressCaptureTime = System.currentTimeMillis();
-        // Snapshot the most recent send's quote flag: the suppress echo arrives right
-        // after its own send, so the queue tail matches it better than the FIFO head
-        // (which can hold an older unconsumed echo from a filtered message)
-        suppressQuoted = !pendingEchoes.isEmpty() && pendingEchoes.get(pendingEchoes.size() - 1).quoted();
+        EchoTracker.markSuppressCapture();
     }
+
     public static boolean consumeSuppressQuoted() {
-        boolean q = suppressQuoted;
-        suppressQuoted = false;
-        return q;
+        return EchoTracker.consumeSuppressQuoted();
     }
+
 
     private static void purgeStaleWhisperEchoes() {
-        long cutoff = System.currentTimeMillis() - 10_000;
-        while (!pendingWhisperEchoes.isEmpty() && pendingWhisperEchoes.peekFirst().time() < cutoff) {
-            pendingWhisperEchoes.pollFirst();
-        }
+        EchoTracker.purgeStaleWhisperEchoes();
     }
 
+
     public static boolean hasPendingWhisperEcho() {
-        purgeStaleWhisperEchoes();
-        return !pendingWhisperEchoes.isEmpty();
+        return EchoTracker.hasPendingWhisperEcho();
     }
+
     public static String getPendingWhisperTarget() {
-        purgeStaleWhisperEchoes();
-        PendingWhisperEcho head = pendingWhisperEchoes.peekFirst();
-        return head != null ? head.target() : null;
+        return EchoTracker.getPendingWhisperTarget();
     }
-    public static void consumeWhisperEcho() { pendingWhisperEchoes.pollFirst(); }
+
+    public static void consumeWhisperEcho() {
+        EchoTracker.consumeWhisperEcho();
+    }
+
 
     // 5s TTL: if the outgoing-whisper echo never reaches addMessage (another
     // mod cancelled it), a stale flag must not swallow an unrelated message
     public static boolean consumeSuppressCapture() {
-        if (suppressCaptureTime == 0) return false;
-        boolean fresh = System.currentTimeMillis() - suppressCaptureTime < 5_000;
-        suppressCaptureTime = 0;
-        return fresh;
+        return EchoTracker.consumeSuppressCapture();
     }
+
 
     // Echoes not consumed within 10s (e.g. commands with no chat feedback) would
     // otherwise poison the counter and swallow later self-attributed messages
     private static void purgeStaleEchoes() {
-        long cutoff = System.currentTimeMillis() - 10_000;
-        pendingEchoes.removeIf(e -> e.time() < cutoff);
+        EchoTracker.purgeStaleEchoes();
     }
+
 
     public static void incrementPendingEcho(String sentText) {
-        purgeStaleEchoes();
-        // Snapshot the quote residue onto this echo and clear it, so the next send
-        // (e.g. a plain follow-up) does not inherit the [引用] marker
-        boolean quoted = wasRecentQuoteAt(lastQuoteSendTime, System.currentTimeMillis());
-        lastQuoteSendTime = 0;
-        pendingEchoes.add(new PendingEcho(sentText, System.currentTimeMillis(), quoted));
+        EchoTracker.incrementPendingEcho(sentText);
     }
 
-    public static EchoMatch consumeEchoBySystemChat(String incomingText) {
-        purgeStaleEchoes();
-        for (int i = 0; i < pendingEchoes.size(); i++) {
-            if (incomingText.equals(pendingEchoes.get(i).text())) {
-                boolean quoted = pendingEchoes.get(i).quoted();
-                pendingEchoes.remove(i);
-                return new EchoMatch(true, quoted);
-            }
-        }
-        return new EchoMatch(false, false);
+
+    public static EchoTracker.EchoMatch consumeEchoBySystemChat(String incomingText) {
+        return EchoTracker.consumeEchoBySystemChat(incomingText);
     }
+
 
 
     public static void debugLog(java.util.function.Supplier<String> msg) {
@@ -276,72 +245,22 @@ public class ChatMessageStore {
         debugLog(() -> msg);
     }
 
-    public static EchoMatch consumeEchoIfSenderMatches(UUID senderUUID, Text senderName, String incomingText) {
-        purgeStaleEchoes();
-        if (pendingEchoes.isEmpty()) return new EchoMatch(false, false);
-        var player = net.minecraft.client.MinecraftClient.getInstance().player;
-        if (player == null) return new EchoMatch(false, false);
-        // Deterministic: signed-channel echoes carry the sender's real UUID
-        boolean match = senderUUID != null && senderUUID.equals(player.getUuid());
-        // Whole-word boundary match for decorated / color-translated servers
-        // (substring contains misattributed e.g. SteveAdmin to Steve)
-        if (!match) {
-            String s = senderName.getString();
-            match = containsWholeName(s, player.getName().getString());
-            if (!match && player.networkHandler != null) {
-                var info = player.networkHandler.getPlayerListEntry(player.getUuid());
-                if (info != null && info.getDisplayName() != null) {
-                    String tab = info.getDisplayName().getString().trim();
-                    match = !tab.isEmpty() && containsWholeName(s, tab);
-                }
-            }
-        }
-        if (match) {
-            // The server echoes our own text back, so match by content (most recent
-            // first) to pinpoint WHICH send produced this echo. Blind remove(0) would
-            // grab an older unconsumed echo from a filtered message and mis-tag the
-            // quote flag onto the wrong send.
-            if (incomingText != null) {
-                for (int i = pendingEchoes.size() - 1; i >= 0; i--) {
-                    if (incomingText.equals(pendingEchoes.get(i).text())) {
-                        boolean quoted = pendingEchoes.get(i).quoted();
-                        pendingEchoes.remove(i);
-                        updateLatestOwnSenderName(senderName);
-                        return new EchoMatch(true, quoted);
-                    }
-                }
-            }
-            // Fallback: the server decorated/translated the content — take the oldest.
-            PendingEcho e = pendingEchoes.remove(0);
-            updateLatestOwnSenderName(senderName);
-            return new EchoMatch(true, e.quoted());
-        }
-        return new EchoMatch(false, false);
+    public static EchoTracker.EchoMatch consumeEchoIfSenderMatches(UUID senderUUID, Text senderName, String incomingText) {
+        return EchoTracker.consumeEchoIfSenderMatches(senderUUID, senderName, incomingText);
     }
+
 
     // True when needle occurs in haystack with no name character (letter/digit/_)
     // adjacent — "[VIP]Steve" and "<Steve>" hit, "SteveAdmin" and "Steve2" do not.
-    static boolean containsWholeName(String haystack, String needle) {
-        if (haystack == null || needle == null || needle.isEmpty()) return false;
-        // §6Steve: the code's digit would read as a name character — strip codes first
-        String h = haystack.replaceAll("§.", "");
-        String n = needle.replaceAll("§.", "");
-        if (n.isEmpty()) return false;
-        int from = 0;
-        while (true) {
-            int idx = h.indexOf(n, from);
-            if (idx < 0) return false;
-            int end = idx + n.length();
-            boolean leftOk = idx == 0 || !isNamePart(h.charAt(idx - 1));
-            boolean rightOk = end >= h.length() || !isNamePart(h.charAt(end));
-            if (leftOk && rightOk) return true;
-            from = idx + 1;
-        }
+    public static boolean containsWholeName(String haystack, String needle) {
+        return EchoTracker.containsWholeName(haystack, needle);
     }
 
-    static boolean isNamePart(char c) {
-        return Character.isLetterOrDigit(c) || c == '_';
+
+    public static boolean isNamePart(char c) {
+        return EchoTracker.isNamePart(c);
     }
+
 
     // The local echo bubble is created with the bare name before the server's
     // decorated version (titles/prefixes) is known — patch it when the echo arrives
@@ -350,11 +269,7 @@ public class ChatMessageStore {
             ChatMessage m = messages.get(i);
             if (!m.isOwn()) continue;
             if (!m.senderName().getString().equals(senderName.getString())) {
-                messages.set(i, new ChatMessage(
-                    m.senderUUID(), senderName, m.content(), m.time(),
-                    m.isOwn(), m.isSystem(), m.replyContent(), m.replySender(),
-                    m.messageHash(), m.duplicateCount(), m.rawPlayerName(),
-                    m.whisper(), m.whisperPartner()));
+                messages.set(i, m.withSenderName(senderName));
             }
             return;
         }
@@ -367,9 +282,6 @@ public class ChatMessageStore {
         }
         return false;
     }
-
-    private record PendingMeta(UUID senderUUID, String quoteSender, String quoteContent,
-                               List<String> mentionTargets, long createdAt) {}
 
     // time is epoch millis so history spans days/weeks without losing the date
     public record ChatMessage(
@@ -386,7 +298,26 @@ public class ChatMessageStore {
         String rawPlayerName,
         boolean whisper,
         String whisperPartner
-    ) {}
+    ) {
+        // Wither helpers: field-level updates without rebuilding 13-arg constructors.
+        public ChatMessage withSenderName(Text newSenderName) {
+            return new ChatMessage(senderUUID, newSenderName, content, time,
+                isOwn, isSystem, replyContent, replySender, messageHash, duplicateCount,
+                rawPlayerName, whisper, whisperPartner);
+        }
+
+        public ChatMessage withMerge(String newReplyContent, String newReplySender, long newTime, int newDupCount) {
+            return new ChatMessage(senderUUID, senderName, content, newTime,
+                isOwn, isSystem, newReplyContent, newReplySender, messageHash, newDupCount,
+                rawPlayerName, whisper, whisperPartner);
+        }
+
+        public ChatMessage withReply(String newReplyContent, String newReplySender) {
+            return new ChatMessage(senderUUID, senderName, content, time,
+                isOwn, isSystem, newReplyContent, newReplySender, messageHash, duplicateCount,
+                rawPlayerName, whisper, whisperPartner);
+        }
+    }
 
     // Display names can't identify a sender reliably: the local echo bubble's name
     // gets patched from bare to decorated once the server echo arrives, so the next
@@ -400,48 +331,25 @@ public class ChatMessageStore {
     }
 
     // ==== Blocked players ====
-    // Exact-name matching (case-insensitive, §-stripped). rawPlayerName is the
-    // primary key — the profileless channel carries a nil UUID, so UUID-only
-    // matching would leak blocked players through that path.
-    public static boolean matchesBlocked(String name, List<? extends String> blocked) {
-        if (name == null || name.isEmpty() || blocked == null || blocked.isEmpty()) return false;
-        // Both sides §-stripped and trimmed so color-coded names and stray spaces
-        // in either the message or the config list can't break the match
-        String stripped = name.replaceAll("§.", "").trim();
-        for (String b : blocked) {
-            if (b == null || b.isBlank()) continue;
-            String candidate = b.replaceAll("§.", "").trim();
-            if (stripped.equalsIgnoreCase(candidate)) return true;
-        }
-        return false;
-    }
-
-    // senderName (tab-list display name) as fallback covers nickname plugins where
-    // the chat line carries the decorated name and rawPlayerName is the profile name
-    public static boolean isPlayerBlocked(String rawPlayerName, Text senderName, List<? extends String> blocked) {
-        if (blocked == null || blocked.isEmpty()) return false;
-        if (matchesBlocked(rawPlayerName, blocked)) return true;
-        return senderName != null && matchesBlocked(senderName.getString(), blocked);
-    }
-
-    // Blocking must also drop already-loaded history, or the sender's old messages
-    // keep showing in the chat panel after the block takes effect
+    // Matching rules live in BlockList (pure predicates); here we only operate
+    // on the message list. Blocking must also drop already-loaded history, or
+    // the sender's old messages keep showing after the block takes effect.
     public static void purgeBlocked(List<? extends String> blocked) {
         if (blocked == null || blocked.isEmpty()) return;
         messages.removeIf(m -> !m.isOwn() && !m.isSystem()
-            && isPlayerBlocked(m.rawPlayerName(), m.senderName(), blocked));
+            && BlockList.isPlayerBlocked(m.rawPlayerName(), m.senderName(), blocked));
     }
 
     // History restored from disk / server packets must not re-import blocked
     // senders' messages, or they reappear on the next world join
     private static boolean isBlockedMessage(ChatMessage m) {
-        return isPlayerBlocked(m.rawPlayerName(), m.senderName(),
+        return BlockList.isPlayerBlocked(m.rawPlayerName(), m.senderName(),
             ChatBubbleClientSetup.config().blockedPlayers());
     }
 
     // package-private test seam: headless unit tests stub this to return null
     // so addMessage never touches MinecraftClient.getInstance()
-    static java.util.function.Supplier<net.minecraft.entity.player.PlayerEntity> localPlayerSupplier =
+    public static java.util.function.Supplier<net.minecraft.entity.player.PlayerEntity> localPlayerSupplier =
         () -> net.minecraft.client.MinecraftClient.getInstance().player;
 
     public static void addMessage(Text content, UUID senderUUID, Text senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner, boolean localSend) {
@@ -478,7 +386,7 @@ public class ChatMessageStore {
                 // The merged bubble's quote block must reflect THIS send, not
                 // inherit the previous one's — an unquoted identical follow-up
                 // after a quoted send otherwise keeps a stale [引用] block.
-                PendingMeta pending = pendingMetas.remove(messageHash);
+                EchoTracker.PendingMeta pending = EchoTracker.removePendingMeta(messageHash);
                 if (pending != null && System.currentTimeMillis() - pending.createdAt() > 10_000) {
                     pending = null;
                 }
@@ -493,20 +401,14 @@ public class ChatMessageStore {
                 }
                 pendingReplyContent = null;
                 pendingReplySender = null;
-                messages.set(messages.size() - 1, new ChatMessage(
-                    last.senderUUID(), last.senderName(), last.content(),
-                    System.currentTimeMillis(),
-                    last.isOwn(), last.isSystem(),
-                    mergeReplyContent, mergeReplySender, last.messageHash(),
-                    last.duplicateCount() + 1,
-                    last.rawPlayerName(),
-                    last.whisper(), last.whisperPartner()
-                ));
+                messages.set(messages.size() - 1, last.withMerge(
+                    mergeReplyContent, mergeReplySender, System.currentTimeMillis(),
+                    last.duplicateCount() + 1));
                 return;
             }
         }
 
-        PendingMeta pending = pendingMetas.remove(messageHash);
+        EchoTracker.PendingMeta pending = EchoTracker.removePendingMeta(messageHash);
         if (pending != null && System.currentTimeMillis() - pending.createdAt() > 10_000) {
             pending = null;
         }
@@ -721,7 +623,7 @@ public class ChatMessageStore {
     public static void setPendingReply(String content, String sender) {
         pendingReplyContent = content;
         pendingReplySender = sender;
-        lastQuoteSendTime = System.currentTimeMillis();
+        EchoTracker.markQuoteSent();
     }
 
     public static String getPendingReplySender() { return pendingReplySender; }
@@ -747,13 +649,15 @@ public class ChatMessageStore {
     // True when a quote reply was sent within the echo window: the local bubble's
     // addMessage consumes pendingReplyContent before the server echo returns, so
     // the vanilla-chat [引用] tag can't read it — this timestamp is the residue.
-    static boolean wasRecentQuoteAt(long quoteSendTime, long now) {
-        return quoteSendTime != 0 && now - quoteSendTime < QUOTE_ECHO_WINDOW_MS;
+    public static boolean wasRecentQuoteAt(long quoteSendTime, long now) {
+        return EchoTracker.wasRecentQuoteAt(quoteSendTime, now);
     }
 
+
     public static boolean wasRecentQuote() {
-        return wasRecentQuoteAt(lastQuoteSendTime, System.currentTimeMillis());
+        return EchoTracker.wasRecentQuote();
     }
+
 
     // Content extraction from a vanilla whisper line ("你悄悄对 Steve 说: hi" -> "hi").
     // meta wins when it is trusted (incoming whisper sets it); the outgoing-echo path
@@ -927,34 +831,21 @@ public class ChatMessageStore {
     }
 
     private static File getHistoryFile(String worldKey) {
-        // Keep Unicode (Chinese world names stay readable); only strip characters
-        // that break file systems / path parsing. The SHA-256 short hash disambiguates
-        // worlds whose sanitized names collide.
-        String safe = worldKey.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_");
-        return new File(MinecraftClient.getInstance().runDirectory,
-            "e33chat/history/" + safe + "_" + sha256Short(worldKey) + ".json");
+        return HistoryStore.getHistoryFile(worldKey);
     }
+
 
     // Pre-2.2.3 files used an ASCII-only sanitizer + String.hashCode; load them for
     // migration when the new path does not exist yet
     private static File getLegacyHistoryFile(String worldKey) {
-        String safe = worldKey.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
-        String hash = Integer.toHexString(worldKey.hashCode());
-        return new File(MinecraftClient.getInstance().runDirectory,
-            "e33chat/history/" + safe + "_" + hash + ".json");
+        return HistoryStore.getLegacyHistoryFile(worldKey);
     }
 
+
     private static String sha256Short(String s) {
-        try {
-            byte[] d = java.security.MessageDigest.getInstance("SHA-256")
-                .digest(s.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < 8; i++) sb.append(String.format("%02x", d[i]));
-            return sb.toString();
-        } catch (Exception e) {
-            return Integer.toHexString(s.hashCode());
-        }
+        return HistoryStore.sha256Short(s);
     }
+
 
     // ---- Plain-text history lines: date-time \t sender \t content \t flags ----
     // Open in any text editor and it reads like a log. Plain text only — colors
@@ -965,281 +856,59 @@ public class ChatMessageStore {
 
     // Commands that carry credentials must never land in the history file —
     // mirrors the AuthMe-family login/register aliases
-    static boolean isSensitiveCommand(String text) {
-        if (text == null) return false;
-        String s = Formatting.strip(text);
-        if (s == null) return false;
-        s = s.trim();
-        if (!s.startsWith("/")) return false;
-        int sp = s.indexOf(' ');
-        String cmd = sp < 0 ? s.substring(1) : s.substring(1, sp);
-        if (cmd.isEmpty()) return false;
-        switch (cmd.toLowerCase(java.util.Locale.ROOT)) {
-            case "login": case "l": case "register": case "reg":
-            case "auth": case "password": case "passwd":
-            case "changepassword": case "changepass": case "cp":
-                return true;
-            default:
-                return false;
-        }
+    public static boolean isSensitiveCommand(String text) {
+        return HistoryStore.isSensitiveCommand(text);
     }
 
-    static String toLine(ChatMessage msg) {
-        if (isSensitiveCommand(msg.content().getString())) return null;
-        // JSONL, one message per line. senderJson/contentJson are full styled
-        // components (colors, click/hover events survive the reload) and uuid
-        // lets avatars resolve for offline players after re-joining.
-        java.util.Map<String, Object> obj = new java.util.LinkedHashMap<>();
-        obj.put("time", msg.time());
-        obj.put("uuid", msg.senderUUID() != null ? msg.senderUUID().toString() : "");
-        String senderJson = null, contentJson = null;
-        try {
-            senderJson = Text.Serialization.toJsonString(msg.senderName(), registries());
-            contentJson = Text.Serialization.toJsonString(msg.content(), registries());
-        } catch (Throwable ignored) {
-            // Component codecs unavailable (headless test env / broken registries):
-            // fall back to plain-text fields; styled fields are omitted.
-        }
-        if (senderJson != null) obj.put("senderJson", senderJson);
-        else obj.put("sender", msg.senderName().getString());
-        if (contentJson != null) obj.put("contentJson", contentJson);
-        else obj.put("content", msg.content().getString());
-        obj.put("own", msg.isOwn());
-        obj.put("system", msg.isSystem());
-        if (msg.replyContent() != null) obj.put("replyContent", msg.replyContent());
-        if (msg.replySender() != null) obj.put("replySender", msg.replySender());
-        if (msg.rawPlayerName() != null) obj.put("rawPlayerName", msg.rawPlayerName());
-        if (msg.whisper()) obj.put("whisper", true);
-        if (msg.whisperPartner() != null) obj.put("whisperPartner", msg.whisperPartner());
-        return GSON.toJson(obj);
+
+    public static String toLine(ChatMessage msg) {
+        return HistoryStore.toLine(msg);
     }
 
-    static ChatMessage fromLine(String line) {
-        if (line.startsWith("{")) return fromJsonLine(line);
-        String[] parts = line.split("\t", -1);
-        if (parts.length < 3) return null;
-        long millis;
-        try {
-            millis = java.time.LocalDateTime.parse(parts[0], DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-        } catch (Exception e) {
-            return null;
-        }
-        String flags = parts.length > 3 ? parts[3] : "";
-        String content = unescapeField(parts[2]);
-        if (content.isBlank()) return null;
-        boolean whisper = flags.contains("W");
-        String partner = null;
-        String replySender = null;
-        String replyContent = null;
-        if (whisper && parts.length > 4) partner = unescapeField(parts[4]);
-        if (parts.length > 5) replySender = unescapeField(parts[5]);
-        if (parts.length > 6) replyContent = unescapeField(parts[6]);
-        return new ChatMessage(
-            new UUID(0, 0),
-            parseStyledText(unescapeField(parts[1])),
-            parseStyledText(content),
-            millis,
-            flags.contains("M"),
-            flags.contains("S"),
-            replyContent, replySender, "", 1, null,
-            whisper, partner
-        );
+
+    public static ChatMessage fromLine(String line) {
+        return HistoryStore.fromLine(line);
     }
+
 
     // Legacy JSONL branch: one message per line as {"sender":...,"content":...}
     private static ChatMessage fromJsonLine(String line) {
-        Map<String, Object> obj;
-        try {
-            obj = GSON.fromJson(line, new TypeToken<Map<String, Object>>(){}.getType());
-        } catch (Exception e) {
-            return null;
-        }
-        if (obj == null) return null;
-        Object timeObj = obj.get("time");
-        if (!(timeObj instanceof Number)) return null;
-        UUID uuid = null;
-        try { uuid = UUID.fromString(String.valueOf(obj.get("uuid"))); } catch (Exception ignored) {}
-        Text senderName = componentFrom(obj, "senderJson", "sender");
-        Text content = componentFrom(obj, "contentJson", "content");
-        if (content == null || content.getString().isBlank()) return null;
-        return new ChatMessage(
-            uuid != null ? uuid : new UUID(0, 0),
-            senderName != null ? senderName : Text.literal(""),
-            content,
-            ((Number) timeObj).longValue(),
-            Boolean.TRUE.equals(obj.get("own")),
-            Boolean.TRUE.equals(obj.get("system")),
-            (String) obj.get("replyContent"),
-            (String) obj.get("replySender"),
-            "",
-            1,
-            (String) obj.get("rawPlayerName"),
-            Boolean.TRUE.equals(obj.get("whisper")),
-            (String) obj.get("whisperPartner")
-        );
+        return HistoryStore.fromJsonLine(line);
     }
+
 
     private static Text componentFrom(Map<String, Object> obj, String jsonKey, String textKey) {
-        String json = (String) obj.get(jsonKey);
-        if (json != null) {
-            try { return Text.Serialization.fromJson(json, registries()); } catch (Exception ignored) {}
-        }
-        String text = (String) obj.get(textKey);
-        return text != null ? parseStyledText(text) : null;
+        return HistoryStore.componentFrom(obj, jsonKey, textKey);
     }
 
-    // 1.21.1 Text codecs need a registry provider; fall back to the connection
-    // registries, then static builtins, so styles survive the quit-to-title save
-    private static net.minecraft.registry.RegistryWrapper.WrapperLookup registries() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc != null) {
-            var world = mc.world;
-            if (world != null) return world.getRegistryManager();
-            var conn = mc.getNetworkHandler();
-            if (conn != null) return conn.getRegistryManager();
-        }
-        try {
-            return net.minecraft.registry.BuiltinRegistries.createWrapperLookup();
-        } catch (Throwable ignored) {
-            // Headless test fallback: an empty lookup serializes plain-text
-            // components fine; registry-dependent hovers degrade instead of crashing
-            return new net.minecraft.registry.RegistryWrapper.WrapperLookup() {
-                @Override
-                public java.util.stream.Stream<net.minecraft.registry.RegistryKey<? extends net.minecraft.registry.Registry<?>>> streamAllRegistryKeys() {
-                    return java.util.stream.Stream.empty();
-                }
-                @Override
-                public <T> java.util.Optional<net.minecraft.registry.RegistryWrapper.Impl<T>> getOptionalWrapper(
-                        net.minecraft.registry.RegistryKey<? extends net.minecraft.registry.Registry<? extends T>> key) {
-                    return java.util.Optional.empty();
-                }
-            };
-        }
-    }
 
     private static String escapeField(String s) {
-        return s.replace("\\", "\\\\").replace("\t", "\\t").replace("\r", "\\r").replace("\n", "\\n");
+        return HistoryStore.escapeField(s);
     }
+
 
     private static String unescapeField(String s) {
-        if (s.indexOf('\\') < 0) return s;
-        StringBuilder out = new StringBuilder(s.length());
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '\\' && i + 1 < s.length()) {
-                char n = s.charAt(i + 1);
-                if (n == 't') { out.append('\t'); i++; continue; }
-                if (n == 'n') { out.append('\n'); i++; continue; }
-                if (n == 'r') { out.append('\r'); i++; continue; }
-                if (n == '\\') { out.append('\\'); i++; continue; }
-            }
-            out.append(c);
-        }
-        return out.toString();
+        return HistoryStore.unescapeField(s);
     }
 
-    // Section-sign codes ("§6...§r") back into a styled component; unknown codes
-    // (e.g. a stray §x from a plugin) fall through as literal text
+
     public static Text parseStyledText(String s) {
-        MutableText out = Text.empty();
-        Style style = Style.EMPTY;
-        StringBuilder buf = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            char ch = s.charAt(i);
-            if (ch == '§' && i + 1 < s.length()) {
-                if (buf.length() > 0) {
-                    out.append(Text.literal(buf.toString()).fillStyle(style));
-                    buf.setLength(0);
-                }
-                Style next = applySectionCode(style, s.charAt(i + 1));
-                if (next == null) {
-                    // Unknown code: keep it as literal text instead of swallowing it
-                    buf.append(ch).append(s.charAt(i + 1));
-                } else {
-                    style = next;
-                }
-                i++;
-            } else {
-                buf.append(ch);
-            }
-        }
-        if (buf.length() > 0) out.append(Text.literal(buf.toString()).fillStyle(style));
-        return out;
+        return HistoryStore.parseStyledText(s);
     }
+
 
     private static Style applySectionCode(Style style, char code) {
-        switch (Character.toLowerCase(code)) {
-            case '0': return style.withColor(Formatting.BLACK.getColorValue() != null ? Formatting.BLACK.getColorValue() : null);
-            case '1': return style.withColor(Formatting.DARK_BLUE.getColorValue() != null ? Formatting.DARK_BLUE.getColorValue() : null);
-            case '2': return style.withColor(Formatting.DARK_GREEN.getColorValue() != null ? Formatting.DARK_GREEN.getColorValue() : null);
-            case '3': return style.withColor(Formatting.DARK_AQUA.getColorValue() != null ? Formatting.DARK_AQUA.getColorValue() : null);
-            case '4': return style.withColor(Formatting.DARK_RED.getColorValue() != null ? Formatting.DARK_RED.getColorValue() : null);
-            case '5': return style.withColor(Formatting.DARK_PURPLE.getColorValue() != null ? Formatting.DARK_PURPLE.getColorValue() : null);
-            case '6': return style.withColor(Formatting.GOLD.getColorValue() != null ? Formatting.GOLD.getColorValue() : null);
-            case '7': return style.withColor(Formatting.GRAY.getColorValue() != null ? Formatting.GRAY.getColorValue() : null);
-            case '8': return style.withColor(Formatting.DARK_GRAY.getColorValue() != null ? Formatting.DARK_GRAY.getColorValue() : null);
-            case '9': return style.withColor(Formatting.BLUE.getColorValue() != null ? Formatting.BLUE.getColorValue() : null);
-            case 'a': return style.withColor(Formatting.GREEN.getColorValue() != null ? Formatting.GREEN.getColorValue() : null);
-            case 'b': return style.withColor(Formatting.AQUA.getColorValue() != null ? Formatting.AQUA.getColorValue() : null);
-            case 'c': return style.withColor(Formatting.RED.getColorValue() != null ? Formatting.RED.getColorValue() : null);
-            case 'd': return style.withColor(Formatting.LIGHT_PURPLE.getColorValue() != null ? Formatting.LIGHT_PURPLE.getColorValue() : null);
-            case 'e': return style.withColor(Formatting.YELLOW.getColorValue() != null ? Formatting.YELLOW.getColorValue() : null);
-            case 'f': return style.withColor(Formatting.WHITE.getColorValue() != null ? Formatting.WHITE.getColorValue() : null);
-            case 'k': return style.withObfuscated(true);
-            case 'l': return style.withBold(true);
-            case 'm': return style.withStrikethrough(true);
-            case 'n': return style.withUnderline(true);
-            case 'o': return style.withItalic(true);
-            case 'r': return Style.EMPTY;
-            default: return null;
-        }
+        return HistoryStore.applySectionCode(style, code);
     }
+
 
     // Legacy file stores LocalTime (HH:mm:ss) with no date; anchor the file's
     // last-saved day on the file mtime and walk backwards: an earlier message
     // whose clock time is LATER than its successor crossed midnight
     private static List<ChatMessage> loadLegacyFile(File f) {
-        List<ChatMessage> out = new ArrayList<>();
-        try (Reader r = new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8)) {
-            List<Map<String, Object>> list = GSON.fromJson(r, new TypeToken<List<Map<String, Object>>>(){}.getType());
-            if (list == null) return out;
-            java.time.ZoneId zone = java.time.ZoneId.systemDefault();
-            java.time.LocalDate day = java.time.Instant.ofEpochMilli(f.lastModified())
-                .atZone(zone).toLocalDate();
-            LocalTime latest = null;
-            for (int i = list.size() - 1; i >= 0; i--) {
-                Map<String, Object> obj = list.get(i);
-                try {
-                    UUID uuid = UUID.fromString((String) obj.get("senderUUID"));
-                    Text senderName = null;
-                    String snJson = (String) obj.get("senderNameJson");
-                    if (snJson != null) {
-                        try { senderName = Text.Serialization.fromJson(snJson, registries()); } catch (Exception ignored2) {}
-                    }
-                    if (senderName == null) senderName = Text.literal((String) obj.get("senderName"));
-                    Text content = Text.Serialization.fromJson((String) obj.get("content"), registries());
-                    if (content == null) content = Text.literal("");
-                    if (content.getString().isBlank()) continue;
-                    LocalTime t = LocalTime.parse((String) obj.get("time"), DateTimeFormatter.ISO_LOCAL_TIME);
-                    if (latest != null && t.isAfter(latest)) day = day.minusDays(1);
-                    latest = t;
-                    long millis = java.time.LocalDateTime.of(day, t).atZone(zone).toInstant().toEpochMilli();
-                    boolean isOwn = (Boolean) obj.getOrDefault("isOwn", false);
-                    boolean isSystem = (Boolean) obj.getOrDefault("isSystem", false);
-                    String replyContent = (String) obj.get("replyContent");
-                    String replySender = (String) obj.get("replySender");
-                    String rawPlayerName = (String) obj.get("rawPlayerName");
-                    boolean whisper = Boolean.TRUE.equals(obj.get("whisper"));
-                    String whisperPartner = (String) obj.get("whisperPartner");
-                    out.add(0, new ChatMessage(uuid, senderName, content, millis,
-                        isOwn, isSystem, replyContent, replySender, "", 1, rawPlayerName,
-                        whisper, whisperPartner));
-                } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
-            }
-        } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
-        return out;
+        return HistoryStore.loadLegacyFile(f);
     }
+
 
     private static void saveMessages(String worldKey) {
         if (messages.isEmpty()) return;
@@ -1284,9 +953,10 @@ public class ChatMessageStore {
 
     // Retention cleanup: files older than the configured days are dropped on
     // world join (0 = keep forever, the default)
-    static boolean isExpired(long fileMtime, long now, int retentionDays) {
-        return retentionDays > 0 && now - fileMtime > retentionDays * 24L * 3600_000L;
+    public static boolean isExpired(long fileMtime, long now, int retentionDays) {
+        return HistoryStore.isExpired(fileMtime, now, retentionDays);
     }
+
 
     private static void cleanupOldHistory() {
         int days = ChatBubbleClientSetup.config().historyRetentionDays();
@@ -1338,7 +1008,7 @@ public class ChatMessageStore {
         if (head.trim().startsWith("[")) {
             List<ChatMessage> legacy = loadLegacyFile(f);
             for (ChatMessage m : legacy) {
-                if (isBlockedMessage(m)) continue;
+                if (BlockList.isBlocked(m)) continue;
                 messages.add(m);
                 if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
                     rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
@@ -1351,7 +1021,7 @@ public class ChatMessageStore {
                     if (line.isBlank()) continue;
                     try {
                         ChatMessage m = fromLine(line);
-                        if (m == null || isBlockedMessage(m)) continue;
+                        if (m == null || BlockList.isBlocked(m)) continue;
                         messages.add(m);
                         if (!m.isSystem() && !m.senderUUID().equals(new UUID(0, 0)))
                             rememberPlayer(m.senderUUID(), m.rawPlayerName(), m.senderName().getString());
@@ -1371,7 +1041,7 @@ public class ChatMessageStore {
         if (!messages.isEmpty() || entries.isEmpty()) return;
         for (var e : entries) {
             if (e.content().isBlank()) continue;
-            if (isPlayerBlocked(e.senderName(), Text.literal(e.senderName()),
+            if (BlockList.isPlayerBlocked(e.senderName(), Text.literal(e.senderName()),
                 ChatBubbleClientSetup.config().blockedPlayers())) continue;
             messages.add(new ChatMessage(
                 e.senderUUID(),
@@ -1409,11 +1079,7 @@ public class ChatMessageStore {
                 if (msg.duplicateCount() > 1) continue;
                 if (System.currentTimeMillis() - msg.time() > 5_000) continue;
                 if (!quoteContent.isEmpty()) {
-                    messages.set(i, new ChatMessage(
-                        msg.senderUUID(), msg.senderName(), msg.content(), msg.time(),
-                        msg.isOwn(), msg.isSystem(), quoteContent, quoteSender, msg.messageHash(),
-                        msg.duplicateCount(), msg.rawPlayerName(),
-                        msg.whisper(), msg.whisperPartner()));
+                    messages.set(i, msg.withReply(quoteContent, quoteSender));
                     String playerName = localPlayerSupplier.get() != null
                         ? localPlayerSupplier.get().getName().getString() : "";
                     if (!msg.isOwn() && !playerName.isEmpty()
@@ -1432,9 +1098,8 @@ public class ChatMessageStore {
             // mod, or older than the 5s apply window) would leak forever — drop stale
             // ones here, matching the 10s TTL the consume path already enforces.
             long cutoff = System.currentTimeMillis() - 10_000;
-            pendingMetas.entrySet().removeIf(e -> e.getValue().createdAt() < cutoff);
-            pendingMetas.put(messageHash, new PendingMeta(senderUUID, quoteSender, quoteContent,
-                mentionTargets, System.currentTimeMillis()));
+            EchoTracker.prunePendingMetas(cutoff);
+            EchoTracker.putPendingMeta(messageHash, senderUUID, quoteSender, quoteContent, mentionTargets);
         }
     }
 }

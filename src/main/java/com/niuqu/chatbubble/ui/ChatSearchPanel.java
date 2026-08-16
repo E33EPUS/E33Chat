@@ -1,4 +1,7 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.ui;
+import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -11,9 +14,9 @@ public class ChatSearchPanel {
     static final int PANEL_W = 180;
     static final int PANEL_H = 22;
     static final int INPUT_H = 14;
-    static final int HIGHLIGHT = 0xFFFFFF55;
+    public static final int HIGHLIGHT = 0xFFFFFF55;
 
-    boolean visible;
+    public boolean visible;
 
     // 弹层 x 夹在聊天面板内且不超屏幕左右（与表情面板同一模式）——6x 时
     // panelW 收缩到 ~166 < 180，固定居中会溢出屏幕左边
@@ -42,7 +45,7 @@ public class ChatSearchPanel {
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
             com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, py, w, PANEL_H, alpha);
-        g.drawBorder(px, py, w, PANEL_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        g.drawBorder(px, py, w, PANEL_H, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         int inputX = px + 4;
         int inputY = py + 4;
@@ -65,12 +68,12 @@ public class ChatSearchPanel {
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + INPUT_H;
         if (hoverInput || searchInput.isFocused())
-            g.drawBorder(inputX, inputY, inputW, INPUT_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
+            g.drawBorder(inputX, inputY, inputW, INPUT_H, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
 
         if (!counter.isEmpty()) {
             int cc = searchMatches.isEmpty() ? c.textMuted() : c.textSecondary();
             g.drawText(font, counter, inputX + inputW - counterW, inputY + 3,
-                com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(cc, a255), false);
+                com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(cc, a255), false);
         }
 
         int editW = inputW - 4 - counterW;
@@ -82,7 +85,7 @@ public class ChatSearchPanel {
 
         if (searchInput.getText().isEmpty()) {
             String ph = Text.translatable("e33chat.search.placeholder").getString();
-            g.drawText(font, ph, inputX + 2, inputY + 3, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
+            g.drawText(font, ph, inputX + 2, inputY + 3, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
         }
     }
 

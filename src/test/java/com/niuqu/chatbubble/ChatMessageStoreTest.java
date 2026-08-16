@@ -1,4 +1,8 @@
 package com.niuqu.chatbubble;
+import com.niuqu.chatbubble.store.EchoTracker;
+import com.niuqu.chatbubble.store.BlockList;
+import com.niuqu.chatbubble.store.ChatMessageStore;
+import com.niuqu.chatbubble.config.ChatBubbleConfig;
 
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,10 +15,10 @@ class ChatMessageStoreTest {
     // Static echo/quote state lives across tests; reset so each test starts clean
     @BeforeEach
     void resetState() throws Exception {
-        var echoes = ChatMessageStore.class.getDeclaredField("pendingEchoes");
+        var echoes = EchoTracker.class.getDeclaredField("pendingEchoes");
         echoes.setAccessible(true);
         ((List<?>) echoes.get(null)).clear();
-        var quoteTime = ChatMessageStore.class.getDeclaredField("lastQuoteSendTime");
+        var quoteTime = EchoTracker.class.getDeclaredField("lastQuoteSendTime");
         quoteTime.setAccessible(true);
         quoteTime.setLong(null, 0);
         // Headless env: no Minecraft client, so addMessage must not touch it
@@ -140,12 +144,12 @@ class ChatMessageStoreTest {
 
     @Test void quoteWindow_edgeExactlyWindowIsFalse() {
         long now = System.currentTimeMillis();
-        assertFalse(ChatMessageStore.wasRecentQuoteAt(now - ChatMessageStore.QUOTE_ECHO_WINDOW_MS, now));
+        assertFalse(ChatMessageStore.wasRecentQuoteAt(now - EchoTracker.QUOTE_ECHO_WINDOW_MS, now));
     }
 
     @Test void quoteWindow_expiredFalse() {
         long now = System.currentTimeMillis();
-        assertFalse(ChatMessageStore.wasRecentQuoteAt(now - ChatMessageStore.QUOTE_ECHO_WINDOW_MS - 1, now));
+        assertFalse(ChatMessageStore.wasRecentQuoteAt(now - EchoTracker.QUOTE_ECHO_WINDOW_MS - 1, now));
     }
 
     @Test void quoteWindow_publicGetterAfterSetPendingReply() {
@@ -278,7 +282,7 @@ class ChatMessageStoreTest {
     }
 
     @Test void repostDedup_sameTextOutsideWindowNotDuplicate() {
-        assertFalse(ChatMessageStore.isRepostDuplicate("<A>[私聊] hi", 1000, "<A>[私聊] hi", 1000 + ChatMessageStore.REPOST_DEDUP_MS));
+        assertFalse(ChatMessageStore.isRepostDuplicate("<A>[私聊] hi", 1000, "<A>[私聊] hi", 1000 + EchoTracker.REPOST_DEDUP_MS));
     }
 
     @Test void repostDedup_firstRepostNeverDuplicate() {
@@ -544,51 +548,51 @@ class ChatMessageStoreTest {
     // ---- blocked players: exact-name match (case-insensitive, §-stripped) ----
 
     @Test void blocked_exactNameHits() {
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("Steve")));
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("Alex", "Steve", "Bob")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("Steve")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("Alex", "Steve", "Bob")));
     }
 
     @Test void blocked_caseInsensitiveHits() {
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("steve")));
-        assertTrue(ChatMessageStore.matchesBlocked("STEVE", List.of("Steve")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("steve")));
+        assertTrue(BlockList.matchesBlocked("STEVE", List.of("Steve")));
     }
 
     @Test void blocked_colorCodesHit() {
-        assertTrue(ChatMessageStore.matchesBlocked("§6Steve§r", List.of("Steve")));
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("§6Steve§r")));
+        assertTrue(BlockList.matchesBlocked("§6Steve§r", List.of("Steve")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("§6Steve§r")));
     }
 
     @Test void blocked_whitespaceTrimmed() {
-        assertTrue(ChatMessageStore.matchesBlocked("Steve", List.of("  Steve  ")));
-        assertTrue(ChatMessageStore.matchesBlocked("  Steve  ", List.of("Steve")));
+        assertTrue(BlockList.matchesBlocked("Steve", List.of("  Steve  ")));
+        assertTrue(BlockList.matchesBlocked("  Steve  ", List.of("Steve")));
     }
 
     @Test void blocked_substringMisses() {
-        assertFalse(ChatMessageStore.matchesBlocked("SteveAdmin", List.of("Steve")));
-        assertFalse(ChatMessageStore.matchesBlocked("Steve", List.of("Stev")));
+        assertFalse(BlockList.matchesBlocked("SteveAdmin", List.of("Steve")));
+        assertFalse(BlockList.matchesBlocked("Steve", List.of("Stev")));
     }
 
     @Test void blocked_emptyOrNullSafe() {
-        assertFalse(ChatMessageStore.matchesBlocked(null, List.of("Steve")));
-        assertFalse(ChatMessageStore.matchesBlocked("", List.of("Steve")));
-        assertFalse(ChatMessageStore.matchesBlocked("Steve", null));
-        assertFalse(ChatMessageStore.matchesBlocked("Steve", List.of()));
-        assertFalse(ChatMessageStore.matchesBlocked("Steve", List.of("  ")));
+        assertFalse(BlockList.matchesBlocked(null, List.of("Steve")));
+        assertFalse(BlockList.matchesBlocked("", List.of("Steve")));
+        assertFalse(BlockList.matchesBlocked("Steve", null));
+        assertFalse(BlockList.matchesBlocked("Steve", List.of()));
+        assertFalse(BlockList.matchesBlocked("Steve", List.of("  ")));
     }
 
     @Test void blocked_senderNameFallbackHits() {
         // Nickname plugins put the tab-list display name in senderName; exact match
         // on the full decorated string (list holds the display name as shown)
         var decorated = net.minecraft.text.Text.literal("[VIP]Steve");
-        assertTrue(ChatMessageStore.isPlayerBlocked(null, decorated, List.of("[VIP]Steve")));
-        assertTrue(ChatMessageStore.isPlayerBlocked("Alex", decorated, List.of("[vip]steve")));
+        assertTrue(BlockList.isPlayerBlocked(null, decorated, List.of("[VIP]Steve")));
+        assertTrue(BlockList.isPlayerBlocked("Alex", decorated, List.of("[vip]steve")));
         // Exact-name semantics: a bare profile name does NOT match a decorated display name
-        assertFalse(ChatMessageStore.isPlayerBlocked(null, decorated, List.of("Steve")));
+        assertFalse(BlockList.isPlayerBlocked(null, decorated, List.of("Steve")));
     }
 
     @Test void blocked_rawNamePrimaryKeyHits() {
-        assertTrue(ChatMessageStore.isPlayerBlocked("Steve", null, List.of("Steve")));
-        assertFalse(ChatMessageStore.isPlayerBlocked("Steve", null, List.of("Alex")));
+        assertTrue(BlockList.isPlayerBlocked("Steve", null, List.of("Steve")));
+        assertFalse(BlockList.isPlayerBlocked("Steve", null, List.of("Alex")));
     }
 
     @Test void blocked_purgeDropsSenderKeepsOwnAndSystem() throws Exception {
@@ -680,7 +684,7 @@ class ChatMessageStoreTest {
         var messagesField = ChatMessageStore.class.getDeclaredField("messages");
         messagesField.setAccessible(true);
         ((List<?>) messagesField.get(null)).clear();
-        var metasField = ChatMessageStore.class.getDeclaredField("pendingMetas");
+        var metasField = EchoTracker.class.getDeclaredField("pendingMetas");
         metasField.setAccessible(true);
         ((java.util.Map<?, ?>) metasField.get(null)).clear();
     }

@@ -97,69 +97,16 @@ public class ChatBubbleMod implements ModInitializer {
 
         ServerPlayNetworking.registerGlobalReceiver(MediaUploadPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
-            context.server().execute(() -> {
-                if (!mediaEnabled) {
-                    ServerPlayNetworking.send(player,
-                        new MediaUploadAckPayload(payload.uploadId(), null, "disabled"));
-                    return;
-                }
-                DiskMediaStore store = mediaStore(context.server());
-                String result;
-                if (payload.index() == 0) {
-                    if (!store.allowTransfer(player.getName().getString())) {
-                        ServerPlayNetworking.send(player,
-                            new MediaUploadAckPayload(payload.uploadId(), null, "rate limited"));
-                        return;
-                    }
-                    result = store.beginUpload(payload.uploadId(), player.getName().getString(),
-                        payload.totalChunks(), payload.totalBytes(), payload.contentType());
-                    if (result == null) {
-                        // Chunk 0 also carries data — feed it through acceptChunk so a
-                        // single-chunk upload completes (and acks) instead of hanging.
-                        result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
-                    }
-                } else {
-                    result = store.acceptChunk(payload.uploadId(), payload.index(), payload.chunk());
-                }
-                if (result == null) return; // upload still in progress
-                store.discardUpload(payload.uploadId());
-                if (DiskMediaStore.isValidMediaId(result)) {
-                    ServerPlayNetworking.send(player,
-                        new MediaUploadAckPayload(payload.uploadId(), result, null));
-                } else {
-                    ServerPlayNetworking.send(player,
-                        new MediaUploadAckPayload(payload.uploadId(), null, result));
-                }
-            });
+            context.server().execute(() -> com.niuqu.chatbubble.server.MediaService.handleUpload(
+                player, mediaStore(context.server()), mediaEnabled,
+                payload.uploadId(), payload.index(), payload.totalChunks(),
+                payload.totalBytes(), payload.contentType(), payload.chunk()));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(MediaRequestPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
-            context.server().execute(() -> {
-                String id = payload.mediaId();
-                DiskMediaStore store = mediaStore(context.server());
-                if (!store.allowTransfer(player.getName().getString())) {
-                    ServerPlayNetworking.send(player,
-                        new MediaResponsePayload(id, 0, 1, new byte[0]));
-                    return;
-                }
-                long size = store.sizeOf(id);
-                if (size < 0) {
-                    ServerPlayNetworking.send(player,
-                        new MediaResponsePayload(id, 0, 1, new byte[0]));
-                    return;
-                }
-                int total = DiskMediaStore.totalChunksFor(size);
-                for (int i = 0; i < total; i++) {
-                    byte[] chunk = store.readChunk(id, i, total);
-                    if (chunk == null) {
-                        ServerPlayNetworking.send(player,
-                            new MediaResponsePayload(id, 0, 1, new byte[0]));
-                        return;
-                    }
-                    ServerPlayNetworking.send(player, new MediaResponsePayload(id, i, total, chunk));
-                }
-            });
+            context.server().execute(() -> com.niuqu.chatbubble.server.MediaService.handleRequest(
+                player, mediaStore(context.server()), payload.mediaId()));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(QuoteSyncPayload.ID, (payload, context) -> {

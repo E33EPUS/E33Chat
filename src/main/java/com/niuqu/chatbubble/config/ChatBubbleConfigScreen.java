@@ -1,6 +1,11 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.config;
+import com.niuqu.chatbubble.ChatBubbleClientSetup;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
+import com.niuqu.chatbubble.store.ChatMessageStore;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
+import com.niuqu.chatbubble.render.AnimationStyle;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,22 +49,10 @@ public class ChatBubbleConfigScreen extends Screen {
     private int dividerX, optLabelX, inputX, previewX;
     private int selectedCat;
     private int selectedSub = -1;
-    private int scrollOffset;
-    private int treeScroll;
+    private final com.niuqu.chatbubble.render.SmoothScrollPane rightPane = new com.niuqu.chatbubble.render.SmoothScrollPane();
+    private final com.niuqu.chatbubble.render.SmoothScrollPane treePane = new com.niuqu.chatbubble.render.SmoothScrollPane();
     private final List<ClickableWidget> scrollWidgets = new ArrayList<>();
     private final boolean[] expanded = {true, true, true, true, true};
-    private float rAnimFrom, rAnimTo;
-    private long rAnimStart;
-    private int rAnimDur;
-    private boolean rAnimOn;
-    private boolean rBarDrag;
-    private int rBarDragY, rBarDragOff;
-    private float tAnimFrom, tAnimTo;
-    private long tAnimStart;
-    private int tAnimDur;
-    private boolean tAnimOn;
-    private boolean tBarDrag;
-    private int tBarDragY, tBarDragOff;
 
     // ---- mutable copies (loadFromConfig → widget edits → saveToConfig) ----
     private ChatBubbleTheme theme;
@@ -286,34 +279,16 @@ public class ChatBubbleConfigScreen extends Screen {
     private int tTotalH() { return calcTreeMaxScroll() + tTrackH(); }
 
     private void startR(float target, int dur) {
-        rAnimFrom = scrollOffset;
-        rAnimTo = MathHelper.clamp(target, 0, calcMaxScroll());
-        rAnimStart = Util.getMeasuringTimeMs();
-        rAnimDur = dur;
-        rAnimOn = true;
+        rightPane.animateTo(target, calcMaxScroll(), dur);
     }
 
     private void startT(float target, int dur) {
-        tAnimFrom = treeScroll;
-        tAnimTo = MathHelper.clamp(target, 0, calcTreeMaxScroll());
-        tAnimStart = Util.getMeasuringTimeMs();
-        tAnimDur = dur;
-        tAnimOn = true;
+        treePane.animateTo(target, calcTreeMaxScroll(), dur);
     }
 
     private void tickAnims() {
-        if (rAnimOn) {
-            float t = Animation.progress(rAnimStart, rAnimDur, false);
-            scrollOffset = Math.round(rAnimFrom + (rAnimTo - rAnimFrom) * t);
-            if (t >= 1.0f) { scrollOffset = Math.round(rAnimTo); rAnimOn = false; }
-        }
-        if (tAnimOn) {
-            float t = Animation.progress(tAnimStart, tAnimDur, false);
-            treeScroll = Math.round(tAnimFrom + (tAnimTo - tAnimFrom) * t);
-            if (t >= 1.0f) { treeScroll = Math.round(tAnimTo); tAnimOn = false; }
-        }
-        scrollOffset = MathHelper.clamp(scrollOffset, 0, calcMaxScroll());
-        treeScroll = MathHelper.clamp(treeScroll, 0, calcTreeMaxScroll());
+        rightPane.tick(calcMaxScroll());
+        treePane.tick(calcTreeMaxScroll());
         relayoutWidgets();
     }
 
@@ -335,7 +310,7 @@ public class ChatBubbleConfigScreen extends Screen {
     }
 
     private void relayoutWidgets() {
-        int y = viewTop() - scrollOffset;
+        int y = viewTop() - rightPane.offset();
         int wi = 0;
         for (Opt opt : visibleOpts()) {
             if (opt.isHeader()) { y += HEADER_H; continue; }
@@ -533,10 +508,10 @@ public class ChatBubbleConfigScreen extends Screen {
         previewX = width - 26;
         inputX = previewX - 8 - INPUT_W;
 
-        scrollOffset = MathHelper.clamp(scrollOffset, 0, calcMaxScroll());
-        treeScroll = MathHelper.clamp(treeScroll, 0, calcTreeMaxScroll());
+        rightPane.setOffset(MathHelper.clamp(rightPane.offset(), 0, calcMaxScroll()));
+        treePane.setOffset(MathHelper.clamp(treePane.offset(), 0, calcTreeMaxScroll()));
 
-        int y = viewTop() - scrollOffset;
+        int y = viewTop() - rightPane.offset();
         for (Opt opt : visibleOpts()) {
             if (opt.isHeader()) { y += HEADER_H; continue; }
             if (opt.multiFactory() != null) {
@@ -578,7 +553,7 @@ public class ChatBubbleConfigScreen extends Screen {
     }
 
     private void rebuild() {
-        scrollOffset = 0;
+        rightPane.setOffset(0);
         setFocused(null);
         clearChildren();
         init();
@@ -754,7 +729,7 @@ public class ChatBubbleConfigScreen extends Screen {
 
         // 左侧标签树
         g.enableScissor(CAT_X, START_Y, dividerX, viewBottom());
-        int ly = START_Y - treeScroll;
+        int ly = START_Y - treePane.offset();
         for (int i = 0; i < cats.size(); i++) {
             boolean sel = i == selectedCat;
             boolean hover = mouseX >= CAT_X && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + CAT_ROW_H;
@@ -787,7 +762,7 @@ public class ChatBubbleConfigScreen extends Screen {
             }
         }
         g.disableScissor();
-        drawBar(g, tTrackX(), START_Y, viewBottom(), tTotalH(), treeScroll, calcTreeMaxScroll(), mouseX, mouseY, tBarDrag);
+        drawBar(g, tTrackX(), START_Y, viewBottom(), tTotalH(), treePane.offset(), calcTreeMaxScroll(), mouseX, mouseY, treePane.dragging());
 
         g.drawTexture(com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER, ChatBubbleTheme.DARK),
             dividerX, START_Y - 6, 1, viewBottom() - (START_Y - 6), 0f, 0f, 16, 16, 16, 16);
@@ -795,7 +770,7 @@ public class ChatBubbleConfigScreen extends Screen {
         if (showPreview()) drawBubblePreview(g);
 
         g.enableScissor(optLabelX - 4, viewTop(), width, viewBottom());
-        int y = viewTop() - scrollOffset;
+        int y = viewTop() - rightPane.offset();
         for (Opt opt : visibleOpts()) {
             if (opt.isHeader()) {
                 Text label = Text.translatable(opt.key());
@@ -824,7 +799,7 @@ public class ChatBubbleConfigScreen extends Screen {
             y += ROW_H;
         }
         g.disableScissor();
-        drawBar(g, rTrackX(), viewTop(), viewBottom(), rTotalH(), scrollOffset, calcMaxScroll(), mouseX, mouseY, rBarDrag);
+        drawBar(g, rTrackX(), viewTop(), viewBottom(), rTotalH(), rightPane.offset(), calcMaxScroll(), mouseX, mouseY, rightPane.dragging());
 
         int changed = changeCount();
         doneBtn.visible = changed == 0;
@@ -900,24 +875,24 @@ public class ChatBubbleConfigScreen extends Screen {
         if (rMax > 0 && mouseX >= rTrackX() && mouseX < rTrackX() + w
                 && mouseY >= viewTop() && mouseY < viewBottom()) {
             int th = sbThumbH(rTrackH(), rTotalH());
-            int ty = sbThumbY(viewTop(), rTrackH(), th, scrollOffset, rMax);
-            if (mouseY < ty) startR(scrollOffset - rTrackH(), 120);
-            else if (mouseY > ty + th) startR(scrollOffset + rTrackH(), 120);
-            else { rBarDrag = true; rBarDragY = (int) mouseY; rBarDragOff = scrollOffset; }
+            int ty = sbThumbY(viewTop(), rTrackH(), th, rightPane.offset(), rMax);
+            if (mouseY < ty) startR(rightPane.offset() - rTrackH(), 120);
+            else if (mouseY > ty + th) startR(rightPane.offset() + rTrackH(), 120);
+            else rightPane.dragStart((int) mouseY, rightPane.offset());
             return true;
         }
         int tMax = calcTreeMaxScroll();
         if (tMax > 0 && mouseX >= tTrackX() && mouseX < tTrackX() + w
                 && mouseY >= START_Y && mouseY < viewBottom()) {
             int th = sbThumbH(tTrackH(), tTotalH());
-            int ty = sbThumbY(START_Y, tTrackH(), th, treeScroll, tMax);
-            if (mouseY < ty) startT(treeScroll - tTrackH(), 120);
-            else if (mouseY > ty + th) startT(treeScroll + tTrackH(), 120);
-            else { tBarDrag = true; tBarDragY = (int) mouseY; tBarDragOff = treeScroll; }
+            int ty = sbThumbY(START_Y, tTrackH(), th, treePane.offset(), tMax);
+            if (mouseY < ty) startT(treePane.offset() - tTrackH(), 120);
+            else if (mouseY > ty + th) startT(treePane.offset() + tTrackH(), 120);
+            else treePane.dragStart((int) mouseY, treePane.offset());
             return true;
         }
         if (button == 0) {
-            int ly = START_Y - treeScroll;
+            int ly = START_Y - treePane.offset();
             for (int i = 0; i < cats.size(); i++) {
                 if (mouseY >= ly && mouseY < ly + CAT_ROW_H && mouseX >= CAT_X && mouseX <= CAT_X + CAT_W) {
                     if (mouseX < CAT_X + 16) {
@@ -944,7 +919,7 @@ public class ChatBubbleConfigScreen extends Screen {
 
             int px = paletteX();
             if (mouseX >= px && mouseX < px + PALETTE_W) {
-                int y = viewTop() - scrollOffset;
+                int y = viewTop() - rightPane.offset();
                 int wi = 0;
                 for (Opt opt : visibleOpts()) {
                     if (opt.isHeader()) { y += HEADER_H; continue; }
@@ -974,30 +949,22 @@ public class ChatBubbleConfigScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mouseX < dividerX) {
             if (calcTreeMaxScroll() <= 0) return false;
-            startT(treeScroll - (float) (scrollY * 20), 120);
+            treePane.wheel(scrollY, calcTreeMaxScroll(), 120);
             return true;
         }
         if (calcMaxScroll() <= 0) return false;
-        startR(scrollOffset - (float) (scrollY * 20), 120);
+        rightPane.wheel(scrollY, calcMaxScroll(), 120);
         return true;
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
-        if (rBarDrag && calcMaxScroll() > 0) {
-            int travel = rTrackH() - sbThumbH(rTrackH(), rTotalH());
-            if (travel > 0) {
-                int d = (int) mouseY - rBarDragY;
-                startR(rBarDragOff + (float) d * calcMaxScroll() / travel, 80);
-            }
+        if (rightPane.dragging()) {
+            rightPane.dragTo((int) mouseY, rTrackH(), rTotalH(), calcMaxScroll(), 80);
             return true;
         }
-        if (tBarDrag && calcTreeMaxScroll() > 0) {
-            int travel = tTrackH() - sbThumbH(tTrackH(), tTotalH());
-            if (travel > 0) {
-                int d = (int) mouseY - tBarDragY;
-                startT(tBarDragOff + (float) d * calcTreeMaxScroll() / travel, 80);
-            }
+        if (treePane.dragging()) {
+            treePane.dragTo((int) mouseY, tTrackH(), tTotalH(), calcTreeMaxScroll(), 80);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dx, dy);
@@ -1005,8 +972,8 @@ public class ChatBubbleConfigScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        rBarDrag = false;
-        tBarDrag = false;
+        rightPane.dragEnd();
+        treePane.dragEnd();
         return super.mouseReleased(mouseX, mouseY, button);
     }
 

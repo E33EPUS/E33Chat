@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.mixin;
 
-import com.niuqu.chatbubble.BedScreen;
+import com.niuqu.chatbubble.ui.BedScreen;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
 import net.minecraft.client.MinecraftClient;

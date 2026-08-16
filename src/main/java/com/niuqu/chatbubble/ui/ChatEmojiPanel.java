@@ -1,4 +1,8 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.ui;
+import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
+import com.niuqu.chatbubble.ChatBubbleScreen;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -64,9 +68,9 @@ public class ChatEmojiPanel {
         "(∪.∪ )...zzz",
     };
 
-    boolean visible;
-    int scroll;
-    int tab;
+    public boolean visible;
+    public int scroll;
+    public int tab;
 
     public void render(DrawContext g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
@@ -101,7 +105,7 @@ public class ChatEmojiPanel {
             String label = tabLabels[t];
             g.drawText(font, label,
                 tx + tabW / 2 - font.getWidth(label) / 2, py + (TAB_H - font.fontHeight) / 2,
-                com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+                com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
             com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
@@ -112,7 +116,7 @@ public class ChatEmojiPanel {
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
             com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, cy, pw, py + PANEL_H - cy, alpha);
-        g.drawBorder(px, py, pw, PANEL_H, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        g.drawBorder(px, py, pw, PANEL_H, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         if (isKaomoji) {
             renderKaomojiList(g, mouseX, mouseY, font, c, px, cy, pw, ch, alpha);
@@ -158,7 +162,7 @@ public class ChatEmojiPanel {
                 else
                     g.drawText(font, "?", ex + EMOTE_SLOT / 2 - 3,
                         ey + (EMOTE_SLOT - font.fontHeight) / 2,
-                        com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
+                        com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
                 if (hover) {
                     com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
                         com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CLOSE_BG),
@@ -168,7 +172,7 @@ public class ChatEmojiPanel {
             } else {
                 g.drawText(font, "+", ex + EMOTE_SLOT / 2 - 3,
                     ey + (EMOTE_SLOT - font.fontHeight) / 2,
-                    com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+                    com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
             }
         }
         g.disableScissor();
@@ -199,7 +203,7 @@ public class ChatEmojiPanel {
             String emoji = EMOTES[i];
             g.drawText(font, emoji,
                 ex + SLOT / 2 - font.getWidth(emoji) / 2,
-                ey + (SLOT - font.fontHeight) / 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+                ey + (SLOT - font.fontHeight) / 2, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
         g.disableScissor();
     }
@@ -228,7 +232,7 @@ public class ChatEmojiPanel {
                     com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
                     ex, ey, kColW - 1, KAO_ITEM_H - 1, alpha);
             g.drawText(font, KAO[i],
-                ex + 2, ey + (KAO_ITEM_H - font.fontHeight) / 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+                ex + 2, ey + (KAO_ITEM_H - font.fontHeight) / 2, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
         g.disableScissor();
     }

@@ -4,16 +4,32 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
+import com.niuqu.chatbubble.compat.IMBlockerCompat;
+import com.niuqu.chatbubble.compat.NativeFileDialog;
+import com.niuqu.chatbubble.config.ChatBubbleConfigScreen;
+import com.niuqu.chatbubble.render.Animation;
+import com.niuqu.chatbubble.render.AnimationStyle;
+import com.niuqu.chatbubble.render.BlurRenderer;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
+import com.niuqu.chatbubble.render.UiLayout;
+import com.niuqu.chatbubble.store.BlockList;
+import com.niuqu.chatbubble.ui.EmoteStore;
 import com.niuqu.chatbubble.image.BracketCodec;
 import com.niuqu.chatbubble.image.ImageEntry;
 import com.niuqu.chatbubble.image.ImageLoader;
 import com.niuqu.chatbubble.image.ImageUploader;
-import com.niuqu.chatbubble.ChatBubbleTheme;
 import com.niuqu.chatbubble.image.LocalImageSource;
+import com.niuqu.chatbubble.render.Appearance;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
+import com.niuqu.chatbubble.store.ChatMessageStore;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.texture.UiElement;
 import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.ui.ChatEmojiPanel;
+import com.niuqu.chatbubble.ui.ChatQuickChatPanel;
+import com.niuqu.chatbubble.ui.ChatSearchPanel;
+import com.niuqu.chatbubble.ui.ChatSettingsMenu;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -52,7 +68,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int BUBBLE_PAD_Y = 4;
     private static final int NAME_H = 10;
     private static final int TIME_SEP_H = 14;
-    static final int BAR_H = 26;
+    public static final int BAR_H = 26;
     private static final int SIDEBAR_W = 90;
     private static final int SIDEBAR_ITEM_H = 22;
     private static final int SIDEBAR_ICON_S = 20;
@@ -69,7 +85,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int INPUT_H = 14;
     private static final int ICON_S = 14;
 
-    static Identifier iconTex(String name) {
+    public static Identifier iconTex(String name) {
         String theme = ChatBubbleClientSetup.config().theme().toLowerCase();
         return Identifier.of("e33chat", "textures/gui/" + theme + "/" + name + ".png");
     }
@@ -94,13 +110,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private boolean scrollToBottom = true;
     private boolean firstRender = true;
     private static String savedInput = "";
-    private static final java.util.Map<UUID, Identifier> skinCache = new java.util.LinkedHashMap<>(16, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(java.util.Map.Entry<UUID, Identifier> eldest) {
-            return size() > SKIN_CACHE_CAP;
-        }
-    };
-    private static final int SKIN_CACHE_CAP = 256;
+
 
     final ChatEmojiPanel emojiPanel = new ChatEmojiPanel();
     final ChatSettingsMenu settingsMenu = new ChatSettingsMenu();
@@ -168,25 +178,28 @@ public class ChatBubbleScreen extends ChatScreen {
     private int uploadToastTicks = 0;
     /** Upload-in-progress hint; set while a job is running, cleared on completion. */
     private int uploadBusyTicks = 0;
-    private static final int EMOTE_MAX_SIZE = 32;
-    private static final int MAX_UPLOAD_JOBS = 8;
 
-    /** One queued upload; when pendingText is set the send is completed
-     * automatically after the upload (draft semantics: the user
-     * hits enter once, the message goes out when the file is up). */
-    private static final class UploadJob {
-        final java.io.File file;      // file source (emote / drag)
-        final byte[] bytes;           // clipboard source when file == null
-        final String fileName;
-        final boolean emote;          // send [[E33Emote,url=...]] immediately
-        final String pendingText;     // non-null: replace its file:// CICode and send
-        UploadJob(java.io.File file, byte[] bytes, String fileName, boolean emote, String pendingText) {
-            this.file = file; this.bytes = bytes; this.fileName = fileName;
-            this.emote = emote; this.pendingText = pendingText;
-        }
-    }
-    private final java.util.ArrayDeque<UploadJob> uploadJobs = new java.util.ArrayDeque<>();
-    private boolean uploadRunning = false;
+    private final com.niuqu.chatbubble.image.UploadQueue uploadQueue =
+        new com.niuqu.chatbubble.image.UploadQueue(new com.niuqu.chatbubble.image.UploadQueue.Callbacks() {
+            @Override public void onBusyStart() { uploadBusyTicks = 60; }
+            @Override public void onIdle() { uploadBusyTicks = 0; }
+            @Override public void onFailure() { uploadToastTicks = 60; }
+            @Override public void onEmoteSent(String url) { sendMessageText(url); }
+            @Override public void onSendText(String text) { sendMessageText(text); }
+            @Override public void onInputImage(String code) {
+                String cur = chatField.getText();
+                if (cur.contains("[[CICode,url=file://")) {
+                    cur = cur.replaceFirst("\\[\\[CICode,url=file://[^]]*]]", code);
+                } else {
+                    cur = cur.isEmpty() ? code : cur + " " + code;
+                }
+                chatField.setText(cur);
+                chatField.setCursorToEnd(false);
+            }
+            @Override public void onRestoreInput(String text) { chatField.setText(text); }
+        });
+    private static final int EMOTE_MAX_SIZE = 32;
+
 
     private final List<int[]> bubbleRects = new ArrayList<>();
     private final List<ClickableSpan> clickableSpans = new ArrayList<>();
@@ -455,7 +468,7 @@ public class ChatBubbleScreen extends ChatScreen {
                         else if (hoverRow)
                             ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_HOVER), 0, scrollY, SIDEBAR_W, itemH, alpha);
 
-                        Identifier skin = getSkin(info.getProfile().getId(), info.getProfile().getName());
+                        Identifier skin = com.niuqu.chatbubble.render.SkinResolver.getSkin(info.getProfile().getId(), info.getProfile().getName());
                         drawPlayerHead(g, skin, 4, scrollY + 3, 16, 18, alpha);
 
                         int tipW = ChatMessageStore.hasUnreadWhisper(name) ? 16 : 0;
@@ -875,7 +888,7 @@ public class ChatBubbleScreen extends ChatScreen {
                         java.io.File f = new java.io.File(emojiText.substring(7));
                         if (f.isFile()) {
                             emojiPanel.visible = false;
-                            enqueueUpload(new UploadJob(f, null, null, true, null));
+                            uploadQueue.enqueue(new com.niuqu.chatbubble.image.UploadQueue.UploadJob(f, null, null, true, null));
                         }
                     } else if (emojiText.startsWith("@EMOTE_DEL:")) {
                         java.io.File f = new java.io.File(emojiText.substring(11));
@@ -1078,7 +1091,7 @@ public class ChatBubbleScreen extends ChatScreen {
             String l = p.getFileName().toString().toLowerCase();
             if (l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg")
                     || l.endsWith(".gif") || l.endsWith(".bmp")) {
-                enqueueUpload(new UploadJob(p.toFile(), null, null, false, null));
+                uploadQueue.enqueue(new com.niuqu.chatbubble.image.UploadQueue.UploadJob(p.toFile(), null, null, false, null));
                 // The OS drop can steal window focus; give it back to the chat input
                 // so typing keeps working right after a drag.
                 client.execute(() -> setFocused(chatField));
@@ -1099,7 +1112,7 @@ public class ChatBubbleScreen extends ChatScreen {
         ImageLoader.executor().execute(() -> {
             LocalImageSource.PreparedImage prep = readClipboard();
             if (prep == null) return; // no image in clipboard — let vanilla paste text
-            client.execute(() -> enqueueUpload(new UploadJob(null, prep.bytes(), "clipboard", false, null)));
+            client.execute(() -> uploadQueue.enqueue(new com.niuqu.chatbubble.image.UploadQueue.UploadJob(null, prep.bytes(), "clipboard", false, null)));
         });
     }
 
@@ -1111,106 +1124,13 @@ public class ChatBubbleScreen extends ChatScreen {
         }
     }
 
-    private boolean enqueueUpload(UploadJob job) {
-        if (uploadJobs.size() >= MAX_UPLOAD_JOBS) return false;
-        uploadJobs.addLast(job);
-        drainUploads();
-        return true;
-    }
+
 
     /** Runs queued uploads one at a time; the completion callback in
      * finishUpload calls this again for the next job. */
-    private void drainUploads() {
-        if (uploadRunning) return;
-        UploadJob job = uploadJobs.pollFirst();
-        if (job == null) return;
-        uploadRunning = true;
-        uploadBusyTicks = 60;
-        ImageLoader.executor().execute(() -> {
-            try {
-                com.mojang.logging.LogUtils.getLogger().info(
-                    "[e33chat] upload start | file={} | emote={} | serverEnabled={}",
-                    job.file != null ? job.file.getName() : job.fileName, job.emote,
-                    com.niuqu.chatbubble.image.MediaClient.serverEnabled());
-                LocalImageSource.PreparedImage prep;
-                if (job.file != null) {
-                    prep = LocalImageSource.fromFile(job.file);
-                } else {
-                    prep = new LocalImageSource.PreparedImage(job.bytes, job.fileName);
-                }
-                if (prep == null) {
-                    client.execute(() -> {
-                        uploadRunning = false;
-                        uploadBusyTicks = 0;
-                        uploadToastTicks = 60;
-                        if (job.pendingText != null) chatField.setText(job.pendingText);
-                        drainUploads();
-                    });
-                    return;
-                }
-                finishUpload(job, prep);
-            } catch (Throwable t) {
-                // Never let a worker crash leak into the queue: reset the latch so
-                // queued jobs keep draining and the failure is visible.
-                com.mojang.logging.LogUtils.getLogger().error("[e33chat] upload worker crashed", t);
-                client.execute(() -> {
-                    uploadRunning = false;
-                    uploadBusyTicks = 0;
-                    uploadToastTicks = 60;
-                    if (job.pendingText != null) chatField.setText(job.pendingText);
-                    drainUploads();
-                });
-            }
-        });
-    }
 
-    private void finishUpload(UploadJob job, LocalImageSource.PreparedImage prep) {
-        com.niuqu.chatbubble.config.ChatBubbleConfig cfg = ChatBubbleClientSetup.config();
-        String serverUrl = com.niuqu.chatbubble.image.MediaClient.serverEnabled()
-            ? com.niuqu.chatbubble.image.MediaClient.upload(prep.bytes(), "image/png")
-            : null;
-        // Server hosting unavailable (not installed / disabled / failed) — fall back to third-party
-        final String url = serverUrl != null
-            ? serverUrl
-            : ImageUploader.upload(prep.bytes(), prep.fileName(),
-                cfg.uploadUrl(), cfg.uploadField(), cfg.uploadExtra(), cfg.uploadResponse());
-        com.mojang.logging.LogUtils.getLogger().info("[e33chat] upload {} -> {}", prep.fileName(), url == null ? "FAILED" : url);
-        client.execute(() -> {
-            uploadRunning = false;
-            uploadBusyTicks = 0;
-            if (url == null) {
-                uploadToastTicks = 60;
-                // Failed send: restore the draft so the user sees what did not
-                // go out (failed drafts are kept around for retry).
-                if (job.pendingText != null) chatField.setText(job.pendingText);
-                drainUploads();
-                return;
-            }
-            if (job.emote) {
-                // Emote click = send immediately as a bubble-less emote message.
-                sendMessageText("[[E33Emote,url=" + url + "]]");
-            } else if (job.pendingText != null) {
-                // Enter was pressed on a file:// CICode: finish the send now —
-                // one enter, no second press, no lost message.
-                String finalText = job.pendingText.replaceFirst(
-                    "\\[\\[CICode,url=file://[^]]*]]", "[[CICode,url=" + url + "]]");
-                sendMessageText(finalText);
-            } else {
-                String code = "[[CICode,url=" + url + "]]";
-                String cur = chatField.getText();
-                if (cur.contains("[[CICode,url=file://")) {
-                    // Replace the local file:// CICode (chatimage drag/paste) with
-                    // the real upload URL instead of appending a second link.
-                    cur = cur.replaceFirst("\\[\\[CICode,url=file://[^]]*]]", code);
-                } else {
-                    cur = cur.isEmpty() ? code : cur + " " + code;
-                }
-                chatField.setText(cur);
-                chatField.setCursorToEnd(false);
-            }
-            drainUploads();
-        });
-    }
+
+
 
     private void handleContextClick(int mx, int my) {
         int menuH = CTX_ITEM_H * 2 + 2;
@@ -1263,7 +1183,7 @@ public class ChatBubbleScreen extends ChatScreen {
         final String target = name;
 
         List<String> blocked = new ArrayList<>(ChatBubbleClientSetup.config().blockedPlayers());
-        boolean nowBlocked = ChatMessageStore.isPlayerBlocked(
+        boolean nowBlocked = BlockList.isPlayerBlocked(
             msg.rawPlayerName(), msg.senderName(), blocked);
         if (nowBlocked) {
             blocked.removeIf(b -> b != null && b.trim().equalsIgnoreCase(target));
@@ -1828,7 +1748,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
-        Identifier skin = getSkin(msg.senderUUID(), skinName);
+        Identifier skin = com.niuqu.chatbubble.render.SkinResolver.getSkin(msg.senderUUID(), skinName);
         drawPlayerHead(g, skin, avatarX, avatarY, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
 
         if (msg.duplicateCount() > 1) {
@@ -1886,7 +1806,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), false);
         }
 
-        Identifier skin = getSkin(msg.senderUUID(), msg.rawPlayerName());
+        Identifier skin = com.niuqu.chatbubble.render.SkinResolver.getSkin(msg.senderUUID(), msg.rawPlayerName());
         drawPlayerHead(g, skin, avatarX, baseY, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
 
         int maxTextW = 0;
@@ -1996,7 +1916,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), false);
         }
 
-        Identifier skin = getSkin(msg.senderUUID(), msg.rawPlayerName());
+        Identifier skin = com.niuqu.chatbubble.render.SkinResolver.getSkin(msg.senderUUID(), msg.rawPlayerName());
         drawPlayerHead(g, skin, avatarX, baseY, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
 
         int emoteY = baseY + NAME_H + 2;
@@ -2212,7 +2132,7 @@ public class ChatBubbleScreen extends ChatScreen {
         drawTextureIconAlpha(g, iconTex("block"), menuX + 5, menuY + CTX_ITEM_H * 2 + 6, 12, alpha);
         ChatMessageStore.ChatMessage avaMsg = ChatMessageStore.getMessageAt(contextAvatarIndex);
         boolean isBlocked = avaMsg != null
-            && ChatMessageStore.isPlayerBlocked(avaMsg.rawPlayerName(), avaMsg.senderName(),
+            && BlockList.isPlayerBlocked(avaMsg.rawPlayerName(), avaMsg.senderName(),
                 ChatBubbleClientSetup.config().blockedPlayers());
         g.drawText(textRenderer, Text.translatable(isBlocked ? "e33chat.context.unblock" : "e33chat.context.block").getString(),
             menuX + 22, menuY + CTX_ITEM_H * 2 + 8, c().textPrimary(), false);
@@ -2429,37 +2349,13 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     /** 带透明度图标的绘制：与 drawTextureIcon 同采样语义，但走带 alpha 的渲染路径（弹层淡入用）。 */
-    static void drawTextureIconAlpha(DrawContext g, Identifier tex, int x, int y, int size, float alpha) {
+    public static void drawTextureIconAlpha(DrawContext g, Identifier tex, int x, int y, int size, float alpha) {
         if (alpha <= 0.003f) return;
         if (size < 16) {
             ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 1f, 1f, 14, 14, 16, 16, alpha);
         } else {
             ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, size, size, 0f, 0f, size, size, size, size, alpha);
         }
-    }
-
-    private static final UUID NIL_UUID = new UUID(0, 0);
-    // Name-keyed skin cache: an offline player seen in chat history keeps the
-    // real head when the UUID lookup fails (cracked servers, uuid dropped in
-    // old history files). Key is the §-stripped lowercase name.
-    private static final java.util.Map<String, Identifier> skinNameCache = new java.util.LinkedHashMap<>(16, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(java.util.Map.Entry<String, Identifier> eldest) {
-            return size() > SKIN_CACHE_CAP;
-        }
-    };
-
-    private static String skinNameKey(String name) {
-        if (name == null) return null;
-        String key = name.replaceAll("§.", "").trim().toLowerCase(java.util.Locale.ROOT);
-        return key.isEmpty() ? null : key;
-    }
-
-    private void rememberSkin(UUID uuid, String name, Identifier tex) {
-        if (tex == null) return;
-        if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, tex);
-        String key = skinNameKey(name);
-        if (key != null) skinNameCache.put(key, tex);
     }
 
     private void drawPlayerHead(DrawContext g, Identifier skin, int x, int y, int baseSize, int hatSize, float alpha) {
@@ -2469,47 +2365,9 @@ public class ChatBubbleScreen extends ChatScreen {
         ColoredTextureRenderer.drawWithAlpha(g, skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64, alpha);
     }
 
-    private Identifier getSkin(UUID uuid, String name) {
-        // Online players: read PlayerInfo fresh every frame — caching the first result
-        // (default Steve/Alex while async download is in progress) would freeze the head
-        // forever even after the real skin loaded. CSL intercepts the underlying lookup.
-        if (client.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
-            PlayerListEntry info = client.getNetworkHandler().getPlayerListEntry(uuid);
-            if (info != null) {
-                Identifier tex = info.getSkinTextures().texture();
-                rememberSkin(uuid, name, tex);
-                return tex;
-            }
-        }
-        // Offline player / history mention: route through SkinProvider with a name-bearing
-        // GameProfile so CSL can match offline names to imported skins. Cache this result.
-        if (uuid != null && !uuid.equals(NIL_UUID)) {
-            Identifier cached = skinCache.get(uuid);
-            if (cached != null) return cached;
-        }
-        String nameKey = skinNameKey(name);
-        if (nameKey != null) {
-            Identifier cachedByName = skinNameCache.get(nameKey);
-            if (cachedByName != null) return cachedByName;
-        }
-        Identifier resolved = resolveSkin(uuid, name);
-        rememberSkin(uuid, name, resolved);
-        return resolved;
-    }
 
-    private Identifier resolveSkin(UUID uuid, String name) {
-        // Route through PlayerSkinProvider with a name-bearing GameProfile so CSL
-        // can match offline players to imported skins. getSkinTextures(GameProfile)
-        // is the Yarn equivalent of Mojang's SkinManager.getInsecureSkin().
-        if (name != null && !name.isEmpty()) {
-            try {
-                GameProfile profile = new GameProfile(
-                    uuid != null && !uuid.equals(NIL_UUID) ? uuid : NIL_UUID, name);
-                return client.getSkinProvider().getSkinTextures(profile).texture();
-            } catch (Exception ignored) {}
-        }
-        return DefaultSkinHelper.getTexture();
-    }
+
+
 
     private void jumpToMessage(int msgIndex) {
         var msgs = ChatMessageStore.getMessages();
@@ -2618,11 +2476,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 sendMessageText(raw);
                 return;
             }
-            if (enqueueUpload(new UploadJob(new java.io.File(localPath), null, null, false, raw))) {
+            if (uploadQueue.enqueue(new com.niuqu.chatbubble.image.UploadQueue.UploadJob(new java.io.File(localPath), null, null, false, raw))) {
                 chatField.setText("");
                 savedInput = "";
                 client.player.sendMessage(Text.translatable("e33chat.upload.wait"), false);
-                ChatMessageStore.debugLog("[e33chat] upload block | queued=" + uploadJobs.size() + " | raw=" + raw);
+                ChatMessageStore.debugLog("[e33chat] upload block | queued=" + uploadQueue.pending() + " | raw=" + raw);
             } else {
                 client.player.sendMessage(Text.translatable("e33chat.upload.queue_full"), false);
             }

@@ -1,9 +1,11 @@
 package com.niuqu.chatbubble.mixin;
+import com.niuqu.chatbubble.store.EchoTracker;
+import com.niuqu.chatbubble.store.BlockList;
 
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
-import com.niuqu.chatbubble.ChatMessageStore;
-import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
+import com.niuqu.chatbubble.store.ChatMessageStore;
+import com.niuqu.chatbubble.store.ChatMessageStore.SenderMeta;
 import com.niuqu.chatbubble.image.BracketCodec;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -156,7 +158,7 @@ public class ChatComponentMixin {
         // banner/sound (addMessage below never runs). Checked before the echo and
         // whisper-repost branches so a blocked player's whisper can't resurface
         // as a [私聊] rewrite.
-        if (ChatMessageStore.isPlayerBlocked(meta.rawPlayerName(), meta.senderName(),
+        if (BlockList.isPlayerBlocked(meta.rawPlayerName(), meta.senderName(),
                 ChatBubbleClientSetup.config().blockedPlayers())) {
             final String blockedName = meta.senderName().getString();
             ci.cancel();
@@ -169,7 +171,7 @@ public class ChatComponentMixin {
         // (quote replies travel as plain chat, so the echo's quoted flag is their
         // only rewrite signal). meta is trusted here (freshly consumed) and carries
         // the server-decorated name + content, e.g. "[称号]E33EPUS" / "1234533425".
-        ChatMessageStore.EchoMatch echo = ChatMessageStore.consumeEchoIfSenderMatches(meta.senderUUID(), meta.senderName(), text);
+        EchoTracker.EchoMatch echo = ChatMessageStore.consumeEchoIfSenderMatches(meta.senderUUID(), meta.senderName(), text);
         if (echo.matched()) {
             if (meta.whisper() || echo.quoted()) {
                 ci.cancel();

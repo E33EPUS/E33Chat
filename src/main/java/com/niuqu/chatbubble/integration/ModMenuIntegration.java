@@ -1,6 +1,6 @@
 package com.niuqu.chatbubble.integration;
 
-import com.niuqu.chatbubble.ChatBubbleConfigScreen;
+import com.niuqu.chatbubble.config.ChatBubbleConfigScreen;
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
 

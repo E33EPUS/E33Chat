@@ -2,12 +2,12 @@ package com.niuqu.chatbubble.chat.notification;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.niuqu.chatbubble.Animation;
-import com.niuqu.chatbubble.AnimationStyle;
-import com.niuqu.chatbubble.Appearance;
+import com.niuqu.chatbubble.render.Animation;
+import com.niuqu.chatbubble.render.AnimationStyle;
+import com.niuqu.chatbubble.render.Appearance;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
-import com.niuqu.chatbubble.ChatMessageStore;
-import com.niuqu.chatbubble.RoundRectRenderer;
+import com.niuqu.chatbubble.store.ChatMessageStore;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;

@@ -1,4 +1,8 @@
-package com.niuqu.chatbubble;
+package com.niuqu.chatbubble.ui;
+import com.niuqu.chatbubble.texture.UiTextureManager;
+import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
+import com.niuqu.chatbubble.render.ChatBubbleTheme;
+import com.niuqu.chatbubble.ChatBubbleScreen;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -12,7 +16,7 @@ public class ChatSettingsMenu {
     private static final int ROW_H = 18;
     private static final int COUNT = 4;
 
-    boolean visible;
+    public boolean visible;
 
     public void render(DrawContext g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
@@ -28,7 +32,7 @@ public class ChatSettingsMenu {
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
             com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, py, W, menuH, alpha);
-        g.drawBorder(px, py, W, menuH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        g.drawBorder(px, py, W, menuH, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         Identifier[] icons = {
             iconTex.apply("search"), iconTex.apply("quick_chat"),
@@ -51,7 +55,7 @@ public class ChatSettingsMenu {
             ChatBubbleScreen.drawTextureIconAlpha(g, icons[i], px + 3, ry + 2, 14, alpha);
             int maxTextW = W - 22;
             String label = font.trimToWidth(labels[i], maxTextW);
-            g.drawText(font, label, px + 20, ry + 4, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+            g.drawText(font, label, px + 20, ry + 4, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
     }
 
