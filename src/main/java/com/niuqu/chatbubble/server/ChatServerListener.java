@@ -129,16 +129,22 @@ public class ChatServerListener {
         var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
         if (server == null || server.getPlayerList() == null) return;
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-            NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> p),
-                new ConfigSyncPacket(ChatServerConfig.USE_TPA.get()));
-            NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> p),
-                new ConfigSyncV2Packet(ChatServerConfig.USE_TPA.get(),
-                    new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
-                    new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get()),
-                    ChatServerConfig.TEMPLATE_DEBUG.get()));
-            NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> p),
-                new com.niuqu.chatbubble.packets.MediaCapPacket(ChatServerConfig.MEDIA_ENABLED.get()));
+            sendServerConfigTriple(PacketDistributor.PLAYER.with(() -> p));
         }
+    }
+
+    // id3(use_tpa) + id4(templates) + id9(media) 三包组合：broadcast 与 onPlayerLogin 共用。
+    // media 是独立能力 id——旧客户端安全丢未知 id，mediaEnabled 不会在混版本时 desync。
+    private static void sendServerConfigTriple(PacketDistributor.PacketTarget target) {
+        NetworkHandler.CHANNEL.send(target,
+            new ConfigSyncPacket(ChatServerConfig.USE_TPA.get()));
+        NetworkHandler.CHANNEL.send(target,
+            new ConfigSyncV2Packet(ChatServerConfig.USE_TPA.get(),
+                new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
+                new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get()),
+                ChatServerConfig.TEMPLATE_DEBUG.get()));
+        NetworkHandler.CHANNEL.send(target,
+            new com.niuqu.chatbubble.packets.MediaCapPacket(ChatServerConfig.MEDIA_ENABLED.get()));
     }
 
     @SubscribeEvent
@@ -146,20 +152,7 @@ public class ChatServerListener {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
         // Always sync server-side settings so the client head menu matches the server
-        NetworkHandler.CHANNEL.send(
-            PacketDistributor.PLAYER.with(() -> player),
-            new ConfigSyncPacket(ChatServerConfig.USE_TPA.get()));
-        NetworkHandler.CHANNEL.send(
-            PacketDistributor.PLAYER.with(() -> player),
-            new ConfigSyncV2Packet(ChatServerConfig.USE_TPA.get(),
-                new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
-                new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get()),
-                ChatServerConfig.TEMPLATE_DEBUG.get()));
-        // Separate capability id: old clients drop unknown ids harmlessly, so
-        // mediaEnabled never desyncs mixed client/server versions.
-        NetworkHandler.CHANNEL.send(
-            PacketDistributor.PLAYER.with(() -> player),
-            new com.niuqu.chatbubble.packets.MediaCapPacket(ChatServerConfig.MEDIA_ENABLED.get()));
+        sendServerConfigTriple(PacketDistributor.PLAYER.with(() -> player));
 
         if (!ChatServerConfig.HISTORY_ENABLED.get()) return;
         if (historyBuffer.isEmpty()) return;

@@ -27,6 +27,8 @@ public class ChatBubbleClientSetup {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(RoundRectRenderer::registerShaders);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ChatBubbleClientSetup::registerReloadListener);
         MinecraftForge.EVENT_BUS.register(new ChatBubbleClientListener());
+        com.niuqu.chatbubble.store.ChatMessageStore.setMessageEffectObserver(
+            new com.niuqu.chatbubble.chat.notification.ChatMessageEffects());
     }
 
     private static void registerReloadListener(RegisterClientReloadListenersEvent event) {

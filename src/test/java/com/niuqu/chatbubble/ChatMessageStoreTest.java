@@ -684,6 +684,25 @@ class ChatMessageStoreTest {
         assertEquals("A的话", merged.replyContent(), "re-quoted follow-up keeps the quote block");
     }
 
+    // ---- B4: 通知/声音副作用经观察者委托（store 不再直接调 Minecraft/controller）----
+
+    @Test void effectObserver_systemBannerDelegatedToRegisteredObserver() throws Exception {
+        clearMessagesAndMetas();
+        final int[] calls = {0};
+        ChatMessageStore.setMessageEffectObserver(new ChatMessageStore.MessageEffectObserver() {
+            @Override public void onSystemMessage(net.minecraft.network.chat.Component content, int index) { calls[0]++; }
+            @Override public void onMentionOrQuote(net.minecraft.network.chat.Component content, ChatMessageStore.SenderMeta meta, int index, String replySender) {}
+            @Override public void onWhisperReceived(java.util.UUID senderUUID, net.minecraft.network.chat.Component senderName, net.minecraft.network.chat.Component content, int index) {}
+            @Override public void onPublicChatSound() {}
+            @Override public void onQuoteSound() {}
+        });
+        ChatMessageStore.addMessage(net.minecraft.network.chat.Component.literal("死亡消息"),
+            new java.util.UUID(0, 0), net.minecraft.network.chat.Component.literal("系统"),
+            true, "系统", false, null, false);
+        assertEquals(1, calls[0], "system banner enabled (default) must delegate to the observer");
+        ChatMessageStore.setMessageEffectObserver(null);
+    }
+
     private static void clearMessagesAndMetas() throws Exception {
         var messagesField = ChatMessageStore.class.getDeclaredField("messages");
         messagesField.setAccessible(true);

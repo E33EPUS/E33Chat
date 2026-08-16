@@ -19,41 +19,23 @@ import java.util.function.Supplier;
  * every template, persists to the toml, and rebroadcasts to all players.
  */
 public class ServerConfigSavePacket {
-    private final boolean useTpa;
-    private final boolean historyEnabled;
-    private final boolean templateDebug;
-    private final boolean mediaEnabled;
-    private final List<String> chatTemplates;
-    private final List<String> whisperTemplates;
+    private final ServerConfigDto dto;
 
     public ServerConfigSavePacket(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                                   boolean mediaEnabled,
                                   List<String> chatTemplates, List<String> whisperTemplates) {
-        this.useTpa = useTpa;
-        this.historyEnabled = historyEnabled;
-        this.templateDebug = templateDebug;
-        this.mediaEnabled = mediaEnabled;
-        this.chatTemplates = chatTemplates;
-        this.whisperTemplates = whisperTemplates;
+        this.dto = new ServerConfigDto(useTpa, historyEnabled, templateDebug, mediaEnabled,
+            chatTemplates, whisperTemplates);
     }
 
     public static void encode(ServerConfigSavePacket packet, FriendlyByteBuf buf) {
-        buf.writeBoolean(packet.useTpa);
-        buf.writeBoolean(packet.historyEnabled);
-        buf.writeBoolean(packet.templateDebug);
-        buf.writeBoolean(packet.mediaEnabled);
-        buf.writeCollection(packet.chatTemplates, FriendlyByteBuf::writeUtf);
-        buf.writeCollection(packet.whisperTemplates, FriendlyByteBuf::writeUtf);
+        ServerConfigDto.encode(packet.dto, buf);
     }
 
     public static ServerConfigSavePacket decode(FriendlyByteBuf buf) {
-        boolean useTpa = buf.readBoolean();
-        boolean history = buf.readBoolean();
-        boolean debug = buf.readBoolean();
-        boolean media = buf.readBoolean();
-        List<String> chat = new ArrayList<>(buf.readCollection(ArrayList::new, FriendlyByteBuf::readUtf));
-        List<String> whisper = new ArrayList<>(buf.readCollection(ArrayList::new, FriendlyByteBuf::readUtf));
-        return new ServerConfigSavePacket(useTpa, history, debug, media, chat, whisper);
+        ServerConfigDto d = ServerConfigDto.decode(buf);
+        return new ServerConfigSavePacket(d.useTpa(), d.historyEnabled(), d.templateDebug(),
+            d.mediaEnabled(), d.chatTemplates(), d.whisperTemplates());
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
@@ -65,24 +47,24 @@ public class ServerConfigSavePacket {
                     .withStyle(ChatFormatting.RED));
                 return;
             }
-            Component error = validateTemplates(true, chatTemplates);
-            if (error == null) error = validateTemplates(false, whisperTemplates);
+            Component error = validateTemplates(true, dto.chatTemplates());
+            if (error == null) error = validateTemplates(false, dto.whisperTemplates());
             if (error != null) {
                 player.sendSystemMessage(Component.translatable("e33chat.server.save_failed", error)
                     .withStyle(ChatFormatting.RED));
                 return;
             }
-            ChatServerConfig.USE_TPA.set(useTpa);
+            ChatServerConfig.USE_TPA.set(dto.useTpa());
             ChatServerConfig.USE_TPA.clearCache();
-            ChatServerConfig.HISTORY_ENABLED.set(historyEnabled);
+            ChatServerConfig.HISTORY_ENABLED.set(dto.historyEnabled());
             ChatServerConfig.HISTORY_ENABLED.clearCache();
-            ChatServerConfig.CHAT_TEMPLATES.set(new ArrayList<>(chatTemplates));
+            ChatServerConfig.CHAT_TEMPLATES.set(new ArrayList<>(dto.chatTemplates()));
             ChatServerConfig.CHAT_TEMPLATES.clearCache();
-            ChatServerConfig.WHISPER_TEMPLATES.set(new ArrayList<>(whisperTemplates));
+            ChatServerConfig.WHISPER_TEMPLATES.set(new ArrayList<>(dto.whisperTemplates()));
             ChatServerConfig.WHISPER_TEMPLATES.clearCache();
-            ChatServerConfig.TEMPLATE_DEBUG.set(templateDebug);
+            ChatServerConfig.TEMPLATE_DEBUG.set(dto.templateDebug());
             ChatServerConfig.TEMPLATE_DEBUG.clearCache();
-            ChatServerConfig.MEDIA_ENABLED.set(mediaEnabled);
+            ChatServerConfig.MEDIA_ENABLED.set(dto.mediaEnabled());
             ChatServerConfig.MEDIA_ENABLED.clearCache();
             ChatBubbleMod.saveServerConfig();
             ChatServerListener.broadcastServerConfig();
