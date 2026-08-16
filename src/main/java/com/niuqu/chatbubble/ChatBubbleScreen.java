@@ -183,7 +183,7 @@ public class ChatBubbleScreen extends ChatScreen {
         new com.niuqu.chatbubble.image.UploadQueue(new com.niuqu.chatbubble.image.UploadQueue.Callbacks() {
             @Override public void onBusyStart() { uploadBusyTicks = 60; }
             @Override public void onIdle() { uploadBusyTicks = 0; }
-            @Override public void onFailure() { uploadToastTicks = 60; }
+            @Override public void onFailure() { uploadBusyTicks = 0; uploadToastTicks = 60; }
             @Override public void onEmoteSent(String url) { sendMessageText(url); }
             @Override public void onSendText(String text) { sendMessageText(text); }
             @Override public void onInputImage(String code) {

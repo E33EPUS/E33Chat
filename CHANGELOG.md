@@ -10,6 +10,7 @@
 - 行为修复：英文私聊词回显抑制 `\b` 退格符 bug；配置屏退出回滚缺口（banner_offset 不回滚 / upload_* 误计）
 - 测试：网络包 round-trip 15 例 + WhisperSignal 3 例首次守护包格式；Forge 302 / NeoForge 302 / Fabric 276 全绿
 - 兼容性：配置键 / 网络包 / 文件格式 / mixin 注入点零改动
+- **Fabric 补发**：上传失败时清空忙碌提示（uploadBusyTicks），修复同步 UploadQueue 时漏清导致的“上传中”卡住
 
 **Pure-structure refactor (zero behavior change, all loaders: Fabric / Forge / NeoForge)**
 - Domain packages: ui / compat / render / network / server / config / store (13 subpackages); only entry classes remain at the root
@@ -19,6 +20,7 @@
 - Behavior fixes: English whisper-echo suppression `\b` backspace bug; config-screen exit rollback gap (banner_offset not rolled back / upload_* false positive)
 - Tests: packet round-trip (15) + WhisperSignal (3) now guard the wire format; Forge 302 / NeoForge 302 / Fabric 276 green
 - Compatibility: config keys / packet wire format / file formats / mixin injection points unchanged
+- **Fabric hotfix**: upload failure now clears the busy indicator (uploadBusyTicks); fixes a stuck "uploading" hint introduced by the UploadQueue sync
 
 
 ## v2.3.13
