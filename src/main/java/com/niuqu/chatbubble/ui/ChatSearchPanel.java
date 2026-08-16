@@ -9,6 +9,8 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
 import java.util.List;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
+import com.niuqu.chatbubble.render.UiTokens;
 
 public class ChatSearchPanel {
     static final int PANEL_W = 180;
@@ -42,10 +44,8 @@ public class ChatSearchPanel {
         int px = clampX(panelX + panelW / 2 - w / 2, w, panelX, panelW);
         int py = barTop - PANEL_H - 4;
 
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, py, w, PANEL_H, alpha);
-        g.drawBorder(px, py, w, PANEL_H, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        // SDF 圆角弹层背景（D1）
+        RoundRectRenderer.fillPanel(g, px, py, w, PANEL_H, UiTokens.RADIUS_MEDIUM, c.divider(), c.titleBg(), alpha);
 
         int inputX = px + 4;
         int inputY = py + 4;

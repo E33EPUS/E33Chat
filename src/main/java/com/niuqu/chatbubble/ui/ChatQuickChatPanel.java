@@ -13,6 +13,8 @@ import net.minecraft.util.math.MathHelper;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
+import com.niuqu.chatbubble.render.UiTokens;
 
 public class ChatQuickChatPanel {
     private static final int W = 140;
@@ -21,6 +23,14 @@ public class ChatQuickChatPanel {
 
     public boolean visible;
     public int scrollOffset;
+
+    /** Screen 注入的关闭请求钩子（播放关闭动画，含输入框隐藏）；null 时直接隐藏（D07-6）。 */
+    public Runnable closeRequest;
+
+    private void requestClose() {
+        if (closeRequest != null) closeRequest.run();
+        else visible = false;
+    }
 
     public void render(DrawContext g, int mouseX, int mouseY,
             TextRenderer font, ChatBubbleTheme.Colors c,
@@ -39,10 +49,8 @@ public class ChatQuickChatPanel {
         int px = MathHelper.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
 
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, py, W, panelH, alpha);
-        g.drawBorder(px, py, W, panelH, com.niuqu.chatbubble.render.ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        // SDF 圆角弹层背景（D1）
+        RoundRectRenderer.fillPanel(g, px, py, W, panelH, UiTokens.RADIUS_MEDIUM, c.divider(), c.titleBg(), alpha);
 
         int totalPhrases = phrases.size();
         int phraseAreaRight = px + W - 4;
@@ -145,8 +153,7 @@ public class ChatQuickChatPanel {
         int py = barTop - panelH - 4;
 
         if (mx < px || mx > px + W || my < py || my > py + panelH) {
-            visible = false;
-            input.setVisible(false);
+            requestClose();
             return -1;
         }
 
@@ -167,8 +174,7 @@ public class ChatQuickChatPanel {
             }
             if (mx >= px + 4 && mx <= hoverRight
                 && my >= rowY && my <= rowY + ROW_H) {
-                visible = false;
-                input.setVisible(false);
+                requestClose();
                 return i;
             }
         }
