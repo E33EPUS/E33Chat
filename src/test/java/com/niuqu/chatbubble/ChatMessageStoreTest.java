@@ -682,6 +682,11 @@ class ChatMessageStoreTest {
         assertEquals("A的话", merged.replyContent(), "re-quoted follow-up keeps the quote block");
     }
 
+    // ---- B4: 通知/声音副作用经观察者委托（store 不再直接调 Minecraft/controller）----
+    // 注：Neo 的 ModConfigSpec 在 headless 测试读配置即抛（2.3.14 同款限制，
+    // seam 只覆盖 antiSpam/mentionRequireAt）；本用例在 Forge 端钉住委托行为
+    // （effectObserver_systemBannerDelegatedToRegisteredObserver），三端同构代码。
+
     private static void clearMessagesAndMetas() throws Exception {
         var messagesField = ChatMessageStore.class.getDeclaredField("messages");
         messagesField.setAccessible(true);
