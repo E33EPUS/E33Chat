@@ -140,4 +140,84 @@ class ChatMessageRendererTest {
         assertNotNull(found);
         assertEquals(ClickEvent.Action.OPEN_FILE, found.getClickEvent().getAction());
     }
+
+    // ---- D07: message grouping (in-group vs section spacing) ----
+
+    private static ChatMessageStore.ChatMessage msg(String sender, String rawName, long time, boolean isSystem) {
+        return new ChatMessageStore.ChatMessage(
+            UUID.randomUUID(), Component.literal(sender), Component.literal("hi"), time,
+            false, isSystem, null, null, null, 0, rawName, false, null);
+    }
+
+    @Test
+    void isSameGroup_sameSenderWithinWindow() {
+        long t = millisAt("2026-08-16T10:00:00");
+        assertTrue(ChatMessageRenderer.isSameGroup(msg("Alice", "Alice", t, false),
+            msg("Alice", "Alice", t + 60_000, false)));
+    }
+
+    @Test
+    void isSameGroup_differentSenderIsNewGroup() {
+        long t = millisAt("2026-08-16T10:00:00");
+        assertFalse(ChatMessageRenderer.isSameGroup(msg("Alice", "Alice", t, false),
+            msg("Bob", "Bob", t + 1000, false)));
+    }
+
+    @Test
+    void isSameGroup_beyondFiveMinutesIsNewGroup() {
+        long t = millisAt("2026-08-16T10:00:00");
+        assertFalse(ChatMessageRenderer.isSameGroup(msg("Alice", "Alice", t, false),
+            msg("Alice", "Alice", t + ChatMessageRenderer.GROUP_TIME_MS + 1, false)));
+    }
+
+    @Test
+    void isSameGroup_systemMessagesNeverGrouped() {
+        long t = millisAt("2026-08-16T10:00:00");
+        assertFalse(ChatMessageRenderer.isSameGroup(msg("sys", null, t, true),
+            msg("Alice", "Alice", t + 1000, false)));
+        assertFalse(ChatMessageRenderer.isSameGroup(msg("Alice", "Alice", t, false),
+            msg("sys", null, t + 1000, true)));
+    }
+
+    @Test
+    void isSameGroup_nullPrevIsNewGroup() {
+        long t = millisAt("2026-08-16T10:00:00");
+        assertFalse(ChatMessageRenderer.isSameGroup(null, msg("Alice", "Alice", t, false)));
+    }
+
+    @Test
+    void isSameGroup_rawPlayerNameWinsOverDisplayName() {
+        long t = millisAt("2026-08-16T10:00:00");
+        // 同一 rawPlayerName（改过显示名）仍是同组
+        assertTrue(ChatMessageRenderer.isSameGroup(msg("AliceOld", "Alice", t, false),
+            msg("AliceNew", "Alice", t + 1000, false)));
+        // 不同 rawPlayerName（显示名相同）是新组
+        assertFalse(ChatMessageRenderer.isSameGroup(msg("Alice", "AliceA", t, false),
+            msg("Alice", "AliceB", t + 1000, false)));
+    }
+
+    @Test
+    void groupGap_defaultSixBecomesFour() {
+        assertEquals(4, ChatMessageRenderer.groupGap(6));
+    }
+
+    @Test
+    void groupGap_neverBelowTwo() {
+        assertEquals(2, ChatMessageRenderer.groupGap(2));
+        assertEquals(2, ChatMessageRenderer.groupGap(1));
+    }
+
+    @Test
+    void sectionGap_defaultSixBecomesTwelve() {
+        assertEquals(12, ChatMessageRenderer.sectionGap(6));
+    }
+
+    @Test
+    void gapBetween_usesTierByGroup() {
+        long t = millisAt("2026-08-16T10:00:00");
+        assertEquals(4, ChatMessageRenderer.gapBetween(
+            msg("Alice", "Alice", t, false), msg("Alice", "Alice", t + 1000, false), 6));
+        assertEquals(12, ChatMessageRenderer.gapBetween(
+            msg("Alice", "Alice", t, false), msg("Bob", "Bob", t + 1000, false), 6));
+    }
 }

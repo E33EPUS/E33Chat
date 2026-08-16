@@ -3,6 +3,8 @@ import com.niuqu.chatbubble.texture.UiTextureManager;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.render.ChatBubbleScreen;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
+import com.niuqu.chatbubble.render.UiTokens;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -71,6 +73,14 @@ public class ChatEmojiPanel {
     public int scroll;
     public int tab;
 
+    /** Screen 注入的关闭请求钩子（播放关闭动画）；null 时直接隐藏（D07-6）。 */
+    public Runnable closeRequest;
+
+    private void requestClose() {
+        if (closeRequest != null) closeRequest.run();
+        else visible = false;
+    }
+
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop, int iconS, int pad, float alpha) {
@@ -93,9 +103,8 @@ public class ChatEmojiPanel {
             Component.translatable("e33chat.emoji.tab_custom").getString()
         };
         int tabW = pw / tabLabels.length;
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.TITLE_BAR),
-            px, py, pw, TAB_H + 1, alpha);
+        // 整框 SDF 圆角背景（D1）：tab 行与内容区同一底色，选中 tab 用 INPUT_BG 高亮
+        RoundRectRenderer.fillPanel(g, px, py, pw, PANEL_H, UiTokens.RADIUS_MEDIUM, c.divider(), c.titleBg(), alpha);
         for (int t = 0; t < tabLabels.length; t++) {
             int tx = px + t * tabW;
             if (t == tab)
@@ -114,10 +123,6 @@ public class ChatEmojiPanel {
         // Content area
         int cy = py + TAB_H + 1;
         int ch = PANEL_H - TAB_H - 1;
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, cy, pw, py + PANEL_H - cy, alpha);
-        g.renderOutline(px, py, pw, PANEL_H, ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         if (isKaomoji) {
             renderKaomojiList(g, mouseX, mouseY, font, c, px, cy, pw, ch, alpha);
@@ -168,7 +173,7 @@ public class ChatEmojiPanel {
                     com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
                         com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CLOSE_BG),
                         ex + EMOTE_SLOT - 10, ey, 10, 10, alpha);
-                    g.drawString(font, Component.literal("✕"), ex + EMOTE_SLOT - 8, ey + 1, 0xFFFFFFFF, false);
+                    g.drawString(font, Component.literal("✕"), ex + EMOTE_SLOT - 8, ey + 1, c.closeText(), false);
                 }
             } else {
                 g.drawString(font, Component.literal("+"), ex + EMOTE_SLOT / 2 - 3,
@@ -247,7 +252,7 @@ public class ChatEmojiPanel {
         int iconY = barTop + (ChatBubbleScreen.BAR_H - iconS) / 2;
         int emojiIconX = sendX - iconS - 6;
         if (mx >= emojiIconX && mx <= emojiIconX + iconS && my >= iconY && my <= iconY + iconS) {
-            visible = false;
+            requestClose();
             return "";
         }
 
@@ -260,7 +265,7 @@ public class ChatEmojiPanel {
         int py = Math.max(2, barTop - PANEL_H - 4);
 
         if (mx < px || mx > px + pw || my < py || my > py + PANEL_H) {
-            visible = false;
+            requestClose();
             return null;
         }
 

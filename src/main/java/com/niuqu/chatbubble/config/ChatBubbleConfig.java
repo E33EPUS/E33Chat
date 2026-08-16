@@ -32,6 +32,7 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.IntValue BUBBLE_CORNER_RADIUS;
     public static final ForgeConfigSpec.IntValue MESSAGE_GAP;
     public static final ForgeConfigSpec.IntValue AVATAR_SIZE;
+    public static final ForgeConfigSpec.BooleanValue HIDE_REPEATED_AVATARS;
     public static final ForgeConfigSpec.ConfigValue<String> OWN_TEXT_COLOR;
     public static final ForgeConfigSpec.ConfigValue<String> OTHER_TEXT_COLOR;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> QUICK_CHAT_PHRASES;
@@ -107,9 +108,9 @@ public class ChatBubbleConfig {
             .defineInRange("panel_width", 1000, 800, 1600);
 
         BLUR_ENABLED = builder
-            .comment("Enable gaussian blur effect behind the chat panel background")
+            .comment("Enable gaussian blur effect behind the chat panel background. Panel-wide blur is the most expensive effect per visual gain (2.3.5 frame-drop lesson, 07 report: keep blur for popups only) - off by default since 2.3.16")
             .translation("e33chat.config.blur_enabled")
-            .define("blur_enabled", true);
+            .define("blur_enabled", false);
 
         PANEL_OPACITY = builder
             .comment("Chat panel background opacity percentage (0-100). 0 = fully transparent, 100 = fully opaque")
@@ -213,6 +214,11 @@ public class ChatBubbleConfig {
             .comment("Avatar size in chat bubbles (pixels)")
             .translation("e33chat.config.avatar_size")
             .defineInRange("avatar_size", 20, 12, 32);
+
+        HIDE_REPEATED_AVATARS = builder
+            .comment("Hide the avatar on the 2nd+ message of a consecutive same-sender run (QQ-style)")
+            .translation("e33chat.config.hide_repeated_avatars")
+            .define("hide_repeated_avatars", true);
 
         builder.pop();
         builder.push("text");
