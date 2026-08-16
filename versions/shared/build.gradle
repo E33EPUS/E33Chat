@@ -619,6 +619,7 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("net/minecraft/text/", "net/minecraft/network/chat/")
         line = line.replaceAll("net/minecraft/network/message/", "net/minecraft/network/chat/")
         line = line.replaceAll("net/minecraft/client/gui/hud/", "net/minecraft/client/gui/components/")
+        line = line.replaceAll("net/minecraft/client/multiplayer/message/", "net/minecraft/client/multiplayer/chat/")
 
         return line
     }

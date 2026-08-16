@@ -47,6 +47,30 @@ public abstract class ChatComponentMixin {
     //#endif
 
     //#if MC >= 12000
+    //#if MC >= 26000
+    //$$ @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
+    //$$ private void onRender(DrawContext context, TextRenderer textRenderer, int currentTick,
+    //$$                       int mouseX, int mouseY, net.minecraft.client.gui.components.ChatComponent.DisplayMode displayMode, boolean bool, CallbackInfo ci) {
+    //$$     e33chat$shifted = false;
+    //$$     if (ChatBubbleClientSetup.config().enabled()) {
+    //$$         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
+    //$$             ci.cancel();
+    //$$             return;
+    //$$         }
+    //$$         if (MinecraftClient.getInstance().world == null) return;
+    //$$         context.getMatrices().pushMatrix();
+    //$$         context.getMatrices().translate(0, -8);
+    //$$         e33chat$shifted = true;
+    //$$     }
+    //$$ }
+    //$$ @Inject(method = "extractRenderState", at = @At("RETURN"))
+    //$$ private void onRenderReturn(DrawContext context, TextRenderer textRenderer, int currentTick,
+    //$$                             int mouseX, int mouseY, net.minecraft.client.gui.components.ChatComponent.DisplayMode displayMode, boolean bool, CallbackInfo ci) {
+    //$$     if (e33chat$shifted) {
+    //$$         context.getMatrices().popMatrix();
+    //$$     }
+    //$$ }
+    //#else
     //#if MC >= 12111
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void onRender(DrawContext context, TextRenderer textRenderer, int currentTick,
@@ -133,6 +157,7 @@ public abstract class ChatComponentMixin {
     //$$ }
     //#endif
     //#endif
+    //#endif
     //#else
     //$$ @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     //$$ private void onRender(MatrixStack context, int ticks, CallbackInfo ci) {
@@ -155,6 +180,24 @@ public abstract class ChatComponentMixin {
     //$$ }
     //#endif
 
+    //#if MC >= 26000
+    //$$ @Inject(method = "addServerSystemMessage(Lnet/minecraft/text/Text;)V",
+    //$$         at = @At("HEAD"), cancellable = true)
+    //$$ private void onAddServerSystemMessage(Text message, CallbackInfo ci) {
+    //$$     captureMessage(message, ci);
+    //$$ }
+    //$$ @Inject(method = "addClientSystemMessage(Lnet/minecraft/text/Text;)V",
+    //$$         at = @At("HEAD"), cancellable = true)
+    //$$ private void onAddClientSystemMessage(Text message, CallbackInfo ci) {
+    //$$     captureMessage(message, ci);
+    //$$ }
+    //$$ @Inject(method = "addPlayerMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/multiplayer/message/GuiMessageTag;)V",
+    //$$         at = @At("HEAD"), cancellable = true)
+    //$$ private void onAddPlayerMessage(Text message, MessageSignatureData signature,
+    //$$                                net.minecraft.client.multiplayer.message.GuiMessageTag tag, CallbackInfo ci) {
+    //$$     captureMessage(message, ci);
+    //$$ }
+    //#else
     @Inject(method = "addMessage(Lnet/minecraft/text/Text;)V",
             at = @At("HEAD"), cancellable = true)
     private void onAddMessage(Text message, CallbackInfo ci) {
@@ -169,6 +212,7 @@ public abstract class ChatComponentMixin {
                                   MessageIndicator indicator, CallbackInfo ci) {
         captureMessage(message, ci);
     }
+    //#endif
     //#endif
     //#endif
 
