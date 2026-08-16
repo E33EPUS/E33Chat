@@ -12,6 +12,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public class ChatBubbleConfig {
     public static final ModConfigSpec CLIENT_CONFIG;
 
+
     public static final ModConfigSpec.EnumValue<ChatBubbleTheme> THEME;
     public static final ModConfigSpec.BooleanValue ENABLED;
     public static final ModConfigSpec.BooleanValue RED_DOT_ENABLED;
@@ -32,6 +33,7 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.IntValue BUBBLE_CORNER_RADIUS;
     public static final ModConfigSpec.IntValue MESSAGE_GAP;
     public static final ModConfigSpec.IntValue AVATAR_SIZE;
+    public static final ModConfigSpec.BooleanValue HIDE_REPEATED_AVATARS;
     public static final ModConfigSpec.ConfigValue<String> OWN_TEXT_COLOR;
     public static final ModConfigSpec.ConfigValue<String> OTHER_TEXT_COLOR;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> QUICK_CHAT_PHRASES;
@@ -47,6 +49,7 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue COLOR_CODES;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SIDEBAR_HIDE_PATTERNS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_PLAYERS;
+ (feat: align avatars to content top and hide repeated avatars)
 
     // mention
     public static final ModConfigSpec.BooleanValue MENTION_BANNER_ENABLED;
@@ -213,6 +216,11 @@ public class ChatBubbleConfig {
             .comment("Avatar size in chat bubbles (pixels)")
             .translation("e33chat.config.avatar_size")
             .defineInRange("avatar_size", 20, 12, 32);
+
+        HIDE_REPEATED_AVATARS = builder
+            .comment("Hide the avatar on the 2nd+ message of a consecutive same-sender run (QQ-style)")
+            .translation("e33chat.config.hide_repeated_avatars")
+            .define("hide_repeated_avatars", true);
 
         builder.pop();
         builder.push("text");

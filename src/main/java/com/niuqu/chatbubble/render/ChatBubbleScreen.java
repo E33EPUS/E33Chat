@@ -1512,7 +1512,9 @@ public class ChatBubbleScreen extends ChatScreen {
                 g.pose().scale(mScale, mScale, 1f);
                 g.pose().translate(-(zBubbleX + zBubbleW / 2f), -zBubbleY, 0);
             }
-            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha);
+            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha,
+                !(ChatBubbleConfig.HIDE_REPEATED_AVATARS.get()
+                    && ChatMessageRenderer.isSameGroup(prevRenderMsg, msg)));
             g.pose().popPose();
             fullIdx++;
         }
@@ -1568,7 +1570,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
 
     private void renderBubble(GuiGraphics g, ChatMessageStore.ChatMessage msg,
-                               int index, int baseY, int mouseX, int mouseY, float alpha) {
+                               int index, int baseY, int mouseX, int mouseY, float alpha, boolean showAvatar) {
         boolean own = msg.isOwn();
         int bubbleMaxW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2
             - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
@@ -1583,7 +1585,7 @@ public class ChatBubbleScreen extends ChatScreen {
         ChatMessageRenderer.renderBubble(g, font, msg, index, baseY, mouseX, mouseY,
             panelX, panelW, ownBg, otherBg, ownFg, otherFg, own,
             ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get(), c(), skin,
-            searchHighlightIndex, bubbleMaxW, bubbleRects, clickableSpans, alpha);
+            searchHighlightIndex, bubbleMaxW, bubbleRects, clickableSpans, alpha, showAvatar);
     }
 
     private void renderLineWithClicks(GuiGraphics g, FormattedCharSequence line,
