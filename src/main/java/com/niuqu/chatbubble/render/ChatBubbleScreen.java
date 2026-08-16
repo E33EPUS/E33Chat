@@ -1357,17 +1357,22 @@ public class ChatBubbleScreen extends ChatScreen {
         int effectiveMsgBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
         int areaH = effectiveMsgBottom - effectiveMsgTop;
 
-        int timeSeps = 0;
         String lastKey = null;
+        ChatMessageStore.ChatMessage prevMsg = null;
         int totalH = 0;
         for (var msg : messages) {
-            totalH += getMsgHeight(msg) + Appearance.messageGap();
             if (!msg.isSystem()) {
                 String key = timeKey(msg.time());
-                if (lastKey == null || !key.equals(lastKey)) { timeSeps++; lastKey = key; }
+                if (lastKey == null || !key.equals(lastKey)) {
+                    lastKey = key;
+                    totalH += TIME_SEP_H + Appearance.sectionGap();
+                    prevMsg = null;
+                }
             }
+            if (prevMsg != null) totalH += ChatMessageRenderer.gapBetween(prevMsg, msg, ChatBubbleConfig.MESSAGE_GAP.get());
+            totalH += getMsgHeight(msg);
+            prevMsg = msg;
         }
-        totalH += timeSeps * (TIME_SEP_H + Appearance.messageGap());
         int prevMaxScroll = maxScroll;
         maxScroll = Math.max(0, totalH - areaH);
         this.messageTotalH = totalH;
@@ -1434,6 +1439,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         int contentY = 0;
         lastKey = null;
+        ChatMessageStore.ChatMessage prevRenderMsg = null;
         for (int i = 0; i < messages.size(); i++) {
             var msg = messages.get(i);
             while (fullIdx < fullList.size() && fullList.get(fullIdx) != msg) fullIdx++;
@@ -1446,13 +1452,16 @@ public class ChatBubbleScreen extends ChatScreen {
                     int ssy = effectiveMsgTop + contentY - scrollOffset;
                     if (ssy + TIME_SEP_H > effectiveMsgTop && ssy < effectiveMsgBottom)
                         renderTimeSeparator(g, msg.time(), ssy);
-                    contentY += TIME_SEP_H + Appearance.messageGap();
+                    contentY += TIME_SEP_H + Appearance.sectionGap();
+                    prevRenderMsg = null;
                 }
             }
 
             int h = getMsgHeight(msg);
             int screenY = effectiveMsgTop + contentY - scrollOffset;
-            contentY += h + Appearance.messageGap();
+            if (prevRenderMsg != null) contentY += ChatMessageRenderer.gapBetween(prevRenderMsg, msg, ChatBubbleConfig.MESSAGE_GAP.get());
+            contentY += h;
+            prevRenderMsg = msg;
 
             if (screenY + h <= effectiveMsgTop || screenY >= effectiveMsgBottom) { fullIdx++; continue; }
 
@@ -1850,16 +1859,20 @@ public class ChatBubbleScreen extends ChatScreen {
         if (msgIndex < 0 || msgIndex >= msgs.size()) return;
         int cy = 0;
         String lk = null;
+        ChatMessageStore.ChatMessage prevMsg = null;
         for (int i = 0; i < msgIndex && i < msgs.size(); i++) {
             var m = msgs.get(i);
             if (!m.isSystem()) {
                 String k = timeKey(m.time());
                 if (lk == null || !k.equals(lk)) {
                     lk = k;
-                    cy += TIME_SEP_H + Appearance.messageGap();
+                    cy += TIME_SEP_H + Appearance.sectionGap();
+                    prevMsg = null;
                 }
             }
-            cy += getMsgHeight(m) + Appearance.messageGap();
+            if (prevMsg != null) cy += ChatMessageRenderer.gapBetween(prevMsg, m, ChatBubbleConfig.MESSAGE_GAP.get());
+            cy += getMsgHeight(m);
+            prevMsg = m;
         }
         scrollOffset = Math.max(0, cy - 20);
         newMessageCount = 0;
