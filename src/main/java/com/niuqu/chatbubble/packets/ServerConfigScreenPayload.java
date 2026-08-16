@@ -8,7 +8,6 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -30,23 +29,16 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
     public static final StreamCodec<ByteBuf, ServerConfigScreenPayload> STREAM_CODEC = new StreamCodec<>() {
         @Override
         public ServerConfigScreenPayload decode(ByteBuf buf) {
-            boolean useTpa = buf.readBoolean();
-            boolean history = buf.readBoolean();
-            boolean debug = buf.readBoolean();
-            boolean media = buf.readBoolean();
-            List<String> chat = ConfigSyncV2Payload.readList(buf);
-            List<String> whisper = ConfigSyncV2Payload.readList(buf);
-            return new ServerConfigScreenPayload(useTpa, history, debug, media, chat, whisper);
+            ServerConfigDto d = ServerConfigDto.decode(buf);
+            return new ServerConfigScreenPayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
+                d.mediaEnabled(), d.chatTemplates(), d.whisperTemplates());
         }
 
         @Override
         public void encode(ByteBuf buf, ServerConfigScreenPayload payload) {
-            buf.writeBoolean(payload.useTpa());
-            buf.writeBoolean(payload.historyEnabled());
-            buf.writeBoolean(payload.templateDebug());
-            buf.writeBoolean(payload.mediaEnabled());
-            ConfigSyncV2Payload.writeList(buf, payload.chatTemplates());
-            ConfigSyncV2Payload.writeList(buf, payload.whisperTemplates());
+            ServerConfigDto.encode(new ServerConfigDto(payload.useTpa(), payload.historyEnabled(),
+                payload.templateDebug(), payload.mediaEnabled(), payload.chatTemplates(),
+                payload.whisperTemplates()), buf);
         }
     };
 

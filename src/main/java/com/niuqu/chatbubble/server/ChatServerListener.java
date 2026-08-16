@@ -88,27 +88,13 @@ public class ChatServerListener {
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
-        // Always sync server-side settings so the client head menu matches the server.
-        // Both payloads are sent: old clients only know ConfigSyncPayload (use_tpa),
-        // new clients pick up the templates from ConfigSyncV2Payload; unknown types
-        // are dropped harmlessly by old clients.
-        PacketDistributor.sendToPlayer(player,
-            new ConfigSyncPayload(ChatServerConfig.USE_TPA.get()));
-        PacketDistributor.sendToPlayer(player, buildConfigV2());
-        // Separate capability type: old clients drop unknown payloads, so
-        // mediaEnabled never desyncs mixed client/server versions.
-        PacketDistributor.sendToPlayer(player,
-            new com.niuqu.chatbubble.packets.MediaCapPayload(ChatServerConfig.MEDIA_ENABLED.get()));
+        // Always sync server-side settings so the client head menu matches the server
+        sendServerConfigTripleTo(player);
 
         if (!ChatServerConfig.HISTORY_ENABLED.get()) return;
         if (historyBuffer.isEmpty()) return;
         PacketDistributor.sendToPlayer(player,
             new HistoryPayload(new ArrayList<>(historyBuffer)));
-    }
-
-    /** Broadcast the full server config (templates included) to every player. */
-    public static void broadcastServerConfig() {
-        PacketDistributor.sendToAllPlayers(buildConfigV2());
     }
 
     private static volatile com.niuqu.chatbubble.server.DiskMediaStore mediaStore;
@@ -155,6 +141,25 @@ public class ChatServerListener {
             new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
             new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get()),
             ChatServerConfig.TEMPLATE_DEBUG.get());
+    }
+
+    // 三 payload 组合（use_tpa + templates + media cap）：broadcast 与 onPlayerLogin 共用。
+    // media 是独立能力 type——旧客户端安全丢未知 payload，mediaEnabled 不会在混版本时 desync。
+    private static void sendServerConfigTripleTo(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(player,
+            new ConfigSyncPayload(ChatServerConfig.USE_TPA.get()));
+        PacketDistributor.sendToPlayer(player, buildConfigV2());
+        PacketDistributor.sendToPlayer(player,
+            new com.niuqu.chatbubble.packets.MediaCapPayload(ChatServerConfig.MEDIA_ENABLED.get()));
+    }
+
+    /** Broadcast the full server config (templates included) to every player. */
+    public static void broadcastServerConfig() {
+        var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null || server.getPlayerList() == null) return;
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            sendServerConfigTripleTo(p);
+        }
     }
 
     public static void onQuoteReceived(UUID senderUUID, String quotedSenderName,

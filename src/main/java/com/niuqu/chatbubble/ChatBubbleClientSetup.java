@@ -26,6 +26,8 @@ public class ChatBubbleClientSetup {
         modEventBus.addListener(this::onClientSetup);
         modEventBus.addListener(RoundRectRenderer::registerShaders);
         modEventBus.addListener(this::registerReloadListener);
+        com.niuqu.chatbubble.store.ChatMessageStore.setMessageEffectObserver(
+            new com.niuqu.chatbubble.chat.notification.ChatMessageEffects());
     }
 
     private void registerReloadListener(RegisterClientReloadListenersEvent event) {

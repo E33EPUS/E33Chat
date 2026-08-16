@@ -1,7 +1,6 @@
 package com.niuqu.chatbubble.store;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 
-import com.niuqu.chatbubble.chat.notification.MentionNotificationController;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -16,6 +15,29 @@ import java.util.*;
 
 
 public class ChatMessageStore {
+    // 通知/声音副作用观察者（B4 上移，2.3.15）：store 只做判断与数据，
+    // 横幅/提示音由客户端注册的实现执行；测试环境默认 no-op，不依赖 Minecraft 单例。
+    public interface MessageEffectObserver {
+        void onMentionOrQuote(Component content, SenderMeta meta, int index, String replySender);
+        void onWhisperReceived(UUID senderUUID, Component senderName, Component content, int index);
+        void onSystemMessage(Component content, int index);
+        void onPublicChatSound();
+        void onQuoteSound();
+    }
+
+    private static final MessageEffectObserver NOOP_OBSERVER = new MessageEffectObserver() {
+        @Override public void onMentionOrQuote(Component content, SenderMeta meta, int index, String replySender) {}
+        @Override public void onWhisperReceived(UUID senderUUID, Component senderName, Component content, int index) {}
+        @Override public void onSystemMessage(Component content, int index) {}
+        @Override public void onPublicChatSound() {}
+        @Override public void onQuoteSound() {}
+    };
+    private static MessageEffectObserver effectObserver = NOOP_OBSERVER;
+
+    public static void setMessageEffectObserver(MessageEffectObserver observer) {
+        effectObserver = observer != null ? observer : NOOP_OBSERVER;
+    }
+
     private static final int MAX = 10000;
     private static final List<ChatMessage> messages = new ArrayList<>();
     private static int unreadCount = 0;
@@ -450,7 +472,7 @@ public class ChatMessageStore {
 
         if (isMentionOrQuote) {
             if (!screenOpen) hasUnreadMentionFlag = true;
-            MentionNotificationController.INSTANCE.onMessageCaptured(
+            effectObserver.onMentionOrQuote(
                 content, new SenderMeta(senderUUID, senderName, content, isSystem,
                     rawPlayerName, whisper, whisperPartner),
                 messages.size(), replySender);
@@ -463,7 +485,7 @@ public class ChatMessageStore {
         if (whisper && rawPlayerName != null
             && ChatBubbleConfig.MENTION_WHISPER_BANNER.get()
             && (!localSend || ChatBubbleConfig.OWN_WHISPER_NOTIFY.get())) {
-            MentionNotificationController.INSTANCE.onWhisperReceived(
+            effectObserver.onWhisperReceived(
                 senderUUID, senderName, content, messages.size());
         }
 
@@ -471,17 +493,12 @@ public class ChatMessageStore {
         // the system label is enough, avoiding "[系统] 系统"). Independent toggle,
         // on by default.
         if (isSystem && ChatBubbleConfig.SYSTEM_BANNER_ENABLED.get()) {
-            MentionNotificationController.INSTANCE.onSystemMessage(content, messages.size());
+            effectObserver.onSystemMessage(content, messages.size());
         }
 
-        boolean playSound = false;
-        if (!own && localPlayerSupplier.get() != null && !isMentionOrQuote && !whisper) {
-            if (isSystem && ChatBubbleConfig.SOUND_SYSTEM.get()) playSound = true;
-            else if (!isSystem && ChatBubbleConfig.SOUND_PUBLIC.get()) playSound = true;
-        }
-        if (playSound) {
-            Minecraft.getInstance().player.playSound(
-                net.minecraft.sounds.SoundEvents.NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleConfig.soundVolume(), 1.0F);
+        if (!own && localPlayerSupplier.get() != null && !isMentionOrQuote && !whisper
+            && (isSystem ? ChatBubbleConfig.SOUND_SYSTEM.get() : ChatBubbleConfig.SOUND_PUBLIC.get())) {
+            effectObserver.onPublicChatSound();
         }
 
         if (!screenOpen) {
@@ -1062,8 +1079,7 @@ public class ChatMessageStore {
                         && playerName.equals(quoteSender)
                         && !msg.content().getString().contains("@" + playerName)
                         && ChatBubbleConfig.MENTION_SOUND_ENABLED.get()) {
-                        Minecraft.getInstance().player.playSound(
-                            net.minecraft.sounds.SoundEvents.NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleConfig.soundVolume(), 1.0F);
+                        effectObserver.onQuoteSound();
                     }
                 }
                 return;
