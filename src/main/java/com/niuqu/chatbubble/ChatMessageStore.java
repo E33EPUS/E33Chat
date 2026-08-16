@@ -222,7 +222,7 @@ public class ChatMessageStore {
         purgeStaleWhisperEchoes();
         return !pendingWhisperEchoes.isEmpty();
     }
-    public static String getPendingWhisperTarget() { return pendingWhisperEchoes.peekFirst().target(); }
+    public static String getPendingWhisperTarget() { PendingWhisperEcho head = pendingWhisperEchoes.peekFirst(); return head == null ? null : head.target(); }
     public static void consumeWhisperEcho() { pendingWhisperEchoes.pollFirst(); }
 
     // 10s TTL: an echo never matched (e.g. a filtered send with no chat feedback)

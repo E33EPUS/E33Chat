@@ -233,6 +233,7 @@ public class E33ChatCommands {
         cfg.template_debug = ChatBubbleMod.templateDebug();
         cfg.chat_templates = new ArrayList<>(ChatBubbleMod.chatTemplates());
         cfg.whisper_templates = new ArrayList<>(ChatBubbleMod.whisperTemplates());
+        cfg.media_enabled = ChatBubbleMod.mediaEnabled();
         ServerConfigManager.save(path, cfg);
         ChatBubbleMod.broadcastServerConfig(server);
     }
