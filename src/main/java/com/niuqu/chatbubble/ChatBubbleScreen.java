@@ -1503,6 +1503,15 @@ public class ChatBubbleScreen extends ChatScreen {
             //#if MC >= 12000
             //#if MC < 26000
             g.drawHoverEvent(textRenderer, hovered, mouseX, mouseY);
+            //#else
+            //$$ var he = hovered.getHoverEvent();
+            //$$ if (he instanceof net.minecraft.text.HoverEvent.ShowText st) {
+            //$$     g.setTooltipForNextFrame(st.value(), mouseX, mouseY);
+            //$$ } else if (he instanceof net.minecraft.text.HoverEvent.ShowItem si) {
+            //$$     g.setTooltipForNextFrame(textRenderer, si.item().create(), mouseX, mouseY);
+            //$$ } else if (he instanceof net.minecraft.text.HoverEvent.ShowEntity se) {
+            //$$     g.setComponentTooltipForNextFrame(textRenderer, se.entity().getTooltipLines(), mouseX, mouseY);
+            //$$ }
             //#endif
             //#endif
         }
