@@ -6,7 +6,6 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -22,54 +21,37 @@ import java.util.function.Supplier;
  * dist DEDICATED_SERVER".
  */
 public class ServerConfigScreenPacket {
-    private final boolean useTpa;
-    private final boolean historyEnabled;
-    private final boolean templateDebug;
-    private final boolean mediaEnabled;
-    private final List<String> chatTemplates;
-    private final List<String> whisperTemplates;
+    private final ServerConfigDto dto;
 
     public ServerConfigScreenPacket(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                                     boolean mediaEnabled,
                                     List<String> chatTemplates, List<String> whisperTemplates) {
-        this.useTpa = useTpa;
-        this.historyEnabled = historyEnabled;
-        this.templateDebug = templateDebug;
-        this.mediaEnabled = mediaEnabled;
-        this.chatTemplates = chatTemplates;
-        this.whisperTemplates = whisperTemplates;
+        this.dto = new ServerConfigDto(useTpa, historyEnabled, templateDebug, mediaEnabled,
+            chatTemplates, whisperTemplates);
     }
 
-    public boolean useTpa() { return useTpa; }
-    public boolean historyEnabled() { return historyEnabled; }
-    public boolean templateDebug() { return templateDebug; }
-    public boolean mediaEnabled() { return mediaEnabled; }
-    public List<String> chatTemplates() { return chatTemplates; }
-    public List<String> whisperTemplates() { return whisperTemplates; }
+    public boolean useTpa() { return dto.useTpa(); }
+    public boolean historyEnabled() { return dto.historyEnabled(); }
+    public boolean templateDebug() { return dto.templateDebug(); }
+    public boolean mediaEnabled() { return dto.mediaEnabled(); }
+    public List<String> chatTemplates() { return dto.chatTemplates(); }
+    public List<String> whisperTemplates() { return dto.whisperTemplates(); }
 
     public static void encode(ServerConfigScreenPacket packet, FriendlyByteBuf buf) {
-        buf.writeBoolean(packet.useTpa);
-        buf.writeBoolean(packet.historyEnabled);
-        buf.writeBoolean(packet.templateDebug);
-        buf.writeBoolean(packet.mediaEnabled);
-        buf.writeCollection(packet.chatTemplates, FriendlyByteBuf::writeUtf);
-        buf.writeCollection(packet.whisperTemplates, FriendlyByteBuf::writeUtf);
+        ServerConfigDto.encode(packet.dto, buf);
     }
 
     public static ServerConfigScreenPacket decode(FriendlyByteBuf buf) {
-        boolean useTpa = buf.readBoolean();
-        boolean history = buf.readBoolean();
-        boolean debug = buf.readBoolean();
-        boolean media = buf.readBoolean();
-        List<String> chat = new ArrayList<>(buf.readCollection(ArrayList::new, FriendlyByteBuf::readUtf));
-        List<String> whisper = new ArrayList<>(buf.readCollection(ArrayList::new, FriendlyByteBuf::readUtf));
-        return new ServerConfigScreenPacket(useTpa, history, debug, media, chat, whisper);
+        ServerConfigDto d = ServerConfigDto.decode(buf);
+        return new ServerConfigScreenPacket(d.useTpa(), d.historyEnabled(), d.templateDebug(),
+            d.mediaEnabled(), d.chatTemplates(), d.whisperTemplates());
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() ->
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                ClientServerConfigGui.open(useTpa, historyEnabled, templateDebug, mediaEnabled, chatTemplates, whisperTemplates)
+                ClientServerConfigGui.open(dto.useTpa(), dto.historyEnabled(), dto.templateDebug(),
+                    dto.mediaEnabled(), dto.chatTemplates(), dto.whisperTemplates())
             )
         );
         ctx.get().setPacketHandled(true);
