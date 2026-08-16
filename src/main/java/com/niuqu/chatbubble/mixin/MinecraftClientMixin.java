@@ -25,7 +25,11 @@ import net.minecraft.client.gui.Gui;
 //#endif
 public class MinecraftClientMixin {
 
-    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
+    //#if MC < 11700
+    @Inject(method = "openScreen", at = @At("HEAD"), cancellable = true)
+    //#else
+    //$$ @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
+    //#endif
     private void onSetScreen(Screen screen, CallbackInfo ci) {
         var cfg = ChatBubbleClientSetup.config();
         if (cfg == null || !cfg.enabled()) return;

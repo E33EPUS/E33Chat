@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(MessageHandler.class)
 public interface MessageHandlerAccessor {
-    @Invoker("tryParseAsPlayerMessage")
+    @Invoker(value = "tryParseAsPlayerMessage", remap = false)
     static SenderMeta e33chat$invokeTryParseAsPlayerMessage(Text message, String text) {
         throw new AssertionError();
     }
