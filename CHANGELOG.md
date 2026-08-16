@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.3.16
+
+**UI 风格统一（00e D1/D2/D07 拍板，三端同步：Fabric / Forge / NeoForge）**
+- **视觉 token 最小表（UiTokens）**：2 档圆角（中 8 / 大 16）+ 2 档阴影（面板/弹层）+ 1px 描边 + 基础间距；颜色仍走资源包主题，config 不加颜色项
+- **SDF 圆角覆盖弹层族**：设置菜单 / 表情 / 常用语 / 搜索面板、@提及弹层、右键菜单全部改 SDF 圆角 + 阴影 + 1px 描边（CONTENT_BG/POPUP_BG/CONTEXT_MENU_BG 纹理覆盖对这些弹层不再生效，改由主题语义色驱动）；滚动条按 2.3.13 结论保持纯色填充
+- **组内/组间间距分离**：同一发送者 5 分钟内连续消息间距 = message_gap × 2/3（默认 4）；换人 / 超时 / 系统消息 / 时间分隔 = message_gap × 2（默认 12）。内部比例实现，`message_gap` 键与范围不动
+- **头像对齐 + 隐头像**：头像与气泡/内容顶部对齐；新增 `hide_repeated_avatars`（默认开）——同一人连续消息只首条显示头像
+- **横幅退出动画**：退出独立 150ms ease-in 淡出（进入 250ms 不变）
+- **面板 blur 默认关闭**：`blur_enabled` 默认改 false（面板级 blur 性价比最低，2.3.5 降帧教训）；键保留，老配置不受影响
+- **弹层关闭动画**：打开 150→200ms，关闭新增 150ms ease-in（ESC / 图标切换 / 互斥 / 点击外部 / 选择项全路径）
+- 观感变化：引用块圆角 3→8（token 中档）、弹层打开时长 150→200ms
+- 测试：Forge 313 / NeoForge 312 / Fabric 287 全绿
+
+**UI style unification (00e D1/D2/D07, all loaders: Fabric / Forge / NeoForge)**
+- **Minimal visual token table (UiTokens)**: 2 corner-radius tiers (medium 8 / large 16) + 2 shadow tiers (panel/popup) + 1px border language + base spacing; colors stay resource-pack themed, no new config color items
+- **SDF rounded corners for the popup family**: settings/emoji/quick-chat/search panels, the @mention popup and context menus now render with SDF radius + popup shadow + 1px border (CONTENT_BG/POPUP_BG/CONTEXT_MENU_BG texture overrides no longer affect these popups - semantic theme colors are used instead); scrollbar stays plain fill (2.3.13 finding)
+- **In-group vs section message spacing**: consecutive same-sender messages within 5 minutes use message_gap x 2/3 (default 4); sender change / timeout / system messages / time separators use message_gap x 2 (default 12). Internal ratio - the message_gap key and range are untouched
+- **Avatar alignment + repeated-avatar hiding**: avatars align to the bubble/content top; new `hide_repeated_avatars` (default on) shows the avatar only on the first message of a consecutive same-sender run
+- **Banner exit animation**: dismissal runs on its own 150ms ease-in fade (entrance 250ms unchanged)
+- **Panel blur off by default**: `blur_enabled` now defaults to false (panel-wide blur is the lowest value-per-cost effect, 2.3.5 lesson); key preserved, existing configs unaffected
+- **Popup close animation**: open 150→200ms, close is now animated 150ms ease-in (ESC / icon toggle / mutual exclusion / outside click / item select)
+- Visual changes: quote-block radius 3→8 (medium tier), popup open 150→200ms
+- Tests: Forge 313 / NeoForge 312 / Fabric 287 green
+
 ## v2.3.15
 
 **结构重构 + 服务端配置收拢（三端同步：Fabric / Forge / NeoForge）**
