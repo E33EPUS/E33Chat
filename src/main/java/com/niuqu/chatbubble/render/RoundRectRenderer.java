@@ -63,4 +63,20 @@ public class RoundRectRenderer {
         BufferUploader.drawWithShader(bb.end());
         RenderSystem.disableBlend();
     }
+
+    /**
+     * 弹层背景（D1，2.3.16）：SDF 圆角 + 弹层阴影 + 1px 描边，全部取 token 表。
+     * 描边 = 外扩 BORDER_W 的同心圆角（背景同半径），不改 shader 即可得到圆角描边。
+     */
+    public static void fillPanel(GuiGraphics g, int x, int y, int w, int h,
+                                 int radius, int borderArgb, int bgArgb, float alpha) {
+        int shOff = UiTokens.SHADOW_OFFSET_POPUP;
+        int shA = (int) (UiTokens.SHADOW_ALPHA_POPUP * alpha);
+        fill(g, x + shOff, y + shOff, x + w + shOff, y + h + shOff, radius, shA << 24);
+        int a255 = (int) (255 * alpha);
+        fill(g, x - UiTokens.BORDER_W, y - UiTokens.BORDER_W,
+            x + w + UiTokens.BORDER_W, y + h + UiTokens.BORDER_W, radius,
+            ChatBubbleTheme.alphaBlend(borderArgb, a255));
+        fill(g, x, y, x + w, y + h, radius, ChatBubbleTheme.alphaBlend(bgArgb, a255));
+    }
 }
