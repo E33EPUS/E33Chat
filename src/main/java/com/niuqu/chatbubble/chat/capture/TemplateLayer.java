@@ -43,7 +43,7 @@ public final class TemplateLayer {
             String myName = player.getName().getString();
             if (!myName.isEmpty() && (name.equals(myName) || name.contains(myName))) return true;
         }
-        return ChatClassifier.findOnlinePlayer(name) != null || ChatMessageStore.findSeenUuid(name) != null;
+        return ChatClassifier.resolveOnlinePlayer(name) != null || ChatMessageStore.findSeenUuid(name) != null;
     }
 
     // Server template parse: exact field split with style-preserving offsets.
@@ -58,7 +58,7 @@ public final class TemplateLayer {
         }
         var tpl = r.orElseThrow();
         String verified = tpl.verifiedName();
-        var info = ChatClassifier.findOnlinePlayer(verified);
+        var info = ChatClassifier.resolveOnlinePlayer(verified);
         UUID uid = info != null ? info.getProfile().getId() : ChatMessageStore.findSeenUuid(verified);
         String rawName = info != null ? info.getProfile().getName() : verified;
         boolean isSelf = uid != null && MinecraftClient.getInstance().player != null

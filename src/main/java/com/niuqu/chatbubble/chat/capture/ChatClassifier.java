@@ -58,7 +58,7 @@ public final class ChatClassifier {
         return arg instanceof Text c ? c : Text.literal(String.valueOf(arg));
     }
 
-    public static PlayerListEntry findOnlinePlayer(String displayName) {
+    public static PlayerListEntry resolveOnlinePlayer(String displayName) {
         var player = MinecraftClient.getInstance().player;
         if (player == null || player.networkHandler == null || displayName.isEmpty()) return null;
         var online = player.networkHandler.getPlayerList();
@@ -97,7 +97,7 @@ public final class ChatClassifier {
             Text name = argAsComponent(args[0]);
             Text content = argAsComponent(args[1]);
             String displayName = name.getString().replaceAll("§.", "").trim();
-            var info = findOnlinePlayer(displayName);
+            var info = resolveOnlinePlayer(displayName);
             String profile = info != null ? info.getProfile().getName() : displayName;
             UUID uuid = info != null ? info.getProfile().getId() : new UUID(0, 0);
             ChatMessageStore.debugLog(() -> "[e33chat] Key(whisper in) | name=" + profile + " | content='" + content.getString() + "'");
@@ -140,7 +140,7 @@ public final class ChatClassifier {
                 return true;
             }
             String displayName = name.getString().replaceAll("§.", "").trim();
-            var info = findOnlinePlayer(displayName);
+            var info = resolveOnlinePlayer(displayName);
             String profile;
             UUID uuid;
             if (info != null) {

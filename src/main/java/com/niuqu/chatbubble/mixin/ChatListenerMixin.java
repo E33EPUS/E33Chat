@@ -65,8 +65,8 @@ public class ChatListenerMixin {
     }
 
 
-    private static net.minecraft.client.network.PlayerListEntry findOnlinePlayer(String displayName) {
-        return com.niuqu.chatbubble.chat.capture.ChatClassifier.findOnlinePlayer(displayName);
+    private static net.minecraft.client.network.PlayerListEntry resolveOnlinePlayer(String displayName) {
+        return com.niuqu.chatbubble.chat.capture.ChatClassifier.resolveOnlinePlayer(displayName);
     }
 
 
