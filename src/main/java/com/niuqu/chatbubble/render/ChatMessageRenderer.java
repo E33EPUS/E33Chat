@@ -152,7 +152,7 @@ public final class ChatMessageRenderer {
             ChatMessageStore.ChatMessage msg, int index, int baseY, boolean own, float alpha,
             BracketCodec.ParseResult parsed, List<FormattedCharSequence> lines,
             ChatBubbleTheme.Colors c, ResourceLocation skin, int panelX, int panelW,
-            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans) {
+            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans, boolean showAvatar) {
         int avatarX = own ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() : panelX + ChatLayout.PAD;
 
         if (!msg.senderName().getString().isEmpty()) {
@@ -163,7 +163,9 @@ public final class ChatMessageRenderer {
             g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
         }
 
-        drawAvatar(g, skin, avatarX, baseY, alpha);
+        // 头像与内容顶部对齐（D07）
+        int avatarY = baseY + NAME_H;
+        if (showAvatar) drawAvatar(g, skin, avatarX, avatarY, alpha);
 
         int maxTextW = 0;
         for (var line : lines) maxTextW = Math.max(maxTextW, font.width(line));
@@ -249,7 +251,7 @@ public final class ChatMessageRenderer {
     public static void renderEmoteMessage(GuiGraphics g, Font font,
             ChatMessageStore.ChatMessage msg, int index, int baseY, boolean own, float alpha,
             ChatBubbleTheme.Colors c, ResourceLocation skin, int panelX, int panelW,
-            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans) {
+            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans, boolean showAvatar) {
         BracketCodec.ParseResult parsed = parseImages(msg.content());
         if (parsed.images().isEmpty()) return;
         BracketCodec.ImageRef ref = parsed.images().get(0);
@@ -263,7 +265,8 @@ public final class ChatMessageRenderer {
             g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
         }
 
-        drawAvatar(g, skin, avatarX, baseY, alpha);
+        // 头像与表情顶部对齐（D07）
+        if (showAvatar) drawAvatar(g, skin, avatarX, baseY + NAME_H, alpha);
 
         int emoteY = baseY + NAME_H + 2;
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16));
@@ -460,7 +463,7 @@ public final class ChatMessageRenderer {
                                      int bubbleMaxW,
                                      List<int[]> bubbleRects,
                                      List<ClickableSpan> clickableSpans,
-                                     float alpha) {
+                                     float alpha, boolean showAvatar) {
         if (msg.isSystem()) {
             List<FormattedCharSequence> lines = wrapContent(msg.content(), font, panelW - ChatLayout.PAD * 2 - 20);
             int yy = baseY + 2;
@@ -502,14 +505,14 @@ public final class ChatMessageRenderer {
                 && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
                 && parsed.textWithoutImages().getString().isBlank()) {
             renderEmoteMessage(g, font, msg, index, baseY, own, alpha, c, skin,
-                panelX, panelW, bubbleRects, clickableSpans);
+                panelX, panelW, bubbleRects, clickableSpans, showAvatar);
             return;
         }
         // Any message carrying images renders bubble-less too (240px long-edge,
         // aspect preserved, stacked vertically, direction-aligned).
         if (!parsed.images().isEmpty()) {
             renderNoBubbleMessage(g, font, msg, index, baseY, own, alpha, parsed, lines, c, skin,
-                panelX, panelW, bubbleRects, clickableSpans);
+                panelX, panelW, bubbleRects, clickableSpans, showAvatar);
             return;
         }
 
@@ -538,7 +541,8 @@ public final class ChatMessageRenderer {
         }
 
         int bubbleY = baseY + NAME_H;
-        int avatarY = baseY;
+        // 头像与气泡顶部对齐（D07，QQ 风格）
+        int avatarY = bubbleY;
 
         int bg = own ? ownBubbleColor : otherBubbleColor;
         int fg = own ? ownTextColor : otherTextColor;
@@ -554,7 +558,7 @@ public final class ChatMessageRenderer {
                 bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fgA, fb, clickableSpans);
 
         // Draw avatar (per-element alpha: vanilla blit ignores setShaderColor)
-        drawAvatar(g, skin, avatarX, avatarY, alpha);
+        if (showAvatar) drawAvatar(g, skin, avatarX, avatarY, alpha);
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
