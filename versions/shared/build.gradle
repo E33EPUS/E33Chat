@@ -501,7 +501,8 @@ abstract class PreprocessTask extends DefaultTask {
         line = line.replaceAll("PlayerSkinDrawer\\.draw\\b", "PlayerFaceExtractor.extractRenderState")
         // Additional Mojang method name mappings
         line = line.replaceAll("\\bgetColorValue\\b", "getColor")
-        line = line.replaceAll("\\baddDrawableChild\\b", "addWidget")
+        line = line.replaceAll("\\baddDrawableChild\\b", "addRenderableWidget")
+        line = line.replaceAll("\\baddSelectableChild\\b", "addWidget")
         line = line.replaceAll("\\bgetScoreboardTeam\\b", "getTeam")
         line = line.replaceAll("\\bgetRegistryManager\\b", "registryAccess")
         line = line.replaceAll("\\bcreateWrapperLookup\\b", "createAccess")
