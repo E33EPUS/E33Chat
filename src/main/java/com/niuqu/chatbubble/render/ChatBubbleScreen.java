@@ -1709,8 +1709,8 @@ public class ChatBubbleScreen extends ChatScreen {
         int popupY = input.getY() - popupH - 2;
         if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
 
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, popupW, popupH, getAnimProgress());
-        g.renderOutline(popupX, popupY, popupW, popupH, ChatBubbleTheme.alphaBlend(c().divider(), (int) (255 * getAnimProgress())));
+        RoundRectRenderer.fillPanel(g, popupX, popupY, popupW, popupH, UiTokens.RADIUS_MEDIUM,
+            c().divider(), c().popupBg(), getAnimProgress());
 
         int startIdx = Math.max(0, mentionIdx - visible + 1);
         int endIdx = Math.min(mentionCandidates.size(), startIdx + visible);
