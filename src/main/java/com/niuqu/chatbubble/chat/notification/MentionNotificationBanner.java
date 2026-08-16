@@ -23,7 +23,8 @@ public class MentionNotificationBanner {
 
     public enum NotificationType { MENTION, QUOTE, WHISPER, SYSTEM }
 
-    private static final long SLIDE_MS = 250;
+    private static final long SLIDE_IN_MS = 250;
+    private static final long SLIDE_OUT_MS = 150;
     private static final long VISIBLE_MS_PERIOD = 1000;
     private static final int AVATAR = 24;
     private static final int AVATAR_HAT = 26;
@@ -122,7 +123,7 @@ public class MentionNotificationBanner {
                 }
                 break;
             case SLIDING_DOWN:
-                if (now - stateStartMs >= SLIDE_MS) {
+                if (now - stateStartMs >= SLIDE_IN_MS) {
                     state = BannerState.VISIBLE;
                     stateStartMs = now;
                 }
@@ -134,7 +135,7 @@ public class MentionNotificationBanner {
                 }
                 break;
             case SLIDING_UP:
-                if (now - stateStartMs >= SLIDE_MS) {
+                if (now - stateStartMs >= SLIDE_OUT_MS) {
                     current = null;
                     if (!queue.isEmpty()) {
                         current = queue.pollFirst();
@@ -162,9 +163,9 @@ public class MentionNotificationBanner {
         long now = System.currentTimeMillis();
 
         float raw = state == BannerState.SLIDING_DOWN
-            ? Math.min(1f, (float)(now - stateStartMs) / SLIDE_MS)
+            ? Math.min(1f, (float)(now - stateStartMs) / SLIDE_IN_MS)
             : state == BannerState.SLIDING_UP
-                ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_MS)
+                ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_OUT_MS)
                 : 1f;
 
         AnimationStyle bstyle = ChatBubbleConfig.BANNER_ANIM_STYLE.get();
@@ -176,10 +177,10 @@ public class MentionNotificationBanner {
             alpha = 1f;
         } else if (bstyle == AnimationStyle.FADE) {
             slide = 1f;
-            alpha = state == BannerState.SLIDING_UP ? raw : Animation.easeOutQuad(raw);
+            alpha = state == BannerState.SLIDING_UP ? exitFade(raw) : Animation.easeOutQuad(raw);
         } else if (bstyle == AnimationStyle.ZOOM) {
             slide = 1f;
-            alpha = state == BannerState.SLIDING_UP ? raw : Animation.easeOutQuad(raw);
+            alpha = state == BannerState.SLIDING_UP ? exitFade(raw) : Animation.easeOutQuad(raw);
             if (state == BannerState.SLIDING_DOWN) bscale = 0.8f + 0.2f * Animation.easeOutBack(raw);
             else if (state == BannerState.SLIDING_UP) bscale = 0.8f + 0.2f * raw;
         } else {
@@ -193,7 +194,7 @@ public class MentionNotificationBanner {
                 slide = 1f;
             }
             float fadeRaw = Math.min(1f, raw / 0.6f);
-            alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
+            alpha = state == BannerState.SLIDING_UP ? exitFade(raw) : fadeRaw;
         }
 
         var theme = Appearance.snapshot();
@@ -300,6 +301,11 @@ public class MentionNotificationBanner {
         int hatOff = (hatSize - baseSize) / 2;
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, skin, x - hatOff, y - hatOff, hatSize, hatSize,
             40.0F, 8.0F, 8, 8, 64, 64, alpha);
+    }
+
+    /** 退出淡出曲线：ease-in（慢起快走），07 §1.4 退出规范（raw 从 1→0）。 */
+    private static float exitFade(float raw) {
+        return raw * (2f - raw);
     }
 
     // Width-limit a component run by run, keeping each run's style (colors of
