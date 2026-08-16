@@ -45,35 +45,12 @@ public class BlurRenderer {
      */
     public static void blurPanel(Object g, int x, int y, int w, int h) {
         if (w <= 0 || h <= 0) return;
-        // Early exit: if disconnect has begun (flag set from the network thread
-        // the instant the DISCONNECT event fires), skip ALL rendering.
         if (disconnecting) return;
         var mc = MinecraftClient.getInstance();
-        // Guard: skip rendering during world unload/disconnect.
         if (mc.world == null || mc.player == null) return;
-
-        //#if MC >= 26000
-        //$$ // 26.x: the GL fallback overlay looks like an extra world shadow
-        //$$ // behind the chat panel; skip it and let the panel opacity draw.
-        //#else
-        overlayFallback(g, x, y, w, h);
-        //#endif
-    }
-
-    /**
-     * Fallback frosted-glass overlay (no real blur). Pure GUI operation via
-     * DrawContext.fill() — carries no GL state risk.
-     */
-    private static void overlayFallback(Object g, int x, int y, int w, int h) {
-        // Layer 1: dark base — the main "darkening" that simulates blur
-        RenderHelper.fill(g, x, y, x + w, y + h, 0x99000000);
-        // Layer 2: subtle vertical gradient at top for frosted highlight
-        int gradH = Math.min(h / 3, 20);
-        if (gradH > 0) {
-            for (int i = 0; i < gradH; i++) {
-                int alpha = (int) (0x33 * (1.0f - (float) i / gradH));
-                RenderHelper.fill(g, x, y + i, x + w, y + i + 1, (alpha << 24) | 0xFFFFFF);
-            }
-        }
+        // The overlayFallback (60% black fill) was removed on all versions —
+        // it created an unwanted black mask over the world behind the panel.
+        // The panel's own PANEL_BG texture + panelOpacity provides sufficient
+        // visual separation without darkening the world.
     }
 }

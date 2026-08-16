@@ -1482,9 +1482,7 @@ public class ChatBubbleScreen extends ChatScreen {
             g.draw();
             //#endif
             //#endif
-            //#if MC < 26000
             BlurRenderer.blurPanel(g, panelOffset + fillLeft, 0, panelX + panelW - fillLeft, height);
-            //#endif
         }
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
             fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
