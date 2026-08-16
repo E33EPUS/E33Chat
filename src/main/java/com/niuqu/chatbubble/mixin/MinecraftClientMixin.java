@@ -14,7 +14,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.lang.reflect.Field;
 
+//#if MC >= 260200
+import net.minecraft.client.gui.Gui;
+//#endif
+
+//#if MC >= 260200
+@Mixin(Gui.class)
+//#else
 @Mixin(MinecraftClient.class)
+//#endif
 public class MinecraftClientMixin {
 
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
