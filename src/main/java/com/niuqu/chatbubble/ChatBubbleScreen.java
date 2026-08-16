@@ -2659,7 +2659,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void rememberSkin(UUID uuid, String name, Identifier tex) {
-        if (tex == null) return;
+        if (tex == null || isDefaultSkin(tex)) return;
         if (uuid != null && !uuid.equals(NIL_UUID)) skinCache.put(uuid, tex);
         String key = skinNameKey(name);
         if (key != null) skinNameCache.put(key, tex);
@@ -2701,12 +2701,12 @@ public class ChatBubbleScreen extends ChatScreen {
         // GameProfile so CSL can match offline names to imported skins. Cache this result.
         if (uuid != null && !uuid.equals(NIL_UUID)) {
             Identifier cached = skinCache.get(uuid);
-            if (cached != null) return cached;
+            if (cached != null && !isDefaultSkin(cached)) return cached;
         }
         String nameKey = skinNameKey(name);
         if (nameKey != null) {
             Identifier cachedByName = skinNameCache.get(nameKey);
-            if (cachedByName != null) return cachedByName;
+            if (cachedByName != null && !isDefaultSkin(cachedByName)) return cachedByName;
         }
         Identifier resolved = resolveSkin(uuid, name);
         // Do NOT let a default-skin fallback overwrite a previously-cached real
