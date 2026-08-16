@@ -340,11 +340,11 @@ public class ChatMessageStore {
     public static java.util.function.Supplier<net.minecraft.world.entity.player.Player> localPlayerSupplier =
         () -> net.minecraft.client.Minecraft.getInstance().player;
 
-    // package-private test seams: ModConfigSpec values throw until a config is
-    // loaded, so headless tests stub the two gates addMessage always hits
-    static java.util.function.BooleanSupplier antiSpamEnabledSupplier =
+    // test seams: ModConfigSpec values throw until a config is loaded, so
+    // headless tests stub the two gates addMessage always hits
+    public static java.util.function.BooleanSupplier antiSpamEnabledSupplier =
         () -> ChatBubbleConfig.ANTI_SPAM.get();
-    static java.util.function.BooleanSupplier mentionRequireAtSupplier =
+    public static java.util.function.BooleanSupplier mentionRequireAtSupplier =
         () -> ChatBubbleConfig.MENTION_REQUIRE_AT.get();
 
     public static void addMessage(Component content, UUID senderUUID, Component senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner, boolean localSend) {
