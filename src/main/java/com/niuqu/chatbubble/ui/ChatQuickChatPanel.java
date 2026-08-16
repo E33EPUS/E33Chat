@@ -3,6 +3,8 @@ import com.niuqu.chatbubble.texture.UiTextureManager;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
+import com.niuqu.chatbubble.render.UiTokens;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -17,6 +19,14 @@ public class ChatQuickChatPanel {
 
     public boolean visible;
     public int scrollOffset;
+
+    /** Screen 注入的关闭请求钩子（播放关闭动画，含输入框隐藏）；null 时直接隐藏（D07-6）。 */
+    public Runnable closeRequest;
+
+    private void requestClose() {
+        if (closeRequest != null) closeRequest.run();
+        else visible = false;
+    }
 
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,
@@ -35,10 +45,8 @@ public class ChatQuickChatPanel {
         int px = Mth.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
 
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, py, W, panelH, alpha);
-        g.renderOutline(px, py, W, panelH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        // SDF 圆角弹层背景（D1）
+        RoundRectRenderer.fillPanel(g, px, py, W, panelH, UiTokens.RADIUS_MEDIUM, c.divider(), c.titleBg(), alpha);
 
         // Scrollbar
         int totalPhrases = phrases.size();
@@ -143,8 +151,7 @@ public class ChatQuickChatPanel {
         int py = barTop - panelH - 4;
 
         if (mx < px || mx > px + W || my < py || my > py + panelH) {
-            visible = false;
-            input.setVisible(false);
+            requestClose();
             return -1;
         }
 
@@ -166,8 +173,7 @@ public class ChatQuickChatPanel {
             if (mx >= px + 4 && mx <= hoverRight
                 && my >= rowY && my <= rowY + ROW_H) {
                 String phrase = phrases.get(i);
-                visible = false;
-                input.setVisible(false);
+                requestClose();
                 return i;
             }
         }

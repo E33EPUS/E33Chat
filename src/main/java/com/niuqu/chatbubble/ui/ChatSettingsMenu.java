@@ -3,6 +3,8 @@ import com.niuqu.chatbubble.texture.UiTextureManager;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.render.ChatBubbleScreen;
+import com.niuqu.chatbubble.render.RoundRectRenderer;
+import com.niuqu.chatbubble.render.UiTokens;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -15,6 +17,14 @@ public class ChatSettingsMenu {
 
     public boolean visible;
 
+    /** Screen 注入的关闭请求钩子（播放关闭动画）；null 时直接隐藏（D07-6）。 */
+    public Runnable closeRequest;
+
+    private void requestClose() {
+        if (closeRequest != null) closeRequest.run();
+        else visible = false;
+    }
+
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
@@ -26,10 +36,8 @@ public class ChatSettingsMenu {
         int px = gearX;
         int py = barTop - menuH - 4;
 
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
-            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
-            px, py, W, menuH, alpha);
-        g.renderOutline(px, py, W, menuH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        // SDF 圆角弹层背景（D1）：阴影 + 1px 描边 + 圆角，颜色取 token 表语义色
+        RoundRectRenderer.fillPanel(g, px, py, W, menuH, UiTokens.RADIUS_MEDIUM, c.divider(), c.titleBg(), alpha);
 
         ResourceLocation[] icons = {
             iconTex.apply("search"), iconTex.apply("quick_chat"),
@@ -61,7 +69,7 @@ public class ChatSettingsMenu {
         int gearX = panelX + 4;
         int iconY = barTop + (ChatBubbleScreen.BAR_H - iconS) / 2;
         if (mx >= gearX && mx <= gearX + iconS && my >= iconY && my <= iconY + iconS) {
-            visible = false;
+            requestClose();
             return -1;
         }
 
@@ -70,13 +78,13 @@ public class ChatSettingsMenu {
         int py = barTop - menuH - 4;
 
         if (mx < px || mx > px + W || my < py || my > py + menuH) {
-            visible = false;
+            requestClose();
             return -1;
         }
 
         int row = (my - py - 2) / ROW_H;
         if (row >= 0 && row < COUNT) {
-            visible = false;
+            requestClose();
             return row; // 0=search, 1=quick_chat, 2=theme, 3=settings
         }
         return -1;

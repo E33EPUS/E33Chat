@@ -26,8 +26,8 @@ import java.util.*;
 
 public final class ChatMessageRenderer {
 
-    public static final int BUBBLE_PAD_X = 6;
-    public static final int BUBBLE_PAD_Y = 4;
+    public static final int BUBBLE_PAD_X = UiTokens.BUBBLE_PAD_X;
+    public static final int BUBBLE_PAD_Y = UiTokens.BUBBLE_PAD_Y;
     static final int NAME_H = 10;
     static final int TIME_SEP_H = 14;
 
@@ -39,6 +39,37 @@ public final class ChatMessageRenderer {
     private ChatMessageRenderer() {}
 
     // ---- Pure computation (testable) ----
+
+    /** 组内时间窗：同一发送者间隔超过 5 分钟视为新组（07 §1.2 惯例）。 */
+    static final long GROUP_TIME_MS = 5 * 60_000L;
+
+    /** 两条消息是否同组：同一发送者（rawPlayerName 优先）+ 5 分钟窗口内 + 非系统消息。 */
+    public static boolean isSameGroup(ChatMessageStore.ChatMessage prev, ChatMessageStore.ChatMessage msg) {
+        if (prev == null || msg == null) return false;
+        if (prev.isSystem() || msg.isSystem()) return false;
+        String a = prev.rawPlayerName() != null && !prev.rawPlayerName().isEmpty()
+            ? prev.rawPlayerName() : prev.senderName().getString();
+        String b = msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty()
+            ? msg.rawPlayerName() : msg.senderName().getString();
+        if (!a.equals(b)) return false;
+        return msg.time() - prev.time() <= GROUP_TIME_MS;
+    }
+
+    /** 组内间距 = message_gap × 2/3，下限 2（D07 内部比例，不动 message_gap 键）。 */
+    public static int groupGap(int messageGap) {
+        return Math.max(UiTokens.GROUP_GAP_MIN,
+            messageGap * UiTokens.GROUP_GAP_FACTOR_NUM / UiTokens.GROUP_GAP_FACTOR_DEN);
+    }
+
+    /** 组间间距 = message_gap × 2。 */
+    public static int sectionGap(int messageGap) {
+        return messageGap * UiTokens.SECTION_GAP_FACTOR;
+    }
+
+    /** 相邻两条消息之间的垂直间距：同组用组内档，否则组间档。 */
+    public static int gapBetween(ChatMessageStore.ChatMessage prev, ChatMessageStore.ChatMessage msg, int messageGap) {
+        return isSameGroup(prev, msg) ? groupGap(messageGap) : sectionGap(messageGap);
+    }
 
     public static int msgHeight(ChatMessageStore.ChatMessage msg, Font font, int bubbleMaxW, int panelW) {
         if (msg.isSystem()) {
@@ -121,22 +152,24 @@ public final class ChatMessageRenderer {
             ChatMessageStore.ChatMessage msg, int index, int baseY, boolean own, float alpha,
             BracketCodec.ParseResult parsed, List<FormattedCharSequence> lines,
             ChatBubbleTheme.Colors c, ResourceLocation skin, int panelX, int panelW,
-            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans) {
+            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans, boolean showAvatar) {
         int avatarX = own ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() : panelX + ChatLayout.PAD;
 
         if (!msg.senderName().getString().isEmpty()) {
             int maxNameW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 20;
             FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
             int nameW = font.width(nameSeq);
-            int startX = own ? (avatarX - 8 - nameW) : (avatarX + Appearance.avatarSize() + 4);
+            int startX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - nameW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
             g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
         }
 
-        drawAvatar(g, skin, avatarX, baseY, alpha);
+        // 头像与内容顶部对齐（D07）
+        int avatarY = baseY + NAME_H;
+        if (showAvatar) drawAvatar(g, skin, avatarX, avatarY, alpha);
 
         int maxTextW = 0;
         for (var line : lines) maxTextW = Math.max(maxTextW, font.width(line));
-        int textX = own ? (avatarX - 8 - maxTextW) : (avatarX + Appearance.avatarSize() + 4);
+        int textX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - maxTextW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
 
         int y = baseY + NAME_H;
         if (!lines.isEmpty()) {
@@ -162,7 +195,7 @@ public final class ChatMessageRenderer {
                 w = Math.max(1, (int) (entry.width() * ratio));
                 h = Math.max(1, (int) (entry.height() * ratio));
             }
-            int imgX = own ? (avatarX - 8 - w) : (avatarX + Appearance.avatarSize() + 4);
+            int imgX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - w) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
             if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
                 g.blit(entry.textureId(), imgX, y, w, h, 0, 0,
                     entry.width(), entry.height(), entry.width(), entry.height());
@@ -188,7 +221,7 @@ public final class ChatMessageRenderer {
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
             int labelW = font.width(label);
-            int lx = own ? (avatarX - 8 - labelW - 3) : (avatarX + Appearance.avatarSize() + 4 + 3);
+            int lx = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - labelW - 3) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP + 3);
             g.drawString(font, Component.literal(label), lx, baseY + NAME_H + 2,
                 ChatBubbleTheme.alphaBlend(c.duplicateLabel(), (int)(255 * alpha)), false);
         }
@@ -199,18 +232,18 @@ public final class ChatMessageRenderer {
             String quoteDisplay = font.plainSubstrByWidth(quoteText, quoteMaxW - 10);
             if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
             int quoteW = Math.min(font.width(quoteDisplay) + 8, quoteMaxW);
-            int quoteX = own ? (avatarX - 8 - quoteW) : (avatarX + Appearance.avatarSize() + 4);
+            int quoteX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - quoteW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
             if (quoteX < panelX + ChatLayout.PAD) quoteX = panelX + ChatLayout.PAD;
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
-            RoundRectRenderer.fill(g, quoteX, y, quoteX + quoteW, y + font.lineHeight + 4, 3,
+            RoundRectRenderer.fill(g, quoteX, y, quoteX + quoteW, y + font.lineHeight + 4, UiTokens.RADIUS_MEDIUM,
                 ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
             g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, y + 2,
                 ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)), false);
         }
 
         // Hit-test region for avatar clicks / context menus: the message span.
-        bubbleRects.add(new int[]{own ? avatarX - 8 - maxTextW : avatarX + Appearance.avatarSize() + 4,
+        bubbleRects.add(new int[]{own ? avatarX - 8 - maxTextW : avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP,
             baseY, Math.max(maxTextW, maxImgW), y - baseY, index});
     }
 
@@ -218,7 +251,7 @@ public final class ChatMessageRenderer {
     public static void renderEmoteMessage(GuiGraphics g, Font font,
             ChatMessageStore.ChatMessage msg, int index, int baseY, boolean own, float alpha,
             ChatBubbleTheme.Colors c, ResourceLocation skin, int panelX, int panelW,
-            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans) {
+            List<int[]> bubbleRects, List<ClickableSpan> clickableSpans, boolean showAvatar) {
         BracketCodec.ParseResult parsed = parseImages(msg.content());
         if (parsed.images().isEmpty()) return;
         BracketCodec.ImageRef ref = parsed.images().get(0);
@@ -228,11 +261,12 @@ public final class ChatMessageRenderer {
             int maxNameW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 20;
             FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
             int nameW = font.width(nameSeq);
-            int startX = own ? (avatarX - 8 - nameW) : (avatarX + Appearance.avatarSize() + 4);
+            int startX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - nameW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
             g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
         }
 
-        drawAvatar(g, skin, avatarX, baseY, alpha);
+        // 头像与表情顶部对齐（D07）
+        if (showAvatar) drawAvatar(g, skin, avatarX, baseY + NAME_H, alpha);
 
         int emoteY = baseY + NAME_H + 2;
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16));
@@ -245,7 +279,7 @@ public final class ChatMessageRenderer {
             w = Math.max(1, (int) (entry.width() * ratio));
             h = Math.max(1, (int) (entry.height() * ratio));
         }
-        int emoteX = own ? (avatarX - 8 - w) : (avatarX + Appearance.avatarSize() + 4);
+        int emoteX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - w) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
         if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
             g.blit(entry.textureId(), emoteX, emoteY, w, h, 0, 0,
                 entry.width(), entry.height(), entry.width(), entry.height());
@@ -429,7 +463,7 @@ public final class ChatMessageRenderer {
                                      int bubbleMaxW,
                                      List<int[]> bubbleRects,
                                      List<ClickableSpan> clickableSpans,
-                                     float alpha) {
+                                     float alpha, boolean showAvatar) {
         if (msg.isSystem()) {
             List<FormattedCharSequence> lines = wrapContent(msg.content(), font, panelW - ChatLayout.PAD * 2 - 20);
             int yy = baseY + 2;
@@ -471,14 +505,14 @@ public final class ChatMessageRenderer {
                 && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
                 && parsed.textWithoutImages().getString().isBlank()) {
             renderEmoteMessage(g, font, msg, index, baseY, own, alpha, c, skin,
-                panelX, panelW, bubbleRects, clickableSpans);
+                panelX, panelW, bubbleRects, clickableSpans, showAvatar);
             return;
         }
         // Any message carrying images renders bubble-less too (240px long-edge,
         // aspect preserved, stacked vertically, direction-aligned).
         if (!parsed.images().isEmpty()) {
             renderNoBubbleMessage(g, font, msg, index, baseY, own, alpha, parsed, lines, c, skin,
-                panelX, panelW, bubbleRects, clickableSpans);
+                panelX, panelW, bubbleRects, clickableSpans, showAvatar);
             return;
         }
 
@@ -490,10 +524,10 @@ public final class ChatMessageRenderer {
         int avatarX, bubbleX;
         if (own) {
             avatarX = panelX + panelW - ChatLayout.PAD - Appearance.avatarSize();
-            bubbleX = avatarX - 4 - bubbleW;
+            bubbleX = avatarX - UiTokens.AVATAR_GAP - bubbleW;
         } else {
             avatarX = panelX + ChatLayout.PAD;
-            bubbleX = avatarX + Appearance.avatarSize() + 4;
+            bubbleX = avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP;
         }
 
         int nameY = baseY;
@@ -507,7 +541,8 @@ public final class ChatMessageRenderer {
         }
 
         int bubbleY = baseY + NAME_H;
-        int avatarY = baseY;
+        // 头像与气泡顶部对齐（D07，QQ 风格）
+        int avatarY = bubbleY;
 
         int bg = own ? ownBubbleColor : otherBubbleColor;
         int fg = own ? ownTextColor : otherTextColor;
@@ -523,7 +558,7 @@ public final class ChatMessageRenderer {
                 bubbleY + BUBBLE_PAD_Y + li * font.lineHeight, fgA, fb, clickableSpans);
 
         // Draw avatar (per-element alpha: vanilla blit ignores setShaderColor)
-        drawAvatar(g, skin, avatarX, avatarY, alpha);
+        if (showAvatar) drawAvatar(g, skin, avatarX, avatarY, alpha);
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
@@ -548,7 +583,7 @@ public final class ChatMessageRenderer {
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
             // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, UiTokens.RADIUS_MEDIUM, ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
             g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)), false);
         }
 
