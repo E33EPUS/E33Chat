@@ -20,6 +20,14 @@ public class ChatQuickChatPanel {
     public boolean visible;
     public int scrollOffset;
 
+    /** Screen 注入的关闭请求钩子（播放关闭动画，含输入框隐藏）；null 时直接隐藏（D07-6）。 */
+    public Runnable closeRequest;
+
+    private void requestClose() {
+        if (closeRequest != null) closeRequest.run();
+        else visible = false;
+    }
+
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
@@ -143,8 +151,7 @@ public class ChatQuickChatPanel {
         int py = barTop - panelH - 4;
 
         if (mx < px || mx > px + W || my < py || my > py + panelH) {
-            visible = false;
-            input.setVisible(false);
+            requestClose();
             return -1;
         }
 
@@ -166,8 +173,7 @@ public class ChatQuickChatPanel {
             if (mx >= px + 4 && mx <= hoverRight
                 && my >= rowY && my <= rowY + ROW_H) {
                 String phrase = phrases.get(i);
-                visible = false;
-                input.setVisible(false);
+                requestClose();
                 return i;
             }
         }

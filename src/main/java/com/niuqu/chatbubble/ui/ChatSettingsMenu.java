@@ -17,6 +17,14 @@ public class ChatSettingsMenu {
 
     public boolean visible;
 
+    /** Screen 注入的关闭请求钩子（播放关闭动画）；null 时直接隐藏（D07-6）。 */
+    public Runnable closeRequest;
+
+    private void requestClose() {
+        if (closeRequest != null) closeRequest.run();
+        else visible = false;
+    }
+
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop,
@@ -61,7 +69,7 @@ public class ChatSettingsMenu {
         int gearX = panelX + 4;
         int iconY = barTop + (ChatBubbleScreen.BAR_H - iconS) / 2;
         if (mx >= gearX && mx <= gearX + iconS && my >= iconY && my <= iconY + iconS) {
-            visible = false;
+            requestClose();
             return -1;
         }
 
@@ -70,13 +78,13 @@ public class ChatSettingsMenu {
         int py = barTop - menuH - 4;
 
         if (mx < px || mx > px + W || my < py || my > py + menuH) {
-            visible = false;
+            requestClose();
             return -1;
         }
 
         int row = (my - py - 2) / ROW_H;
         if (row >= 0 && row < COUNT) {
-            visible = false;
+            requestClose();
             return row; // 0=search, 1=quick_chat, 2=theme, 3=settings
         }
         return -1;

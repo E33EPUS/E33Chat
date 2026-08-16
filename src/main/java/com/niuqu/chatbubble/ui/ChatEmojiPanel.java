@@ -73,6 +73,14 @@ public class ChatEmojiPanel {
     public int scroll;
     public int tab;
 
+    /** Screen 注入的关闭请求钩子（播放关闭动画）；null 时直接隐藏（D07-6）。 */
+    public Runnable closeRequest;
+
+    private void requestClose() {
+        if (closeRequest != null) closeRequest.run();
+        else visible = false;
+    }
+
     public void render(GuiGraphics g, int mouseX, int mouseY,
             net.minecraft.client.gui.Font font, ChatBubbleTheme.Colors c,
             int panelX, int panelW, int barTop, int iconS, int pad, float alpha) {
@@ -244,7 +252,7 @@ public class ChatEmojiPanel {
         int iconY = barTop + (ChatBubbleScreen.BAR_H - iconS) / 2;
         int emojiIconX = sendX - iconS - 6;
         if (mx >= emojiIconX && mx <= emojiIconX + iconS && my >= iconY && my <= iconY + iconS) {
-            visible = false;
+            requestClose();
             return "";
         }
 
@@ -257,7 +265,7 @@ public class ChatEmojiPanel {
         int py = Math.max(2, barTop - PANEL_H - 4);
 
         if (mx < px || mx > px + pw || my < py || my > py + PANEL_H) {
-            visible = false;
+            requestClose();
             return null;
         }
 

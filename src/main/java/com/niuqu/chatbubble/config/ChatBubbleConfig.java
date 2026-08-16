@@ -49,7 +49,6 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue COLOR_CODES;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> SIDEBAR_HIDE_PATTERNS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BLOCKED_PLAYERS;
- (feat: align avatars to content top and hide repeated avatars)
 
     // mention
     public static final ModConfigSpec.BooleanValue MENTION_BANNER_ENABLED;
