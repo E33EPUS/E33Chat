@@ -39,4 +39,8 @@ public final class UiTokens {
     public static final int GROUP_GAP_MIN = 2;
     /** 组间（换人/超时/系统消息前后）间距 = message_gap × 2 */
     public static final int SECTION_GAP_FACTOR = 2;
+
+    // ---- 弹层动画时长（07 §1.4/§2.6：进入 200ms ease-out / 退出 150ms ease-in） ----
+    public static final int POPUP_OPEN_MS = 200;
+    public static final int POPUP_CLOSE_MS = 150;
 }

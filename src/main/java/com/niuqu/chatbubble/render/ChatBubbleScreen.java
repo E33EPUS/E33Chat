@@ -126,6 +126,8 @@ public class ChatBubbleScreen extends ChatScreen {
 
     // Popup open animation timestamps (opening only; closing stays instant)
     private long settingsAnimStart, emojiAnimStart, quickAnimStart, searchAnimStart;
+    // Popup close animation timestamps (0 = not closing; D07-6)
+    private long settingsCloseStart, emojiCloseStart, quickCloseStart, searchCloseStart;
 
     // Sidebar — animation state owned by ChatBubbleScreen, rendering delegated to ChatSidebar
     private static boolean sidebarOpen;
@@ -303,6 +305,16 @@ public class ChatBubbleScreen extends ChatScreen {
         searchInput.setResponder(this::onSearchEdited);
         addRenderableWidget(searchInput);
 
+        // D07-6: 弹层关闭动画钩子——visible 延迟置 false，先播 150ms 关闭动画
+        settingsMenu.closeRequest = () -> beginPopupClose(s -> settingsCloseStart = s,
+            () -> settingsMenu.visible = false);
+        emojiPanel.closeRequest = () -> beginPopupClose(s -> emojiCloseStart = s,
+            () -> emojiPanel.visible = false);
+        quickChatPanel.closeRequest = () -> beginPopupClose(s -> quickCloseStart = s, () -> {
+            quickChatPanel.visible = false;
+            quickChatInput.setVisible(false);
+        });
+
         setInitialFocus(input);
         // The chat field's initial text is set before setResponder binds,
         // so the open-time value (e.g. "/" from the chat key) never flows
@@ -417,6 +429,18 @@ public class ChatBubbleScreen extends ChatScreen {
         if (copyToastTicks > 0) copyToastTicks--;
         input.tick();
         if (searchPanel.visible) searchInput.tick();
+        finishPopupClose(settingsCloseStart, () -> { settingsCloseStart = 0; settingsMenu.visible = false; });
+        finishPopupClose(emojiCloseStart, () -> { emojiCloseStart = 0; emojiPanel.visible = false; });
+        finishPopupClose(quickCloseStart, () -> {
+            quickCloseStart = 0;
+            quickChatPanel.visible = false;
+            quickChatInput.setVisible(false);
+        });
+        finishPopupClose(searchCloseStart, () -> {
+            searchCloseStart = 0;
+            searchPanel.visible = false;
+            searchInput.setVisible(false);
+        });
         if (closing && net.minecraft.Util.getMillis() - animStart >= ANIM_MS)
             minecraft.setScreen(null);
     }
@@ -443,14 +467,39 @@ public class ChatBubbleScreen extends ChatScreen {
         return t;
     }
 
-    // Popup open animation (opening only — closing stays instant). FADE fades the
-    // whole panel in; ZOOM scales it in around the screen center with overshoot.
-    private void renderPopupWithAnim(GuiGraphics g, long startMs, java.util.function.Function<Float, Runnable> renderer) {
+    // Popup open/close animation (D07-6: closing is no longer instant).
+    // Open: 200ms style curve (ease-out); close: 150ms ease-in fade + style displacement.
+    private void renderPopupWithAnim(GuiGraphics g, long openStartMs, long closeStartMs,
+                                     java.util.function.Function<Float, Runnable> renderer) {
+        AnimationStyle style = ChatBubbleConfig.POPUP_ANIM_STYLE.get();
         float alpha = 1f;
         float t = 1f;
-        AnimationStyle style = ChatBubbleConfig.POPUP_ANIM_STYLE.get();
+        if (closeStartMs > 0) {
+            // Closing: ease-in fade-out (07 §2.6: exit 150ms ease-in)
+            float tc = Mth.clamp((float) (net.minecraft.Util.getMillis() - closeStartMs) / UiTokens.POPUP_CLOSE_MS, 0f, 1f);
+            float a = (1f - tc) * (1f - tc);
+            Runnable render = renderer.apply(a);
+            if (style == AnimationStyle.ZOOM) {
+                g.pose().pushPose();
+                float s = 0.85f + 0.15f * a;
+                g.pose().translate(width / 2f, height / 2f, 0);
+                g.pose().scale(s, s, 1f);
+                g.pose().translate(-width / 2f, -height / 2f, 0);
+                render.run();
+                g.pose().popPose();
+            } else if (style == AnimationStyle.SLIDE) {
+                // 与打开同向位移：打开从下往上滑入，关闭向下滑出
+                g.pose().pushPose();
+                g.pose().translate(0, (1f - a) * 10f, 0);
+                render.run();
+                g.pose().popPose();
+            } else {
+                render.run();
+            }
+            return;
+        }
         if (ChatBubbleConfig.ANIMATION_ENABLED.get() && style != AnimationStyle.NONE) {
-            t = Mth.clamp((float) (net.minecraft.Util.getMillis() - startMs) / 150f, 0f, 1f);
+            t = Mth.clamp((float) (net.minecraft.Util.getMillis() - openStartMs) / UiTokens.POPUP_OPEN_MS, 0f, 1f);
             alpha = Animation.styleCurve(style, t);
         }
         Runnable render = renderer.apply(alpha);
@@ -471,6 +520,24 @@ public class ChatBubbleScreen extends ChatScreen {
             g.pose().popPose();
         } else {
             render.run();
+        }
+    }
+
+    /** 开始弹层关闭动画（D07-6）：动画关/风格 NONE 时立即隐藏，否则 150ms 后由 tick 隐藏。 */
+    private void beginPopupClose(java.util.function.LongConsumer setCloseStart, Runnable hide) {
+        if (!ChatBubbleConfig.ANIMATION_ENABLED.get()
+                || ChatBubbleConfig.POPUP_ANIM_STYLE.get() == AnimationStyle.NONE) {
+            setCloseStart.accept(0);
+            hide.run();
+            return;
+        }
+        setCloseStart.accept(System.currentTimeMillis());
+    }
+
+    /** tick 调用：关闭动画到期后真正隐藏（D07-6）。 */
+    private void finishPopupClose(long closeStart, Runnable hide) {
+        if (closeStart > 0 && System.currentTimeMillis() - closeStart >= UiTokens.POPUP_CLOSE_MS) {
+            hide.run();
         }
     }
 
@@ -528,16 +595,18 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         // Settings menu / emoji panel gets ESC first
         if (settingsMenu.visible && keyCode == 256) {
-            settingsMenu.visible = false;
+            beginPopupClose(s -> settingsCloseStart = s, () -> settingsMenu.visible = false);
             return true;
         }
         if (emojiPanel.visible && keyCode == 256) {
-            emojiPanel.visible = false;
+            beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
             return true;
         }
         if (quickChatPanel.visible && keyCode == 256) {
-            quickChatPanel.visible = false;
-            quickChatInput.setVisible(false);
+            beginPopupClose(s -> quickCloseStart = s, () -> {
+                quickChatPanel.visible = false;
+                quickChatInput.setVisible(false);
+            });
             setFocused(input);
             return true;
         }
@@ -876,7 +945,7 @@ public class ChatBubbleScreen extends ChatScreen {
                     if (emojiText.startsWith("@EMOTE:")) {
                         java.io.File f = new java.io.File(emojiText.substring(7));
                         if (f.isFile()) {
-                            emojiPanel.visible = false;
+                            beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
                             uploadQueue.enqueue(new com.niuqu.chatbubble.image.UploadQueue.UploadJob(f, null, null, true, null));
                         }
                     } else if (emojiText.startsWith("@EMOTE_DEL:")) {
@@ -1044,24 +1113,32 @@ public class ChatBubbleScreen extends ChatScreen {
         // Gear icon (left) — toggle settings menu
         int gearX = panelX + 4;
         if (mx >= gearX && mx <= gearX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
-            if (emojiPanel.visible) emojiPanel.visible = false;
+            if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
             if (searchPanel.visible) closeSearchPanel();
             boolean opening = !settingsMenu.visible;
-            settingsMenu.visible = opening;
-            if (opening) settingsAnimStart = net.minecraft.Util.getMillis();
+            if (opening) {
+                settingsMenu.visible = true;
+                settingsAnimStart = net.minecraft.Util.getMillis();
+            } else {
+                beginPopupClose(s -> settingsCloseStart = s, () -> settingsMenu.visible = false);
+            }
             return true;
         }
         // Emoji icon — toggle emoji panel
         int sendX = panelX + panelW - PAD - ICON_S + 2;
         int emojiX = sendX - ICON_S - 6;
         if (mx >= emojiX && mx <= emojiX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
-            if (settingsMenu.visible) settingsMenu.visible = false;
+            if (settingsMenu.visible) beginPopupClose(s -> settingsCloseStart = s, () -> settingsMenu.visible = false);
             if (searchPanel.visible) closeSearchPanel();
             boolean opening = !emojiPanel.visible;
-            emojiPanel.visible = opening;
-            if (opening) emojiAnimStart = net.minecraft.Util.getMillis();
-            showMentions = false;
-            if (emojiPanel.visible) emojiPanel.scroll = 0;
+            if (opening) {
+                emojiPanel.visible = true;
+                emojiAnimStart = net.minecraft.Util.getMillis();
+                showMentions = false;
+                emojiPanel.scroll = 0;
+            } else {
+                beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
+            }
             return true;
         }
 
@@ -1257,10 +1334,10 @@ public class ChatBubbleScreen extends ChatScreen {
         // 会盖住它们，提升弹层 z 到侧边栏之上避免遮挡
         g.pose().pushPose();
         g.pose().translate(0, 0, 100);
-        renderPopupWithAnim(g, settingsAnimStart, a -> () -> settingsMenu.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex, a));
-        renderPopupWithAnim(g, emojiAnimStart, a -> () -> emojiPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ICON_S, PAD, a));
-        renderPopupWithAnim(g, quickAnimStart, a -> () -> quickChatPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, quickChatInput, a));
-        renderPopupWithAnim(g, searchAnimStart, a -> () -> searchPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx, a));
+        renderPopupWithAnim(g, settingsAnimStart, settingsCloseStart, a -> () -> settingsMenu.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex, a));
+        renderPopupWithAnim(g, emojiAnimStart, emojiCloseStart, a -> () -> emojiPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ICON_S, PAD, a));
+        renderPopupWithAnim(g, quickAnimStart, quickCloseStart, a -> () -> quickChatPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, quickChatInput, a));
+        renderPopupWithAnim(g, searchAnimStart, searchCloseStart, a -> () -> searchPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx, a));
         // 输入框 widget 在 z=50 的 renderables 循环渲染，会被这里 z=100 的不透明面板背景盖住
         // （5bb740e 弹层 z 提升引入）——面板打开时在同 z 重画一次，文字/光标才可见。
         // widget 无背景（setBordered(false)），只画文字/光标，不遮挡面板内容
@@ -1781,8 +1858,11 @@ public class ChatBubbleScreen extends ChatScreen {
     private void executeMenuAction(int action) {
         switch (action) {
             case 0: // 搜索
-                if (quickChatPanel.visible) { quickChatPanel.visible = false; quickChatInput.setVisible(false); }
-                if (emojiPanel.visible) emojiPanel.visible = false;
+                if (quickChatPanel.visible) beginPopupClose(s -> quickCloseStart = s, () -> {
+                    quickChatPanel.visible = false;
+                    quickChatInput.setVisible(false);
+                });
+                if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
                 searchPanel.visible = true;
                 searchAnimStart = net.minecraft.Util.getMillis();
                 searchInput.setValue("");
@@ -1793,7 +1873,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 break;
             case 1: // 常用语
                 if (searchPanel.visible) closeSearchPanel();
-                if (emojiPanel.visible) emojiPanel.visible = false;
+                if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
                 quickChatPanel.visible = true;
                 quickAnimStart = net.minecraft.Util.getMillis();
                 quickChatPanel.scrollOffset = 0;
@@ -1826,8 +1906,10 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void closeSearchPanel() {
-        searchPanel.visible = false;
-        searchInput.setVisible(false);
+        beginPopupClose(s -> searchCloseStart = s, () -> {
+            searchPanel.visible = false;
+            searchInput.setVisible(false);
+        });
         searchMatches.clear();
         searchMatchIdx = -1;
         searchHighlightIndex = -1;
