@@ -32,23 +32,16 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
     public static final StreamCodec<ByteBuf, ServerConfigSavePayload> STREAM_CODEC = new StreamCodec<>() {
         @Override
         public ServerConfigSavePayload decode(ByteBuf buf) {
-            boolean useTpa = buf.readBoolean();
-            boolean history = buf.readBoolean();
-            boolean debug = buf.readBoolean();
-            boolean media = buf.readBoolean();
-            List<String> chat = ConfigSyncV2Payload.readList(buf);
-            List<String> whisper = ConfigSyncV2Payload.readList(buf);
-            return new ServerConfigSavePayload(useTpa, history, debug, media, chat, whisper);
+            ServerConfigDto d = ServerConfigDto.decode(buf);
+            return new ServerConfigSavePayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
+                d.mediaEnabled(), d.chatTemplates(), d.whisperTemplates());
         }
 
         @Override
         public void encode(ByteBuf buf, ServerConfigSavePayload payload) {
-            buf.writeBoolean(payload.useTpa());
-            buf.writeBoolean(payload.historyEnabled());
-            buf.writeBoolean(payload.templateDebug());
-            buf.writeBoolean(payload.mediaEnabled());
-            ConfigSyncV2Payload.writeList(buf, payload.chatTemplates());
-            ConfigSyncV2Payload.writeList(buf, payload.whisperTemplates());
+            ServerConfigDto.encode(new ServerConfigDto(payload.useTpa(), payload.historyEnabled(),
+                payload.templateDebug(), payload.mediaEnabled(), payload.chatTemplates(),
+                payload.whisperTemplates()), buf);
         }
     };
 
