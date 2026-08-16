@@ -241,5 +241,7 @@
   "e33chat.upload.failed": "上传失败",
   "e33chat.upload.wait": "图片上传中，稍候再发",
   "e33chat.upload.queue_full": "上传队列已满，请稍后再试",
-  "e33chat.emoji.tab_custom": "表情包"
+  "e33chat.emoji.tab_custom": "表情包",
+  "e33chat.config.hide_repeated_avatars": "隐藏连续消息头像",
+  "e33chat.config.hide_repeated_avatars.desc": "同一人连续消息只首条显示头像（QQ 风格）"
 }
