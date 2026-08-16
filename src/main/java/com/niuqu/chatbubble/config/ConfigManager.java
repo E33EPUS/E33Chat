@@ -81,7 +81,8 @@ public final class ConfigManager {
             c.uploadExtra() != null ? c.uploadExtra() : d.uploadExtra(),
             c.uploadResponse() != null ? c.uploadResponse() : d.uploadResponse(),
             c.messageGap() != null ? c.messageGap() : d.messageGap(),
-            c.avatarSize() != null ? c.avatarSize() : d.avatarSize());
+            c.avatarSize() != null ? c.avatarSize() : d.avatarSize(),
+            c.hideRepeatedAvatars() != null ? c.hideRepeatedAvatars() : d.hideRepeatedAvatars());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {
