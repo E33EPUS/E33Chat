@@ -249,7 +249,7 @@ public abstract class ChatComponentMixin {
             // Server may bypass MessageHandler entirely (custom packets, other
             // mods intercepting chat) — try to parse the line as a player
             // message before falling back to the generic system sender.
-            meta = ChatListenerMixin.tryParseAsPlayerMessage(finalComponent, text);
+            meta = MessageHandlerAccessor.e33chat$invokeTryParseAsPlayerMessage(finalComponent, text);
             if (meta == null) {
             //#endif
                 meta = new SenderMeta(

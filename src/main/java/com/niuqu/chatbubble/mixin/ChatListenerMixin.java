@@ -214,7 +214,7 @@ public class ChatListenerMixin {
      * or mods that intercept chat delivery). Returns a SenderMeta if the
      * message is recognized as a player line, null otherwise.
      */
-    static SenderMeta tryParseAsPlayerMessage(Text message, String text) {
+    private static SenderMeta tryParseAsPlayerMessage(Text message, String text) {
         var connection = MinecraftClient.getInstance().player != null
             ? MinecraftClient.getInstance().player.networkHandler : null;
         if (connection == null) return null;
