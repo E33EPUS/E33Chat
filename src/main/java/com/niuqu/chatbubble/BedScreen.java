@@ -53,6 +53,13 @@ public class BedScreen extends Screen {
     //#endif
     //#endif
 
+    //#if MC >= 26000
+    @Override
+    public void extractTransparentBackground(GuiGraphicsExtractor g) {
+        // no-op: prevent vanilla darkening gradient on 26.x
+    }
+    //#endif
+
     @Override
     public void tick() {
         if (client == null || client.player == null || !client.player.isSleeping()) {

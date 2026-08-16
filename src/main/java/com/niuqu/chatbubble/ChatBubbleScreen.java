@@ -632,6 +632,15 @@ public class ChatBubbleScreen extends ChatScreen {
         // no-op: disable vanilla blur
     }
 
+    //#if MC >= 26000
+    @Override
+    public void extractTransparentBackground(net.minecraft.client.gui.GuiGraphicsExtractor g) {
+        // no-op: on 26.x, extractRenderStateWithTooltipAndSubtitles() calls this
+        // directly (bypassing extractBackground), drawing a dark fillGradient over
+        // the world. Override to prevent the vanilla black mask.
+    }
+    //#endif
+
     private float getAnimProgress() {
         if (!ChatBubbleClientSetup.config().animationEnabled()) return 1.0f;
         AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle());

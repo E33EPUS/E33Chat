@@ -916,6 +916,13 @@ public class ChatBubbleConfigScreen extends Screen {
     //#endif
     //#endif
 
+    //#if MC >= 26000
+    @Override
+    public void extractTransparentBackground(GuiGraphicsExtractor g) {
+        // no-op: prevent vanilla darkening gradient on 26.x
+    }
+    //#endif
+
     // ---- input ----
 
     @Override
