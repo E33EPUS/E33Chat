@@ -97,12 +97,15 @@ public class ChatBubbleConfigScreen extends Screen {
     }
 
     private record Opt(String key, WidgetFactory factory, WidgetsFactory multiFactory,
-                       int rows, Supplier<String> previewColor) {
+                       int rows, Supplier<String> previewColor, Ref<?> value) {
         Opt(String key, WidgetFactory factory, Supplier<String> previewColor) {
-            this(key, factory, null, 1, previewColor);
+            this(key, factory, null, 1, previewColor, null);
         }
-        static Opt header(String key) { return new Opt(key, null, null, 1, null); }
-        static Opt multi(String key, WidgetsFactory f, int rows) { return new Opt(key, null, f, rows, null); }
+        Opt(String key, WidgetFactory factory, Supplier<String> previewColor, Ref<?> value) {
+            this(key, factory, null, 1, previewColor, value);
+        }
+        static Opt header(String key) { return new Opt(key, null, null, 1, null, null); }
+        static Opt multi(String key, WidgetsFactory f, int rows) { return new Opt(key, null, f, rows, null, null); }
         boolean isHeader() { return factory == null && multiFactory == null; }
     }
 
@@ -137,54 +140,17 @@ public class ChatBubbleConfigScreen extends Screen {
         };
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private void trackConfigFields() {
         tracked.clear();
-        tracked.add(track(() -> theme.name().toLowerCase(), v -> { try { theme = ChatBubbleTheme.valueOf(v.toUpperCase()); } catch (Exception e) { theme = ChatBubbleTheme.DARK; } }));
-        tracked.add(track(() -> enabled, v -> enabled = v));
-        tracked.add(track(() -> redDotEnabled, v -> redDotEnabled = v));
-        tracked.add(track(() -> hideChatIcon, v -> hideChatIcon = v));
-        tracked.add(track(() -> animationEnabled, v -> animationEnabled = v));
-        tracked.add(track(() -> systemChatAsBubble, v -> systemChatAsBubble = v));
-        tracked.add(track(() -> antiSpam, v -> antiSpam = v));
-        tracked.add(track(() -> receiveImages, v -> receiveImages = v));
-        tracked.add(track(() -> chatHistoryEnabled, v -> chatHistoryEnabled = v));
-        tracked.add(track(() -> historyRetentionDays, v -> historyRetentionDays = v));
-        tracked.add(track(() -> timeSeparatorMinutes, v -> timeSeparatorMinutes = v));
-        tracked.add(track(() -> preserveInput, v -> preserveInput = v));
-        tracked.add(track(() -> colorCodes, v -> colorCodes = v));
-        tracked.add(track(() -> new ArrayList<>(sidebarHidePatterns), v -> sidebarHidePatterns = new ArrayList<>(v)));
+        for (List<SectionDef> cat : CAT_SECTIONS)
+            for (SectionDef s : cat)
+                for (OptionDef d : s.opts()) {
+                    Ref r = d.ref();
+                    tracked.add(track(r.getter(), r.setter()));
+                }
+        // 屏蔽列表在注册表外（动态行）
         tracked.add(track(() -> new ArrayList<>(blockedPlayers), v -> blockedPlayers = new ArrayList<>(v)));
-        tracked.add(track(() -> ownBubbleColor, v -> ownBubbleColor = v));
-        tracked.add(track(() -> otherBubbleColor, v -> otherBubbleColor = v));
-        tracked.add(track(() -> bubbleCornerRadius, v -> bubbleCornerRadius = v));
-        tracked.add(track(() -> ownTextColor, v -> ownTextColor = v));
-        tracked.add(track(() -> otherTextColor, v -> otherTextColor = v));
-        tracked.add(track(() -> messageGap, v -> messageGap = v));
-        tracked.add(track(() -> avatarSize, v -> avatarSize = v));
-        tracked.add(track(() -> panelWidth, v -> panelWidth = v));
-        tracked.add(track(() -> blurEnabled, v -> blurEnabled = v));
-        tracked.add(track(() -> panelOpacity, v -> panelOpacity = v));
-        tracked.add(track(() -> debugLog, v -> debugLog = v));
-        tracked.add(track(() -> soundSystem, v -> soundSystem = v));
-        tracked.add(track(() -> soundWhisper, v -> soundWhisper = v));
-        tracked.add(track(() -> soundPublic, v -> soundPublic = v));
-        tracked.add(track(() -> soundVolume, v -> soundVolume = v));
-        tracked.add(track(() -> mentionBannerEnabled, v -> mentionBannerEnabled = v));
-        tracked.add(track(() -> systemBannerEnabled, v -> systemBannerEnabled = v));
-        tracked.add(track(() -> mentionBannerDuration, v -> mentionBannerDuration = v));
-        tracked.add(track(() -> mentionSoundEnabled, v -> mentionSoundEnabled = v));
-        tracked.add(track(() -> mentionRequireAt, v -> mentionRequireAt = v));
-        tracked.add(track(() -> mentionWhisperBanner, v -> mentionWhisperBanner = v));
-        tracked.add(track(() -> ownMentionNotify, v -> ownMentionNotify = v));
-        tracked.add(track(() -> ownQuoteNotify, v -> ownQuoteNotify = v));
-        tracked.add(track(() -> ownWhisperNotify, v -> ownWhisperNotify = v));
-        tracked.add(track(() -> bannerCornerRadius, v -> bannerCornerRadius = v));
-        tracked.add(track(() -> bannerOffsetX, v -> bannerOffsetX = v));
-        tracked.add(track(() -> bannerOffsetY, v -> bannerOffsetY = v));
-        tracked.add(track(() -> panelAnimStyle, v -> panelAnimStyle = v));
-        tracked.add(track(() -> bannerAnimStyle, v -> bannerAnimStyle = v));
-        tracked.add(track(() -> popupAnimStyle, v -> popupAnimStyle = v));
-        tracked.add(track(() -> messageAnimStyle, v -> messageAnimStyle = v));
     }
 
     private int changeCount() {
@@ -356,51 +322,165 @@ public class ChatBubbleConfigScreen extends Screen {
 
     // ---- UI construction ----
 
+    // ===== OptionDef 注册表（2.3.15，D4）=====
+    // 单一事实来源：注册表描述"哪个配置键放哪个 GUI 行"。配置键名/默认值/范围
+    // 仍在 ChatBubbleConfig 原样保留（红线不动）。buildCats() / trackConfigFields()
+    // / 色板点击全部由注册表派生，杜绝手写清单漂移。
+    // Fabric 无 ModConfigSpec：Ref 是字段的 getter/setter 对（Screen 的 mutable copies）。
+    // 注册表引实例字段，故非 static；lambda 惰性求值，loadFromConfig 前只建引用。
+    private enum Kind { BOOL, INT, SLIDER, HEX, TEXT, PATTERN, ENUM_CYCLE, THEME_CYCLE, TIME_SEP }
+
+    private record Ref<T>(java.util.function.Supplier<T> getter, java.util.function.Consumer<T> setter) {
+        static Ref<Boolean> b(java.util.function.BooleanSupplier g, java.util.function.Consumer<Boolean> s) {
+            return new Ref<>(g::getAsBoolean, s);
+        }
+        static Ref<Integer> i(java.util.function.IntSupplier g, java.util.function.IntConsumer s) {
+            return new Ref<>(g::getAsInt, s::accept);
+        }
+        static Ref<String> s(java.util.function.Supplier<String> g, java.util.function.Consumer<String> s) {
+            return new Ref<>(g, s);
+        }
+        static Ref<List<String>> l(java.util.function.Supplier<List<String>> g, java.util.function.Consumer<List<String>> s) {
+            return new Ref<>(g, s);
+        }
+    }
+
+    private record OptionDef(String key, Kind kind, Ref<?> ref,
+                             int min, int max, int maxLen, Supplier<String> previewColor) {
+        static OptionDef bool(String key, Ref<Boolean> r) {
+            return new OptionDef(key, Kind.BOOL, r, 0, 0, 0, null);
+        }
+        static OptionDef intBox(String key, Ref<Integer> r, int min, int max, int maxLen) {
+            return new OptionDef(key, Kind.INT, r, min, max, maxLen, null);
+        }
+        static OptionDef slider(String key, Ref<Integer> r, int min, int max) {
+            return new OptionDef(key, Kind.SLIDER, r, min, max, 0, null);
+        }
+        static OptionDef hex(String key, Ref<String> r) {
+            return new OptionDef(key, Kind.HEX, r, 0, 0, 7, () -> r.getter().get());
+        }
+        static OptionDef text(String key, Ref<String> r) {
+            return new OptionDef(key, Kind.TEXT, r, 0, 0, 0, null);
+        }
+        static OptionDef pattern(String key, Ref<List<String>> r) {
+            return new OptionDef(key, Kind.PATTERN, r, 0, 0, 0, null);
+        }
+        static OptionDef enumCycle(String key, Ref<String> r) {
+            return new OptionDef(key, Kind.ENUM_CYCLE, r, 0, 0, 0, null);
+        }
+        static OptionDef themeCycle(String key, Ref<ChatBubbleTheme> r) {
+            return new OptionDef(key, Kind.THEME_CYCLE, r, 0, 0, 0, null);
+        }
+        static OptionDef timeSep(String key, Ref<Integer> r) {
+            return new OptionDef(key, Kind.TIME_SEP, r, 0, 0, 0, null);
+        }
+    }
+
+    private record SectionDef(String key, List<OptionDef> opts) {
+        static SectionDef of(String key, OptionDef... opts) { return new SectionDef(key, List.of(opts)); }
+    }
+
+    private final List<SectionDef> CHAT_SECTIONS = List.of(
+        SectionDef.of("e33chat.config.section.panel",
+            OptionDef.themeCycle("e33chat.config.theme", new Ref<>(() -> theme, v -> theme = v)),
+            OptionDef.intBox("e33chat.config.panel_width", Ref.i(() -> panelWidth, v -> panelWidth = v), 800, 1600, 4),
+            OptionDef.bool("e33chat.config.blur_enabled", Ref.b(() -> blurEnabled, v -> blurEnabled = v)),
+            OptionDef.intBox("e33chat.config.panel_opacity", Ref.i(() -> panelOpacity, v -> panelOpacity = v), 0, 100, 3),
+            OptionDef.bool("e33chat.config.animation", Ref.b(() -> animationEnabled, v -> animationEnabled = v)),
+            OptionDef.enumCycle("e33chat.config.panel_anim_style", Ref.s(() -> panelAnimStyle, v -> panelAnimStyle = v)),
+            OptionDef.enumCycle("e33chat.config.popup_anim_style", Ref.s(() -> popupAnimStyle, v -> popupAnimStyle = v)),
+            OptionDef.enumCycle("e33chat.config.message_anim_style", Ref.s(() -> messageAnimStyle, v -> messageAnimStyle = v)),
+            OptionDef.intBox("e33chat.config.avatar_size", Ref.i(() -> avatarSize, v -> avatarSize = v), 12, 32, 2)),
+        SectionDef.of("e33chat.config.section.bubble_font",
+            OptionDef.intBox("e33chat.config.bubble_corner_radius", Ref.i(() -> bubbleCornerRadius, v -> bubbleCornerRadius = v), 0, 10, 2),
+            OptionDef.hex("e33chat.config.own_bubble_color", Ref.s(() -> ownBubbleColor, v -> ownBubbleColor = v)),
+            OptionDef.hex("e33chat.config.other_bubble_color", Ref.s(() -> otherBubbleColor, v -> otherBubbleColor = v)),
+            OptionDef.hex("e33chat.config.own_text_color", Ref.s(() -> ownTextColor, v -> ownTextColor = v)),
+            OptionDef.hex("e33chat.config.other_text_color", Ref.s(() -> otherTextColor, v -> otherTextColor = v))),
+        SectionDef.of("e33chat.config.section.msgdisplay",
+            OptionDef.intBox("e33chat.config.message_gap", Ref.i(() -> messageGap, v -> messageGap = v), 0, 12, 2),
+            OptionDef.bool("e33chat.config.enabled", Ref.b(() -> enabled, v -> enabled = v)),
+            OptionDef.bool("e33chat.config.system_chat_as_bubble", Ref.b(() -> systemChatAsBubble, v -> systemChatAsBubble = v)),
+            OptionDef.bool("e33chat.config.anti_spam", Ref.b(() -> antiSpam, v -> antiSpam = v)),
+            OptionDef.bool("e33chat.config.receive_images", Ref.b(() -> receiveImages, v -> receiveImages = v)),
+            OptionDef.timeSep("e33chat.config.time_separator", Ref.i(() -> timeSeparatorMinutes, v -> timeSeparatorMinutes = v)),
+            OptionDef.bool("e33chat.config.color_codes", Ref.b(() -> colorCodes, v -> colorCodes = v)))
+    );
+
+    private final List<SectionDef> HUD_SECTIONS = List.of(
+        SectionDef.of("e33chat.config.section.icon",
+            OptionDef.bool("e33chat.config.red_dot", Ref.b(() -> redDotEnabled, v -> redDotEnabled = v)),
+            OptionDef.bool("e33chat.config.hide_chat_icon", Ref.b(() -> hideChatIcon, v -> hideChatIcon = v)))
+    );
+
+    private final List<SectionDef> NOTIFY_SECTIONS = List.of(
+        SectionDef.of("e33chat.config.section.mention",
+            OptionDef.bool("e33chat.config.mention_banner_enabled", Ref.b(() -> mentionBannerEnabled, v -> mentionBannerEnabled = v)),
+            OptionDef.bool("e33chat.config.mention_sound_enabled", Ref.b(() -> mentionSoundEnabled, v -> mentionSoundEnabled = v)),
+            OptionDef.bool("e33chat.config.mention_require_at", Ref.b(() -> mentionRequireAt, v -> mentionRequireAt = v))),
+        SectionDef.of("e33chat.config.section.whisper",
+            OptionDef.bool("e33chat.config.mention_whisper_banner", Ref.b(() -> mentionWhisperBanner, v -> mentionWhisperBanner = v)),
+            OptionDef.bool("e33chat.config.sound_whisper", Ref.b(() -> soundWhisper, v -> soundWhisper = v))),
+        SectionDef.of("e33chat.config.section.system",
+            OptionDef.bool("e33chat.config.system_banner_enabled", Ref.b(() -> systemBannerEnabled, v -> systemBannerEnabled = v)),
+            OptionDef.bool("e33chat.config.sound_system", Ref.b(() -> soundSystem, v -> soundSystem = v))),
+        SectionDef.of("e33chat.config.section.banner",
+            OptionDef.intBox("e33chat.config.mention_banner_duration", Ref.i(() -> mentionBannerDuration, v -> mentionBannerDuration = v), 2, 10, 2),
+            OptionDef.intBox("e33chat.config.banner_corner_radius", Ref.i(() -> bannerCornerRadius, v -> bannerCornerRadius = v), 0, 10, 2),
+            // Fabric 输入范围 -500~500 与 Forge/Neo -1000~1000 不同——既有差异，红线不动
+            OptionDef.intBox("e33chat.config.banner_offset_x", Ref.i(() -> bannerOffsetX, v -> bannerOffsetX = v), -500, 500, 2),
+            OptionDef.intBox("e33chat.config.banner_offset_y", Ref.i(() -> bannerOffsetY, v -> bannerOffsetY = v), -500, 500, 2),
+            OptionDef.enumCycle("e33chat.config.banner_anim_style", Ref.s(() -> bannerAnimStyle, v -> bannerAnimStyle = v))),
+        SectionDef.of("e33chat.config.section.sound",
+            OptionDef.slider("e33chat.config.sound_volume", Ref.i(() -> soundVolume, v -> soundVolume = v), 0, 100),
+            OptionDef.bool("e33chat.config.sound_public", Ref.b(() -> soundPublic, v -> soundPublic = v)))
+    );
+
+    private final List<SectionDef> SIDEBAR_SECTIONS = List.of(
+        SectionDef.of("e33chat.config.section.playerlist",
+            OptionDef.pattern("e33chat.config.sidebar_hide_patterns",
+                Ref.l(() -> new ArrayList<>(sidebarHidePatterns), v -> sidebarHidePatterns = v)))
+    );
+
+    private final List<SectionDef> ADVANCED_SECTIONS = List.of(
+        SectionDef.of("e33chat.config.section.history",
+            OptionDef.bool("e33chat.config.chat_history", Ref.b(() -> chatHistoryEnabled, v -> chatHistoryEnabled = v)),
+            OptionDef.intBox("e33chat.config.history_retention", Ref.i(() -> historyRetentionDays, v -> historyRetentionDays = v), 0, 365, 3),
+            OptionDef.bool("e33chat.config.preserve_input", Ref.b(() -> preserveInput, v -> preserveInput = v))),
+        SectionDef.of("e33chat.config.section.upload",
+            OptionDef.text("e33chat.config.upload_url", Ref.s(() -> uploadUrl, v -> uploadUrl = v))),
+        SectionDef.of("e33chat.config.section.debug",
+            OptionDef.bool("e33chat.config.debug_log", Ref.b(() -> debugLog, v -> debugLog = v)),
+            OptionDef.bool("e33chat.config.own_mention_notify", Ref.b(() -> ownMentionNotify, v -> ownMentionNotify = v)),
+            OptionDef.bool("e33chat.config.own_quote_notify", Ref.b(() -> ownQuoteNotify, v -> ownQuoteNotify = v)),
+            OptionDef.bool("e33chat.config.own_whisper_notify", Ref.b(() -> ownWhisperNotify, v -> ownWhisperNotify = v)))
+    );
+
+    private final List<List<SectionDef>> CAT_SECTIONS = List.of(
+        CHAT_SECTIONS, HUD_SECTIONS, NOTIFY_SECTIONS, SIDEBAR_SECTIONS, ADVANCED_SECTIONS);
+    private final String[] CAT_KEYS = {
+        "e33chat.config.cat.chat", "e33chat.config.cat.hud", "e33chat.config.cat.notify",
+        "e33chat.config.cat.sidebar", "e33chat.config.cat.advanced",
+    };
+
     private void buildCats() {
         // 不缓存：屏蔽列表分区按当前名单动态生成行（删除/添加后 rebuild 重排），
         // 缓存会把行数定死在首次构建
         cats = new ArrayList<>();
+        for (int i = 0; i < CAT_KEYS.length; i++) {
+            List<Opt> opts = new ArrayList<>();
+            for (SectionDef s : CAT_SECTIONS.get(i)) {
+                opts.add(Opt.header(s.key()));
+                for (OptionDef d : s.opts()) opts.add(optOf(d));
+            }
+            if (i == 0) buildBlockedRows(opts);
+            cats.add(new Cat(CAT_KEYS[i], opts));
+        }
+    }
 
-        List<Opt> chat = new ArrayList<>();
-        chat.add(Opt.header("e33chat.config.section.panel"));
-        chat.add(new Opt("e33chat.config.theme", this::mkThemeButton, null));
-        chat.add(new Opt("e33chat.config.panel_width",
-            y -> mkIntBox(y, String.valueOf(panelWidth), 800, 1600, 4, v -> panelWidth = v), null));
-        chat.add(new Opt("e33chat.config.blur_enabled", y -> mkBoolButton(y, () -> blurEnabled, v -> blurEnabled = v), null));
-        chat.add(new Opt("e33chat.config.panel_opacity",
-            y -> mkIntBox(y, String.valueOf(panelOpacity), 0, 100, 3, v -> panelOpacity = v), null));
-        chat.add(new Opt("e33chat.config.animation", y -> mkBoolButton(y, () -> animationEnabled, v -> animationEnabled = v), null));
-        chat.add(new Opt("e33chat.config.panel_anim_style", this::mkPanelStyleButton, null));
-        chat.add(new Opt("e33chat.config.popup_anim_style", this::mkPopupStyleButton, null));
-        chat.add(new Opt("e33chat.config.message_anim_style", this::mkMessageStyleButton, null));
-        chat.add(new Opt("e33chat.config.avatar_size",
-            y -> mkIntBox(y, String.valueOf(avatarSize), 12, 32, 2, v -> avatarSize = v), null));
-        chat.add(Opt.header("e33chat.config.section.bubble_font"));
-        chat.add(new Opt("e33chat.config.bubble_corner_radius",
-            y -> mkIntBox(y, String.valueOf(bubbleCornerRadius), 0, 10, 2, v -> bubbleCornerRadius = v), null));
-        chat.add(new Opt("e33chat.config.own_bubble_color",
-            y -> mkHexBox(y, ownBubbleColor, v -> ownBubbleColor = v),
-            () -> ownBubbleColor));
-        chat.add(new Opt("e33chat.config.other_bubble_color",
-            y -> mkHexBox(y, otherBubbleColor, v -> otherBubbleColor = v),
-            () -> otherBubbleColor));
-        chat.add(new Opt("e33chat.config.own_text_color",
-            y -> mkHexBox(y, ownTextColor, v -> ownTextColor = v),
-            () -> ownTextColor));
-        chat.add(new Opt("e33chat.config.other_text_color",
-            y -> mkHexBox(y, otherTextColor, v -> otherTextColor = v),
-            () -> otherTextColor));
-        chat.add(Opt.header("e33chat.config.section.msgdisplay"));
-        chat.add(new Opt("e33chat.config.message_gap",
-            y -> mkIntBox(y, String.valueOf(messageGap), 0, 12, 2, v -> messageGap = v), null));
-        chat.add(new Opt("e33chat.config.enabled", y -> mkBoolButton(y, () -> enabled, v -> enabled = v), null));
-        chat.add(new Opt("e33chat.config.system_chat_as_bubble", y -> mkBoolButton(y, () -> systemChatAsBubble, v -> systemChatAsBubble = v), null));
-        chat.add(new Opt("e33chat.config.anti_spam", y -> mkBoolButton(y, () -> antiSpam, v -> antiSpam = v), null));
-        chat.add(new Opt("e33chat.config.receive_images", y -> mkBoolButton(y, () -> receiveImages, v -> receiveImages = v), null));
-        chat.add(new Opt("e33chat.config.time_separator", this::mkTimeSepButton, null));
-        chat.add(new Opt("e33chat.config.color_codes", y -> mkBoolButton(y, () -> colorCodes, v -> colorCodes = v), null));
+    // 屏蔽列表：动态行数，注册表外（每行 [编辑框][✕]，下方 [添加玩家]）
+    private void buildBlockedRows(List<Opt> chat) {
         chat.add(Opt.header("e33chat.config.section.blocked"));
-        // 逐行编辑：每个屏蔽名一行 [编辑框][✕]，下方 [添加玩家] 按钮（学服务端模板编辑交互）
         for (int i = 0; i < blockedPlayers.size(); i++) {
             int idx = i;
             chat.add(Opt.multi("e33chat.config.blocked_players", y -> {
@@ -428,66 +508,49 @@ public class ChatBubbleConfigScreen extends Screen {
             }).position(inputX, y).size(72, 20).build();
             return List.of(add);
         }, 1));
-        cats.add(new Cat("e33chat.config.cat.chat", chat));
+    }
 
-        List<Opt> hud = new ArrayList<>();
-        hud.add(Opt.header("e33chat.config.section.icon"));
-        hud.add(new Opt("e33chat.config.red_dot", y -> mkBoolButton(y, () -> redDotEnabled, v -> redDotEnabled = v), null));
-        hud.add(new Opt("e33chat.config.hide_chat_icon", y -> mkBoolButton(y, () -> hideChatIcon, v -> hideChatIcon = v), null));
-        cats.add(new Cat("e33chat.config.cat.hud", hud));
-
-        List<Opt> notify = new ArrayList<>();
-        notify.add(Opt.header("e33chat.config.section.mention"));
-        notify.add(new Opt("e33chat.config.mention_banner_enabled", y -> mkBoolButton(y, () -> mentionBannerEnabled, v -> mentionBannerEnabled = v), null));
-        notify.add(new Opt("e33chat.config.mention_sound_enabled", y -> mkBoolButton(y, () -> mentionSoundEnabled, v -> mentionSoundEnabled = v), null));
-        notify.add(new Opt("e33chat.config.mention_require_at", y -> mkBoolButton(y, () -> mentionRequireAt, v -> mentionRequireAt = v), null));
-        notify.add(Opt.header("e33chat.config.section.whisper"));
-        notify.add(new Opt("e33chat.config.mention_whisper_banner", y -> mkBoolButton(y, () -> mentionWhisperBanner, v -> mentionWhisperBanner = v), null));
-        notify.add(new Opt("e33chat.config.sound_whisper", y -> mkBoolButton(y, () -> soundWhisper, v -> soundWhisper = v), null));
-        notify.add(Opt.header("e33chat.config.section.system"));
-        notify.add(new Opt("e33chat.config.system_banner_enabled", y -> mkBoolButton(y, () -> systemBannerEnabled, v -> systemBannerEnabled = v), null));
-        notify.add(new Opt("e33chat.config.sound_system", y -> mkBoolButton(y, () -> soundSystem, v -> soundSystem = v), null));
-        notify.add(Opt.header("e33chat.config.section.banner"));
-        notify.add(new Opt("e33chat.config.mention_banner_duration",
-            y -> mkIntBox(y, String.valueOf(mentionBannerDuration), 2, 10, 2, v -> mentionBannerDuration = v), null));
-        notify.add(new Opt("e33chat.config.banner_corner_radius",
-            y -> mkIntBox(y, String.valueOf(bannerCornerRadius), 0, 10, 2, v -> bannerCornerRadius = v), null));
-        notify.add(new Opt("e33chat.config.banner_offset_x",
-            y -> mkIntBox(y, String.valueOf(bannerOffsetX), -500, 500, 2, v -> bannerOffsetX = v), null));
-        notify.add(new Opt("e33chat.config.banner_offset_y",
-            y -> mkIntBox(y, String.valueOf(bannerOffsetY), -500, 500, 2, v -> bannerOffsetY = v), null));
-        notify.add(new Opt("e33chat.config.banner_anim_style", this::mkBannerStyleButton, null));
-        notify.add(Opt.header("e33chat.config.section.sound"));
-        notify.add(new Opt("e33chat.config.sound_volume",
-            y -> mkIntSlider(y, () -> soundVolume, v -> soundVolume = v, 0, 100), null));
-        notify.add(new Opt("e33chat.config.sound_public", y -> mkBoolButton(y, () -> soundPublic, v -> soundPublic = v), null));
-        cats.add(new Cat("e33chat.config.cat.notify", notify));
-
-        List<Opt> sidebar = new ArrayList<>();
-        sidebar.add(Opt.header("e33chat.config.section.playerlist"));
-        sidebar.add(new Opt("e33chat.config.sidebar_hide_patterns",
-            y -> mkPatternBox(y, new ArrayList<>(sidebarHidePatterns), v -> sidebarHidePatterns = v), null));
-        cats.add(new Cat("e33chat.config.cat.sidebar", sidebar));
-
-        List<Opt> advanced = new ArrayList<>();
-        advanced.add(Opt.header("e33chat.config.section.history"));
-        advanced.add(new Opt("e33chat.config.chat_history", y -> mkBoolButton(y, () -> chatHistoryEnabled, v -> chatHistoryEnabled = v), null));
-        advanced.add(new Opt("e33chat.config.history_retention", y -> mkIntBox(y, String.valueOf(historyRetentionDays), 0, 365, 3, v -> historyRetentionDays = v), null));
-        advanced.add(new Opt("e33chat.config.preserve_input", y -> mkBoolButton(y, () -> preserveInput, v -> preserveInput = v), null));
-        advanced.add(Opt.header("e33chat.config.section.upload"));
-        advanced.add(new Opt("e33chat.config.upload_url", y -> {
-            TextFieldWidget box = new TextFieldWidget(textRenderer, inputX, y, INPUT_W, 20, Text.literal(""));
-            box.setText(uploadUrl);
-            box.setMaxLength(512);
-            box.setChangedListener(v -> uploadUrl = v);
-            return box;
-        }, null));
-        advanced.add(Opt.header("e33chat.config.section.debug"));
-        advanced.add(new Opt("e33chat.config.debug_log", y -> mkBoolButton(y, () -> debugLog, v -> debugLog = v), null));
-        advanced.add(new Opt("e33chat.config.own_mention_notify", y -> mkBoolButton(y, () -> ownMentionNotify, v -> ownMentionNotify = v), null));
-        advanced.add(new Opt("e33chat.config.own_quote_notify", y -> mkBoolButton(y, () -> ownQuoteNotify, v -> ownQuoteNotify = v), null));
-        advanced.add(new Opt("e33chat.config.own_whisper_notify", y -> mkBoolButton(y, () -> ownWhisperNotify, v -> ownWhisperNotify = v), null));
-        cats.add(new Cat("e33chat.config.cat.advanced", advanced));
+    @SuppressWarnings("unchecked")
+    private Opt optOf(OptionDef d) {
+        return switch (d.kind()) {
+            case BOOL -> {
+                Ref<Boolean> r = (Ref<Boolean>) d.ref();
+                yield new Opt(d.key(), y -> mkBoolButton(y, r.getter()::get, r.setter()), d.previewColor(), d.ref());
+            }
+            case INT -> {
+                Ref<Integer> r = (Ref<Integer>) d.ref();
+                yield new Opt(d.key(), y -> mkIntBox(y, String.valueOf(r.getter().get()), d.min(), d.max(), d.maxLen(), r.setter()::accept),
+                    d.previewColor(), d.ref());
+            }
+            case SLIDER -> {
+                Ref<Integer> r = (Ref<Integer>) d.ref();
+                yield new Opt(d.key(), y -> mkIntSlider(y, r.getter()::get, r.setter()::accept, d.min(), d.max()), d.previewColor(), d.ref());
+            }
+            case HEX -> {
+                Ref<String> r = (Ref<String>) d.ref();
+                yield new Opt(d.key(), y -> mkHexBox(y, r.getter().get(), r.setter()), d.previewColor(), d.ref());
+            }
+            case TEXT -> {
+                Ref<String> r = (Ref<String>) d.ref();
+                yield new Opt(d.key(), y -> {
+                    TextFieldWidget box = new TextFieldWidget(textRenderer, inputX, y, INPUT_W, 20, Text.literal(""));
+                    box.setText(r.getter().get());
+                    box.setMaxLength(512);
+                    box.setChangedListener(r.setter()::accept);
+                    return box;
+                }, d.previewColor(), d.ref());
+            }
+            case PATTERN -> {
+                Ref<List<String>> r = (Ref<List<String>>) d.ref();
+                yield new Opt(d.key(), y -> mkPatternBox(y, new ArrayList<>(r.getter().get()), r.setter()), d.previewColor(), d.ref());
+            }
+            case ENUM_CYCLE -> {
+                Ref<String> r = (Ref<String>) d.ref();
+                yield new Opt(d.key(), y -> mkStyleButton(y, r.getter(), r.setter()), d.previewColor(), d.ref());
+            }
+            case THEME_CYCLE -> new Opt(d.key(), this::mkThemeButton, d.previewColor(), d.ref());
+            case TIME_SEP -> new Opt(d.key(), this::mkTimeSepButton, d.previewColor(), d.ref());
+        };
     }
 
     public ChatBubbleConfigScreen(Screen lastScreen) {
@@ -603,10 +666,11 @@ public class ChatBubbleConfigScreen extends Screen {
         ).position(inputX, y).size(INPUT_W, 20).build();
     }
 
-    private ButtonWidget mkPanelStyleButton(int y) { return mkStyleButton(y, () -> panelAnimStyle, v -> panelAnimStyle = v); }
-    private ButtonWidget mkBannerStyleButton(int y) { return mkStyleButton(y, () -> bannerAnimStyle, v -> bannerAnimStyle = v); }
-    private ButtonWidget mkPopupStyleButton(int y) { return mkStyleButton(y, () -> popupAnimStyle, v -> popupAnimStyle = v); }
-    private ButtonWidget mkMessageStyleButton(int y) { return mkStyleButton(y, () -> messageAnimStyle, v -> messageAnimStyle = v); }
+    // 色板点击写入 hex 字段（注册表行的 Ref 均为字符串）
+    @SuppressWarnings("unchecked")
+    private static void setHexValue(Ref<?> ref, String hex) {
+        ((Ref<String>) ref).setter().accept(hex);
+    }
 
     private ButtonWidget mkBoolButton(int y, java.util.function.BooleanSupplier getter, java.util.function.Consumer<Boolean> setter) {
         boolean v = getter.getAsBoolean();
@@ -926,13 +990,8 @@ public class ChatBubbleConfigScreen extends Screen {
                     if (opt.previewColor() != null && mouseY >= y + 12 && mouseY < y + 20) {
                         int idx = MathHelper.clamp((int) (mouseX - px) / 10, 0, PALETTE.length - 1);
                         String hex = PALETTE[idx];
-                        String key = opt.key();
-                        switch (key) {
-                            case "e33chat.config.own_bubble_color" -> ownBubbleColor = hex;
-                            case "e33chat.config.other_bubble_color" -> otherBubbleColor = hex;
-                            case "e33chat.config.own_text_color" -> ownTextColor = hex;
-                            case "e33chat.config.other_text_color" -> otherTextColor = hex;
-                        }
+                        if (opt.value() instanceof Ref<?> ref && ref.getter().get() instanceof String)
+                            setHexValue(ref, hex);
                         if (wi < scrollWidgets.size() && scrollWidgets.get(wi) instanceof TextFieldWidget eb)
                             eb.setText(hex);
                         return true;

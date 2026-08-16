@@ -177,13 +177,7 @@ public class ChatBubbleMod implements ModInitializer {
             }
 
             // Always sync server-side settings so the client head menu matches the server
-            ServerPlayNetworking.send(handler.player,
-                new ConfigSyncPayload(useTpa));
-            ServerPlayNetworking.send(handler.player, buildConfigV2());
-            // Separate capability type: old clients drop unknown payloads, so
-            // mediaEnabled never desyncs mixed client/server versions.
-            ServerPlayNetworking.send(handler.player,
-                new MediaCapPayload(mediaEnabled));
+            sendServerConfigTripleTo(handler.player);
 
             if (!historyEnabled) return;
             if (historyBuffer.isEmpty()) return;
@@ -242,10 +236,19 @@ public class ChatBubbleMod implements ModInitializer {
     }
 
     public static void broadcastServerConfig(net.minecraft.server.MinecraftServer server) {
-        var v2 = buildConfigV2();
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
-            ServerPlayNetworking.send(p, v2);
+            sendServerConfigTripleTo(p);
         }
+    }
+
+    // 三 payload 组合（use_tpa + templates + media cap）：JOIN 与 broadcast 共用。
+    // media 是独立能力 type——旧客户端安全丢未知 payload，mediaEnabled 不会在混版本时 desync。
+    private static void sendServerConfigTripleTo(ServerPlayerEntity player) {
+        ServerPlayNetworking.send(player,
+            new ConfigSyncPayload(useTpa));
+        ServerPlayNetworking.send(player, buildConfigV2());
+        ServerPlayNetworking.send(player,
+            new MediaCapPayload(mediaEnabled));
     }
 
     private static ConfigSyncV2Payload buildConfigV2() {

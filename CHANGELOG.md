@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.3.15
+
+**结构重构 + 服务端配置收拢（三端同步：Fabric / Forge / NeoForge）**
+- **配置屏 OptionDef 注册表**：GUI 行 / 退出回滚快照 / 色板点击全部由注册表派生，删手写清单（toml 键名/默认值/范围红线不动）
+- 快照缺口修复：`message_gap` / `avatar_size` 现在退出时正确回滚（2.3.13 起有 GUI 行但漏进 snapshotAll）
+- `resolveOnlinePlayer` 改名（行为不变）
+- **ServerConfigDto 共享**：服务端配置屏/保存两包共用一份字段定义与字节序（网络格式不变）
+- **sendServerConfigTriple 收拢**：进服与广播复用同一三包组合；广播现在也刷新已在线玩家的媒体托管能力（对齐 Forge）
+- **通知/声音副作用上移**：ChatMessageStore 不再直接调 Minecraft 单例，横幅/提示音经观察者委托（行为不变）
+- 测试：Forge 303 / NeoForge 302 / Fabric 277 全绿
+- 性能：D3 定口径 + 基线记录表（`docs/11-perf-baseline.md`），本版不做优化
+
+**Structure refactor + server-config consolidation (all loaders: Fabric / Forge / NeoForge)**
+- **OptionDef registry for the client config screen**: GUI rows, exit-rollback snapshot and palette clicks all derive from one registry; hand-written lists removed (toml keys/defaults/ranges untouched)
+- Snapshot gap fix: `message_gap` and `avatar_size` now roll back on Exit like every other row (they had GUI rows but were missing from snapshotAll since 2.3.13)
+- `resolveOnlinePlayer` rename (no behavior change)
+- **Shared ServerConfigDto**: the server-config screen/save packets share one field definition and byte order (wire format unchanged)
+- **sendServerConfigTriple consolidation**: join and broadcast reuse the same 3-payload combination; broadcast now also refreshes the media-hosting capability for online players (parity with Forge)
+- **Notification/sound side effects moved out of ChatMessageStore**: banners and chimes now flow through a MessageEffectObserver (same behavior)
+- Tests: Forge 303 / NeoForge 302 / Fabric 277 green
+- Performance: D3 measurement spec + baseline sheet (`docs/11-perf-baseline.md`); no optimization in this release
+
 ## v2.3.14
 
 **纯结构重构（行为零变化，三端同步：Fabric / Forge / NeoForge）**

@@ -23,22 +23,14 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
         new CustomPayload.Id<>(Identifier.of("e33chat", "server_config_screen"));
 
     public static final PacketCodec<PacketByteBuf, ServerConfigScreenPayload> CODEC = PacketCodec.of(
-        (value, buf) -> {
-            buf.writeBoolean(value.useTpa);
-            buf.writeBoolean(value.historyEnabled);
-            buf.writeBoolean(value.templateDebug);
-            buf.writeBoolean(value.mediaEnabled);
-            ConfigSyncV2Payload.writeList(buf, value.chatTemplates);
-            ConfigSyncV2Payload.writeList(buf, value.whisperTemplates);
-        },
-        buf -> new ServerConfigScreenPayload(
-            buf.readBoolean(),
-            buf.readBoolean(),
-            buf.readBoolean(),
-            buf.readBoolean(),
-            ConfigSyncV2Payload.readList(buf),
-            ConfigSyncV2Payload.readList(buf)
-        )
+        (value, buf) -> ServerConfigDto.encode(new ServerConfigDto(
+            value.useTpa, value.historyEnabled, value.templateDebug, value.mediaEnabled,
+            value.chatTemplates, value.whisperTemplates), buf),
+        buf -> {
+            ServerConfigDto d = ServerConfigDto.decode(buf);
+            return new ServerConfigScreenPayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
+                d.mediaEnabled(), d.chatTemplates(), d.whisperTemplates());
+        }
     );
 
     @Override
