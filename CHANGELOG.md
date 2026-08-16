@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.3.14
+
+**纯结构重构（行为零变化，三端同步：Fabric / Forge / NeoForge）**
+- 包结构领域化：ui / compat / render / network / server / config / store 共 13 个子包，根包只剩入口类
+- ChatMessageStore 拆解（1374→926 行）：BlockList / HistoryStore / EchoTracker + wither 助手
+- ChatListenerMixin 薄壳化（782→295 行）：新增 chat/capture 六守卫；~50×2 行复制粘贴收敛
+- 渲染/UI 收敛：SkinResolver（双皮肤缓存合并）/ SmoothScrollPane（两配置屏滚动收敛）/ UploadQueue / MediaService；死代码清理
+- 行为修复：英文私聊词回显抑制 `\b` 退格符 bug；配置屏退出回滚缺口（banner_offset 不回滚 / upload_* 误计）
+- 测试：网络包 round-trip 15 例 + WhisperSignal 3 例首次守护包格式；Forge 302 / NeoForge 302 / Fabric 276 全绿
+- 兼容性：配置键 / 网络包 / 文件格式 / mixin 注入点零改动
+
+**Pure-structure refactor (zero behavior change, all loaders: Fabric / Forge / NeoForge)**
+- Domain packages: ui / compat / render / network / server / config / store (13 subpackages); only entry classes remain at the root
+- ChatMessageStore split (1374→926 lines): BlockList / HistoryStore / EchoTracker + wither helpers
+- ChatListenerMixin slimmed (782→295 lines): six chat/capture guards; duplicated ~50×2 block merged
+- Rendering/UI consolidation: SkinResolver (merged dual skin caches), SmoothScrollPane (shared config-screen scrolling), UploadQueue, MediaService; dead code removed
+- Behavior fixes: English whisper-echo suppression `\b` backspace bug; config-screen exit rollback gap (banner_offset not rolled back / upload_* false positive)
+- Tests: packet round-trip (15) + WhisperSignal (3) now guard the wire format; Forge 302 / NeoForge 302 / Fabric 276 green
+- Compatibility: config keys / packet wire format / file formats / mixin injection points unchanged
+
+
 ## v2.3.13
 
 **新功能（2.3.13，三端同步：Fabric / Forge / NeoForge）**
