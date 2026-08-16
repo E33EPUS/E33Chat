@@ -5,10 +5,12 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "ChatComponentMixin",
+    "ChatInputSuggestorAccessor",
     "ChatInputSuggestorMixin",
     "ChatListenerMixin",
     "MinecraftClientMixin",
     "MouseHandlerAccessor",
+    "SuggestionWindowAccessor",
     "AwtHeadlessHackMixin"
   ]
 }
