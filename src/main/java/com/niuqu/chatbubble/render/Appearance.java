@@ -25,6 +25,16 @@ public final class Appearance {
         return g == null ? 6 : Math.max(0, Math.min(12, g));
     }
 
+    /** 同组（同一发送者连续）消息间距：message_gap × 2/3，下限 2（D07）。 */
+    public static int groupGap() {
+        return MessageGrouping.groupGap(messageGap());
+    }
+
+    /** 组间消息间距：message_gap × 2（D07）。 */
+    public static int sectionGap() {
+        return MessageGrouping.sectionGap(messageGap());
+    }
+
     /** 消息气泡头像尺寸（像素，钳制到 UI 范围）。 */
     public static int avatarSize() {
         Integer a = ChatBubbleClientSetup.config().avatarSize();
