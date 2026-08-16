@@ -241,5 +241,7 @@
   "e33chat.upload.failed": "Upload failed",
   "e33chat.upload.wait": "Image uploading, wait a moment…",
   "e33chat.upload.queue_full": "Upload queue full, please try again later",
-  "e33chat.emoji.tab_custom": "Emote Pack"
+  "e33chat.emoji.tab_custom": "Emote Pack",
+  "e33chat.config.hide_repeated_avatars": "Hide Repeated Avatars",
+  "e33chat.config.hide_repeated_avatars.desc": "Only the first message of a consecutive same-sender run shows the avatar (QQ-style)"
 }

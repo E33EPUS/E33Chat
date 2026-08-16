@@ -72,6 +72,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
     private int messageGap, avatarSize;
+    private boolean hideRepeatedAvatars;
     private List<String> sidebarHidePatterns;
     private List<String> blockedPlayers;
 
@@ -182,7 +183,7 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().uploadField(),
             ChatBubbleClientSetup.config().uploadExtra(),
             ChatBubbleClientSetup.config().uploadResponse(),
-            messageGap, avatarSize));
+            messageGap, avatarSize, hideRepeatedAvatars));
     }
 
     private void loadFromConfig() {
@@ -222,6 +223,7 @@ public class ChatBubbleConfigScreen extends Screen {
         blockedPlayers = new ArrayList<>(cfg.blockedPlayers());
         messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
         avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
+        hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null && cfg.hideRepeatedAvatars();
     }
 
     // ---- ChatScrollbar geometry inline ----
@@ -390,7 +392,8 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.enumCycle("e33chat.config.panel_anim_style", Ref.s(() -> panelAnimStyle, v -> panelAnimStyle = v)),
             OptionDef.enumCycle("e33chat.config.popup_anim_style", Ref.s(() -> popupAnimStyle, v -> popupAnimStyle = v)),
             OptionDef.enumCycle("e33chat.config.message_anim_style", Ref.s(() -> messageAnimStyle, v -> messageAnimStyle = v)),
-            OptionDef.intBox("e33chat.config.avatar_size", Ref.i(() -> avatarSize, v -> avatarSize = v), 12, 32, 2)),
+            OptionDef.intBox("e33chat.config.avatar_size", Ref.i(() -> avatarSize, v -> avatarSize = v), 12, 32, 2),
+            OptionDef.bool("e33chat.config.hide_repeated_avatars", Ref.b(() -> hideRepeatedAvatars, v -> hideRepeatedAvatars = v))),
         SectionDef.of("e33chat.config.section.bubble_font",
             OptionDef.intBox("e33chat.config.bubble_corner_radius", Ref.i(() -> bubbleCornerRadius, v -> bubbleCornerRadius = v), 0, 10, 2),
             OptionDef.hex("e33chat.config.own_bubble_color", Ref.s(() -> ownBubbleColor, v -> ownBubbleColor = v)),
