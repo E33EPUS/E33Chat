@@ -8,6 +8,7 @@ import com.niuqu.chatbubble.render.Appearance;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.store.ChatMessageStore;
 import com.niuqu.chatbubble.render.RoundRectRenderer;
+import com.niuqu.chatbubble.render.UiTokens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.DefaultPlayerSkin;
@@ -32,7 +33,7 @@ public class MentionNotificationBanner {
     private static final int MAX_TEXT_W = 170;   // fixed content-area width cap for every banner
     private static final int BANNER_H = 36;
     private static final int MAX_MSG_LINES = 2;
-    private static final int SHADOW_OFF = 2;
+    private static final int SHADOW_OFF = UiTokens.SHADOW_OFFSET_PANEL;
     private static final UUID NIL_UUID = new UUID(0, 0);
 
     private final Deque<PendingBanner> queue = new ArrayDeque<>();
@@ -216,7 +217,7 @@ public class MentionNotificationBanner {
         }
 
         // Shadow
-        int shadowAlpha = (int)(0x30 * alpha);
+        int shadowAlpha = (int)(UiTokens.SHADOW_ALPHA_PANEL * alpha);
         int shadowColor = (shadowAlpha << 24);
         RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
             x + bannerW + SHADOW_OFF, y + bannerH + SHADOW_OFF, cornerRadius, shadowColor);

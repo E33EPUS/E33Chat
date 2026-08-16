@@ -168,7 +168,7 @@ public class ChatEmojiPanel {
                     com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
                         com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CLOSE_BG),
                         ex + EMOTE_SLOT - 10, ey, 10, 10, alpha);
-                    g.drawString(font, Component.literal("✕"), ex + EMOTE_SLOT - 8, ey + 1, 0xFFFFFFFF, false);
+                    g.drawString(font, Component.literal("✕"), ex + EMOTE_SLOT - 8, ey + 1, c.closeText(), false);
                 }
             } else {
                 g.drawString(font, Component.literal("+"), ex + EMOTE_SLOT / 2 - 3,

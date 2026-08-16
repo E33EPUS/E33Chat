@@ -71,9 +71,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private int panelX, panelW;
     private static final int TITLE_H = 24;
     private int titleY, msgTop, msgBottom, barTop;
-    private static final int PAD = 8;
-    private static final int BUBBLE_PAD_X = 6;
-    private static final int BUBBLE_PAD_Y = 4;
+    private static final int PAD = UiTokens.PAD;
     private static final int NAME_H = 10;
     private static final int TIME_SEP_H = 14;
     public static final int BAR_H = 26;
@@ -941,7 +939,7 @@ public class ChatBubbleScreen extends ChatScreen {
             for (int[] r : bubbleRects) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem()) continue;
-                int avatarX = msg.isOwn() ? r[0] + r[2] + 4 : r[0] - Appearance.avatarSize() - 4;
+                int avatarX = msg.isOwn() ? r[0] + r[2] + UiTokens.AVATAR_GAP : r[0] - Appearance.avatarSize() - UiTokens.AVATAR_GAP;
                 int avatarY = msg.replyContent() != null ? r[1] - font.lineHeight - 2 : r[1] - NAME_H;
                 if (mouseX >= avatarX && mouseX <= avatarX + Appearance.avatarSize()
                     && mouseY >= avatarY && mouseY <= avatarY + Appearance.avatarSize()) {
@@ -960,7 +958,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem() || msg.isOwn()) continue;
                 if (msg.rawPlayerName() == null || msg.rawPlayerName().isEmpty()) continue;
-                int avatarX = r[0] - Appearance.avatarSize() - 4;
+                int avatarX = r[0] - Appearance.avatarSize() - UiTokens.AVATAR_GAP;
                 int avatarY = msg.replyContent() != null ? r[1] - font.lineHeight - 2 : r[1] - NAME_H;
                 if (mouseX >= avatarX && mouseX <= avatarX + Appearance.avatarSize()
                     && mouseY >= avatarY && mouseY <= avatarY + Appearance.avatarSize()) {
@@ -1498,8 +1496,8 @@ public class ChatBubbleScreen extends ChatScreen {
                     zW = Math.max(zW, font.width(zl));
                 int zBubbleW = zW + ChatMessageRenderer.BUBBLE_PAD_X * 2;
                 int zBubbleX = msg.isOwn()
-                    ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() - 4 - zBubbleW
-                    : panelX + ChatLayout.PAD + Appearance.avatarSize() + 4;
+                    ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() - UiTokens.AVATAR_GAP - zBubbleW
+                    : panelX + ChatLayout.PAD + Appearance.avatarSize() + UiTokens.AVATAR_GAP;
                 int zBubbleY = screenY + 10; // ChatMessageRenderer.NAME_H (package-private)
                 g.pose().translate(zBubbleX + zBubbleW / 2f, zBubbleY, 0);
                 g.pose().scale(mScale, mScale, 1f);
