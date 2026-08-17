@@ -40,8 +40,11 @@ public final class ChatContextMenus {
         int mx = menuX(contextX, panelX, panelW);
         int my = menuY(contextY, menuH, msgTop, true);
 
-        // SDF 圆角菜单背景（D1）：阴影 + 1px 描边 + 圆角，替代 CONTEXT_MENU_BG 纹理 + 四边 DIVIDER
-        RoundRectRenderer.fillPanel(g, mx, my, CTX_W, menuH, UiTokens.RADIUS_MEDIUM, c.divider(), c.contextBg(), alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), mx, my, CTX_W, menuH, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my, CTX_W, 1, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my + menuH - 1, CTX_W, 1, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my, 1, menuH, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx + CTX_W - 1, my, 1, menuH, alpha);
 
         boolean hoverCopy = isOverItem(mouseX, mouseY, mx, my, CTX_ITEM_H);
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverCopy ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
@@ -72,8 +75,11 @@ public final class ChatContextMenus {
         int mx = menuX(contextAvatarX, panelX, panelW);
         int my = menuY(contextAvatarY, menuH, msgTop, true);
 
-        // SDF 圆角菜单背景（D1）
-        RoundRectRenderer.fillPanel(g, mx, my, CTX_W, menuH, UiTokens.RADIUS_MEDIUM, c.divider(), c.contextBg(), alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), mx, my, CTX_W, menuH, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my, CTX_W, 1, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my + menuH - 1, CTX_W, 1, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx, my, 1, menuH, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), mx + CTX_W - 1, my, 1, menuH, alpha);
 
         boolean hoverTp = isOverItem(mouseX, mouseY, mx, my, CTX_ITEM_H);
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverTp ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),

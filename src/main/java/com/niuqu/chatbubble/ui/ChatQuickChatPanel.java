@@ -3,8 +3,7 @@ import com.niuqu.chatbubble.texture.UiTextureManager;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
-import com.niuqu.chatbubble.render.RoundRectRenderer;
-import com.niuqu.chatbubble.render.UiTokens;
+import com.niuqu.chatbubble.texture.UiElement;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -45,8 +44,9 @@ public class ChatQuickChatPanel {
         int px = Mth.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
 
-        // SDF 圆角弹层背景（D1）
-        RoundRectRenderer.fillPanel(g, px, py, W, panelH, UiTokens.RADIUS_MEDIUM, c.divider(), c.titleBg(), alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTENT_BG),
+            px, py, W, panelH, alpha);
+        g.renderOutline(px, py, W, panelH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         // Scrollbar
         int totalPhrases = phrases.size();

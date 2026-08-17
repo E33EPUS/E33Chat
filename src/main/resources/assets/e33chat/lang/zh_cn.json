@@ -61,7 +61,7 @@
   "e33chat.config.bubble_corner_radius": "气泡圆角半径",
   "e33chat.config.bubble_corner_radius.desc": "调整气泡的圆角大小（0–10，0 为直角）",
   "e33chat.config.message_gap": "消息间距",
-  "e33chat.config.message_gap.desc": "聊天消息之间的垂直间距（像素）",
+  "e33chat.config.message_gap.desc": "聊天消息之间的垂直间距（0–12 像素）",
   "e33chat.config.avatar_size": "头像大小",
   "e33chat.config.avatar_size.desc": "聊天气泡中头像的大小（12–32 像素）",
   "e33chat.config.system_chat_as_bubble": "系统消息渲染为聊天气泡",

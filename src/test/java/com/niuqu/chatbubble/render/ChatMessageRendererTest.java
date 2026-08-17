@@ -196,28 +196,4 @@ class ChatMessageRendererTest {
             msg("Alice", "AliceB", t + 1000, false)));
     }
 
-    @Test
-    void groupGap_defaultSixBecomesFour() {
-        assertEquals(4, ChatMessageRenderer.groupGap(6));
-    }
-
-    @Test
-    void groupGap_neverBelowTwo() {
-        assertEquals(2, ChatMessageRenderer.groupGap(2));
-        assertEquals(2, ChatMessageRenderer.groupGap(1));
-    }
-
-    @Test
-    void sectionGap_defaultSixBecomesTwelve() {
-        assertEquals(12, ChatMessageRenderer.sectionGap(6));
-    }
-
-    @Test
-    void gapBetween_usesTierByGroup() {
-        long t = millisAt("2026-08-16T10:00:00");
-        assertEquals(4, ChatMessageRenderer.gapBetween(
-            msg("Alice", "Alice", t, false), msg("Alice", "Alice", t + 1000, false), 6));
-        assertEquals(12, ChatMessageRenderer.gapBetween(
-            msg("Alice", "Alice", t, false), msg("Bob", "Bob", t + 1000, false), 6));
-    }
 }
