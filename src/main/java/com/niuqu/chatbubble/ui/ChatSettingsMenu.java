@@ -3,8 +3,6 @@ import com.niuqu.chatbubble.texture.UiTextureManager;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
 import com.niuqu.chatbubble.render.ChatBubbleScreen;
-import com.niuqu.chatbubble.render.RoundRectRenderer;
-import com.niuqu.chatbubble.render.UiTokens;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -36,8 +34,10 @@ public class ChatSettingsMenu {
         int px = gearX;
         int py = barTop - menuH - 4;
 
-        // SDF 圆角弹层背景（D1）：阴影 + 1px 描边 + 圆角，颜色取 token 表语义色
-        RoundRectRenderer.fillPanel(g, px, py, W, menuH, UiTokens.RADIUS_MEDIUM, c.divider(), c.titleBg(), alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+            px, py, W, menuH, alpha);
+        g.renderOutline(px, py, W, menuH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         ResourceLocation[] icons = {
             iconTex.apply("search"), iconTex.apply("quick_chat"),
