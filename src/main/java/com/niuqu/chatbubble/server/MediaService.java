@@ -71,6 +71,8 @@ public final class MediaService {
         }
         if (result == null) return; // upload still in progress
         store.discardUpload(uploadId);
+        if (DiskMediaStore.isValidMediaId(result) && ChatServerConfig.MEDIA_AUTO_CLEAN.get())
+            store.cleanupExpiredThrottled();
         PacketDistributor.sendToPlayer(sender,
             DiskMediaStore.isValidMediaId(result)
                 ? new MediaUploadAckPayload(uploadId, result, null)

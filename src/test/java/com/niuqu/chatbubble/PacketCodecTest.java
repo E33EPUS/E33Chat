@@ -113,13 +113,13 @@ class PacketCodecTest {
     }
 
     @Test void serverConfigScreenStable() {
-        assertStable(new ServerConfigScreenPayload(true, false, true, true,
+        assertStable(new ServerConfigScreenPayload(true, false, true, true, true,
                 List.of("chat tpl"), List.of("whisper tpl")),
             ServerConfigScreenPayload.STREAM_CODEC);
     }
 
     @Test void serverConfigSaveStable() {
-        assertStable(new ServerConfigSavePayload(false, true, false, false,
+        assertStable(new ServerConfigSavePayload(false, true, false, false, true,
                 List.of(), List.of("w")),
             ServerConfigSavePayload.STREAM_CODEC);
     }

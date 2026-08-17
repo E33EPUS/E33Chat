@@ -2124,6 +2124,10 @@ public class ChatBubbleScreen extends ChatScreen {
         // Record what the user typed — never the behind-the-scenes /msg splice,
         // or up-arrow history would leak the hidden command (v1.4 promise)
         minecraft.gui.getChat().addRecentChat(raw);
+        // Keep the history cursor at the newest end: this screen stays open after
+        // send (vanilla closes), so init()'s one-time historyPos snapshot goes
+        // stale and up-arrow would skip the freshly sent entries.
+        historyPos = minecraft.gui.getChat().getRecentChat().size();
 
         String logCmd = text, logDisp = displayText, logTarget = whisperTarget;
         boolean logBub = localBubble;
@@ -2150,6 +2154,9 @@ public class ChatBubbleScreen extends ChatScreen {
         input.setValue("");
         savedInput = "";
         scrollToBottom = true;
+        // Optional vanilla-style behaviour: close the chat screen right after the
+        // message goes out (off by default — this screen supports multi-send).
+        if (ChatBubbleConfig.CLOSE_CHAT_ON_SEND.get()) onClose();
     }
 
 

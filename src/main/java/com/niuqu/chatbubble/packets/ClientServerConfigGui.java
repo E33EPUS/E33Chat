@@ -22,7 +22,7 @@ public class ClientServerConfigGui {
         context.enqueueWork(() -> Minecraft.getInstance().setScreen(new ServerConfigScreen(
             Minecraft.getInstance().screen,
             payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
-            payload.mediaEnabled(),
+            payload.mediaEnabled(), payload.mediaAutoClean(),
             payload.chatTemplates(), payload.whisperTemplates())));
     }
 }
