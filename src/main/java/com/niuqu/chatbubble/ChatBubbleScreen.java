@@ -1549,8 +1549,12 @@ public class ChatBubbleScreen extends ChatScreen {
             }
 
             int h = getMsgHeight(msg);
-            int screenY = effectiveMsgTop + contentY - scrollOffset;
             if (prevRenderMsg != null) contentY += MessageGrouping.gapBetween(prevRenderMsg, msg, Appearance.messageGap());
+            int screenY = effectiveMsgTop + contentY - scrollOffset;
+            // showAvatar 必须用“上一条消息”比较；先赋值 prevRenderMsg 再比会恒自比（2.3.16 回归）
+            boolean showAvatar = !(ChatBubbleClientSetup.config().hideRepeatedAvatars() != null
+                && ChatBubbleClientSetup.config().hideRepeatedAvatars()
+                && MessageGrouping.isSameGroup(prevRenderMsg, msg));
             contentY += h;
             prevRenderMsg = msg;
 
@@ -1601,10 +1605,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 g.getMatrices().scale(mScale, mScale, 1f);
                 g.getMatrices().translate(-(zBubbleX + zBubbleW / 2f), -zBubbleY, 0);
             }
-            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha,
-                !(ChatBubbleClientSetup.config().hideRepeatedAvatars() != null
-                    && ChatBubbleClientSetup.config().hideRepeatedAvatars()
-                    && MessageGrouping.isSameGroup(prevRenderMsg, msg)));
+            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha, showAvatar);
             g.getMatrices().pop();
             fullIdx++;
         }
@@ -1827,8 +1828,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         int bubbleY = baseY + NAME_H;
-        // 头像与气泡顶部对齐（D07，QQ 风格）
-        int avatarY = bubbleY;
+        int avatarY = baseY;
 
         int bg = own
             ? ChatBubbleConfig.parseHexColor(ChatBubbleClientSetup.config().ownBubbleColor(), 0xFF1E90FF)
@@ -1909,8 +1909,8 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         Identifier skin = com.niuqu.chatbubble.render.SkinResolver.getSkin(msg.senderUUID(), msg.rawPlayerName());
-        // 头像与内容顶部对齐（D07）
-        if (showAvatar) drawPlayerHead(g, skin, avatarX, baseY + NAME_H, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
+        // 头像顶与名字行顶对齐（2.3.16 曾改内容顶对齐，实测回退老锚点）
+        if (showAvatar) drawPlayerHead(g, skin, avatarX, baseY, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
 
         int maxTextW = 0;
         for (var line : lines) maxTextW = Math.max(maxTextW, textRenderer.getWidth(line));
@@ -2020,8 +2020,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         Identifier skin = com.niuqu.chatbubble.render.SkinResolver.getSkin(msg.senderUUID(), msg.rawPlayerName());
-        // 头像与内容顶部对齐（D07）
-        if (showAvatar) drawPlayerHead(g, skin, avatarX, baseY + NAME_H, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
+        if (showAvatar) drawPlayerHead(g, skin, avatarX, baseY, Appearance.avatarSize(), Appearance.avatarSize() + 2, alpha);
 
         int emoteY = baseY + NAME_H + 2;
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - PAD * 2 - 16));

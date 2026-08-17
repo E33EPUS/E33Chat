@@ -10,8 +10,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 import java.util.function.Function;
-import com.niuqu.chatbubble.render.RoundRectRenderer;
-import com.niuqu.chatbubble.render.UiTokens;
 
 public class ChatSettingsMenu {
     private static final int W = 100;
@@ -39,8 +37,10 @@ public class ChatSettingsMenu {
         int px = gearX;
         int py = barTop - menuH - 4;
 
-        // SDF 圆角弹层背景（D1）：阴影 + 1px 描边 + 圆角，颜色取 token 表语义色
-        RoundRectRenderer.fillPanel(g, px, py, W, menuH, UiTokens.RADIUS_MEDIUM, c.divider(), c.titleBg(), alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+            px, py, W, menuH, alpha);
+        g.drawBorder(px, py, W, menuH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         Identifier[] icons = {
             iconTex.apply("search"), iconTex.apply("quick_chat"),
