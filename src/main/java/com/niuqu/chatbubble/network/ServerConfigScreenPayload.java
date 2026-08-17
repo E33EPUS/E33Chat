@@ -15,7 +15,7 @@ import java.util.List;
  * client-only Screen class.
  */
 public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
-                                        boolean mediaEnabled,
+                                        boolean mediaEnabled, boolean mediaAutoClean,
                                         List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPayload {
 
@@ -25,11 +25,11 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
     public static final PacketCodec<PacketByteBuf, ServerConfigScreenPayload> CODEC = PacketCodec.of(
         (value, buf) -> ServerConfigDto.encode(new ServerConfigDto(
             value.useTpa, value.historyEnabled, value.templateDebug, value.mediaEnabled,
-            value.chatTemplates, value.whisperTemplates), buf),
+            value.mediaAutoClean, value.chatTemplates, value.whisperTemplates), buf),
         buf -> {
             ServerConfigDto d = ServerConfigDto.decode(buf);
             return new ServerConfigScreenPayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-                d.mediaEnabled(), d.chatTemplates(), d.whisperTemplates());
+                d.mediaEnabled(), d.mediaAutoClean(), d.chatTemplates(), d.whisperTemplates());
         }
     );
 

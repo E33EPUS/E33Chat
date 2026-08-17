@@ -62,11 +62,11 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean receiveImages;
     private String uploadUrl = "";
     private boolean soundPublic, soundSystem, soundWhisper;
-    private boolean debugLog, preserveInput, colorCodes;
+    private boolean debugLog, preserveInput, colorCodes, closeChatOnSend;
     private boolean mentionBannerEnabled, systemBannerEnabled, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner;
     private boolean blurEnabled, ownMentionNotify, ownQuoteNotify, ownWhisperNotify;
     private int mentionBannerDuration, timeSeparatorMinutes;
-    private int panelWidth, bubbleCornerRadius, panelOpacity, soundVolume, bannerCornerRadius;
+    private int panelWidth, bubbleCornerRadius, panelOpacity, soundVolume, bannerCornerRadius, bannerOpacity;
     private int bannerOffsetX, bannerOffsetY;
     private String panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle;
     private int historyRetentionDays;
@@ -183,7 +183,7 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().uploadField(),
             ChatBubbleClientSetup.config().uploadExtra(),
             ChatBubbleClientSetup.config().uploadResponse(),
-            messageGap, avatarSize, hideRepeatedAvatars));
+            messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity));
     }
 
     private void loadFromConfig() {
@@ -199,6 +199,7 @@ public class ChatBubbleConfigScreen extends Screen {
         soundSystem = cfg.soundSystem();
         soundWhisper = cfg.soundWhisper(); debugLog = cfg.debugLog();
         preserveInput = cfg.preserveInput(); colorCodes = cfg.colorCodes();
+        closeChatOnSend = cfg.closeChatOnSend();
         mentionBannerEnabled = cfg.mentionBannerEnabled();
         systemBannerEnabled = cfg.systemBannerEnabled();
         mentionBannerDuration = cfg.mentionBannerDuration();
@@ -210,6 +211,7 @@ public class ChatBubbleConfigScreen extends Screen {
         ownMentionNotify = cfg.ownMentionNotify(); ownQuoteNotify = cfg.ownQuoteNotify();
         ownWhisperNotify = cfg.ownWhisperNotify();
         bannerCornerRadius = cfg.bannerCornerRadius();
+        bannerOpacity = cfg.bannerOpacity();
         bannerOffsetX = cfg.bannerOffsetX();
         bannerOffsetY = cfg.bannerOffsetY();
         panelAnimStyle = cfg.panelAnimStyle(); bannerAnimStyle = cfg.bannerAnimStyle();
@@ -430,6 +432,7 @@ public class ChatBubbleConfigScreen extends Screen {
         SectionDef.of("e33chat.config.section.banner",
             OptionDef.intBox("e33chat.config.mention_banner_duration", Ref.i(() -> mentionBannerDuration, v -> mentionBannerDuration = v), 2, 10, 2),
             OptionDef.intBox("e33chat.config.banner_corner_radius", Ref.i(() -> bannerCornerRadius, v -> bannerCornerRadius = v), 0, 10, 2),
+            OptionDef.intBox("e33chat.config.banner_opacity", Ref.i(() -> bannerOpacity, v -> bannerOpacity = v), 0, 100, 3),
             // Fabric 输入范围 -500~500 与 Forge/Neo -1000~1000 不同——既有差异，红线不动
             OptionDef.intBox("e33chat.config.banner_offset_x", Ref.i(() -> bannerOffsetX, v -> bannerOffsetX = v), -500, 500, 2),
             OptionDef.intBox("e33chat.config.banner_offset_y", Ref.i(() -> bannerOffsetY, v -> bannerOffsetY = v), -500, 500, 2),
@@ -449,7 +452,8 @@ public class ChatBubbleConfigScreen extends Screen {
         SectionDef.of("e33chat.config.section.history",
             OptionDef.bool("e33chat.config.chat_history", Ref.b(() -> chatHistoryEnabled, v -> chatHistoryEnabled = v)),
             OptionDef.intBox("e33chat.config.history_retention", Ref.i(() -> historyRetentionDays, v -> historyRetentionDays = v), 0, 365, 3),
-            OptionDef.bool("e33chat.config.preserve_input", Ref.b(() -> preserveInput, v -> preserveInput = v))),
+            OptionDef.bool("e33chat.config.preserve_input", Ref.b(() -> preserveInput, v -> preserveInput = v)),
+            OptionDef.bool("e33chat.config.close_chat_on_send", Ref.b(() -> closeChatOnSend, v -> closeChatOnSend = v))),
         SectionDef.of("e33chat.config.section.upload",
             OptionDef.text("e33chat.config.upload_url", Ref.s(() -> uploadUrl, v -> uploadUrl = v))),
         SectionDef.of("e33chat.config.section.debug",

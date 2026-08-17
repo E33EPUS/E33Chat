@@ -18,8 +18,8 @@ import java.util.regex.Pattern;
  * the URL, without adding an auth layer. Uploads stream through a per-session
  * temp file and are renamed into place on the final chunk.
  *
- * Limits (grilled with the user): max 8 MB per file, 512 MB total quota,
- * TTL off by default. A failed/out-of-order upload discards its session.
+ * Limits (grilled with the user): max 8 MB per file, 512 MB total quota.
+ * TTL is 7 days; cleanup only runs when the server opts in (media_auto_clean).
  * All methods are safe to call from any thread; session state is synchronized
  * on the store instance.
  */
@@ -27,7 +27,7 @@ public final class DiskMediaStore {
     public static final long MAX_SINGLE_BYTES = 8L * 1024 * 1024;
     public static final long QUOTA_BYTES = 512L * 1024 * 1024;
     public static final int CHUNK_BYTES = 512 * 1024;
-    public static final long TTL_MILLIS = 0; // 0 = keep forever
+    public static final long TTL_MILLIS = 7L * 24 * 60 * 60 * 1000; // 7 days
 
     private static final Pattern MEDIA_ID = Pattern.compile("[0-9a-f]{32}");
 
@@ -224,6 +224,17 @@ public final class DiskMediaStore {
             }
         } catch (IOException ignored) {}
         return removed;
+    }
+
+    private static final long CLEAN_INTERVAL_MILLIS = 6L * 60 * 60 * 1000;
+    private volatile long lastCleanupAt;
+
+    /** cleanupExpired with a 6h throttle — safe to call on every finished upload. */
+    public void cleanupExpiredThrottled() {
+        long now = System.currentTimeMillis();
+        if (now - lastCleanupAt < CLEAN_INTERVAL_MILLIS) return;
+        lastCleanupAt = now;
+        cleanupExpired(now);
     }
 
     private long dirSize() {

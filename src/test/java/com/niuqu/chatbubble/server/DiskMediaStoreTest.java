@@ -143,4 +143,26 @@ class DiskMediaStoreTest {
         assertTrue(DiskMediaStore.isValidMediaId("abcdef0123456789abcdef0123456789"));
         assertTrue(DiskMediaStore.isValidMediaId(DiskMediaStore.newMediaId()));
     }
+
+    @Test
+    void throttledCleanupRunsOncePerInterval() throws IOException {
+        Path dir = Files.createTempDirectory("e33media");
+        DiskMediaStore store = new DiskMediaStore(dir, DiskMediaStore.MAX_SINGLE_BYTES,
+            DiskMediaStore.QUOTA_BYTES, 1_000);
+        assertNull(store.beginUpload(1, "alice", 1, 10, "image/png"));
+        String mediaId = store.acceptChunk(1, 0, new byte[10]);
+        assertNotNull(mediaId);
+        Files.setLastModifiedTime(dir.resolve(mediaId),
+            FileTime.fromMillis(System.currentTimeMillis() - 5_000));
+        store.cleanupExpiredThrottled();
+        assertEquals(-1, store.sizeOf(mediaId));
+        // Second call inside the interval is a no-op even with a new expired file
+        assertNull(store.beginUpload(2, "alice", 1, 10, "image/png"));
+        String second = store.acceptChunk(2, 0, new byte[10]);
+        assertNotNull(second);
+        Files.setLastModifiedTime(dir.resolve(second),
+            FileTime.fromMillis(System.currentTimeMillis() - 5_000));
+        store.cleanupExpiredThrottled();
+        assertEquals(10, store.sizeOf(second));
+    }
 }

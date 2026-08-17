@@ -2644,6 +2644,10 @@ public class ChatBubbleScreen extends ChatScreen {
         else
             client.player.networkHandler.sendChatMessage(text);
         client.inGameHud.getChatHud().addToMessageHistory(text);
+        // Keep the history cursor at the newest end: this screen stays open after
+        // send (vanilla closes), so init()'s one-time historyPos snapshot goes
+        // stale and up-arrow would skip the freshly sent entries.
+        historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
 
         ChatMessageStore.debugLog("[e33chat] Send | cmd='" + text + "' | display='" + displayText + "' | whisperTarget=" + whisperTarget + " | localBubble=" + localBubble);
         if (localBubble) {
@@ -2681,6 +2685,9 @@ public class ChatBubbleScreen extends ChatScreen {
         chatField.setText("");
         savedInput = "";
         scrollToBottom = true;
+        // Optional vanilla-style behaviour: close the chat screen right after the
+        // message goes out (off by default — this screen supports multi-send).
+        if (cfg != null && cfg.closeChatOnSend()) onClose();
     }
 
 

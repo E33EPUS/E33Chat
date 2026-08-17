@@ -33,7 +33,7 @@ class ConfigManagerTest {
             "slide", "slide", "fade", "fade",
             true, true,
             null, null, null, null,
-            6, 20, true);
+            6, 20, true, false, 0);
         ConfigManager.save(p, c);
 
         ChatBubbleConfig loaded = ConfigManager.load(p);
@@ -41,6 +41,7 @@ class ConfigManagerTest {
         assertEquals(0, loaded.soundVolume(), "soundVolume 0 (muted) must survive");
         assertEquals(0, loaded.bannerCornerRadius(), "bannerCornerRadius 0 (square) must survive");
         assertEquals(0, loaded.mentionBannerDuration(), "mentionBannerDuration 0 must survive");
+        assertEquals(0, loaded.bannerOpacity(), "bannerOpacity 0 (invisible) must survive");
     }
 
     @Test
@@ -56,6 +57,8 @@ class ConfigManagerTest {
         assertEquals(60, loaded.soundVolume(), "explicit soundVolume must load");
         assertEquals(4, loaded.bannerCornerRadius(), "missing corner radius falls back to default");
         assertEquals(4, loaded.mentionBannerDuration(), "missing duration falls back to default");
+        assertFalse(loaded.closeChatOnSend(), "missing close_chat_on_send falls back to default (off)");
+        assertEquals(100, loaded.bannerOpacity(), "missing banner opacity falls back to default 100");
     }
 
     @Test

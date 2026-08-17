@@ -45,8 +45,8 @@ public final class MediaService {
 
     /** One chunk of an upload; acks with the media id when the upload completes. */
     public static void handleUpload(ServerPlayerEntity sender, DiskMediaStore store, boolean mediaEnabled,
-                                    long uploadId, int index, int totalChunks, int totalBytes,
-                                    String contentType, byte[] chunk) {
+                                    boolean autoClean, long uploadId, int index, int totalChunks,
+                                    int totalBytes, String contentType, byte[] chunk) {
         if (!mediaEnabled) {
             ServerPlayNetworking.send(sender, new MediaUploadAckPayload(uploadId, null, "disabled"));
             return;
@@ -69,6 +69,8 @@ public final class MediaService {
         }
         if (result == null) return; // upload still in progress
         store.discardUpload(uploadId);
+        if (DiskMediaStore.isValidMediaId(result) && autoClean)
+            store.cleanupExpiredThrottled();
         ServerPlayNetworking.send(sender,
             DiskMediaStore.isValidMediaId(result)
                 ? new MediaUploadAckPayload(uploadId, result, null)

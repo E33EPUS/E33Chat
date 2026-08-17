@@ -200,6 +200,8 @@ public class MentionNotificationBanner {
             float fadeRaw = Math.min(1f, raw / 0.6f);
             alpha = state == BannerState.SLIDING_UP ? exitFade(raw) : fadeRaw;
         }
+        // User-facing opacity on top of the animation fade (0-100%).
+        alpha *= ChatBubbleClientSetup.config().bannerOpacity() / 100f;
 
         // Avatar (only for real senders; system banners stay plain text)
         OrderedText nameSeq = current.nameSeq;
