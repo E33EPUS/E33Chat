@@ -1470,11 +1470,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 String key = timeKey(msg.time());
                 if (lastKey == null || !key.equals(lastKey)) {
                     lastKey = key;
-                    totalH += TIME_SEP_H + Appearance.sectionGap();
+                    totalH += TIME_SEP_H + Appearance.messageGap();
                     prevMsg = null;
                 }
             }
-            if (prevMsg != null) totalH += MessageGrouping.gapBetween(prevMsg, msg, Appearance.messageGap());
+            if (prevMsg != null) totalH += Appearance.messageGap();
             totalH += getMsgHeight(msg);
             prevMsg = msg;
         }
@@ -1543,13 +1543,13 @@ public class ChatBubbleScreen extends ChatScreen {
                     int ssy = effectiveMsgTop + contentY - scrollOffset;
                     if (ssy + TIME_SEP_H > effectiveMsgTop && ssy < effectiveMsgBottom)
                         renderTimeSeparator(g, msg.time(), ssy);
-                    contentY += TIME_SEP_H + Appearance.sectionGap();
+                    contentY += TIME_SEP_H + Appearance.messageGap();
                     prevRenderMsg = null;
                 }
             }
 
             int h = getMsgHeight(msg);
-            if (prevRenderMsg != null) contentY += MessageGrouping.gapBetween(prevRenderMsg, msg, Appearance.messageGap());
+            if (prevRenderMsg != null) contentY += Appearance.messageGap();
             int screenY = effectiveMsgTop + contentY - scrollOffset;
             // showAvatar 必须用“上一条消息”比较；先赋值 prevRenderMsg 再比会恒自比（2.3.16 回归）
             boolean showAvatar = !(ChatBubbleClientSetup.config().hideRepeatedAvatars() != null
@@ -1875,7 +1875,7 @@ public class ChatBubbleScreen extends ChatScreen {
             if (quoteX < panelX + PAD) quoteX = panelX + PAD;
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
             // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, UiTokens.RADIUS_MEDIUM, ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, ChatBubbleClientSetup.config().bubbleCornerRadius(), ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
             g.drawText(textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
         }
 
@@ -1982,7 +1982,7 @@ public class ChatBubbleScreen extends ChatScreen {
             int quoteX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - quoteW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
             if (quoteX < panelX + PAD) quoteX = panelX + PAD;
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
-            RoundRectRenderer.fill(g, quoteX, y, quoteX + quoteW, y + textRenderer.fontHeight + 4, UiTokens.RADIUS_MEDIUM,
+            RoundRectRenderer.fill(g, quoteX, y, quoteX + quoteW, y + textRenderer.fontHeight + 4, ChatBubbleClientSetup.config().bubbleCornerRadius(),
                 ChatBubbleTheme.alphaBlend(c().contextHover(), (int) (255 * alpha)));
             g.drawText(textRenderer, quoteDisplay, quoteX + 4, y + 2,
                 ChatBubbleTheme.alphaBlend(c().textSecondary(), (int) (255 * alpha)), false);
@@ -2173,8 +2173,11 @@ public class ChatBubbleScreen extends ChatScreen {
         if (menuY < msgTop) menuY = contextY + 4;
         float alpha = getAnimProgress();
 
-        // SDF 圆角菜单背景（D1）
-        RoundRectRenderer.fillPanel(g, menuX, menuY, CTX_W, menuH, UiTokens.RADIUS_MEDIUM, c().divider(), c().contextBg(), alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, CTX_W, menuH, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, CTX_W, 1, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, CTX_W, 1, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 1, menuH, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 1, menuH, alpha);
 
         boolean hoverCopy = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
@@ -2201,8 +2204,11 @@ public class ChatBubbleScreen extends ChatScreen {
         if (menuY < msgTop) menuY = contextAvatarY + 4;
         float alpha = getAnimProgress();
 
-        // SDF 圆角菜单背景（D1）
-        RoundRectRenderer.fillPanel(g, menuX, menuY, CTX_W, menuH, UiTokens.RADIUS_MEDIUM, c().divider(), c().contextBg(), alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTEXT_MENU_BG), menuX, menuY, CTX_W, menuH, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, CTX_W, 1, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY + menuH - 1, CTX_W, 1, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), menuX, menuY, 1, menuH, alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), menuX + CTX_W - 1, menuY, 1, menuH, alpha);
 
         boolean hoverTp = mouseX >= menuX && mouseX <= menuX + CTX_W
             && mouseY >= menuY && mouseY <= menuY + CTX_ITEM_H;
@@ -2295,8 +2301,8 @@ public class ChatBubbleScreen extends ChatScreen {
         int popupY = chatField.getY() - popupH - 2;
         if (popupY < msgTop) popupY = chatField.getY() + chatField.getHeight() + 2;
 
-        RoundRectRenderer.fillPanel(g, popupX, popupY, popupW, popupH, UiTokens.RADIUS_MEDIUM,
-            c().divider(), c().popupBg(), getAnimProgress());
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, popupW, popupH, getAnimProgress());
+        g.drawBorder(popupX, popupY, popupW, popupH, ChatBubbleTheme.alphaBlend(c().divider(), (int) (255 * getAnimProgress())));
 
         int startIdx = Math.max(0, mentionIdx - visible + 1);
         int endIdx = Math.min(mentionCandidates.size(), startIdx + visible);
@@ -2482,9 +2488,9 @@ public class ChatBubbleScreen extends ChatScreen {
             var m = msgs.get(i);
             if (!m.isSystem()) {
                 String k = timeKey(m.time());
-                if (lk == null || !k.equals(lk)) { lk = k; cy += TIME_SEP_H + Appearance.sectionGap(); prevMsg = null; }
+                if (lk == null || !k.equals(lk)) { lk = k; cy += TIME_SEP_H + Appearance.messageGap(); prevMsg = null; }
             }
-            if (prevMsg != null) cy += MessageGrouping.gapBetween(prevMsg, m, Appearance.messageGap());
+            if (prevMsg != null) cy += Appearance.messageGap();
             cy += getMsgHeight(m);
             prevMsg = m;
         }

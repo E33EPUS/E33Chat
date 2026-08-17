@@ -61,7 +61,7 @@
   "e33chat.config.bubble_corner_radius": "Bubble Corner Radius",
   "e33chat.config.bubble_corner_radius.desc": "Adjust the bubble corner radius (0–10, 0 = square)",
   "e33chat.config.message_gap": "Message Gap",
-  "e33chat.config.message_gap.desc": "Vertical gap between chat messages (pixels)",
+  "e33chat.config.message_gap.desc": "Vertical gap between chat messages (0–12 pixels)",
   "e33chat.config.avatar_size": "Avatar Size",
   "e33chat.config.avatar_size.desc": "Size of the avatar in chat bubbles (12–32 pixels)",
   "e33chat.config.system_chat_as_bubble": "Render System Chat as Bubble",

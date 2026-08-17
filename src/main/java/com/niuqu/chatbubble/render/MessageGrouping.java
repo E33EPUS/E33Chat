@@ -24,19 +24,4 @@ public final class MessageGrouping {
         return msg.time() - prev.time() <= GROUP_TIME_MS;
     }
 
-    /** 组内间距 = message_gap × 2/3，下限 2（D07 内部比例，不动 message_gap 键）。 */
-    public static int groupGap(int messageGap) {
-        return Math.max(UiTokens.GROUP_GAP_MIN,
-            messageGap * UiTokens.GROUP_GAP_FACTOR_NUM / UiTokens.GROUP_GAP_FACTOR_DEN);
-    }
-
-    /** 组间间距 = message_gap × 2。 */
-    public static int sectionGap(int messageGap) {
-        return messageGap * UiTokens.SECTION_GAP_FACTOR;
-    }
-
-    /** 相邻两条消息之间的垂直间距：同组用组内档，否则组间档。 */
-    public static int gapBetween(ChatMessageStore.ChatMessage prev, ChatMessageStore.ChatMessage msg, int messageGap) {
-        return isSameGroup(prev, msg) ? groupGap(messageGap) : sectionGap(messageGap);
-    }
 }

@@ -13,8 +13,7 @@ import net.minecraft.util.math.MathHelper;
 
 import java.util.ArrayList;
 import java.util.List;
-import com.niuqu.chatbubble.render.RoundRectRenderer;
-import com.niuqu.chatbubble.render.UiTokens;
+import com.niuqu.chatbubble.texture.UiElement;
 
 public class ChatQuickChatPanel {
     private static final int W = 140;
@@ -49,8 +48,9 @@ public class ChatQuickChatPanel {
         int px = MathHelper.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
 
-        // SDF 圆角弹层背景（D1）
-        RoundRectRenderer.fillPanel(g, px, py, W, panelH, UiTokens.RADIUS_MEDIUM, c.divider(), c.titleBg(), alpha);
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTENT_BG),
+            px, py, W, panelH, alpha);
+        g.drawBorder(px, py, W, panelH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         int totalPhrases = phrases.size();
         int phraseAreaRight = px + W - 4;
