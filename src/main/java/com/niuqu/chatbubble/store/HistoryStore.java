@@ -65,12 +65,11 @@ public final class HistoryStore {
         }
     }
 
-    // ---- Plain-text history lines: date-time \t sender \t content \t flags ----
-    // Open in any text editor and it reads like a log. Plain text only — colors
-    // and click/hover data are dropped; the decorated prefix still shows as literal
-    // text (e.g. "[称号]E33EPUS"). Flags: M=own, S=system, W=whisper (combinable,
-    // empty when none). Fields escape \t \n \\ so parsing is unambiguous.
-    // Pre-2.2.3 JSONL lines (starting with '{') still load.
+    // ---- History line format: JSONL since 2.3.9 ----
+    // One JSON object per line: senderJson/contentJson carry full styled
+    // components (colors, click/hover events survive reload), uuid keeps
+    // avatars resolvable for offline players. The TSV branch in fromLine is
+    // only a legacy reader for pre-2.3.9 plain-text lines (no leading '{').
 
     // Commands that carry credentials must never land in the history file —
     // mirrors the AuthMe-family login/register aliases
