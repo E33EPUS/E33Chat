@@ -12,6 +12,7 @@ public class ChatServerConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> WHISPER_TEMPLATES;
     public static final ForgeConfigSpec.BooleanValue TEMPLATE_DEBUG;
     public static final ForgeConfigSpec.BooleanValue MEDIA_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue MEDIA_AUTO_CLEAN;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -38,6 +39,10 @@ public class ChatServerConfig {
             .comment("Host chat image uploads on the server (e33chat://media/<id>, permanent) instead of the third-party host",
                 "When false, clients fall back to the configured third-party host")
             .define("media_enabled", true);
+        MEDIA_AUTO_CLEAN = builder
+            .comment("Auto-delete server-hosted media files older than 7 days (checked on server start, then at most every 6h after uploads)",
+                "When false, uploaded images are kept forever")
+            .define("media_auto_clean", true);
         SERVER_CONFIG = builder.build();
     }
 }

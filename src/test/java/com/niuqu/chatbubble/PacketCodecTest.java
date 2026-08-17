@@ -119,13 +119,13 @@ class PacketCodecTest {
     }
 
     @Test void serverConfigScreenStable() {
-        assertStable(new ServerConfigScreenPacket(true, false, true, true,
+        assertStable(new ServerConfigScreenPacket(true, false, true, true, true,
                 List.of("chat tpl"), List.of("whisper tpl")),
             (p, buf) -> ServerConfigScreenPacket.encode((ServerConfigScreenPacket) p, buf), b -> ServerConfigScreenPacket.decode(b));
     }
 
     @Test void serverConfigSaveStable() {
-        assertStable(new ServerConfigSavePacket(false, true, false, false,
+        assertStable(new ServerConfigSavePacket(false, true, false, false, true,
                 List.of(), List.of("w")),
             (p, buf) -> ServerConfigSavePacket.encode((ServerConfigSavePacket) p, buf), b -> ServerConfigSavePacket.decode(b));
     }

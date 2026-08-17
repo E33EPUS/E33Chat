@@ -45,6 +45,7 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.BooleanValue SOUND_PUBLIC;
     public static final ForgeConfigSpec.IntValue SOUND_VOLUME;
     public static final ForgeConfigSpec.BooleanValue PRESERVE_INPUT;
+    public static final ForgeConfigSpec.BooleanValue CLOSE_CHAT_ON_SEND;
     public static final ForgeConfigSpec.BooleanValue COLOR_CODES;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> SIDEBAR_HIDE_PATTERNS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLOCKED_PLAYERS;
@@ -60,6 +61,7 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.BooleanValue OWN_QUOTE_NOTIFY;
     public static final ForgeConfigSpec.BooleanValue OWN_WHISPER_NOTIFY;
     public static final ForgeConfigSpec.IntValue BANNER_CORNER_RADIUS;
+    public static final ForgeConfigSpec.IntValue BANNER_OPACITY;
     public static final ForgeConfigSpec.IntValue BANNER_OFFSET_X;
     public static final ForgeConfigSpec.IntValue BANNER_OFFSET_Y;
     public static final ForgeConfigSpec.EnumValue<AnimationStyle> PANEL_ANIM_STYLE;
@@ -168,6 +170,11 @@ public class ChatBubbleConfig {
             .comment("Keep typed text in the input box when the chat closes, restoring it on reopen")
             .translation("e33chat.config.preserve_input")
             .define("preserve_input", true);
+
+        CLOSE_CHAT_ON_SEND = builder
+            .comment("Close the chat screen right after sending a message (vanilla behaviour). Off by default: this screen supports sending several messages in a row")
+            .translation("e33chat.config.close_chat_on_send")
+            .define("close_chat_on_send", false);
 
         COLOR_CODES = builder
             .comment("Interpret & color/format codes as color in YOUR OWN outgoing bubble (local only). The raw & is sent unchanged (never §), so it never kicks; color plugins color it for everyone, plain servers show literal & to others. Off by default so normal text like 'B&B' isn't colored locally")
@@ -317,6 +324,11 @@ public class ChatBubbleConfig {
             .comment("Banner corner radius (0 = square, max 10)")
             .translation("e33chat.config.banner_corner_radius")
             .defineInRange("banner_corner_radius", 6, 0, 10);
+
+        BANNER_OPACITY = builder
+            .comment("Notification banner opacity percentage (0-100). 0 = fully transparent, 100 = fully opaque")
+            .translation("e33chat.config.banner_opacity")
+            .defineInRange("banner_opacity", 100, 0, 100);
 
         BANNER_OFFSET_X = builder
             .comment("Banner horizontal offset in px (negative = left). Nudge to avoid HUD overlaps (e.g. Jade).")

@@ -117,6 +117,12 @@ public class ChatServerListener {
     }
 
     @SubscribeEvent
+    public void onServerStarted(net.minecraftforge.event.server.ServerStartedEvent event) {
+        // One cleanup per boot: drop media files past the 7-day TTL (config-gated).
+        if (ChatServerConfig.MEDIA_AUTO_CLEAN.get()) mediaStore().cleanupExpired();
+    }
+
+    @SubscribeEvent
     public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;

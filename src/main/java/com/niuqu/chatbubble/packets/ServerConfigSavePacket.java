@@ -22,10 +22,10 @@ public class ServerConfigSavePacket {
     private final ServerConfigDto dto;
 
     public ServerConfigSavePacket(boolean useTpa, boolean historyEnabled, boolean templateDebug,
-                                  boolean mediaEnabled,
+                                  boolean mediaEnabled, boolean mediaAutoClean,
                                   List<String> chatTemplates, List<String> whisperTemplates) {
         this.dto = new ServerConfigDto(useTpa, historyEnabled, templateDebug, mediaEnabled,
-            chatTemplates, whisperTemplates);
+            mediaAutoClean, chatTemplates, whisperTemplates);
     }
 
     public static void encode(ServerConfigSavePacket packet, FriendlyByteBuf buf) {
@@ -35,7 +35,7 @@ public class ServerConfigSavePacket {
     public static ServerConfigSavePacket decode(FriendlyByteBuf buf) {
         ServerConfigDto d = ServerConfigDto.decode(buf);
         return new ServerConfigSavePacket(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-            d.mediaEnabled(), d.chatTemplates(), d.whisperTemplates());
+            d.mediaEnabled(), d.mediaAutoClean(), d.chatTemplates(), d.whisperTemplates());
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
@@ -66,6 +66,8 @@ public class ServerConfigSavePacket {
             ChatServerConfig.TEMPLATE_DEBUG.clearCache();
             ChatServerConfig.MEDIA_ENABLED.set(dto.mediaEnabled());
             ChatServerConfig.MEDIA_ENABLED.clearCache();
+            ChatServerConfig.MEDIA_AUTO_CLEAN.set(dto.mediaAutoClean());
+            ChatServerConfig.MEDIA_AUTO_CLEAN.clearCache();
             ChatBubbleMod.saveServerConfig();
             ChatServerListener.broadcastServerConfig();
             player.sendSystemMessage(Component.translatable("e33chat.server.saved"));
