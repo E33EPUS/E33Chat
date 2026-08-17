@@ -163,9 +163,8 @@ public final class ChatMessageRenderer {
             g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
         }
 
-        // 头像与内容顶部对齐（D07）
-        int avatarY = baseY + NAME_H;
-        if (showAvatar) drawAvatar(g, skin, avatarX, avatarY, alpha);
+        // 头像顶与名字行顶对齐（2.3.16 曾改气泡顶对齐，实测回退老锚点）
+        if (showAvatar) drawAvatar(g, skin, avatarX, baseY, alpha);
 
         int maxTextW = 0;
         for (var line : lines) maxTextW = Math.max(maxTextW, font.width(line));
@@ -265,8 +264,7 @@ public final class ChatMessageRenderer {
             g.drawString(font, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), false);
         }
 
-        // 头像与表情顶部对齐（D07）
-        if (showAvatar) drawAvatar(g, skin, avatarX, baseY + NAME_H, alpha);
+        if (showAvatar) drawAvatar(g, skin, avatarX, baseY, alpha);
 
         int emoteY = baseY + NAME_H + 2;
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16));
@@ -541,8 +539,7 @@ public final class ChatMessageRenderer {
         }
 
         int bubbleY = baseY + NAME_H;
-        // 头像与气泡顶部对齐（D07，QQ 风格）
-        int avatarY = bubbleY;
+        int avatarY = baseY;
 
         int bg = own ? ownBubbleColor : otherBubbleColor;
         int fg = own ? ownTextColor : otherTextColor;

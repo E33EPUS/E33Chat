@@ -1537,8 +1537,11 @@ public class ChatBubbleScreen extends ChatScreen {
             }
 
             int h = getMsgHeight(msg);
-            int screenY = effectiveMsgTop + contentY - scrollOffset;
             if (prevRenderMsg != null) contentY += ChatMessageRenderer.gapBetween(prevRenderMsg, msg, ChatBubbleConfig.MESSAGE_GAP.get());
+            int screenY = effectiveMsgTop + contentY - scrollOffset;
+            // showAvatar 必须用“上一条消息”比较；先赋值 prevRenderMsg 再比会恒自比（2.3.16 回归）
+            boolean showAvatar = !(ChatBubbleConfig.HIDE_REPEATED_AVATARS.get()
+                && ChatMessageRenderer.isSameGroup(prevRenderMsg, msg));
             contentY += h;
             prevRenderMsg = msg;
 
@@ -1589,9 +1592,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 g.pose().scale(mScale, mScale, 1f);
                 g.pose().translate(-(zBubbleX + zBubbleW / 2f), -zBubbleY, 0);
             }
-            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha,
-                !(ChatBubbleConfig.HIDE_REPEATED_AVATARS.get()
-                    && ChatMessageRenderer.isSameGroup(prevRenderMsg, msg)));
+            renderBubble(g, msg, fullIdx, screenY, mouseX, mouseY, mAlpha, showAvatar);
             g.pose().popPose();
             fullIdx++;
         }
