@@ -2,172 +2,207 @@ package com.niuqu.chatbubble.mixin;
 
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
-import com.niuqu.chatbubble.ChatImageCompat;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.ChatMessageStore.SenderMeta;
-import com.niuqu.chatbubble.RenderHelper;
 import net.minecraft.client.MinecraftClient;
 //#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
-//#else
-//$$ import net.minecraft.client.util.math.MatrixStack;
+//#endif
+//#if MC >= 12111
+import net.minecraft.client.font.TextRenderer;
+//#endif
+//#if MC < 12000
+import net.minecraft.client.util.math.MatrixStack;
 //#endif
 import net.minecraft.client.gui.hud.ChatHud;
 //#if MC >= 11900
 //#if MC < 26000
 import net.minecraft.client.gui.hud.MessageIndicator;
-import net.minecraft.network.message.MessageSignatureData;
 //#endif
+import net.minecraft.network.message.MessageSignatureData;
 //#endif
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import org.spongepowered.asm.mixin.Mixin;
-//#if MC >= 26000
-//$$ import org.spongepowered.asm.mixin.Shadow;
-//#endif
+import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.UUID;
 
-@Mixin(value = ChatHud.class, priority = 500, remap = false)
-public class ChatComponentMixin {
-    private String lastText;
-    private long lastTime;
+@Mixin(value = ChatHud.class, priority = 500)
+public abstract class ChatComponentMixin {
+    private Text lastComponent;
     private boolean e33chat$shifted;
     private boolean e33chat$reposting;
     private String lastRepostText;
     private long lastRepostTime;
 
     //#if MC >= 26000
-    //$$ @Shadow
-    //$$ private void addMessage(net.minecraft.network.chat.Component message,
-    //$$     net.minecraft.network.chat.MessageSignature signature,
-    //$$     net.minecraft.client.multiplayer.chat.GuiMessageSource source,
-    //$$     net.minecraft.client.multiplayer.chat.GuiMessageTag tag) {}
+    //$$ @Invoker("addMessage")
+    //$$ abstract void e33chat$invokeAddMessage(Text message, MessageSignatureData signature,
+    //$$         net.minecraft.client.multiplayer.message.GuiMessageSource source,
+    //$$         net.minecraft.client.multiplayer.message.GuiMessageTag tag);
     //#endif
 
+    //#if MC >= 12000
     //#if MC >= 26000
-    //$$ @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true, remap = false)
-    //$$ private void onRender(DrawContext context,
-    //$$     net.minecraft.client.font.TextRenderer font,
-    //$$     int tickDelta, int mouseX, int mouseY,
-    //$$     Object displayMode, boolean focused, CallbackInfo ci) {
+    //$$ @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
+    //$$ private void onRender(DrawContext context, TextRenderer textRenderer, int currentTick,
+    //$$                       int mouseX, int mouseY, net.minecraft.client.gui.components.ChatComponent.DisplayMode displayMode, boolean bool, CallbackInfo ci) {
     //$$     e33chat$shifted = false;
     //$$     if (ChatBubbleClientSetup.config().enabled()) {
     //$$         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
     //$$             ci.cancel();
     //$$             return;
     //$$         }
-    //$$         RenderHelper.pushMatrix(context);
-    //$$         RenderHelper.translate(context, 0, -8);
+    //$$         if (MinecraftClient.getInstance().world == null) return;
+    //$$         context.getMatrices().pushMatrix();
+    //$$         context.getMatrices().translate(0, -8);
     //$$         e33chat$shifted = true;
     //$$     }
     //$$ }
-    //$$
-    //$$ @Inject(method = "extractRenderState", at = @At("RETURN"), remap = false)
-    //$$ private void onRenderReturn(DrawContext context,
-    //$$     net.minecraft.client.font.TextRenderer font,
-    //$$     int tickDelta, int mouseX, int mouseY,
-    //$$     Object displayMode, boolean focused, CallbackInfo ci) {
+    //$$ @Inject(method = "extractRenderState", at = @At("RETURN"))
+    //$$ private void onRenderReturn(DrawContext context, TextRenderer textRenderer, int currentTick,
+    //$$                             int mouseX, int mouseY, net.minecraft.client.gui.components.ChatComponent.DisplayMode displayMode, boolean bool, CallbackInfo ci) {
     //$$     if (e33chat$shifted) {
-    //$$         RenderHelper.popMatrix(context);
+    //$$         context.getMatrices().popMatrix();
     //$$     }
     //$$ }
     //#else
-    //#if MC >= 11900
-    //#if MC >= 12106
-    @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/font/TextRenderer;IIIZZ)V",
-        at = @At("HEAD"), cancellable = true, remap = false)
-    //#else
-    //#if MC >= 12000
-    //$$ @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;IIIZ)V",
-    //$$     at = @At("HEAD"), cancellable = true, remap = false)
-    //#else
-    //$$ @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;IIIZ)V",
-    //$$     at = @At("HEAD"), cancellable = true, remap = false)
-    //#endif
-    //#endif
-    //#endif
-    //#if MC >= 12000
-    private void onRender(DrawContext context,
-    //#else
-    //$$ private void onRender(MatrixStack context,
-    //#endif
-        //#if MC >= 12106
-        net.minecraft.client.font.TextRenderer textRenderer,
-        //#endif
-        int tickDelta, int mouseX, int mouseY,
-        //#if MC >= 12106
-        boolean focused, boolean something, CallbackInfo ci) {
-        //#else
-        //$$ boolean focused, CallbackInfo ci) {
-        //#endif
+    //#if MC >= 12111
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    private void onRender(DrawContext context, TextRenderer textRenderer, int currentTick,
+                          int mouseX, int mouseY, boolean interactable, boolean bool, CallbackInfo ci) {
         e33chat$shifted = false;
         if (ChatBubbleClientSetup.config().enabled()) {
             if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
                 ci.cancel();
                 return;
             }
+            // Skip matrix shift during world unload — the chat HUD may render
+            // briefly after world=null, and push/pop without a matching render
+            // can leave the matrix stack unbalanced if the render throws.
+            if (MinecraftClient.getInstance().world == null) return;
+            context.getMatrices().pushMatrix();
+            context.getMatrices().translate(0, -8);
+            e33chat$shifted = true;
+        }
+    }
+
+    @Inject(method = "render", at = @At("RETURN"))
+    private void onRenderReturn(DrawContext context, TextRenderer textRenderer, int currentTick,
+                                int mouseX, int mouseY, boolean interactable, boolean bool, CallbackInfo ci) {
+        if (e33chat$shifted) {
+            context.getMatrices().popMatrix();
+        }
+    }
+    //#else
+    //#if MC >= 12005
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    private void onRender(DrawContext context, int tickDelta, int mouseX, int mouseY,
+                          boolean focused, CallbackInfo ci) {
+        e33chat$shifted = false;
+        if (ChatBubbleClientSetup.config().enabled()) {
+            if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
+                ci.cancel();
+                return;
+            }
+            // Skip matrix shift during world unload (see 1.21.11 branch comment).
+            if (MinecraftClient.getInstance().world == null) return;
             //#if MC >= 12106
-            RenderHelper.pushMatrix(context);
-            RenderHelper.translate(context, 0, -8);
+            context.getMatrices().pushMatrix();
+            context.getMatrices().translate(0, -8);
             //#else
-            //$$ RenderHelper.pushMatrix(context);
-            //$$ RenderHelper.translate(context, 0, -8, 0);
+            //$$ context.getMatrices().push();
+            //$$ context.getMatrices().translate(0, -8, 0);
             //#endif
             e33chat$shifted = true;
         }
     }
 
-    //#if MC >= 11900
-    //#if MC >= 12106
-    @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/font/TextRenderer;IIIZZ)V",
-        at = @At("RETURN"), remap = false)
-    //#else
-    //#if MC >= 12000
-    //$$ @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;IIIZ)V",
-    //$$     at = @At("RETURN"), remap = false)
-    //#else
-    //$$ @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;IIIZ)V",
-    //$$     at = @At("RETURN"), remap = false)
-    //#endif
-    //#endif
-    //#endif
-    private void onRenderReturn(
-        //#if MC >= 12000
-        DrawContext context,
-        //#else
-        //$$ MatrixStack context,
-        //#endif
-        //#if MC >= 12106
-        net.minecraft.client.font.TextRenderer textRenderer,
-        //#endif
-        int tickDelta, int mouseX, int mouseY,
-        //#if MC >= 12106
-        boolean focused, boolean something,
-        //#else
-        //$$ boolean focused,
-        //#endif
-        CallbackInfo ci) {
+    @Inject(method = "render", at = @At("RETURN"))
+    private void onRenderReturn(DrawContext context, int tickDelta, int mouseX, int mouseY,
+                                boolean focused, CallbackInfo ci) {
         if (e33chat$shifted) {
             //#if MC >= 12106
-            RenderHelper.popMatrix(context);
+            context.getMatrices().popMatrix();
             //#else
-            //$$ RenderHelper.popMatrix(context);
+            //$$ context.getMatrices().pop();
             //#endif
         }
     }
+    //#else
+    //$$ @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    //$$ private void onRender(DrawContext context, int tickDelta, int mouseX, int mouseY,
+    //$$                       CallbackInfo ci) {
+    //$$     e33chat$shifted = false;
+    //$$     if (ChatBubbleClientSetup.config().enabled()) {
+    //$$         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
+    //$$             ci.cancel();
+    //$$             return;
+    //$$         }
+    //$$         context.getMatrices().push();
+    //$$         context.getMatrices().translate(0, -8, 0);
+    //$$         e33chat$shifted = true;
+    //$$     }
+    //$$ }
+    //$$ @Inject(method = "render", at = @At("RETURN"))
+    //$$ private void onRenderReturn(DrawContext context, int tickDelta, int mouseX, int mouseY,
+    //$$                             CallbackInfo ci) {
+    //$$     if (e33chat$shifted) {
+    //$$         context.getMatrices().pop();
+    //$$     }
+    //$$ }
+    //#endif
+    //#endif
+    //#endif
+    //#else
+    //$$ @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    //$$ private void onRender(MatrixStack context, int ticks, CallbackInfo ci) {
+    //$$     e33chat$shifted = false;
+    //$$     if (ChatBubbleClientSetup.config().enabled()) {
+    //$$         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
+    //$$             ci.cancel();
+    //$$             return;
+    //$$         }
+    //$$         context.push();
+    //$$         context.translate(0, -8, 0);
+    //$$         e33chat$shifted = true;
+    //$$     }
+    //$$ }
+    //$$ @Inject(method = "render", at = @At("RETURN"))
+    //$$ private void onRenderReturn(MatrixStack context, int ticks, CallbackInfo ci) {
+    //$$     if (e33chat$shifted) {
+    //$$         context.pop();
+    //$$     }
+    //$$ }
     //#endif
 
-    //#if MC < 26000
+    //#if MC >= 26000
+    //$$ @Inject(method = "addServerSystemMessage(Lnet/minecraft/text/Text;)V",
+    //$$         at = @At("HEAD"), cancellable = true)
+    //$$ private void onAddServerSystemMessage(Text message, CallbackInfo ci) {
+    //$$     captureMessage(message, ci);
+    //$$ }
+    //$$ @Inject(method = "addClientSystemMessage(Lnet/minecraft/text/Text;)V",
+    //$$         at = @At("HEAD"), cancellable = true)
+    //$$ private void onAddClientSystemMessage(Text message, CallbackInfo ci) {
+    //$$     captureMessage(message, ci);
+    //$$ }
+    //$$ @Inject(method = "addPlayerMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/multiplayer/message/GuiMessageTag;)V",
+    //$$         at = @At("HEAD"), cancellable = true)
+    //$$ private void onAddPlayerMessage(Text message, MessageSignatureData signature,
+    //$$                                net.minecraft.client.multiplayer.message.GuiMessageTag tag, CallbackInfo ci) {
+    //$$     captureMessage(message, ci);
+    //$$ }
+    //#else
     @Inject(method = "addMessage(Lnet/minecraft/text/Text;)V",
             at = @At("HEAD"), cancellable = true)
     private void onAddMessage(Text message, CallbackInfo ci) {
         captureMessage(message, ci);
     }
-    //#endif
 
     //#if MC >= 11900
     //#if MC < 26000
@@ -179,18 +214,6 @@ public class ChatComponentMixin {
     }
     //#endif
     //#endif
-
-    // 26.x: addMessage signature changed to (Component, MessageSignature, GuiMessageSource, GuiMessageTag).
-    // Uses method name only (no descriptor) to avoid build.gradle client→minecraft regex
-    // corrupting the /net/minecraft/client/ path inside the descriptor string.
-    //#if MC >= 26000
-    //$$ @Inject(method = "addMessage", at = @At("HEAD"), cancellable = true, remap = false)
-    //$$ private void onAddMessage(net.minecraft.network.chat.Component message,
-    //$$     net.minecraft.network.chat.MessageSignature signature,
-    //$$     net.minecraft.client.multiplayer.chat.GuiMessageSource source,
-    //$$     net.minecraft.client.multiplayer.chat.GuiMessageTag tag, CallbackInfo ci) {
-    //$$     captureMessage(message, ci);
-    //$$ }
     //#endif
 
     // Vanilla chat gets a unified player-style format for whispers/quotes:
@@ -199,11 +222,11 @@ public class ChatComponentMixin {
     // The sender component keeps its style so colored nicknames/prefixes survive.
     private void repostToVanilla(Text name, String content, boolean quoting) {
         Text tag = (quoting
-            ? com.niuqu.chatbubble.Txt.literal("[引用]").formatted(Formatting.YELLOW)
-            : com.niuqu.chatbubble.Txt.literal("[私聊]").formatted(Formatting.LIGHT_PURPLE));
-        Text reformatted = com.niuqu.chatbubble.Txt.empty()
-            .append(com.niuqu.chatbubble.Txt.literal("<")).append(name).append(com.niuqu.chatbubble.Txt.literal(">")).append(tag)
-            .append(com.niuqu.chatbubble.Txt.literal(" " + content));
+            ? Text.literal("[引用]").formatted(Formatting.YELLOW)
+            : Text.literal("[私聊]").formatted(Formatting.LIGHT_PURPLE));
+        Text reformatted = Text.empty()
+            .append(Text.literal("<")).append(name).append(Text.literal(">")).append(tag)
+            .append(Text.literal(" " + content));
         String repostStr = reformatted.getString();
         long nowMs = System.currentTimeMillis();
         // Server echoes a whisper twice (signed outgoing + incoming) within ~15ms;
@@ -216,37 +239,30 @@ public class ChatComponentMixin {
         lastRepostTime = nowMs;
         ChatMessageStore.debugLog(() -> "[e33chat] Repost to vanilla | '" + repostStr + "' | quoting=" + quoting);
         e33chat$reposting = true;
+        // 3-arg addMessage with a null indicator: the 1-arg overload forces
+        // MessageIndicator.system(), which logs "[System] [CHAT]" and styles the line
         //#if MC >= 26000
-        //$$ addMessage(reformatted, null, null, null);
+        //$$ e33chat$invokeAddMessage(reformatted, null, null, null);
         //#else
-        ((ChatHud) (Object) this).addMessage(reformatted);
+        //#if MC >= 11900
+        ((ChatHud) (Object) this).addMessage(reformatted, null, null);
+        //#else
+        //$$ ((ChatHud) (Object) this).addMessage(reformatted);
+        //#endif
         //#endif
         e33chat$reposting = false;
-    }
-
-    // Sender name for the outgoing-echo repost: the tab-list display name carries
-    // prefix/suffix and team color ("[称号]E33EPUS" in aqua), falling back to the
-    // profile name when the server provides no display name.
-    private static Text ownDisplayName(MinecraftClient mc) {
-        if (mc.player != null && mc.player.networkHandler != null) {
-            var info = mc.player.networkHandler.getPlayerListEntry(mc.player.getUuid());
-            if (info != null && info.getDisplayName() != null) {
-                return info.getDisplayName();
-            }
-        }
-        return mc.player != null ? mc.player.getName() : com.niuqu.chatbubble.Txt.literal("?");
     }
 
     private void captureMessage(Text finalComponent, CallbackInfo ci) {
         if (!ChatBubbleClientSetup.config().enabled()) return;
         if (e33chat$reposting) return;
 
-        // 3-arg addMessage calls 1-arg internally — skip the duplicate
+        // 1-arg addMessage calls 3-arg internally with the SAME Component object —
+        // dedupe on object identity so two genuinely identical messages (same text,
+        // different objects) are never swallowed
+        if (finalComponent == lastComponent) return;
+        lastComponent = finalComponent;
         String text = finalComponent.getString();
-        long now = System.currentTimeMillis();
-        if (text.equals(lastText) && now - lastTime < 100) return;
-        lastText = text;
-        lastTime = now;
 
         // Outgoing whisper echo via the system channel ("你悄悄对 Steve 说: hi"):
         // suppress the vanilla line and repost it as <me>[私聊] hi. Checked BEFORE
@@ -258,7 +274,13 @@ public class ChatComponentMixin {
             // echo path's meta.senderName() — otherwise the repost dedup guard sees
             // different strings (tab name vs chat-decorated name) and shows both
             Text name = ChatMessageStore.extractWhisperDisplayName(finalComponent,
-                ownDisplayName(MinecraftClient.getInstance()));
+                ChatMessageStore.ownDisplayName());
+            // Vanilla outgoing lines carry only the target ("你悄悄地对X说" / "You
+            // whisper to X") — ownDisplayName() then supplies our name. Either way
+            // the local bubble was created with a bare name: patch it now that the
+            // echo reveals the real self display name.
+            ChatMessageStore.cacheOwnDecoratedName(name);
+            ChatMessageStore.updateLatestOwnSenderName(name);
             repostToVanilla(name, ChatMessageStore.extractWhisperContent(text, null),
                 ChatMessageStore.consumeSuppressQuoted());
             return;
@@ -267,14 +289,24 @@ public class ChatComponentMixin {
         SenderMeta meta = ChatMessageStore.consumePendingMeta();
         if (meta == null) {
             if (ChatMessageStore.isRecentDuplicate(text)) return;
-            meta = new SenderMeta(
-                new UUID(0, 0),
-                com.niuqu.chatbubble.Txt.translatable("e33chat.sender.system"),
-                finalComponent,
-                true,
-                null,
-                false, null
-            );
+            //#if MC >= 11900
+            // Server may bypass MessageHandler entirely (custom packets, other
+            // mods intercepting chat) — try to parse the line as a player
+            // message before falling back to the generic system sender.
+            meta = MessageHandlerAccessor.e33chat$invokeTryParseAsPlayerMessage(finalComponent, text);
+            if (meta == null) {
+            //#endif
+                meta = new SenderMeta(
+                    new UUID(0, 0),
+                    Text.translatable("e33chat.sender.system"),
+                    finalComponent,
+                    true,
+                    null,
+                    false, null
+                );
+            //#if MC >= 11900
+            }
+            //#endif
         }
 
         // Blocked sender: vanish completely — no vanilla line, no bubble, no
@@ -294,7 +326,7 @@ public class ChatComponentMixin {
         // (quote replies travel as plain chat, so the echo's quoted flag is their
         // only rewrite signal). meta is trusted here (freshly consumed) and carries
         // the server-decorated name + content, e.g. "[称号]E33EPUS" / "1234533425".
-        ChatMessageStore.EchoMatch echo = ChatMessageStore.consumeEchoIfSenderMatches(meta.senderUUID(), meta.senderName());
+        ChatMessageStore.EchoMatch echo = ChatMessageStore.consumeEchoIfSenderMatches(meta.senderUUID(), meta.senderName(), text);
         if (echo.matched()) {
             if (meta.whisper() || echo.quoted()) {
                 ci.cancel();
@@ -318,26 +350,10 @@ public class ChatComponentMixin {
         } else {
             content = finalComponent;
         }
-        // ChatImage rewrites the vanilla argument after our mixin, so the bubble
-        // stored the pre-conversion CICode text — convert it back to the styled
-        // [Image] component so the bubble matches the vanilla chat
-        content = ChatImageCompat.convert(content);
-
-        // Fallback: if the sender name is just the raw GameProfile name (no
-        // prefix/title decorations), try to extract the decorated name from the
-        // fully rendered final component — covers servers whose chat-type
-        // params.name() returned null or the bare name, but the chat-type
-        // decoration added the prefix in the rendered output.
-        if (!meta.isSystem() && meta.rawPlayerName() != null && !meta.rawPlayerName().isEmpty()
-                && meta.senderName().getString().equals(meta.rawPlayerName())
-                && finalStr.contains(rawStr) && !rawStr.isEmpty()) {
-            Text decorated = ChatMessageStore.extractDecoratedName(
-                finalComponent, rawStr, meta.rawPlayerName(), meta.senderName());
-            if (!decorated.getString().equals(meta.senderName().getString())) {
-                meta = new SenderMeta(meta.senderUUID(), decorated, meta.rawContent(),
-                    meta.isSystem(), meta.rawPlayerName(), meta.whisper(), meta.whisperPartner());
-            }
-        }
+        // 2.3.10+: image bracket codes are kept raw in storage; the bubble
+        // renders them natively (BracketCodec strips the code, ImageLoader
+        // draws the picture). The vanilla chat still gets ChatImage's own
+        // conversion via ChatImage's mixins, so both surfaces agree.
 
         Text logComp = finalComponent, logContent = content;
         SenderMeta logMeta = meta;

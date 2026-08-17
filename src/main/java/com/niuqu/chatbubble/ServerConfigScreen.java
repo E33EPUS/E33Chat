@@ -85,8 +85,8 @@ public class ServerConfigScreen extends Screen {
     };
 
     // 打开时的快照（用于变更检测）+ 可编辑的本地副本（发送前不生效）
-    private final boolean initUseTpa, initHistory, initDebug;
-    private boolean useTpaV, historyV, debugV;
+    private final boolean initUseTpa, initHistory, initDebug, initMedia;
+    private boolean useTpaV, historyV, debugV, mediaV;
     private final List<String> initChat, initWhisper;
     private final List<String> chatV = new ArrayList<>();
     private final List<String> whisperV = new ArrayList<>();
@@ -126,17 +126,19 @@ public class ServerConfigScreen extends Screen {
     private ButtonWidget doneBtn, exitBtn, saveBtn;
 
     public ServerConfigScreen(Screen lastScreen, boolean useTpa, boolean history, boolean debug,
-                              List<String> chat, List<String> whisper) {
+                              List<String> chat, List<String> whisper, boolean media) {
         super(com.niuqu.chatbubble.Txt.translatable("e33chat.server.title"));
         this.lastScreen = lastScreen;
         initUseTpa = useTpa;
         initHistory = history;
         initDebug = debug;
+        initMedia = media;
         initChat = new ArrayList<>(chat);
         initWhisper = new ArrayList<>(whisper);
         useTpaV = useTpa;
         historyV = history;
         debugV = debug;
+        mediaV = media;
         chatV.addAll(chat);
         whisperV.addAll(whisper);
     }
@@ -199,6 +201,8 @@ public class ServerConfigScreen extends Screen {
                     List.of(mkToggle(() -> useTpaV, nv -> useTpaV = nv)), null, "e33chat.server.use_tpa"));
                 rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.history"),
                     List.of(mkToggle(() -> historyV, nv -> historyV = nv)), null, "e33chat.server.history"));
+                rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.media"),
+                    List.of(mkToggle(() -> mediaV, nv -> mediaV = nv)), null, "e33chat.server.media"));
             }
             case 1 -> buildTemplateRows(chatV, true);
             case 2 -> buildTemplateRows(whisperV, false);
@@ -391,6 +395,7 @@ public class ServerConfigScreen extends Screen {
 
     private boolean changed() {
         return useTpaV != initUseTpa || historyV != initHistory || debugV != initDebug
+            || mediaV != initMedia
             || !Objects.equals(chatV, initChat) || !Objects.equals(whisperV, initWhisper);
     }
 
@@ -403,7 +408,7 @@ public class ServerConfigScreen extends Screen {
         }
         //#if MC >= 12005
         ClientPlayNetworking.send(new ServerConfigSavePayload(
-            useTpaV, historyV, debugV, new ArrayList<>(chatV), new ArrayList<>(whisperV)));
+            useTpaV, historyV, debugV, new ArrayList<>(chatV), new ArrayList<>(whisperV), mediaV));
         //#endif
         doClose();
     }
@@ -447,6 +452,7 @@ public class ServerConfigScreen extends Screen {
         if (useTpaV != initUseTpa) n++;
         if (historyV != initHistory) n++;
         if (debugV != initDebug) n++;
+        if (mediaV != initMedia) n++;
         if (!Objects.equals(chatV, initChat)) n++;
         if (!Objects.equals(whisperV, initWhisper)) n++;
         return n;
@@ -702,7 +708,7 @@ public class ServerConfigScreen extends Screen {
     //$$ public void render(MatrixStack g, int mouseX, int mouseY, float partialTick) {
     //#endif
         RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.CONFIG_BG, ChatBubbleTheme.DARK),
-            0, 0, 0f, 0f, width, height, 1, 1);
+            0, 0, width, height, 0f, 0f, 16, 16, 16, 16);
         tickAnims();
         RenderHelper.drawText(g, textRenderer, title, width / 2 - textRenderer.getWidth(title) / 2, 14, c().configTitle(), false);
 
@@ -715,7 +721,8 @@ public class ServerConfigScreen extends Screen {
             boolean sel = i == selectedCat;
             boolean hover = mouseX >= CAT_X && mouseX <= CAT_X + CAT_W && mouseY >= ly && mouseY < ly + CAT_ROW_H;
             if (sel || hover)
-                RenderHelper.fill(g, CAT_X, ly, CAT_X + CAT_W, ly + CAT_ROW_H, c().iconHover());
+                RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.HOVER_BG, ChatBubbleTheme.DARK),
+                    CAT_X, ly, CAT_W, CAT_ROW_H, 0f, 0f, 16, 16, 16, 16);
             if (sel)
                 RenderHelper.fill(g, CAT_X, ly, CAT_X + 2, ly + CAT_ROW_H, c().configTitle());
             RenderHelper.drawText(g, textRenderer, com.niuqu.chatbubble.Txt.translatable(CAT_KEYS[i]), CAT_X + 18, ly + (CAT_ROW_H - 8) / 2,
@@ -728,7 +735,7 @@ public class ServerConfigScreen extends Screen {
 
         // 分类与选项区分隔线
         RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.DIVIDER, ChatBubbleTheme.DARK),
-            dividerX(), START_Y - 6, 0f, 0f, 1, viewBottom() - (START_Y - 6), 1, 1);
+            dividerX(), START_Y - 6, 1, viewBottom() - (START_Y - 6), 0f, 0f, 16, 16, 16, 16);
 
         // 右区选项行，硬裁剪到视口；普通行 label 垂直居中对齐按钮（y+6），教程小行顶部对齐（y+2）
         RenderHelper.enableScissor(g, optLabelX() - 4, viewTop(), width, viewBottom());
@@ -742,7 +749,7 @@ public class ServerConfigScreen extends Screen {
                 int lineEnd = optLabelX() + optAreaW() + 4;
                 if (lineX < lineEnd)
                     RenderHelper.drawTexture(g, UiTextureManager.rl(UiElement.DIVIDER, ChatBubbleTheme.DARK),
-                        lineX, y + 15, 0f, 0f, lineEnd - lineX, 1, 1, 1);
+                        lineX, y + 15, lineEnd - lineX, 1, 0f, 0f, 16, 16, 16, 16);
                 y += row.height();
                 continue;
             }
@@ -814,6 +821,13 @@ public class ServerConfigScreen extends Screen {
     //$$     // no-op：背景已在 render() 开头画一次
     //$$ }
     //#endif
+    //#endif
+
+    //#if MC >= 26000
+    @Override
+    public void extractTransparentBackground(GuiGraphicsExtractor g) {
+        // no-op: prevent vanilla darkening gradient on 26.x
+    }
     //#endif
 
     //#if MC >= 11700

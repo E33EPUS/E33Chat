@@ -1,45 +1,51 @@
 package com.niuqu.chatbubble.mixin;
+
 import com.niuqu.chatbubble.BedScreen;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatBubbleScreen;
-import com.niuqu.chatbubble.GuiCompat;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.SleepingChatScreen;
-//#if MC >= 26200
-//$$ import net.minecraft.client.gui.Gui;
-//#endif
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
 import java.lang.reflect.Field;
-//#if MC >= 26200
-//$$ @Mixin(value = Gui.class, remap = false)
+
+//#if MC >= 260200
+import net.minecraft.client.gui.Gui;
+//#endif
+
+//#if MC >= 260200
+@Mixin(Gui.class)
 //#else
 @Mixin(MinecraftClient.class)
 //#endif
 public class MinecraftClientMixin {
-    // 26.2: setScreen moved from Minecraft to Gui class; target Gui with remap=false
-    //#if MC >= 26200
-    //$$ @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true, remap = false)
+
+    //#if MC < 11700
+    @Inject(method = "openScreen", at = @At("HEAD"), cancellable = true)
     //#else
-    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
+    //$$ @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
     //#endif
     private void onSetScreen(Screen screen, CallbackInfo ci) {
         var cfg = ChatBubbleClientSetup.config();
         if (cfg == null || !cfg.enabled()) return;
+
         if (screen instanceof SleepingChatScreen) {
             ci.cancel();
             BedScreen.setScreenBeforeSleep(MinecraftClient.getInstance().currentScreen);
-            GuiCompat.setScreen(MinecraftClient.getInstance(), new BedScreen());
-        } else if (screen instanceof ChatScreen chatScreen) {
+            MinecraftClient.getInstance().setScreen(new BedScreen());
+        } else if (screen instanceof ChatScreen chatScreen
+                && !(chatScreen instanceof ChatBubbleScreen)) {
             ci.cancel();
             String initial = getChatInitialText(chatScreen);
-            GuiCompat.setScreen(MinecraftClient.getInstance(), new ChatBubbleScreen(initial));
+            MinecraftClient.getInstance().setScreen(new ChatBubbleScreen(initial));
         }
     }
+
     private static String getChatInitialText(ChatScreen chatScreen) {
         try {
             Field f = ChatScreen.class.getDeclaredField("initial");

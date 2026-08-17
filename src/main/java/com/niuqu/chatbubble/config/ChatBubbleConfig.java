@@ -2,15 +2,14 @@ package com.niuqu.chatbubble.config;
 
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
+
 public record ChatBubbleConfig(
     boolean enabled,
     String theme,
     boolean redDotEnabled,
     boolean hideChatIcon,
     boolean animationEnabled,
-    boolean strongHintEnabled,
     boolean systemChatAsBubble,
-    boolean systemBannerEnabled,
     boolean antiSpam,
     boolean chatHistoryEnabled,
     int historyRetentionDays,
@@ -31,6 +30,7 @@ public record ChatBubbleConfig(
     List<String> blockedPlayers,
     List<String> quickChatPhrases,
     boolean mentionBannerEnabled,
+    boolean systemBannerEnabled,
     int mentionBannerDuration,
     boolean mentionSoundEnabled,
     boolean mentionRequireAt,
@@ -47,23 +47,36 @@ public record ChatBubbleConfig(
     String panelAnimStyle,
     String bannerAnimStyle,
     String popupAnimStyle,
-    String messageAnimStyle
+    String messageAnimStyle,
+    Boolean imageRenderEnabled,
+    Boolean receiveImages,
+    // Image upload host (2.3.11). null/blank = Litterbox default; response:
+    // "text" (body is the URL) or "json:<field>".
+    String uploadUrl,
+    String uploadField,
+    String uploadExtra,
+    String uploadResponse,
+    Integer messageGap,
+    Integer avatarSize,
+    Boolean hideRepeatedAvatars
 ) {
     public static ChatBubbleConfig defaults() {
         return new ChatBubbleConfig(
             true, "dark", true, false, true,
-            true, false,
-            true,
-            true, true,
-            0, 5, 1000, 4,
+            false, true,
+            false, 0, 5, 1000, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
-            false, false, true, true, true, false,
+            false, false, true, false, true, false,
             List.of(), List.of(), List.of(),
-            true, 4, true, true, true,
-            true, 80, 80, false, false, false, 4, 0, 0,
-            "slide", "slide", "fade", "fade"
+            true, true, 4, true, true, true,
+            false, 80, 80, false, false, false, 4, 0, 0,
+            "slide", "slide", "fade", "fade",
+            true, true,
+            null, null, null, null,
+            6, 20, true
         );
     }
+
     public static int parseHexColor(String hex, int defaultColor) {
         if (hex == null) return defaultColor;
         try {
@@ -74,58 +87,59 @@ public record ChatBubbleConfig(
             return defaultColor;
         }
     }
+
     public ChatBubbleConfig withTheme(String theme) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
-            strongHintEnabled, systemChatAsBubble,
-            systemBannerEnabled,
-            antiSpam,
+            systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, blockedPlayers, quickChatPhrases,
-            mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
-            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
-            bannerOffsetX, bannerOffsetY,
-            panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle);
+            mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius, bannerOffsetX, bannerOffsetY,
+            panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
+            uploadUrl, uploadField, uploadExtra, uploadResponse,
+            messageGap, avatarSize, hideRepeatedAvatars);
     }
+
     public ChatBubbleConfig withQuickChatPhrases(List<String> phrases) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
-            strongHintEnabled, systemChatAsBubble,
-            systemBannerEnabled,
-            antiSpam,
+            systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, blockedPlayers, phrases,
-            mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
-            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
-            bannerOffsetX, bannerOffsetY,
-            panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle);
+            mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius, bannerOffsetX, bannerOffsetY,
+            panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
+            uploadUrl, uploadField, uploadExtra, uploadResponse,
+            messageGap, avatarSize, hideRepeatedAvatars);
     }
+
     public ChatBubbleConfig withSidebarHidePatterns(List<String> patterns) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
-            strongHintEnabled, systemChatAsBubble,
-            systemBannerEnabled,
-            antiSpam,
+            systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, patterns, blockedPlayers, quickChatPhrases,
-            mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
-            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
-            bannerOffsetX, bannerOffsetY,
-            panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle);
+            mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius, bannerOffsetX, bannerOffsetY,
+            panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
+            uploadUrl, uploadField, uploadExtra, uploadResponse,
+            messageGap, avatarSize, hideRepeatedAvatars);
     }
+
     public ChatBubbleConfig withBlockedPlayers(List<String> blocked) {
         return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
-            strongHintEnabled, systemChatAsBubble,
-            systemBannerEnabled,
-            antiSpam,
+            systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes, sidebarHidePatterns, blocked, quickChatPhrases,
-            mentionBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
-            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
-            bannerOffsetX, bannerOffsetY,
-            panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle);
+            mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
+            blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius, bannerOffsetX, bannerOffsetY,
+            panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
+            uploadUrl, uploadField, uploadExtra, uploadResponse,
+            messageGap, avatarSize, hideRepeatedAvatars);
     }
+
     public boolean isSidebarHidden(String playerName) {
         if (sidebarHidePatterns == null || sidebarHidePatterns.isEmpty()) return false;
         String lowerName = playerName.toLowerCase();

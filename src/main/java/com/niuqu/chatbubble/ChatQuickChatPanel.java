@@ -1,8 +1,5 @@
 package com.niuqu.chatbubble;
 
-import com.niuqu.chatbubble.texture.UiElement;
-import com.niuqu.chatbubble.texture.UiTextureManager;
-import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import net.minecraft.client.font.TextRenderer;
 //#if MC >= 12109
 import net.minecraft.client.gui.Click;
@@ -40,12 +37,15 @@ public class ChatQuickChatPanel {
         int separatorH = visiblePhrases > 0 ? 4 : 0;
         int panelH = 8 + listH + separatorH + 20;
 
-        int px = panelX + panelW / 2 - W / 2;
+        // 高 GUI 缩放（6x）时 panelW 收缩到 ~100 < 固定宽 140 → 居中会左溢出屏幕。
+        // clamp 到面板内：min>max 时 Mth.clamp 返回下限（panelX+2），不会反转溢出
+        int px = MathHelper.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
 
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTENT_BG),
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, py, W, panelH, alpha);
-        drawBorder(g, px, py, W, panelH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        drawBorder(g, px, py, W, panelH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         int totalPhrases = phrases.size();
         int phraseAreaRight = px + W - 4;
@@ -57,13 +57,18 @@ public class ChatQuickChatPanel {
             int trackTop = py + 4;
             int trackBottom = py + 4 + listH;
             int trackRgb = c.scrollbar() & 0x00FFFFFF;
-            RenderHelper.fill(g, trackX, trackTop, trackX + 3, trackBottom, ((int) (0x30 * alpha) << 24) | trackRgb);
+            // 白色纹理 × tint 动态着色：颜色（主题色 + 透明度）由 tint 控制，纹理可覆盖
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawTinted(g,
+                com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.QUICK_SCROLLBAR_TRACK),
+                trackX, trackTop, 3, trackBottom - trackTop, (0x30 << 24) | trackRgb);
             int thumbH = Math.max(6, listH * MAX_VISIBLE / totalPhrases);
             int maxScrollOff = totalPhrases - MAX_VISIBLE;
             int travelRange = listH - thumbH;
             int thumbY = trackTop + (maxScrollOff > 0 ? scrollOffset * travelRange / maxScrollOff : 0);
             int thumbRgb = c.scrollbarHover() & 0x00FFFFFF;
-            RenderHelper.fill(g, trackX, thumbY, trackX + 3, thumbY + thumbH, ((int) (0x70 * alpha) << 24) | thumbRgb);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawTinted(g,
+                com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.QUICK_SCROLLBAR_THUMB),
+                trackX, thumbY, 3, thumbH, (0x70 << 24) | thumbRgb);
         }
 
         int listY = py + 4;
@@ -75,28 +80,35 @@ public class ChatQuickChatPanel {
             String display = font.trimToWidth(phrase, textMaxW);
             boolean hover = mouseX >= px + 4 && mouseX <= hoverRight
                 && mouseY >= rowY && mouseY <= rowY + ROW_H;
-            if (hover) RenderHelper.fill(g, px + 4, rowY, hoverRight, rowY + ROW_H, ChatBubbleTheme.alphaBlend(c.iconHover(), a255));
-            RenderHelper.drawText(g, font, display, px + 6, rowY + 2, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+            if (hover) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+                com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                px + 4, rowY, hoverRight - (px + 4), ROW_H, alpha);
+            RenderHelper.drawText(g, font, display, px + 6, rowY + 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
             int delX = hoverRight - 13;
             int delY = rowY + 1;
             boolean hoverDel = mouseX >= delX && mouseX <= delX + 12 && mouseY >= delY && mouseY <= delY + 12;
-            RenderHelper.fill(g, delX, delY, delX + 12, delY + 12, ChatBubbleTheme.alphaBlend(hoverDel ? c.closeHoverBg() : c.closeBg(), a255));
-            RenderHelper.drawText(g, font, "\u2715", delX + 6 - font.getWidth("\u2715") / 2, delY + 2, ChatBubbleTheme.alphaBlend(c.closeText(), a255), false);
+            com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+                com.niuqu.chatbubble.texture.UiTextureManager.rl(hoverDel
+                    ? com.niuqu.chatbubble.texture.UiElement.CLOSE_HOVER
+                    : com.niuqu.chatbubble.texture.UiElement.CLOSE_BG),
+                delX, delY, 12, 12, alpha);
+            RenderHelper.drawText(g, font, "\u2715", delX + 6 - font.getWidth("\u2715") / 2, delY + 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.closeText(), a255), false);
         }
 
         int inputY = py + 4 + listH + separatorH + 4;
         int inputX = px + 4;
         int inputW = W - 10;
         int inputH = 14;
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.INPUT_BG),
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
             inputX, inputY, inputW, inputH, alpha);
         boolean hoverInput = mouseX >= inputX && mouseX <= inputX + inputW
             && mouseY >= inputY && mouseY <= inputY + inputH;
         if (hoverInput || input.isFocused())
-            drawBorder(g, inputX, inputY, inputW, inputH, ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
+            drawBorder(g, inputX, inputY, inputW, inputH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255));
         if (input.getText().isEmpty() && !input.isFocused())
             RenderHelper.drawText(g, font, com.niuqu.chatbubble.Txt.translatable("e33chat.quick_chat.placeholder").getString(),
-                inputX + 2, inputY + 3, ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
+                inputX + 2, inputY + 3, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
 
         input.setX(inputX + 2);
         input.setWidth(inputW - 4);
@@ -107,12 +119,14 @@ public class ChatQuickChatPanel {
         input.setVisible(true);
     }
 
+    // 输入框几何判定（与 render/handleClick 同款公式）：点击在输入框区域内直接聚焦，
+    // 不依赖 widget 点击命中链路（yarn/1.21.1 TextFieldWidget 点击不自动聚焦）
     public static boolean isInsideInput(int mx, int my, int panelX, int panelW, int barTop, int totalPhrases) {
         int visiblePhrases = Math.min(totalPhrases, MAX_VISIBLE);
         int listH = visiblePhrases * ROW_H;
         int separatorH = visiblePhrases > 0 ? 4 : 0;
         int panelH = 8 + listH + separatorH + 20;
-        int px = net.minecraft.util.math.MathHelper.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
+        int px = MathHelper.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
         int inputX = px + 4;
         int inputY = py + 4 + listH + separatorH + 4;
@@ -130,7 +144,9 @@ public class ChatQuickChatPanel {
         int separatorH = visiblePhrases > 0 ? 4 : 0;
         int panelH = 8 + listH + separatorH + 20;
 
-        int px = panelX + panelW / 2 - W / 2;
+        // 高 GUI 缩放（6x）时 panelW 收缩到 ~100 < 固定宽 140 → 居中会左溢出屏幕。
+        // clamp 到面板内：min>max 时 Mth.clamp 返回下限（panelX+2），不会反转溢出
+        int px = MathHelper.clamp(panelX + panelW / 2 - W / 2, panelX + 2, panelX + panelW - W - 2);
         int py = barTop - panelH - 4;
 
         if (mx < px || mx > px + W || my < py || my > py + panelH) {

@@ -1,6 +1,9 @@
 package com.niuqu.chatbubble.chat.notification;
 
 import com.mojang.authlib.GameProfile;
+import com.niuqu.chatbubble.Animation;
+import com.niuqu.chatbubble.AnimationStyle;
+import com.niuqu.chatbubble.BlurRenderer;
 import com.niuqu.chatbubble.ChatBubbleClientSetup;
 import com.niuqu.chatbubble.ChatMessageStore;
 import com.niuqu.chatbubble.RenderHelper;
@@ -12,15 +15,15 @@ import net.minecraft.client.gui.DrawContext;
 //#else
 //$$ import net.minecraft.client.util.math.MatrixStack;
 //#endif
-import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.util.DefaultSkinHelper;
 //#if MC >= 12004
 //#if MC >= 12109
 import net.minecraft.entity.player.SkinTextures;
 //#else
-//$$ import net.minecraft.client.util.SkinTextures;
+import net.minecraft.client.util.SkinTextures;
 //#endif
 //#endif
+import net.minecraft.text.MutableText;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -38,11 +41,11 @@ public class MentionNotificationBanner {
     private static final int AVATAR_HAT = 26;
     private static final int AVATAR_X = 8;
     private static final int TEXT_X = AVATAR_X + AVATAR + 6;
-    private static final int TEXT_X_PLAIN = 8;
+    private static final int TEXT_X_PLAIN = 8;   // no-avatar banners (system) start text flush left
+    private static final int MAX_TEXT_W = 170;   // fixed content-area width cap for every banner
     private static final int BANNER_H = 36;
     private static final int MAX_MSG_LINES = 2;
     private static final int SHADOW_OFF = 2;
-    private static final int MAX_TEXT_W = 200;
     private static final UUID NIL_UUID = new UUID(0, 0);
 
     private final Deque<PendingBanner> queue = new ArrayDeque<>();
@@ -51,11 +54,13 @@ public class MentionNotificationBanner {
     private long stateStartMs;
     private long visibleDurationMs;
 
-    //#if MC >= 12004
-    private static final Map<UUID, SkinTextures> skinCache = new HashMap<>();
-    //#else
-    //$$ private static final Map<UUID, Identifier> legacySkinCache = new HashMap<>();
-    //#endif
+    private static final int SKIN_CACHE_CAP = 256;
+    private static final Map<UUID, Identifier> skinCache = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<UUID, Identifier> eldest) {
+            return size() > SKIN_CACHE_CAP;
+        }
+    };
 
     private MentionNotificationBanner() {}
 
@@ -175,24 +180,36 @@ public class MentionNotificationBanner {
                 ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_MS)
                 : 1f;
 
+        AnimationStyle bstyle = AnimationStyle.parse(ChatBubbleClientSetup.config().bannerAnimStyle());
         float slide;
-        if (state == BannerState.SLIDING_DOWN) {
-            float c = 1.70158f;
-            slide = 1f + c * (float) Math.pow(raw - 1, 3) + c * (float) Math.pow(raw - 1, 2);
-        } else if (state == BannerState.SLIDING_UP) {
-            slide = raw * raw;
-        } else {
+        float alpha;
+        float bscale = 1f;
+        if (bstyle == AnimationStyle.NONE) {
             slide = 1f;
+            alpha = 1f;
+        } else if (bstyle == AnimationStyle.FADE) {
+            slide = 1f;
+            alpha = state == BannerState.SLIDING_UP ? raw : Animation.easeOutQuad(raw);
+        } else if (bstyle == AnimationStyle.ZOOM) {
+            slide = 1f;
+            alpha = state == BannerState.SLIDING_UP ? raw : Animation.easeOutQuad(raw);
+            if (state == BannerState.SLIDING_DOWN) bscale = 0.8f + 0.2f * Animation.easeOutBack(raw);
+            else if (state == BannerState.SLIDING_UP) bscale = 0.8f + 0.2f * raw;
+        } else {
+            // SLIDE (default): slide from the top with overshoot, fade in early
+            if (state == BannerState.SLIDING_DOWN) {
+                float c = 1.70158f;
+                slide = 1f + c * (float) Math.pow(raw - 1, 3) + c * (float) Math.pow(raw - 1, 2);
+            } else if (state == BannerState.SLIDING_UP) {
+                slide = raw * raw;
+            } else {
+                slide = 1f;
+            }
+            float fadeRaw = Math.min(1f, raw / 0.6f);
+            alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
         }
 
-        float fadeRaw = Math.min(1f, raw / 0.6f);
-        float alpha = state == BannerState.SLIDING_UP ? raw : fadeRaw;
-
-        var theme = com.niuqu.chatbubble.ChatBubbleTheme.valueOf(
-            ChatBubbleClientSetup.config().theme().toUpperCase()).colors();
-        int bg = theme.bannerBg();
-        int cornerRadius = ChatBubbleClientSetup.config().bannerCornerRadius();
-
+        // Avatar (only for real senders; system banners stay plain text)
         OrderedText nameSeq = current.nameSeq;
         List<OrderedText> msgLines = current.msgLines;
         int textW = current.textW;
@@ -201,11 +218,24 @@ public class MentionNotificationBanner {
         int x = (screenW - bannerW) / 2 + ChatBubbleClientSetup.config().bannerOffsetX();
         int y = (int) ((-bannerH) + slide * bannerH) + ChatBubbleClientSetup.config().bannerOffsetY();
 
+        if (bscale != 1f) {
+            RenderHelper.pushMatrix(g);
+            RenderHelper.translate(g, x + bannerW / 2f, y + bannerH / 2f, 0);
+            RenderHelper.scale(g, bscale, bscale, 1f);
+            RenderHelper.translate(g, -(x + bannerW / 2f), -(y + bannerH / 2f), 0);
+        }
+
+        var theme = com.niuqu.chatbubble.ChatBubbleTheme.valueOf(
+            ChatBubbleClientSetup.config().theme().toUpperCase()).colors();
+        int bg = theme.bannerBg();
+        int cornerRadius = ChatBubbleClientSetup.config().bannerCornerRadius();
+
         int shadowAlpha = (int) (0x30 * alpha);
         int shadowColor = (shadowAlpha << 24);
         RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
             x + bannerW + SHADOW_OFF, y + bannerH + SHADOW_OFF, cornerRadius, shadowColor);
 
+        // Background：SDF 圆角（与阴影同 shader，半径配置实时生效；不可被资源包覆盖）
         int bgAlpha = (int) ((bg >>> 24) * alpha);
         RoundRectRenderer.fill(g, x, y, x + bannerW, y + bannerH, cornerRadius,
             (bgAlpha << 24) | (bg & 0x00FFFFFF));
@@ -214,27 +244,24 @@ public class MentionNotificationBanner {
         int nameColor, msgColor;
         if (current.hasAvatar) {
             int avatarY = y + (bannerH - AVATAR_HAT) / 2;
-            //#if MC >= 12004
-            SkinTextures skin = getSkin(current.senderUUID, current.senderName.getString());
+            Identifier skin = getSkin(current.senderUUID, current.senderName.getString());
             drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT, alpha);
-            //#else
-            //$$ Identifier skinTex = getSkinIdentifier(current.senderUUID, current.senderName.getString());
-            //$$ drawPlayerHead(g, skinTex, x + AVATAR_X, avatarY, AVATAR, alpha);
-            //#endif
 
+            // Name (prefix already baked into nameSeq in enqueue)
+            int nameY = y + 6;
             int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
             nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
-            RenderHelper.drawText(g, mc.textRenderer, nameSeq, textX, y + 6, nameColor, false);
+            RenderHelper.drawText(g, mc.textRenderer, nameSeq, textX, nameY, nameColor, false);
 
+            // Message lines
             int msgAlpha = (int) ((theme.textSecondary() >>> 24) * alpha);
             msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
-            int msgY = y + 6 + mc.textRenderer.fontHeight + 2;
+            int msgY = nameY + mc.textRenderer.fontHeight + 2;
             for (int i = 0; i < msgLines.size(); i++)
                 RenderHelper.drawText(g, mc.textRenderer, msgLines.get(i), textX,
                     msgY + i * mc.textRenderer.fontHeight, msgColor, false);
         } else {
-            // Plain-text banner: [系统] label sits on the same line as the first
-            // content line, extra lines wrap below; block vertically centered
+            // Plain-text banner: [系统] label + content vertically centered, single row
             int nameAlpha = (int) ((theme.textPrimary() >>> 24) * alpha);
             nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
             int msgAlpha = (int) ((theme.textSecondary() >>> 24) * alpha);
@@ -249,91 +276,108 @@ public class MentionNotificationBanner {
                 RenderHelper.drawText(g, mc.textRenderer, msgLines.get(i), textX,
                     textY + i * lineH, msgColor, false);
         }
+
+        if (bscale != 1f) RenderHelper.popMatrix(g);
     }
 
     public int currentMessageIndex() {
         return current != null ? current.messageIndex : -1;
     }
 
-    //#if MC >= 12004
-    private SkinTextures getSkin(UUID uuid, String name) {
+    private Identifier getSkin(UUID uuid, String name) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
             var info = mc.getNetworkHandler().getPlayerListEntry(uuid);
             if (info != null) {
-                SkinTextures textures = info.getSkinTextures();
-                if (textures != null) return textures;
+                try {
+                    //#if MC >= 12004
+                    //#if MC >= 12109
+                    return info.getSkinTextures().body().texturePath();
+                    //#else
+                    return info.getSkinTextures().texture();
+                    //#endif
+                    //#else
+                    //$$ return info.getSkinTexture();
+                    //#endif
+                } catch (Exception ignored) {
+                    // Fall through to cache / resolve path
+                }
             }
         }
         if (uuid != null && !uuid.equals(NIL_UUID)) {
-            SkinTextures cached = skinCache.get(uuid);
+            Identifier cached = skinCache.get(uuid);
             if (cached != null) return cached;
-            //#if MC >= 12109
-            SkinTextures skin = mc.getSkinProvider().supplySkinTextures(
-                new GameProfile(uuid, name != null ? name : ""), false).get();
-            //#else
-            //$$ SkinTextures skin = mc.getSkinProvider().getSkinTextures(
-            //$$     new GameProfile(uuid, name != null ? name : ""));
-            //#endif
-            if (skin != null) {
-                skinCache.put(uuid, skin);
-                return skin;
+            // Disconnect guard: when the network is down (server disconnect in
+            // progress) the synchronous supplySkinTextures().get() below can block
+            // the render thread for a long time. Fall back to the default skin.
+            MinecraftClient dc = MinecraftClient.getInstance();
+            if (BlurRenderer.isDisconnecting() || dc.world == null || dc.player == null) {
+                return defaultSkin(uuid, name);
+            }
+            try {
+                //#if MC >= 12004
+                //#if MC >= 12109
+                SkinTextures skin = mc.getSkinProvider().supplySkinTextures(
+                    new GameProfile(uuid, name != null ? name : ""), false).get();
+                if (skin != null) {
+                    Identifier tex = skin.body().texturePath();
+                    if (tex != null) {
+                        skinCache.put(uuid, tex);
+                        return tex;
+                    }
+                }
+                //#else
+                SkinTextures skin = mc.getSkinProvider().getSkinTextures(
+                    new GameProfile(uuid, name != null ? name : ""));
+                if (skin != null && skin.texture() != null) {
+                    skinCache.put(uuid, skin.texture());
+                    return skin.texture();
+                }
+                //#endif
+                //#endif
+            } catch (Exception ignored) {
+                // Network failure — fall through to default skin
             }
         }
+        //#if MC >= 12004
         //#if MC >= 12109
         return DefaultSkinHelper.getSkinTextures(
-            new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : ""));
+            new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : "")).body().texturePath();
         //#else
-        //$$ return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID);
+        return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID).texture();
+        //#endif
+        //#else
+        //$$ return DefaultSkinHelper.getTexture();
         //#endif
     }
 
-    private void drawPlayerHead(Object g, SkinTextures skin, int x, int y,
-                             int baseSize, int hatSize, float alpha) {
-        if (skin == null || alpha <= 0.003f) return;
+    private Identifier defaultSkin(UUID uuid, String name) {
+        //#if MC >= 12004
         //#if MC >= 12109
-        Identifier tex = skin.body().texturePath();
+        return DefaultSkinHelper.getSkinTextures(
+            new GameProfile(uuid != null ? uuid : NIL_UUID, name != null ? name : "")).body().texturePath();
         //#else
-        //$$ Identifier tex = skin.texture();
+        return DefaultSkinHelper.getSkinTextures(uuid != null ? uuid : NIL_UUID).texture();
         //#endif
-        ColoredTextureRenderer.drawWithAlpha(g, tex, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64, alpha);
-        int hatOff = (hatSize - baseSize) / 2;
-        ColoredTextureRenderer.drawWithAlpha(g, tex, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64, alpha);
+        //#else
+        //$$ return DefaultSkinHelper.getTexture();
+        //#endif
     }
-    //#else
-    // Legacy skin rendering for MC < 1.20.4: uses Identifier + drawTexture
-    // instead of PlayerSkinDrawer/SkinTextures which were added in 1.20.4.
-    //$$ private Identifier getSkinIdentifier(UUID uuid, String name) {
-    //$$     MinecraftClient mc = MinecraftClient.getInstance();
-    //$$     if (mc.getNetworkHandler() != null && uuid != null && !uuid.equals(NIL_UUID)) {
-    //$$         PlayerListEntry info = mc.getNetworkHandler().getPlayerListEntry(uuid);
-    //$$         if (info != null) {
-    //$$             Identifier tex = info.getSkinTexture();
-    //$$             if (tex != null) return tex;
-    //$$         }
-    //$$     }
-    //$$     if (uuid != null && !uuid.equals(NIL_UUID)) {
-    //$$         Identifier cached = legacySkinCache.get(uuid);
-    //$$         if (cached != null) return cached;
-    //$$     }
-    //$$     Identifier fallback = DefaultSkinHelper.getTexture();
-    //$$     if (uuid != null && !uuid.equals(NIL_UUID)) legacySkinCache.put(uuid, fallback);
-    //$$     return fallback;
-    //$$ }
-    //$$
-    //$$ private void drawPlayerHead(Object g, Identifier skinTex, int x, int y, int size, float alpha) {
-    //$$     if (skinTex == null || alpha <= 0.003f) return;
-    //$$     ColoredTextureRenderer.drawWithAlpha(g, skinTex, x, y, size, size, 8f, 8f, 8, 8, 64, 64, alpha);
-    //$$     ColoredTextureRenderer.drawWithAlpha(g, skinTex, x, y, size, size, 40f, 8f, 8, 8, 64, 64, alpha);
-    //$$ }
-    //#endif
 
-    // Width-limit a component run by run, keeping each run's style (colors of
+    private void drawPlayerHead(Object g, Identifier skin, int x, int y,
+                                 int baseSize, int hatSize, float alpha) {
+        if (alpha <= 0.003f) return;
+        ColoredTextureRenderer.drawWithAlpha(g, skin, x, y, baseSize, baseSize, 8.0F, 8.0F, 8, 8, 64, 64, alpha);
+        int hatOff = (hatSize - baseSize) / 2;
+        ColoredTextureRenderer.drawWithAlpha(g, skin, x - hatOff, y - hatOff, hatSize, hatSize, 40.0F, 8.0F, 8, 8, 64, 64, alpha);
+    }
+
+    // Width-limit a text run by run, keeping each run's style (colors of
     // multi-colored system lines survive truncation), then append the ellipsis.
     private static Text truncateStyled(Text src, int maxWidth,
-                                        net.minecraft.client.font.TextRenderer font, String suffix) {
+                                       net.minecraft.client.font.TextRenderer font, String suffix) {
         int budget = maxWidth - font.getWidth(suffix);
-        net.minecraft.text.MutableText out = com.niuqu.chatbubble.Txt.empty();
+        MutableText out = com.niuqu.chatbubble.Txt.empty();
         int[] used = {0};
         src.visit((style, text) -> {
             if (used[0] >= budget) return java.util.Optional.<Object>empty();

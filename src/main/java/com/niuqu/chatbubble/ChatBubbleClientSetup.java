@@ -2,14 +2,17 @@ package com.niuqu.chatbubble;
 
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
 import com.niuqu.chatbubble.config.ConfigManager;
+import com.niuqu.chatbubble.image.ImageLoader;
 import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
 import com.niuqu.chatbubble.network.HistoryPayload;
+import com.niuqu.chatbubble.network.MediaCapPayload;
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 //#if MC < 26000
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 //#endif
@@ -28,7 +31,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
     private static ChatBubbleConfig config = ChatBubbleConfig.defaults();
     private static Path configPath;
     private static boolean leftWasDown;
-    private static boolean texturesLoaded;
+    private static boolean wasInWorld;
 
     public static ChatBubbleConfig config() { return config; }
 
@@ -69,25 +72,73 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         });
         // Server-config GUI: opened on the client only (server never loads the Screen)
         ClientPlayNetworking.registerGlobalReceiver(ServerConfigScreenPayload.ID, (payload, context) -> {
-            context.client().execute(() -> GuiCompat.setScreen(MinecraftClient.getInstance(), new ServerConfigScreen(
+            context.client().execute(() -> MinecraftClient.getInstance().setScreen(new ServerConfigScreen(
                 MinecraftClient.getInstance().currentScreen,
                 payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
-                payload.chatTemplates(), payload.whisperTemplates())));
+                payload.chatTemplates(), payload.whisperTemplates(), payload.mediaEnabled())));
+        });
+
+        com.niuqu.chatbubble.image.MediaClient.registerReceivers();
+        ClientPlayNetworking.registerGlobalReceiver(MediaCapPayload.ID, (payload, context) -> {
+            context.client().execute(() -> MediaCapPayload.handle(payload));
         });
         //#endif
 
+        // On disconnect: immediately set the volatile flag from the network thread.
+        // This is thread-safe (volatile write) and ensures blurPanel() and all
+        // render/tick paths see it on the very next frame — BEFORE mc.world becomes
+        // null. We also disable ImageLoader entirely so no new downloads or texture
+        // uploads start during the disconnect transition. ImageLoader is re-enabled
+        // when the next world is entered (see tick handler below).
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            BlurRenderer.disconnecting = true;
+            ImageLoader.setEnabled(false);
+        });
+
         //#if MC < 26000
+        //#if MC >= 12000
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
             if (!config.enabled()) return;
+            if (BlurRenderer.isDisconnecting()) return;
             ChatBubbleHudOverlay.render(drawContext);
         });
+        //#else
+        //$$ HudRenderCallback.EVENT.register((matrices, tickDelta) -> {
+        //$$     if (!config.enabled()) return;
+        //$$     ChatBubbleHudOverlay.render(new DrawContext(matrices));
+        //$$ });
+        //#endif
         //#endif
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!texturesLoaded) {
-                texturesLoaded = true;
-                com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
+            // World state transitions must be checked even during disconnect,
+            // otherwise the "entered new world" branch never runs and the
+            // disconnecting flag + ImageLoader disabled state would stick forever.
+            boolean inWorld = client.world != null && client.player != null;
+            if (wasInWorld && !inWorld) {
+                BlurRenderer.disconnecting = true;
+                ImageLoader.setEnabled(false);
+                if (client.currentScreen instanceof ChatBubbleScreen) {
+                    client.setScreen(null);
+                }
             }
+            if (!wasInWorld && inWorld) {
+                BlurRenderer.disconnecting = false;
+                ImageLoader.setEnabled(true);
+            }
+            wasInWorld = inWorld;
+
+            // Short-circuit ALL remaining e33chat tick logic the moment disconnect
+            // begins. The BlurRenderer.disconnecting flag is set from the network
+            // thread the instant DISCONNECT fires — it is visible on the render
+            // thread on the very next tick. We skip ImageLoader, history saves,
+            // everything — any work that could interact with the tearing-down
+            // world or GL state is deferred until the next world.
+            if (BlurRenderer.isDisconnecting()) return;
+
+            ImageLoader.tick();
+
+            // 纹理全部走 drawTexture(Identifier) 懒加载（getTexture 自动 new ResourceTexture），F3+T 重载后自动重读资源包新 PNG
             if (!config.enabled()) return;
 
             String key;
@@ -102,9 +153,6 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
             }
             ChatMessageStore.setCurrentWorld(key);
             ChatMessageStore.maybeAutoSave();
-            //#if MC >= 12111
-            ChatMessageStore.tickStrongHint();
-            //#endif
 
             if (client.currentScreen == null) {
                 boolean leftDown = org.lwjgl.glfw.GLFW.glfwGetMouseButton(
@@ -113,7 +161,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                     double mx = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
                     double my = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
                     if (ChatBubbleHudOverlay.isMouseOverIcon(mx, my)) {
-                        GuiCompat.setScreen(client, new ChatBubbleScreen(""));
+                        client.setScreen(new ChatBubbleScreen(""));
                     }
                 }
                 leftWasDown = leftDown;
@@ -123,20 +171,31 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         });
 
         //#if MC < 26000
+        //#if MC >= 12000
         ScreenEvents.BEFORE_INIT.register((client, screen, width, height) ->
             ScreenEvents.afterRender(screen).register((scr, g, mouseX, mouseY, delta) -> {
-                //#if MC >= 12111
-                if (config.enabled()) ChatBubbleHudOverlay.renderStrongHint(g);
-                //#endif
+                if (config.enabled() && !BlurRenderer.isDisconnecting())
+                    ChatBubbleHudOverlay.renderBannerForScreen(g);
             })
         );
+        //#else
+        //$$ ScreenEvents.BEFORE_INIT.register((client, screen, width, height) ->
+        //$$     ScreenEvents.afterRender(screen).register((scr, matrices, mouseX, mouseY, delta) -> {
+        //$$         if (config.enabled()) ChatBubbleHudOverlay.renderBannerForScreen(new DrawContext(matrices));
+        //$$     })
+        //$$ );
+        //#endif
         //#endif
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(
             new SimpleSynchronousResourceReloadListener() {
                 @Override
                 public Identifier getFabricId() {
-                    return GuiCompat.id(ChatBubbleMod.MOD_ID, "shader_reload");
+                    //#if MC >= 12000
+                    return Identifier.of(ChatBubbleMod.MOD_ID, "shader_reload");
+                    //#else
+                    //$$ return new Identifier(ChatBubbleMod.MOD_ID, "shader_reload");
+                    //#endif
                 }
                 @Override
                 //#if MC >= 26000
@@ -145,7 +204,6 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                 public void reload(ResourceManager manager) {
                 //#endif
                     RoundRectRenderer.resetShader();
-                    com.niuqu.chatbubble.texture.UiTextureManager.preloadAll();
                 }
             }
         );

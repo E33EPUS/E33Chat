@@ -285,7 +285,10 @@ class ChatMessageStoreTest {
         assertFalse(ChatMessageStore.isRepostDuplicate(null, 0, "<A>[私聊] hi", System.currentTimeMillis()));
     }
 
-    // ---- Plain-text history lines: date-time \t sender \t content \t flags ----
+    // ---- JSONL history lines: full styled sender/content + uuid ----
+    // One JSON object per line: colors, click/hover events and the sender UUID
+    // survive the quit-to-title reload. Plain-text \t lines from older builds
+    // still load (fromLine legacy branch).
 
     private static ChatMessageStore.ChatMessage testMsg(boolean own, boolean system) {
         return new ChatMessageStore.ChatMessage(
@@ -307,89 +310,113 @@ class ChatMessageStoreTest {
         assertFalse(back.isSystem());
     }
 
-    @Test void tsv_lineReadsLikeALog() {
+    @Test void jsonl_lineIsJsonWithFullText() {
         String line = ChatMessageStore.toLine(testMsg(false, false));
-        // no JSON syntax at all: no braces, quotes or escapes
-        assertFalse(line.contains("{") || line.contains("\"") || line.contains("\\"), line);
-        assertTrue(line.endsWith("\t"), line);
-        // local-time rendering: date part is fixed, hour depends on timezone
-        assertTrue(line.startsWith("2026-07-01T"), line);
-        assertTrue(line.contains(":00:00\tSteve\t今天去打龙吗\t"), line);
+        // JSONL: starts with a brace and carries styled-component JSON when the
+        // component codecs are available (in-game), plain-text fields headless
+        assertTrue(line.startsWith("{"), line);
+        assertTrue(line.contains("\"uuid\""), line);
+        assertTrue(line.contains("今天去打龙吗"), line);
+        assertTrue(line.contains("\"senderJson\"") || line.contains("\"sender\""), line);
+        assertTrue(line.contains("\"contentJson\"") || line.contains("\"content\""), line);
     }
 
-    @Test void tsv_flagsCombinable() {
+    @Test void jsonl_flagsCombinable() {
         var msg = new ChatMessageStore.ChatMessage(
             java.util.UUID.randomUUID(),
             net.minecraft.text.Text.literal("Steve"),
             net.minecraft.text.Text.literal("hi"),
             1782900000000L,
             true, false, null, null, "", 1, null, true, null);
-        String line = ChatMessageStore.toLine(msg);
-        assertTrue(line.endsWith("\tMW"), line);
-        var back = ChatMessageStore.fromLine(line);
+        var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertTrue(back.isOwn());
         assertTrue(back.whisper());
     }
 
-    @Test void tsv_systemFlag() {
+    @Test void jsonl_systemFlag() {
         String line = ChatMessageStore.toLine(testMsg(false, true));
-        assertTrue(line.endsWith("\tS"), line);
+        assertTrue(line.contains("\"system\":true"), line);
         assertTrue(ChatMessageStore.fromLine(line).isSystem());
     }
 
-    @Test void tsv_escapingRoundTrip() {
+    @Test void jsonl_escapingRoundTrip() {
         var msg = new ChatMessageStore.ChatMessage(
             java.util.UUID.randomUUID(),
             net.minecraft.text.Text.literal("Steve"),
             net.minecraft.text.Text.literal("a\tb\nc\\d\r\nx"),
             1782900000000L, false, false, null, null, "", 1, null, false, null);
-        String line = ChatMessageStore.toLine(msg);
-        // escaped, so the line still has exactly 4 tab-separated fields
-        assertEquals(4, line.split("\t", -1).length);
-        assertFalse(line.contains("\r"), line);
-        var back = ChatMessageStore.fromLine(line);
+        var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertEquals("a\tb\nc\\d\r\nx", back.content().getString());
     }
 
-    @Test void tsv_optionalColumnsWhisperPartnerAndReply() {
+    @Test void jsonl_optionalColumnsWhisperPartnerAndReply() {
         var msg = new ChatMessageStore.ChatMessage(
             java.util.UUID.randomUUID(),
             net.minecraft.text.Text.literal("Steve"),
             net.minecraft.text.Text.literal("hi"),
             1782900000000L,
             false, false, "引用的内容", "Alex", "", 1, "Steve", true, "Alex");
-        String line = ChatMessageStore.toLine(msg);
-        // columns: time sender content flags partner replySender replyContent
-        assertEquals(7, line.split("\t", -1).length);
-        var back = ChatMessageStore.fromLine(line);
+        var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertTrue(back.whisper());
         assertEquals("Alex", back.whisperPartner());
         assertEquals("引用的内容", back.replyContent());
         assertEquals("Alex", back.replySender());
+        assertEquals("Steve", back.rawPlayerName());
     }
 
-    @Test void tsv_plainLineHasNoTrailingColumns() {
-        String line = ChatMessageStore.toLine(testMsg(false, false));
-        assertEquals(4, line.split("\t", -1).length);
+    @Test void jsonl_uuidPersisted() {
+        var msg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.nameUUIDFromBytes("steve".getBytes()),
+            net.minecraft.text.Text.literal("Steve"),
+            net.minecraft.text.Text.literal("hi"),
+            1782900000000L, false, false, null, null, "", 1, null, false, null);
+        var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
+        assertNotNull(back);
+        assertEquals(msg.senderUUID(), back.senderUUID());
     }
 
-    @Test void tsv_styledSenderStoredAsPlainText() {
+    @Test void jsonl_styledSenderStylePreserved() {
+        // Style codecs need a live Minecraft registries environment; headless
+        // tests can't bootstrap them (loom test runtime lacks vanilla access
+        // transforms), so toLine degrades to plain-text fields here. The styled
+        // path is exercised in-game.
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+            net.minecraft.client.MinecraftClient.getInstance() != null,
+            "styled serialization requires a running Minecraft client");
         var styled = net.minecraft.text.Text.literal("Steve")
             .formatted(net.minecraft.util.Formatting.AQUA);
         var msg = new ChatMessageStore.ChatMessage(
             java.util.UUID.randomUUID(), styled,
             net.minecraft.text.Text.literal("hi"),
             1782900000000L, false, false, null, null, "", 1, null, false, null);
-        String line = ChatMessageStore.toLine(msg);
-        // styling is dropped entirely: no § codes in the file
-        assertFalse(line.contains("§"), line);
-        assertTrue(line.contains("\tSteve\thi\t"), line);
-        var back = ChatMessageStore.fromLine(line);
+        var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertEquals("Steve", back.senderName().getString());
+        assertEquals(net.minecraft.util.Formatting.AQUA.getColorValue(),
+            back.senderName().getStyle().getColor().getRgb());
+    }
+
+    @Test void jsonl_clickPreserved() {
+        // Same headless limitation as styledSenderStylePreserved (HoverEvent's
+        // class init touches ItemStack/registries) — in-game verified.
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+            net.minecraft.client.MinecraftClient.getInstance() != null,
+            "click/hover serialization requires a running Minecraft client");
+        var click = new net.minecraft.text.ClickEvent(
+            net.minecraft.text.ClickEvent.Action.RUN_COMMAND, "/tp Steve 0 100 0");
+        var content = net.minecraft.text.Text.literal("传我一下")
+            .styled(s -> s.withClickEvent(click));
+        var msg = new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.text.Text.literal("Steve"),
+            content,
+            1782900000000L, false, false, null, null, "", 1, null, false, null);
+        var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
+        assertNotNull(back);
+        assertEquals(click, back.content().getStyle().getClickEvent());
     }
 
     @Test void tsv_badLineReturnsNull() {

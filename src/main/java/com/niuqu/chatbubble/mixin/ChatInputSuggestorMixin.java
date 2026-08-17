@@ -16,8 +16,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = ChatInputSuggestor.class, priority = 500)
 public class ChatInputSuggestorMixin {
     //#if MC >= 26000
-    //$$ @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
-    //$$ private void onRenderMessages(DrawContext context, int mouseX, int mouseY, CallbackInfo ci) {
+    //$$ @Inject(method = "extractSuggestions", at = @At("HEAD"), cancellable = true)
+    //$$ private void onExtractSuggestions(DrawContext context, int mouseX, int mouseY, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> cir) {
+    //$$     if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
+    //$$         cir.setReturnValue(false);
+    //$$     }
+    //$$ }
     //#else
     @Inject(method = "renderMessages", at = @At("HEAD"), cancellable = true)
     //#if MC >= 12000
@@ -25,11 +29,11 @@ public class ChatInputSuggestorMixin {
     //#else
     //$$ private void onRenderMessages(MatrixStack context, CallbackInfo ci) {
     //#endif
-    //#endif
         if (MinecraftClient.getInstance().currentScreen instanceof ChatBubbleScreen) {
             ci.cancel();
         }
     }
+    //#endif
     //#if MC >= 26000
     //$$ @Inject(method = "showSuggestions(Z)V", at = @At("TAIL"))
     //#else

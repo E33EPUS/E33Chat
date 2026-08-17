@@ -50,3 +50,5 @@ build-errors-*.txt
 build_*_log.txt
 tmp-jar-extract/
 *.patch
+# old source backup
+.old-src/

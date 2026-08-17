@@ -11,20 +11,60 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
       - name: validate gradle wrapper
-        uses: gradle/actions/wrapper-validation@v6
+        uses: gradle/actions/wrapper-validation@v5
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'microsoft'
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
+      - name: show build environment
+        run: |
+          java -version
+          ./gradlew --version
       - name: build
-        run: ./gradlew build
+        shell: bash
+        run: |
+          ./gradlew clean build --stacktrace --no-daemon 2>&1 | tee gradle-build.log
+          exit ${PIPESTATUS[0]}
+      - name: summarize gradle failure
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f gradle-build.log ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          log = Path("gradle-build.log").read_text(errors="replace").splitlines()
+          def annotate(title, lines):
+              text = "\n".join(lines)
+              text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title={title}::{text}")
+          failure_markers = (
+              "FAILURE:",
+              "* What went wrong:",
+              "Caused by:",
+              "Exception",
+              "Could not",
+              "failed",
+              "FAILED",
+          )
+          important = []
+          for i, line in enumerate(log):
+              if any(marker in line for marker in failure_markers):
+                  start = max(0, i - 6)
+                  end = min(len(log), i + 18)
+                  important.extend(log[start:end])
+                  important.append("")
+          if important:
+              annotate("Gradle build failed - important lines", important[-180:])
+          annotate("Gradle build failed - tail", log[-180:])
+          PY
+          fi
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
           name: Artifacts
-          path: build/libs/
+          path: versions/*/build/libs/*.jar

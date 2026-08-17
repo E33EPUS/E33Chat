@@ -1,8 +1,5 @@
 package com.niuqu.chatbubble;
 
-import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
-import com.niuqu.chatbubble.texture.UiElement;
-import com.niuqu.chatbubble.texture.UiTextureManager;
 import net.minecraft.client.font.TextRenderer;
 //#if MC >= 12000
 import net.minecraft.client.gui.DrawContext;
@@ -32,9 +29,10 @@ public class ChatSettingsMenu {
         int px = gearX;
         int py = barTop - menuH - 4;
 
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.CONTENT_BG),
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, py, W, menuH, alpha);
-        drawBorder(g, px, py, W, menuH, ChatBubbleTheme.alphaBlend(c.divider(), a255));
+        drawBorder(g, px, py, W, menuH, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255));
 
         Identifier[] icons = {
             iconTex.apply("search"), iconTex.apply("quick_chat"),
@@ -51,11 +49,13 @@ public class ChatSettingsMenu {
             int ry = py + 2 + i * ROW_H;
             boolean hover = mouseX >= px && mouseX <= px + W
                 && mouseY >= ry && mouseY <= ry + ROW_H;
-            if (hover) RenderHelper.fill(g, px + 1, ry, px + W - 1, ry + ROW_H, ChatBubbleTheme.alphaBlend(c.iconHover(), a255));
+            if (hover) com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
+                com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                px + 1, ry, W - 2, ROW_H, alpha);
             ChatBubbleScreen.drawTextureIconAlpha(g, icons[i], px + 3, ry + 2, 14, alpha);
             int maxTextW = W - 22;
             String label = font.trimToWidth(labels[i], maxTextW);
-            RenderHelper.drawText(g, font, label, px + 20, ry + 4, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+            RenderHelper.drawText(g, font, label, px + 20, ry + 4, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
     }
 

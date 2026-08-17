@@ -1,11 +1,5 @@
 package com.niuqu.chatbubble;
 
-//#if MC >= 11800
-import com.mojang.logging.LogUtils;
-import org.slf4j.Logger;
-//#else
-//$$ // 1.16.5 lacks com.mojang.logging/org.slf4j; use System.out.println
-//#endif
 import java.lang.reflect.Method;
 
 /**
@@ -20,10 +14,6 @@ import java.lang.reflect.Method;
  * when the mod is absent the lookup fails and this becomes a no-op.
  */
 public final class IMBlockerCompat {
-    //#if MC >= 11800
-    private static final Logger LOGGER = LogUtils.getLogger();
-    //#endif
-
     private static boolean resolved = false;
     private static boolean available = false;
     private static Method setPreferredEnglishState;
@@ -39,11 +29,7 @@ public final class IMBlockerCompat {
             available = true;
         } catch (Throwable t) {
             // IMBlocker is not installed — degrade to no-op
-            //#if MC >= 11800
-            LOGGER.debug("[e33chat] IMBlocker not present, IME state sync disabled: {}", t.toString());
-            //#else
-            //$$ System.out.println("[e33chat] IMBlocker not present, IME state sync disabled: " + t);
-            //#endif
+            E33Log.debug("[e33chat] IMBlocker not present, IME state sync disabled: {}", t.toString());
         }
     }
 
@@ -58,11 +44,7 @@ public final class IMBlockerCompat {
         try {
             setPreferredEnglishState.invoke(textField, command);
         } catch (Throwable t) {
-            //#if MC >= 11800
-            LOGGER.debug("[e33chat] IMBlocker sync failed: {}", t.toString());
-            //#else
-            //$$ System.out.println("[e33chat] IMBlocker sync failed: " + t);
-            //#endif
+            E33Log.debug("[e33chat] IMBlocker sync failed: {}", t.toString());
         }
     }
 }

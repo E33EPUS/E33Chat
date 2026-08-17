@@ -8,7 +8,6 @@ import net.minecraft.client.gui.DrawContext;
 //#endif
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
-import com.niuqu.chatbubble.DrawHelper;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 
 public class ChatEmojiPanel {
@@ -34,11 +33,7 @@ public class ChatEmojiPanel {
 
     // 弹层 x 夹在聊天面板内且不超屏幕左右（表情/快捷/搜索共用模式）
     private static int clampX(int px, int pw, int panelX, int panelW) {
-        //#if MC >= 12111
         int screenW = net.minecraft.client.MinecraftClient.getInstance().getWindow().getScaledWidth();
-        //#else
-        //$$ int screenW = net.minecraft.client.MinecraftClient.getInstance().getWindow().getScaledWidth();
-        //#endif
         int max = Math.min(panelX + panelW - pw - 2, screenW - pw - 2);
         return MathHelper.clamp(px, Math.min(panelX + 2, max), max);
     }
@@ -93,23 +88,30 @@ public class ChatEmojiPanel {
             com.niuqu.chatbubble.Txt.translatable("e33chat.emoji.tab_kaomoji").getString()
         };
         int tabW = pw / tabLabels.length;
-        ColoredTextureRenderer.drawWithAlpha(g, com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.TITLE_BAR),
+        ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.TITLE_BAR),
             px, py, pw, TAB_H + 1, alpha);
         for (int t = 0; t < tabLabels.length; t++) {
             int tx = px + t * tabW;
-            if (t == tab) RenderHelper.fill(g, tx, py, tx + tabW, py + TAB_H, ChatBubbleTheme.alphaBlend(c.inputBg(), a255));
+            if (t == tab)
+                ColoredTextureRenderer.drawWithAlpha(g,
+                    com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.INPUT_BG),
+                    tx, py, tabW, TAB_H, alpha);
             String label = tabLabels[t];
             RenderHelper.drawText(g, font, label,
-                tx + tabW / 2 - font.getWidth(label) / 2, py + (TAB_H - font.fontHeight) / 2, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+                tx + tabW / 2 - font.getWidth(label) / 2, py + (TAB_H - font.fontHeight) / 2,
+                com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
-        ColoredTextureRenderer.drawWithAlpha(g, com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
+        ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.DIVIDER),
             px, py + TAB_H, pw, 1, alpha);
 
         int cy = py + TAB_H + 1;
         int ch = PANEL_H - TAB_H - 1;
-        ColoredTextureRenderer.drawWithAlpha(g, com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
+        ColoredTextureRenderer.drawWithAlpha(g,
+            com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CONTENT_BG),
             px, cy, pw, py + PANEL_H - cy, alpha);
-        int divA = ChatBubbleTheme.alphaBlend(c.divider(), a255);
+        int divA = com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.divider(), a255);
         RenderHelper.fill(g, px, py, px + pw, py + 1, divA);
         RenderHelper.fill(g, px, py + PANEL_H - 1, px + pw, py + PANEL_H, divA);
         RenderHelper.fill(g, px, py + 1, px + 1, py + PANEL_H - 1, divA);
@@ -141,11 +143,13 @@ public class ChatEmojiPanel {
             if (ey + SLOT <= cy || ey >= cy + ch) continue;
             if (mouseX >= ex && mouseX <= ex + SLOT - 1
                 && mouseY >= ey && mouseY <= ey + SLOT - 1)
-                RenderHelper.fill(g, ex, ey, ex + SLOT - 1, ey + SLOT - 1, ChatBubbleTheme.alphaBlend(c.iconHover(), a255));
+                ColoredTextureRenderer.drawWithAlpha(g,
+                    com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                    ex, ey, SLOT - 1, SLOT - 1, alpha);
             String emoji = EMOTES[i];
             RenderHelper.drawText(g, font, emoji,
                 ex + SLOT / 2 - font.getWidth(emoji) / 2,
-                ey + (SLOT - font.fontHeight) / 2, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+                ey + (SLOT - font.fontHeight) / 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
         RenderHelper.disableScissor(g);
     }
@@ -154,7 +158,7 @@ public class ChatEmojiPanel {
             TextRenderer font, ChatBubbleTheme.Colors c,
             int px, int cy, int pw, int ch, float alpha) {
         int a255 = (int) (255 * alpha);
-        int kCols = 2;
+        int kCols = KAO_COLS;
         int kColW = (pw - 8) / kCols;
         int totalH = ((KAO.length + kCols - 1) / kCols) * KAO_ITEM_H + 4;
         int maxScroll = Math.max(0, totalH - ch + 4);
@@ -170,9 +174,11 @@ public class ChatEmojiPanel {
             if (ey + KAO_ITEM_H <= cy || ey >= cy + ch) continue;
             if (mouseX >= ex && mouseX <= ex + kColW - 1
                 && mouseY >= ey && mouseY <= ey + KAO_ITEM_H - 1)
-                RenderHelper.fill(g, ex, ey, ex + kColW - 1, ey + KAO_ITEM_H - 1, ChatBubbleTheme.alphaBlend(c.iconHover(), a255));
+                ColoredTextureRenderer.drawWithAlpha(g,
+                    com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.HOVER_BG),
+                    ex, ey, kColW - 1, KAO_ITEM_H - 1, alpha);
             RenderHelper.drawText(g, font, KAO[i],
-                ex + 2, ey + (KAO_ITEM_H - font.fontHeight) / 2, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+                ex + 2, ey + (KAO_ITEM_H - font.fontHeight) / 2, com.niuqu.chatbubble.ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
         }
         RenderHelper.disableScissor(g);
     }
