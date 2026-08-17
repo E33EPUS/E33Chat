@@ -20,15 +20,6 @@ public final class Appearance {
         return ChatBubbleConfig.MESSAGE_GAP.get();
     }
 
-    /** 同组（同一发送者连续）消息间距：message_gap × 2/3，下限 2（D07）。 */
-    public static int groupGap() {
-        return ChatMessageRenderer.groupGap(messageGap());
-    }
-
-    /** 组间消息间距：message_gap × 2（D07）。 */
-    public static int sectionGap() {
-        return ChatMessageRenderer.sectionGap(messageGap());
-    }
 
     /** 消息气泡头像尺寸（像素）。 */
     public static int avatarSize() {

@@ -18,11 +18,6 @@ public final class UiTokens {
     // ---- 阴影（2 档：面板/弹层，硬阴影 offset + 纯黑 alpha） ----
     public static final int SHADOW_OFFSET_PANEL = 2;
     public static final int SHADOW_ALPHA_PANEL = 0x30;
-    public static final int SHADOW_OFFSET_POPUP = 4;
-    public static final int SHADOW_ALPHA_POPUP = 0x40;
-
-    // ---- 描边（1px 语言） ----
-    public static final int BORDER_W = 1;
 
     // ---- 间距 ----
     /** 面板内容边距 */
@@ -33,12 +28,6 @@ public final class UiTokens {
     /** 头像与气泡/名字的间距（气泡 4 / 名字 8 沿用既有手感） */
     public static final int AVATAR_GAP = 4;
     public static final int AVATAR_NAME_GAP = 8;
-    /** 同组（同一发送者连续消息）间距 = message_gap 的 2/3，下限 2 */
-    public static final int GROUP_GAP_FACTOR_NUM = 2;
-    public static final int GROUP_GAP_FACTOR_DEN = 3;
-    public static final int GROUP_GAP_MIN = 2;
-    /** 组间（换人/超时/系统消息前后）间距 = message_gap × 2 */
-    public static final int SECTION_GAP_FACTOR = 2;
 
     // ---- 弹层动画时长（07 §1.4/§2.6：进入 200ms ease-out / 退出 150ms ease-in） ----
     public static final int POPUP_OPEN_MS = 200;

@@ -55,21 +55,6 @@ public final class ChatMessageRenderer {
         return msg.time() - prev.time() <= GROUP_TIME_MS;
     }
 
-    /** 组内间距 = message_gap × 2/3，下限 2（D07 内部比例，不动 message_gap 键）。 */
-    public static int groupGap(int messageGap) {
-        return Math.max(UiTokens.GROUP_GAP_MIN,
-            messageGap * UiTokens.GROUP_GAP_FACTOR_NUM / UiTokens.GROUP_GAP_FACTOR_DEN);
-    }
-
-    /** 组间间距 = message_gap × 2。 */
-    public static int sectionGap(int messageGap) {
-        return messageGap * UiTokens.SECTION_GAP_FACTOR;
-    }
-
-    /** 相邻两条消息之间的垂直间距：同组用组内档，否则组间档。 */
-    public static int gapBetween(ChatMessageStore.ChatMessage prev, ChatMessageStore.ChatMessage msg, int messageGap) {
-        return isSameGroup(prev, msg) ? groupGap(messageGap) : sectionGap(messageGap);
-    }
 
     public static int msgHeight(ChatMessageStore.ChatMessage msg, Font font, int bubbleMaxW, int panelW) {
         if (msg.isSystem()) {
@@ -235,7 +220,7 @@ public final class ChatMessageRenderer {
             if (quoteX < panelX + ChatLayout.PAD) quoteX = panelX + ChatLayout.PAD;
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
-            RoundRectRenderer.fill(g, quoteX, y, quoteX + quoteW, y + font.lineHeight + 4, UiTokens.RADIUS_MEDIUM,
+            RoundRectRenderer.fill(g, quoteX, y, quoteX + quoteW, y + font.lineHeight + 4, ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get(),
                 ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
             g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, y + 2,
                 ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)), false);
@@ -580,7 +565,7 @@ public final class ChatMessageRenderer {
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
             // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, UiTokens.RADIUS_MEDIUM, ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, cornerRadius, ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
             g.drawString(font, Component.literal(quoteDisplay), quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)), false);
         }
 

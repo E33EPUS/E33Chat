@@ -1444,11 +1444,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 String key = timeKey(msg.time());
                 if (lastKey == null || !key.equals(lastKey)) {
                     lastKey = key;
-                    totalH += TIME_SEP_H + Appearance.sectionGap();
+                    totalH += TIME_SEP_H + Appearance.messageGap();
                     prevMsg = null;
                 }
             }
-            if (prevMsg != null) totalH += ChatMessageRenderer.gapBetween(prevMsg, msg, ChatBubbleConfig.MESSAGE_GAP.get());
+            if (prevMsg != null) totalH += ChatBubbleConfig.MESSAGE_GAP.get();
             totalH += getMsgHeight(msg);
             prevMsg = msg;
         }
@@ -1531,13 +1531,13 @@ public class ChatBubbleScreen extends ChatScreen {
                     int ssy = effectiveMsgTop + contentY - scrollOffset;
                     if (ssy + TIME_SEP_H > effectiveMsgTop && ssy < effectiveMsgBottom)
                         renderTimeSeparator(g, msg.time(), ssy);
-                    contentY += TIME_SEP_H + Appearance.sectionGap();
+                    contentY += TIME_SEP_H + Appearance.messageGap();
                     prevRenderMsg = null;
                 }
             }
 
             int h = getMsgHeight(msg);
-            if (prevRenderMsg != null) contentY += ChatMessageRenderer.gapBetween(prevRenderMsg, msg, ChatBubbleConfig.MESSAGE_GAP.get());
+            if (prevRenderMsg != null) contentY += ChatBubbleConfig.MESSAGE_GAP.get();
             int screenY = effectiveMsgTop + contentY - scrollOffset;
             // showAvatar 必须用“上一条消息”比较；先赋值 prevRenderMsg 再比会恒自比（2.3.16 回归）
             boolean showAvatar = !(ChatBubbleConfig.HIDE_REPEATED_AVATARS.get()
@@ -1798,8 +1798,8 @@ public class ChatBubbleScreen extends ChatScreen {
         int popupY = input.getY() - popupH - 2;
         if (popupY < msgTop) popupY = input.getY() + input.getHeight() + 2;
 
-        RoundRectRenderer.fillPanel(g, popupX, popupY, popupW, popupH, UiTokens.RADIUS_MEDIUM,
-            c().divider(), c().popupBg(), getAnimProgress());
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.POPUP_BG), popupX, popupY, popupW, popupH, getAnimProgress());
+        g.renderOutline(popupX, popupY, popupW, popupH, ChatBubbleTheme.alphaBlend(c().divider(), (int) (255 * getAnimProgress())));
 
         int startIdx = Math.max(0, mentionIdx - visible + 1);
         int endIdx = Math.min(mentionCandidates.size(), startIdx + visible);
@@ -1954,11 +1954,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 String k = timeKey(m.time());
                 if (lk == null || !k.equals(lk)) {
                     lk = k;
-                    cy += TIME_SEP_H + Appearance.sectionGap();
+                    cy += TIME_SEP_H + Appearance.messageGap();
                     prevMsg = null;
                 }
             }
-            if (prevMsg != null) cy += ChatMessageRenderer.gapBetween(prevMsg, m, ChatBubbleConfig.MESSAGE_GAP.get());
+            if (prevMsg != null) cy += ChatBubbleConfig.MESSAGE_GAP.get();
             cy += getMsgHeight(m);
             prevMsg = m;
         }
