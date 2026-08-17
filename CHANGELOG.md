@@ -1,5 +1,53 @@
 # Changelog
 
+## v2.3.17
+
+**2.3.16 回归修复 + UI 回退 + 新功能（三端同步：Fabric / Forge / NeoForge）**
+
+Bug 修复：
+- **气泡间距错位**：2.3.16 渲染循环 off-by-one——间距先算 screenY 后加 contentY，与高度/跳转循环不一致，首对消息间距错位；已修正
+- **头像全部消失**：2.3.16 引入 `hide_repeated_avatars` 时自比判定写反（先赋值再比较恒为 true），开启时连组内首条头像也被隐藏；已修正
+- **上方向键历史跳级**：mod 发送后不关闭聊天屏（原版关闭重开），历史游标只在开屏时初始化，发送新消息后游标停在旧位置，按上键会跳过刚发的消息；现在每次发送后重同步游标
+- **头像锚点回退**：2.3.16 把头像锚点从名字行顶改到气泡顶，实机观感不对，回退到旧锚点
+
+UI 回退（2.3.16 风格改动按实机反馈回退，行为不变）：
+- **弹层族回退旧样式**：设置/表情/常用语/搜索面板、@提及弹层、右键菜单全部回到纹理背景 + 直角外框
+- **间距回退均匀**：两档组内/组间间距回退为均匀 `message_gap`
+- **引用块圆角跟随配置**：不再硬编码，跟随 `bubble_corner_radius`
+- `message_gap` 设置说明补上范围 0–12
+
+新功能：
+- **close_chat_on_send（客户端，默认关）**：发送消息后关闭聊天框（原版行为），默认关闭方便连发
+- **banner_opacity（客户端，0–100 默认 100）**：通知横幅不透明度可调
+- **media_auto_clean（服务端，默认开）**：服务器配置界面新增开关，自动清理超过 7 天的托管图片（开服时清理一次，之后每 6 小时最多一次）
+
+**注意**：服务端配置网络包新增字段，客户端与服务端需同时升级，否则打开服务端配置界面会报错。
+
+测试：Forge 310 / NeoForge 309 / Fabric 284 全绿
+
+**2.3.16 regression fixes + UI rollbacks + new features (all loaders: Fabric / Forge / NeoForge)**
+
+Bug fixes:
+- **Message spacing off by one**: the 2.3.16 render loop applied the gap after computing screenY but before contentY, out of sync with the layout/jump loops - first-pair spacing was wrong; fixed
+- **Avatars all hidden**: the 2.3.16 `hide_repeated_avatars` check compared a message against itself (assigned before comparing, always true), hiding even the first avatar of a group when enabled; fixed
+- **Up-arrow history skipping**: the mod keeps the chat screen open after sending (vanilla closes and reopens it), and the history cursor was only initialized on open, so pressing Up after sending jumped over the freshly sent messages; the cursor now re-syncs after every send
+- **Avatar anchor rollback**: 2.3.16 moved the avatar hit anchor from the name-row top to the bubble top; it felt off in-game, reverted to the old anchor
+
+UI rollbacks (2.3.16 style changes reverted after hands-on feedback, behavior unchanged):
+- **Popup family back to the old look**: settings/emoji/quick-chat/search panels, the @mention popup and context menus return to textured backgrounds with square outlines
+- **Uniform spacing**: the two-tier in-group/section spacing is back to a uniform `message_gap`
+- **Quote-block radius follows config**: no longer hardcoded, follows `bubble_corner_radius`
+- `message_gap` setting description now documents the 0-12 range
+
+New features:
+- **close_chat_on_send (client, default off)**: close the chat screen after sending a message (vanilla behaviour); off by default so you can send several messages in a row
+- **banner_opacity (client, 0-100, default 100)**: notification banner opacity is now adjustable
+- **media_auto_clean (server, default on)**: new toggle in the server config screen - automatically deletes server-hosted chat images older than 7 days (once on server start, then at most every 6 hours)
+
+**Note**: the server-config network packet gained a field; client and server must be upgraded together, or the server config screen will fail to open.
+
+Tests: Forge 310 / NeoForge 309 / Fabric 284 all green
+
 ## v2.3.16
 
 **UI 风格统一（00e D1/D2/D07 拍板，三端同步：Fabric / Forge / NeoForge）**
