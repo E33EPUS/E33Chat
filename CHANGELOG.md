@@ -1,5 +1,53 @@
 # Changelog
 
+## v2.3.17
+
+**2.3.16 回归修复 + UI 回退 + 新功能（三端同步：Fabric / Forge / NeoForge）**
+
+Bug 修复：
+- **气泡间距错位**：2.3.16 渲染循环 off-by-one——间距先算 screenY 后加 contentY，与高度/跳转循环不一致，首对消息间距错位；已修正
+- **头像全部消失**：2.3.16 引入 `hide_repeated_avatars` 时自比判定写反（先赋值再比较恒为 true），开启时连组内首条头像也被隐藏；已修正
+- **上方向键历史跳级**：mod 发送后不关闭聊天屏（原版关闭重开），历史游标只在开屏时初始化，发送新消息后游标停在旧位置，按上键会跳过刚发的消息；现在每次发送后重同步游标
+- **头像锚点回退**：2.3.16 把头像锚点从名字行顶改到气泡顶，实机观感不对，回退到旧锚点
+
+UI 回退（2.3.16 风格改动按实机反馈回退，行为不变）：
+- **弹层族回退旧样式**：设置/表情/常用语/搜索面板、@提及弹层、右键菜单全部回到纹理背景 + 直角外框
+- **间距回退均匀**：两档组内/组间间距回退为均匀 `message_gap`
+- **引用块圆角跟随配置**：不再硬编码，跟随 `bubble_corner_radius`
+- `message_gap` 设置说明补上范围 0–12
+
+新功能：
+- **close_chat_on_send（客户端，默认关）**：发送消息后关闭聊天框（原版行为），默认关闭方便连发
+- **banner_opacity（客户端，0–100 默认 100）**：通知横幅不透明度可调
+- **media_auto_clean（服务端，默认开）**：服务器配置界面新增开关，自动清理超过 7 天的托管图片（开服时清理一次，之后每 6 小时最多一次）
+
+**注意**：服务端配置网络包新增字段，客户端与服务端需同时升级，否则打开服务端配置界面会报错。
+
+测试：Forge 310 / NeoForge 309 / Fabric 284 全绿
+
+**2.3.16 regression fixes + UI rollbacks + new features (all loaders: Fabric / Forge / NeoForge)**
+
+Bug fixes:
+- **Message spacing off by one**: the 2.3.16 render loop applied the gap after computing screenY but before contentY, out of sync with the layout/jump loops - first-pair spacing was wrong; fixed
+- **Avatars all hidden**: the 2.3.16 `hide_repeated_avatars` check compared a message against itself (assigned before comparing, always true), hiding even the first avatar of a group when enabled; fixed
+- **Up-arrow history skipping**: the mod keeps the chat screen open after sending (vanilla closes and reopens it), and the history cursor was only initialized on open, so pressing Up after sending jumped over the freshly sent messages; the cursor now re-syncs after every send
+- **Avatar anchor rollback**: 2.3.16 moved the avatar hit anchor from the name-row top to the bubble top; it felt off in-game, reverted to the old anchor
+
+UI rollbacks (2.3.16 style changes reverted after hands-on feedback, behavior unchanged):
+- **Popup family back to the old look**: settings/emoji/quick-chat/search panels, the @mention popup and context menus return to textured backgrounds with square outlines
+- **Uniform spacing**: the two-tier in-group/section spacing is back to a uniform `message_gap`
+- **Quote-block radius follows config**: no longer hardcoded, follows `bubble_corner_radius`
+- `message_gap` setting description now documents the 0-12 range
+
+New features:
+- **close_chat_on_send (client, default off)**: close the chat screen after sending a message (vanilla behaviour); off by default so you can send several messages in a row
+- **banner_opacity (client, 0-100, default 100)**: notification banner opacity is now adjustable
+- **media_auto_clean (server, default on)**: new toggle in the server config screen - automatically deletes server-hosted chat images older than 7 days (once on server start, then at most every 6 hours)
+
+**Note**: the server-config network packet gained a field; client and server must be upgraded together, or the server config screen will fail to open.
+
+Tests: Forge 310 / NeoForge 309 / Fabric 284 all green
+
 ## v2.3.16
 
 **UI 风格统一（00e D1/D2/D07 拍板，三端同步：Fabric / Forge / NeoForge）**
@@ -347,8 +395,7 @@
 ## v2.3.3
 
 **修复**
-- **Forge 客户端配置被重置/开 debug 崩溃（2.3.2 回归）**：2.3.2 为修专用服崩溃把 `registerConfig(CLIENT)` 从 mod 构造函数推迟到 `FMLClientSetupEvent`，但 Forge 在更早的 `CONFIG_LOAD` 阶段就加载客户端配置并绑定 `childConfig`——配置从未加载，界面显示默认值（"配置被重置"），`set()` 抛 NPE 崩溃。已改回在 mod 构造函数注册（仅客户端分支），专用服崩溃修复保持不变
-- **重复消息残留引用块**：先发一条引用回复"妈妈"，紧接着发一条同样的"妈妈"（不引用），anti-spam 会把两条合并成一个气泡，但合并且前的实现原样拷贝了第一条的引用块——第二条明明没引用却显示引用块。现在合并气泡的引用块只反映本条消息自己的引用状态；仍带引用继续连发同内容时引用块正常保留
+- **重复消息残留引用块**：先发一条引用回复"妈妈"，紧接着发一条同样的"妈妈"（不引用），anti-spam 会把两条合并成一个气泡，但合并前的实现原样拷贝了第一条的引用块——第二条明明没引用却显示引用块。现在合并气泡的引用块只反映本条消息自己的引用状态；仍带引用继续连发同内容时引用块正常保留
 
 **新功能**
 - **ChatImage 图片兼容（三端）**：装 ChatImage 后，气泡内可直接显示图片——支持 `[[CICode,url=...]]`（含 CQ 码转换）和 `https/http` 图片链接两种格式，文本变为绿色 `[Image]` 并带悬浮预览，与聊天框行为一致；自己发送的图片即时预览。不装 ChatImage 时原样显示文本，完全不影响原有功能
@@ -357,9 +404,8 @@
 - ChatImage image support (all three platforms): with ChatImage installed, images render inside bubbles — both `[[CICode,url=...]]` (including CQ code conversion) and `https/http` image links become green `[Image]` text with a hover preview, matching the vanilla chat; your own sent images preview immediately. Without ChatImage the codes stay plain text and nothing else changes
 
 **Fixes**
-- Forge client config reset / debug-mode crash (2.3.2 regression): 2.3.2 moved `registerConfig(CLIENT)` out of the mod constructor to `FMLClientSetupEvent` to fix the dedicated-server crash, but Forge loads client configs during the earlier `CONFIG_LOAD` phase and binds `childConfig` there — the config was never loaded, the screen showed defaults ("config reset") and `set()` threw an NPE. Registration is back in the mod constructor (client-only branch); the dedicated-server fix is preserved
 - Stale quote block on duplicated messages: send a quoted "妈妈", then an identical unquoted "妈妈" — anti-spam collapsed both into one bubble, but the merge copied the first bubble's quote block, so the second (unquoted) message wrongly showed one. The merged bubble now reflects only this send's own quote state; consecutive re-quoted duplicates keep their quote block
-- Tests: Forge 80 / NeoForge 236 / Fabric 80 all green
+- Tests: NeoForge 236 all green
 
 ## v2.3.2
 
