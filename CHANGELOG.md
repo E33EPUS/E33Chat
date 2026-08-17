@@ -2,7 +2,7 @@
 
 ## v2.3.17
 
-**2.3.16 回归修复 + UI 回退 + 新功能（三端同步：Fabric / Forge / NeoForge）**
+**2.3.16 回归修复 + UI 回退 + 新功能 + 性能优化（三端同步：Fabric / Forge / NeoForge）**
 
 Bug 修复：
 - **气泡间距错位**：2.3.16 渲染循环 off-by-one——间距先算 screenY 后加 contentY，与高度/跳转循环不一致，首对消息间距错位；已修正
@@ -21,11 +21,14 @@ UI 回退（2.3.16 风格改动按实机反馈回退，行为不变）：
 - **banner_opacity（客户端，0–100 默认 100）**：通知横幅不透明度可调
 - **media_auto_clean（服务端，默认开）**：服务器配置界面新增开关，自动清理超过 7 天的托管图片（开服时清理一次，之后每 6 小时最多一次）
 
+性能：
+- **历史存盘异步化**：聊天历史的定期全量重写（10000 条上限下可达几十 MB）移到专用后台 IO 线程，渲染线程只保留毫秒级的列表快照；原子替换机制不变，写入中断时旧文件完好
+
 **注意**：服务端配置网络包新增字段，客户端与服务端需同时升级，否则打开服务端配置界面会报错。
 
 测试：Forge 310 / NeoForge 309 / Fabric 284 全绿
 
-**2.3.16 regression fixes + UI rollbacks + new features (all loaders: Fabric / Forge / NeoForge)**
+**2.3.16 regression fixes + UI rollbacks + new features + a performance tweak (all loaders: Fabric / Forge / NeoForge)**
 
 Bug fixes:
 - **Message spacing off by one**: the 2.3.16 render loop applied the gap after computing screenY but before contentY, out of sync with the layout/jump loops - first-pair spacing was wrong; fixed
@@ -43,6 +46,9 @@ New features:
 - **close_chat_on_send (client, default off)**: close the chat screen after sending a message (vanilla behaviour); off by default so you can send several messages in a row
 - **banner_opacity (client, 0-100, default 100)**: notification banner opacity is now adjustable
 - **media_auto_clean (server, default on)**: new toggle in the server config screen - automatically deletes server-hosted chat images older than 7 days (once on server start, then at most every 6 hours)
+
+Performance:
+- **History saves off the render thread**: the periodic full-history rewrite (tens of megabytes at the 10000-message cap) now runs on a dedicated background IO thread; the client thread only takes a millisecond-fast list snapshot. The atomic tmp+move scheme is unchanged - an interrupted write still leaves the previous file intact
 
 **Note**: the server-config network packet gained a field; client and server must be upgraded together, or the server config screen will fail to open.
 
