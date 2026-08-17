@@ -1,5 +1,53 @@
 # Changelog
 
+## v2.3.17
+
+**2.3.16 回归修复 + UI 回退 + 新功能（三端同步：Fabric / Forge / NeoForge）**
+
+Bug 修复：
+- **气泡间距错位**：2.3.16 渲染循环 off-by-one——间距先算 screenY 后加 contentY，与高度/跳转循环不一致，首对消息间距错位；已修正
+- **头像全部消失**：2.3.16 引入 `hide_repeated_avatars` 时自比判定写反（先赋值再比较恒为 true），开启时连组内首条头像也被隐藏；已修正
+- **上方向键历史跳级**：mod 发送后不关闭聊天屏（原版关闭重开），历史游标只在开屏时初始化，发送新消息后游标停在旧位置，按上键会跳过刚发的消息；现在每次发送后重同步游标
+- **头像锚点回退**：2.3.16 把头像锚点从名字行顶改到气泡顶，实机观感不对，回退到旧锚点
+
+UI 回退（2.3.16 风格改动按实机反馈回退，行为不变）：
+- **弹层族回退旧样式**：设置/表情/常用语/搜索面板、@提及弹层、右键菜单全部回到纹理背景 + 直角外框
+- **间距回退均匀**：两档组内/组间间距回退为均匀 `message_gap`
+- **引用块圆角跟随配置**：不再硬编码，跟随 `bubble_corner_radius`
+- `message_gap` 设置说明补上范围 0–12
+
+新功能：
+- **close_chat_on_send（客户端，默认关）**：发送消息后关闭聊天框（原版行为），默认关闭方便连发
+- **banner_opacity（客户端，0–100 默认 100）**：通知横幅不透明度可调
+- **media_auto_clean（服务端，默认开）**：服务器配置界面新增开关，自动清理超过 7 天的托管图片（开服时清理一次，之后每 6 小时最多一次）
+
+**注意**：服务端配置网络包新增字段，客户端与服务端需同时升级，否则打开服务端配置界面会报错。
+
+测试：Forge 310 / NeoForge 309 / Fabric 284 全绿
+
+**2.3.16 regression fixes + UI rollbacks + new features (all loaders: Fabric / Forge / NeoForge)**
+
+Bug fixes:
+- **Message spacing off by one**: the 2.3.16 render loop applied the gap after computing screenY but before contentY, out of sync with the layout/jump loops - first-pair spacing was wrong; fixed
+- **Avatars all hidden**: the 2.3.16 `hide_repeated_avatars` check compared a message against itself (assigned before comparing, always true), hiding even the first avatar of a group when enabled; fixed
+- **Up-arrow history skipping**: the mod keeps the chat screen open after sending (vanilla closes and reopens it), and the history cursor was only initialized on open, so pressing Up after sending jumped over the freshly sent messages; the cursor now re-syncs after every send
+- **Avatar anchor rollback**: 2.3.16 moved the avatar hit anchor from the name-row top to the bubble top; it felt off in-game, reverted to the old anchor
+
+UI rollbacks (2.3.16 style changes reverted after hands-on feedback, behavior unchanged):
+- **Popup family back to the old look**: settings/emoji/quick-chat/search panels, the @mention popup and context menus return to textured backgrounds with square outlines
+- **Uniform spacing**: the two-tier in-group/section spacing is back to a uniform `message_gap`
+- **Quote-block radius follows config**: no longer hardcoded, follows `bubble_corner_radius`
+- `message_gap` setting description now documents the 0-12 range
+
+New features:
+- **close_chat_on_send (client, default off)**: close the chat screen after sending a message (vanilla behaviour); off by default so you can send several messages in a row
+- **banner_opacity (client, 0-100, default 100)**: notification banner opacity is now adjustable
+- **media_auto_clean (server, default on)**: new toggle in the server config screen - automatically deletes server-hosted chat images older than 7 days (once on server start, then at most every 6 hours)
+
+**Note**: the server-config network packet gained a field; client and server must be upgraded together, or the server config screen will fail to open.
+
+Tests: Forge 310 / NeoForge 309 / Fabric 284 all green
+
 ## v2.3.16
 
 **UI 风格统一（00e D1/D2/D07 拍板，三端同步：Fabric / Forge / NeoForge）**
@@ -56,7 +104,6 @@
 - 行为修复：英文私聊词回显抑制 `\b` 退格符 bug；配置屏退出回滚缺口（banner_offset 不回滚 / upload_* 误计）
 - 测试：网络包 round-trip 15 例 + WhisperSignal 3 例首次守护包格式；Forge 302 / NeoForge 302 / Fabric 276 全绿
 - 兼容性：配置键 / 网络包 / 文件格式 / mixin 注入点零改动
-- **Fabric 补发**：上传失败时清空忙碌提示（uploadBusyTicks），修复同步 UploadQueue 时漏清导致的“上传中”卡住
 
 **Pure-structure refactor (zero behavior change, all loaders: Fabric / Forge / NeoForge)**
 - Domain packages: ui / compat / render / network / server / config / store (13 subpackages); only entry classes remain at the root
@@ -66,7 +113,6 @@
 - Behavior fixes: English whisper-echo suppression `\b` backspace bug; config-screen exit rollback gap (banner_offset not rolled back / upload_* false positive)
 - Tests: packet round-trip (15) + WhisperSignal (3) now guard the wire format; Forge 302 / NeoForge 302 / Fabric 276 green
 - Compatibility: config keys / packet wire format / file formats / mixin injection points unchanged
-- **Fabric hotfix**: upload failure now clears the busy indicator (uploadBusyTicks); fixes a stuck "uploading" hint introduced by the UploadQueue sync
 
 
 ## v2.3.13
@@ -295,27 +341,25 @@
 
 **修复（2.3.7 补发）**
 - **消息动画三风格（三端）**：此前消息进入动画只有上滑+淡入一种效果（三种风格视觉几乎一样）。现在：`滑动` = QQ 式横向滑入+淡入（自己的气泡从右往左、别人的从左往右）；`淡入淡出` = 纯淡入无位移；`缩放弹入` = 绕气泡中心缩放弹入（过冲回弹）
-- **弹层动画改为完整淡入（三端）**：此前弹层 FADE 只有背景淡入、文字/图标直接出现（vanilla drawTexture/blit 走无颜色通道的 shader，setShaderColor 对它们无效）。现在设置/表情/快捷/搜索面板的背景、文字、图标全部逐元素 alpha 淡入
+- **弹层动画改为完整淡入（三端）**：此前弹层 FADE 只有背景淡入、文字/图标直接出现（vanilla blit 走无颜色通道的 shader，setShaderColor 对它们无效）。现在设置/表情/快捷/搜索面板的背景、文字、图标全部逐元素 alpha 淡入
 - **侧边栏跟随面板淡入（三端）**：面板 FADE 打开时侧边栏不再只做滑动，而是跟随面板原地淡入（打开和关闭两个方向都生效）
-- **新消息气泡/头像永久消失（三端）**：消息进入动画把 MC 渲染时钟（`getMeasuringTimeMs`/`getMillis`，nanoTime 基准）与消息时间戳（`System.currentTimeMillis`，epoch 基准）直接相减——两个时钟差约等于 JVM 运行时长，算出巨大负进度 → 透明度恒 0 → 气泡/头像永不可见。修复：动画 now 侧改用 `System.currentTimeMillis()`（与消息时间戳同源）
+- **新消息气泡/头像永久消失（三端）**：消息进入动画把 MC 渲染时钟（`getMillis`，nanoTime 基准）与消息时间戳（`System.currentTimeMillis`，epoch 基准）直接相减——两个时钟差约等于 JVM 运行时长，算出巨大负进度 → 透明度恒 0 → 气泡/头像永不可见。修复：动画 now 侧改用 `System.currentTimeMillis()`（与消息时间戳同源）
 - **上栏/下栏不随面板淡入**：标题栏/底栏背景从不乘面板透明度（此前 SLIDE 靠位移掩盖），FADE/ZOOM 下原形毕露。修复：两栏背景改带 alpha 绘制、文字/图标/边框逐元素 alphaBlend，跟随面板淡入淡出
-- **侧边栏动画与面板割裂**：侧边栏硬编码 slide 曲线，且 Fabric 缺 Forge/Neo 的"跟随面板进度"回退。修复：侧边栏进度走面板动画风格曲线；FADE 下侧边栏原地淡入（不位移）
+- **侧边栏动画与面板割裂**：侧边栏硬编码 slide 曲线。修复：侧边栏进度走面板动画风格曲线；FADE 下侧边栏原地淡入（不位移）
 
 **Fixes (2.3.7 follow-up)**
 - Message enter animation now has three distinct styles (all three platforms): Slide = QQ-style horizontal slide-in + fade (own bubbles from right to left, others from left to right); Fade = pure fade, no displacement; Zoom = scale-in around the bubble center with overshoot
-- Popup animation is now a full fade (all three platforms): vanilla drawTexture/blit uses a color-less shader so setShaderColor never affected them — the settings/emoji/quick-chat/search panels now fade their backgrounds, text and icons per-element
+- Popup animation is now a full fade (all three platforms): vanilla blit uses a color-less shader so setShaderColor never affected them — the settings/emoji/quick-chat/search panels now fade their backgrounds, text and icons per-element
 - Sidebar now fades in place with the panel under FADE in both directions
-- New-message bubbles/avatars permanently invisible (all three platforms): the message enter animation subtracted the MC render clock (`getMeasuringTimeMs`/`getMillis`, nanoTime-based) from the message timestamp (`System.currentTimeMillis`, epoch-based) — two unrelated clocks, off by roughly the JVM uptime, so the progress went hugely negative and the alpha stayed 0 forever. Fixed: the animation now uses `System.currentTimeMillis()` on the "now" side, matching the timestamp
+- New-message bubbles/avatars permanently invisible (all three platforms): the message enter animation subtracted the MC render clock (`getMillis`, nanoTime-based) from the message timestamp (`System.currentTimeMillis`, epoch-based) — two unrelated clocks, off by roughly the JVM uptime, so the progress went hugely negative and the alpha stayed 0 forever. Fixed: the animation now uses `System.currentTimeMillis()` on the "now" side, matching the timestamp
 - Title bar / bottom bar no longer followed the panel fade: their backgrounds never multiplied the panel opacity (the old slide hid it), which FADE/ZOOM exposed. Fixed: both bars render with alpha and their text/icons/borders use per-element alphaBlend
-- Sidebar animation felt detached from the panel: it used a hard-coded slide curve, and Fabric lacked the Forge/Neo fallback that follows the panel's progress. Fixed: the sidebar follows the panel's animation style curve, and fades in place (no displacement) under FADE
+- Sidebar animation felt detached from the panel: it used a hard-coded slide curve. Fixed: the sidebar follows the panel's animation style curve, and fades in place (no displacement) under FADE
 
 ## v2.3.6
 
 **修复**
 - **@ 补全回车误输入补全名**：输入 `@` 弹出玩家补全后直接按回车，会把候选名字插进输入框（如 `/tp @s` 场景把含 "s" 的玩家名补进命令）。现在必须先用 ↑/↓ 或滚轮选中候选，回车才应用补全；没选过直接回车 = 发送当前文本。另外命令（`/` 开头）里不再弹玩家补全——`@s`/`@p` 是原版选择器不是玩家名，命令输入走原版指令建议框
 - **自 /msg 不弹横幅/音效（三端，开启"自己私聊通知"仍不弹）**：自己 /msg 自己的消息走"本地发送反馈"气泡，而 whisper 横幅/音效入口被 `!localSend` 无条件挡住——即使开启 `own_whisper_notify` 也不弹横幅和音效。现在该配置开启时本地反馈气泡也放行给通知控制器，自 /msg 正常弹横幅 + 音效（需对应开启私聊横幅/音效配置）
-- **IMBlocker 初始 `/` 不切英文（Fabric）**：按 `/` 打开聊天框时初始填充的 `/` 无法触发输入法切换（`setText` 先于 `setChangedListener` 绑定，open 时的初始文本不走文本变更回调），删掉 `/` 重打才生效。现在打开聊天框时同步一次当前文本，初始 `/` 即切英文
-- **配置界面描述无换行溢出（Fabric）**：悬停配置项的说明文字用单行渲染，长描述直接画出屏幕右缘。现在按 190px 宽度换行（与 Forge/Neo 一致）
 
 **新功能**
 - **横幅位置偏移配置（三端）**：通知横幅默认固定在屏幕顶部中央，与 Jade 等 HUD mod 的显示区域重叠时无法挪开。新增 `banner_offset_x` / `banner_offset_y` 两个配置项（设置 → 通知 → 横幅通用），水平/垂直微调横幅位置，避开其他 HUD 元素
@@ -324,12 +368,10 @@
 **Fixes**
 - Mention completion no longer applied by raw Enter: after `@` pops the player list, Enter used to insert the highlighted candidate (e.g. typing `/tp @s` injected a matching player name into the command). Now Enter only applies the candidate after you actually selected it with ↑/↓ or the scroll wheel; otherwise Enter sends the text as-is. Player-name completion is also disabled inside commands (`/`-prefixed) — `@s`/`@p` are vanilla selectors, and command input is handled by the vanilla suggestion window
 - Self-whisper banner/sound never fired even with own-whisper notify enabled (all three platforms): a self /msg creates a local-send feedback bubble, and the whisper-notification entry was gated by `!localSend` unconditionally, so neither banner nor sound ever fired. The gate now lets the local bubble through when own-whisper notify is on (the controller already gates on isOwn/selfNotify, and the whisper banner/sound follow their own toggles)
-- IMBlocker initial "/" did not switch to English (Fabric): opening chat with "/" pre-filled did not trigger the IME switch (the initial text is set before the change listener binds, so it never flows through the text-changed callback) — deleting and re-typing "/" worked. The screen now syncs the current text once on open, so the initial "/" switches to English immediately
-- Config-screen description overflow (Fabric): hovering a setting showed its description as a single unwrapped line, running past the screen edge on long texts. Descriptions now wrap at 190px like Forge/Neo
 
 **Features**
 - Configurable banner position: the notification banner is fixed at top-center and could not be moved out of the way of HUD mods such as Jade. New `banner_offset_x` / `banner_offset_y` settings (Settings → Notifications → Banner (Shared)) nudge the banner horizontally/vertically to clear other HUD elements
-- IMBlocker IME support (all three platforms): with IMBlocker installed, typing a command now auto-switches the input method to English and back to Chinese on exit — matching vanilla chat. e33chat's custom chat screen bypasses the vanilla callback IMBlocker listens to; a reflection bridge now re-attaches the same hook, and does nothing when IMBlocker is absent
+- IMBlocker IME support (all three platforms): with IMBlocker installed, typing a command auto-switches the input method to English and back to Chinese on exit — matching vanilla chat. e33chat's custom chat screen bypasses the vanilla callback IMBlocker listens to; a reflection bridge now re-attaches the same hook, and does nothing when IMBlocker is absent
 - Tests: Forge 241 / NeoForge 241 / Fabric 222 all green
 
 ## v2.3.5
@@ -344,11 +386,9 @@
 ## v2.3.4
 
 **修复**
-- **私聊 /msg 静默失败（Fabric）**：命令发送误用了 `sendCommand`，而 1.21.1 的该方法是"无签名参数才发、有签名参数直接丢"（vanilla 对应 `sendUnsignedCommand`）——`/msg`/`/tell`/`/w` 的 message 参数是签名参数，包根本没发出去，导致局域网/专用服私聊双盲（发送方也收不到自己的回显）。已改为 vanilla ChatScreen 同款的 `sendChatCommand`（完整签名路径），tpa/tp 右键菜单一并修正。1.20 移植时埋下的坑，1.21 重构后暴露
 - **离线玩家引用块同步（三端）**：离线服/内网穿透场景下，未通过用户名验证的玩家（`Failed to verify username`）在接收端消息的 senderUUID 会落成 `UUID(0,0)`，与服务器广播的真实 UUID 失配——A 引用 B 的消息时，B 端永远补不上引用块。现在 ChatMeta 包附带发送者原始名字，匹配放宽为「UUID 精确 或 原始玩家名相等」，离线玩家也能正常同步引用块。网络包格式已变更，两端必须同升 2.3.4，老客户端混用会丢 meta
 
 **Fixes**
-- Private messages silently failing on Fabric: command sending used `sendCommand`, which on 1.21.1 only sends when there are no signable arguments and otherwise drops the packet silently (vanilla's `sendUnsignedCommand`) — `/msg`/`/tell`/`/w` take a signable message argument, so the packet never left the client and both sides saw nothing. Switched to the same `sendChatCommand` (full signed path) vanilla ChatScreen uses; the tpa/tp avatar-menu commands got the same fix. A bug carried over from the 1.20 port that surfaced after the 1.21 networking refactor
 - Quote block sync for offline players: on offline/LAN-forwarded servers, players who fail username verification (`Failed to verify username`) arrive on the receiving side with a `UUID(0,0)` sender, so the UUID in the broadcast ChatMeta never matched and the quoted player never saw the quote block. ChatMeta now carries the sender's raw name and matching accepts either an exact UUID or an equal raw player name. The packet format changed — both ends must run 2.3.4 together; mixing with an old client drops the meta
 - Tests: Forge 85 / NeoForge 85 / Fabric 85 all green
 
@@ -365,7 +405,7 @@
 
 **Fixes**
 - Stale quote block on duplicated messages: send a quoted "妈妈", then an identical unquoted "妈妈" — anti-spam collapsed both into one bubble, but the merge copied the first bubble's quote block, so the second (unquoted) message wrongly showed one. The merged bubble now reflects only this send's own quote state; consecutive re-quoted duplicates keep their quote block
-- Tests: Fabric 80 all green
+- Tests: NeoForge 236 all green
 
 ## v2.3.2
 
