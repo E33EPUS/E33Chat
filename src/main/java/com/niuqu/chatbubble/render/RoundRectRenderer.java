@@ -46,6 +46,10 @@ public class RoundRectRenderer {
         g.draw();
 
         Matrix4f pose = g.getMatrices().peek().getPositionMatrix();
+        // Vertices are pre-multiplied by the pose (vertex() below), so the SDF rect must
+        // follow the pose's uniform scale too — message ZOOM animation and bubble_size
+        // callers may scale. GUI poses never rotate, m00 is the scale.
+        float poseScale = Math.abs(pose.m00());
         Vector4f center = pose.transform(new Vector4f((x1 + x2) / 2f, (y1 + y2) / 2f, 0f, 1f));
 
         GlUniform uRect = sh.getUniform("u_Rect");
@@ -56,9 +60,9 @@ public class RoundRectRenderer {
         }
         uRect.set(0, center.x);
         uRect.set(1, center.y);
-        uRect.set(2, (x2 - x1) / 2f);
-        uRect.set(3, (y2 - y1) / 2f);
-        uRadius.set(0, radius);
+        uRect.set(2, (x2 - x1) / 2f * poseScale);
+        uRect.set(3, (y2 - y1) / 2f * poseScale);
+        uRadius.set(0, radius * poseScale);
 
         float a = (argb >>> 24) / 255f;
         float r = (argb >> 16 & 0xFF) / 255f;

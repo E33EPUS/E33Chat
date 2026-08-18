@@ -71,7 +71,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private String panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle;
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
-    private int messageGap, avatarSize, bubbleScale;
+    private int messageGap, avatarSize, bubbleSize;
     private boolean hideRepeatedAvatars;
     private List<String> sidebarHidePatterns;
     private List<String> blockedPlayers;
@@ -183,7 +183,7 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().uploadField(),
             ChatBubbleClientSetup.config().uploadExtra(),
             ChatBubbleClientSetup.config().uploadResponse(),
-            messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity, bubbleScale));
+            messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity, bubbleSize));
     }
 
     private void loadFromConfig() {
@@ -225,7 +225,7 @@ public class ChatBubbleConfigScreen extends Screen {
         blockedPlayers = new ArrayList<>(cfg.blockedPlayers());
         messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
         avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
-        bubbleScale = cfg.bubbleScale() != null ? cfg.bubbleScale() : 100;
+        bubbleSize = cfg.bubbleSize() != null ? cfg.bubbleSize() : 9;
         hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null && cfg.hideRepeatedAvatars();
     }
 
@@ -398,6 +398,7 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.intBox("e33chat.config.avatar_size", Ref.i(() -> avatarSize, v -> avatarSize = v), 12, 32, 2),
             OptionDef.bool("e33chat.config.hide_repeated_avatars", Ref.b(() -> hideRepeatedAvatars, v -> hideRepeatedAvatars = v))),
         SectionDef.of("e33chat.config.section.bubble_font",
+            OptionDef.intBox("e33chat.config.bubble_size", Ref.i(() -> bubbleSize, v -> bubbleSize = v), 5, 14, 2),
             OptionDef.intBox("e33chat.config.bubble_corner_radius", Ref.i(() -> bubbleCornerRadius, v -> bubbleCornerRadius = v), 0, 10, 2),
             OptionDef.hex("e33chat.config.own_bubble_color", Ref.s(() -> ownBubbleColor, v -> ownBubbleColor = v)),
             OptionDef.hex("e33chat.config.other_bubble_color", Ref.s(() -> otherBubbleColor, v -> otherBubbleColor = v)),
@@ -405,7 +406,6 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.hex("e33chat.config.other_text_color", Ref.s(() -> otherTextColor, v -> otherTextColor = v))),
         SectionDef.of("e33chat.config.section.msgdisplay",
             OptionDef.intBox("e33chat.config.message_gap", Ref.i(() -> messageGap, v -> messageGap = v), 0, 12, 2),
-            OptionDef.slider("e33chat.config.bubble_scale", Ref.i(() -> bubbleScale, v -> bubbleScale = v), 50, 200),
             OptionDef.bool("e33chat.config.enabled", Ref.b(() -> enabled, v -> enabled = v)),
             OptionDef.bool("e33chat.config.system_chat_as_bubble", Ref.b(() -> systemChatAsBubble, v -> systemChatAsBubble = v)),
             OptionDef.bool("e33chat.config.anti_spam", Ref.b(() -> antiSpam, v -> antiSpam = v)),

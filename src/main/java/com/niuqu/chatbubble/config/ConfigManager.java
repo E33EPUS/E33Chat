@@ -85,7 +85,7 @@ public final class ConfigManager {
             c.hideRepeatedAvatars() != null ? c.hideRepeatedAvatars() : d.hideRepeatedAvatars(),
             c.closeChatOnSend(),
             c.bannerOpacity() != null ? c.bannerOpacity() : d.bannerOpacity(),
-            c.bubbleScale() != null ? c.bubbleScale() : d.bubbleScale());
+            c.bubbleSize() != null ? c.bubbleSize() : d.bubbleSize());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {

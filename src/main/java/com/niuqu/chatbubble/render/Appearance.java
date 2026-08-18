@@ -32,15 +32,15 @@ public final class Appearance {
         return a == null ? 20 : Math.max(12, Math.min(32, a));
     }
 
-    /** 气泡大小百分比（钳制到 50-200）。 */
-    public static int bubbleScalePercent() {
-        Integer s = ChatBubbleClientSetup.config().bubbleScale();
-        return s == null ? 100 : Math.max(50, Math.min(200, s));
+    /** 气泡文字目标高度 px（钳制到 5-14，默认 9 = 原版字高）。 */
+    public static int bubbleSizePx() {
+        Integer s = ChatBubbleClientSetup.config().bubbleSize();
+        return s == null ? 9 : Math.max(5, Math.min(14, s));
     }
 
-    /** 气泡缩放系数（0.5-2.0）。 */
-    public static float bubbleScale() {
-        return bubbleScalePercent() / 100f;
+    /** 指定字高下气泡缩放系数（px / 字高）。 */
+    public static float bubbleScale(int fontHeight) {
+        return Math.max(5, Math.min(14, bubbleSizePx())) / (float) fontHeight;
     }
 
     /** 指定缩放下气泡文字换行宽度（设计单位，更大气泡每行容纳更少字符；钳制保证可读）。 */
@@ -49,7 +49,7 @@ public final class Appearance {
     }
 
     /** 当前缩放下气泡文字换行宽度。 */
-    public static int bubbleWrapWidth(int bubbleMaxW) {
-        return scaledWrapWidth(bubbleMaxW, bubbleScale());
+    public static int bubbleWrapWidth(int bubbleMaxW, int fontHeight) {
+        return scaledWrapWidth(bubbleMaxW, bubbleScale(fontHeight));
     }
 }

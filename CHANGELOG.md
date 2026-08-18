@@ -20,7 +20,7 @@ UI 回退（2.3.16 风格改动按实机反馈回退，行为不变）：
 - **close_chat_on_send（客户端，默认关）**：发送消息后关闭聊天框（原版行为），默认关闭方便连发
 - **banner_opacity（客户端，0–100 默认 100）**：通知横幅不透明度可调
 - **media_auto_clean（服务端，默认开）**：服务器配置界面新增开关，自动清理超过 7 天的托管图片（开服时清理一次，之后每 6 小时最多一次）
-- **bubble_scale（客户端，50–200 默认 100）**：气泡大小可调（百分比）。缩放气泡文字与气泡框，名字行与头像保持原大小
+- **bubble_size（客户端，5–14 px 默认 9）**：气泡大小可调——气泡内文字的目标高度（像素），气泡框/引用块/xN 角标等比缩放，名字行与头像保持原大小
 
 性能：
 - **历史存盘异步化**：聊天历史的定期全量重写（10000 条上限下可达几十 MB）移到专用后台 IO 线程，渲染线程只保留毫秒级的列表快照；原子替换机制不变，写入中断时旧文件完好
@@ -47,7 +47,7 @@ New features:
 - **close_chat_on_send (client, default off)**: close the chat screen after sending a message (vanilla behaviour); off by default so you can send several messages in a row
 - **banner_opacity (client, 0-100, default 100)**: notification banner opacity is now adjustable
 - **media_auto_clean (server, default on)**: new toggle in the server config screen - automatically deletes server-hosted chat images older than 7 days (once on server start, then at most every 6 hours)
-- **bubble_scale (client, 50-200, default 100)**: adjustable bubble size in percent - scales the bubble text and its frame while the sender-name row and avatar keep their size
+- **bubble_size (client, 5-14 px, default 9)**: adjustable bubble size - sets the target height of the bubble text in pixels; the bubble frame, quote block and xN badge scale proportionally while the sender-name row and avatar keep their size
 
 Performance:
 - **History saves off the render thread**: the periodic full-history rewrite (tens of megabytes at the 10000-message cap) now runs on a dedicated background IO thread; the client thread only takes a millisecond-fast list snapshot. The atomic tmp+move scheme is unchanged - an interrupted write still leaves the previous file intact
