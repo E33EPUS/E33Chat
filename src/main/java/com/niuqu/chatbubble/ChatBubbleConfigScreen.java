@@ -90,6 +90,9 @@ public class ChatBubbleConfigScreen extends Screen {
     private List<String> blockedPlayers;
     private int messageGap, avatarSize;
     private boolean hideRepeatedAvatars;
+    private boolean closeChatOnSend;
+    private int bannerOpacity;
+    private int bubbleScale;
 
     // 打开时的快照——用于 changeCount / revertAll
     private ChatBubbleConfig snapshot;
@@ -206,6 +209,9 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> messageGap, v -> messageGap = v));
         tracked.add(track(() -> avatarSize, v -> avatarSize = v));
         tracked.add(track(() -> hideRepeatedAvatars, v -> hideRepeatedAvatars = v));
+        tracked.add(track(() -> closeChatOnSend, v -> closeChatOnSend = v));
+        tracked.add(track(() -> bannerOpacity, v -> bannerOpacity = v));
+        tracked.add(track(() -> bubbleScale, v -> bubbleScale = v));
     }
 
     private int changeCount() {
@@ -237,7 +243,7 @@ public class ChatBubbleConfigScreen extends Screen {
             uploadField.isEmpty() ? null : uploadField,
             uploadExtra.isEmpty() ? null : uploadExtra,
             uploadResponse.isEmpty() ? null : uploadResponse,
-            messageGap, avatarSize, hideRepeatedAvatars));
+            messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity, bubbleScale));
     }
 
     private void loadFromConfig() {
@@ -281,6 +287,9 @@ public class ChatBubbleConfigScreen extends Screen {
         messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
         avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
         hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null ? cfg.hideRepeatedAvatars() : true;
+        closeChatOnSend = cfg.closeChatOnSend();
+        bannerOpacity = cfg.bannerOpacity() != null ? Math.max(0, Math.min(100, cfg.bannerOpacity())) : 100;
+        bubbleScale = cfg.bubbleScale() != null ? Math.max(50, Math.min(200, cfg.bubbleScale())) : 100;
     }
 
     // ---- ChatScrollbar geometry inline ----
@@ -417,6 +426,7 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.message_gap",
             y -> mkIntBox(y, String.valueOf(messageGap), 0, 12, 2, v -> messageGap = v), null));
         chat.add(new Opt("e33chat.config.hide_repeated_avatars", y -> mkBoolButton(y, () -> hideRepeatedAvatars, v -> hideRepeatedAvatars = v), null));
+        chat.add(new Opt("e33chat.config.close_chat_on_send", y -> mkBoolButton(y, () -> closeChatOnSend, v -> closeChatOnSend = v), null));
         chat.add(new Opt("e33chat.config.animation", y -> mkBoolButton(y, () -> animationEnabled, v -> animationEnabled = v), null));
         chat.add(new Opt("e33chat.config.panel_anim_style", this::mkPanelStyleButton, null));
         chat.add(new Opt("e33chat.config.popup_anim_style", this::mkPopupStyleButton, null));
@@ -424,6 +434,8 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(Opt.header("e33chat.config.section.bubble_font"));
         chat.add(new Opt("e33chat.config.bubble_corner_radius",
             y -> mkIntBox(y, String.valueOf(bubbleCornerRadius), 0, 10, 2, v -> bubbleCornerRadius = v), null));
+        chat.add(new Opt("e33chat.config.bubble_scale",
+            y -> mkIntBox(y, String.valueOf(bubbleScale), 50, 200, 3, v -> bubbleScale = v), null));
         chat.add(new Opt("e33chat.config.own_bubble_color",
             y -> mkHexBox(y, ownBubbleColor, v -> ownBubbleColor = v),
             () -> ownBubbleColor));
@@ -501,6 +513,8 @@ public class ChatBubbleConfigScreen extends Screen {
         notify.add(new Opt("e33chat.config.banner_offset_y",
             y -> mkIntBox(y, String.valueOf(bannerOffsetY), -500, 500, 2, v -> bannerOffsetY = v), null));
         notify.add(new Opt("e33chat.config.banner_anim_style", this::mkBannerStyleButton, null));
+        notify.add(new Opt("e33chat.config.banner_opacity",
+            y -> mkIntBox(y, String.valueOf(bannerOpacity), 0, 100, 3, v -> bannerOpacity = v), null));
         notify.add(Opt.header("e33chat.config.section.sound"));
         notify.add(new Opt("e33chat.config.sound_volume",
             y -> mkIntSlider(y, () -> soundVolume, v -> soundVolume = v, 0, 100), null));

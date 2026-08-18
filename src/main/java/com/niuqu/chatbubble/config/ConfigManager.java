@@ -94,7 +94,10 @@ public final class ConfigManager {
             c.uploadResponse() != null ? c.uploadResponse() : d.uploadResponse(),
             c.messageGap() != null ? c.messageGap() : d.messageGap(),
             c.avatarSize() != null ? c.avatarSize() : d.avatarSize(),
-            c.hideRepeatedAvatars() != null ? c.hideRepeatedAvatars() : d.hideRepeatedAvatars());
+            c.hideRepeatedAvatars() != null ? c.hideRepeatedAvatars() : d.hideRepeatedAvatars(),
+            c.closeChatOnSend(),
+            c.bannerOpacity() != null ? c.bannerOpacity() : d.bannerOpacity(),
+            c.bubbleScale() != null ? c.bubbleScale() : d.bubbleScale());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {

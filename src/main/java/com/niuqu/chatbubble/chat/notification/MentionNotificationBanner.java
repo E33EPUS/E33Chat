@@ -229,14 +229,17 @@ public class MentionNotificationBanner {
             ChatBubbleClientSetup.config().theme().toUpperCase()).colors();
         int bg = theme.bannerBg();
         int cornerRadius = ChatBubbleClientSetup.config().bannerCornerRadius();
+        int bannerOpacity = ChatBubbleClientSetup.config().bannerOpacity() != null
+            ? Math.max(0, Math.min(100, ChatBubbleClientSetup.config().bannerOpacity())) : 100;
+        float opacityFactor = bannerOpacity / 100f;
 
-        int shadowAlpha = (int) (0x30 * alpha);
+        int shadowAlpha = (int) (0x30 * alpha * opacityFactor);
         int shadowColor = (shadowAlpha << 24);
         RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
             x + bannerW + SHADOW_OFF, y + bannerH + SHADOW_OFF, cornerRadius, shadowColor);
 
         // Background：SDF 圆角（与阴影同 shader，半径配置实时生效；不可被资源包覆盖）
-        int bgAlpha = (int) ((bg >>> 24) * alpha);
+        int bgAlpha = (int) ((bg >>> 24) * alpha * opacityFactor);
         RoundRectRenderer.fill(g, x, y, x + bannerW, y + bannerH, cornerRadius,
             (bgAlpha << 24) | (bg & 0x00FFFFFF));
 
