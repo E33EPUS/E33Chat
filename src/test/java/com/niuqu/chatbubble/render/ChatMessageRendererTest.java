@@ -185,6 +185,39 @@ class ChatMessageRendererTest {
         assertFalse(ChatMessageRenderer.isSameGroup(null, msg("Alice", "Alice", t, false)));
     }
 
+    // ---- bubble_scale: pure helpers (config-free) ----
+
+    @Test
+    void scaleFactor_defaultIsOne() {
+        assertEquals(1f, ChatMessageRenderer.scaleFactor(100));
+    }
+
+    @Test
+    void scaleFactor_halfAndDouble() {
+        assertEquals(0.5f, ChatMessageRenderer.scaleFactor(50));
+        assertEquals(2f, ChatMessageRenderer.scaleFactor(200));
+    }
+
+    @Test
+    void scaleFactor_clampsToRange() {
+        assertEquals(0.5f, ChatMessageRenderer.scaleFactor(0));
+        assertEquals(0.5f, ChatMessageRenderer.scaleFactor(25));
+        assertEquals(2f, ChatMessageRenderer.scaleFactor(3000));
+    }
+
+    @Test
+    void scaledWrapWidth_inverseProportional() {
+        assertEquals(50, ChatMessageRenderer.scaledWrapWidth(100, 2f));   // double size: half the chars/line
+        assertEquals(200, ChatMessageRenderer.scaledWrapWidth(100, 0.5f)); // half size: twice the chars/line
+        assertEquals(100, ChatMessageRenderer.scaledWrapWidth(100, 1f));
+    }
+
+    @Test
+    void scaledWrapWidth_clampsToLegibleMinimum() {
+        assertEquals(16, ChatMessageRenderer.scaledWrapWidth(10, 2f));
+        assertEquals(16, ChatMessageRenderer.scaledWrapWidth(0, 1f));
+    }
+
     @Test
     void isSameGroup_rawPlayerNameWinsOverDisplayName() {
         long t = millisAt("2026-08-16T10:00:00");
