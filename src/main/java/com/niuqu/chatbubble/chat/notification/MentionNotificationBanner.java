@@ -337,6 +337,14 @@ public class MentionNotificationBanner {
                     return skin.texture();
                 }
                 //#endif
+                //#else
+                //$$ java.util.Map<com.mojang.authlib.minecraft.MinecraftProfileTexture.Type, com.mojang.authlib.minecraft.MinecraftProfileTexture> skinMap = mc.getSkinProvider().getTextures(new GameProfile(uuid, name != null ? name : ""));
+                //$$ com.mojang.authlib.minecraft.MinecraftProfileTexture skinTex = skinMap.get(com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN);
+                //$$ if (skinTex != null) {
+                //$$     Identifier tex = mc.getSkinProvider().loadSkin(skinTex, com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN);
+                //$$     skinCache.put(uuid, tex);
+                //$$     return tex;
+                //$$ }
                 //#endif
             } catch (Exception ignored) {
                 // Network failure — fall through to default skin
