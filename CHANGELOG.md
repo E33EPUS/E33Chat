@@ -1,6 +1,8 @@
 # Changelog
 
-## v2.3.17
+## v2.4.0
+
+**v2.4.0 为 2.3.17 全量内容的正式版本号**（2.3.17 曾以四次重发迭代：fix1-fix3、历史存盘异步化、bubble_size、banner_opacity 修正）
 
 **2.3.16 回归修复 + UI 回退 + 新功能 + 性能优化（三端同步：Fabric / Forge / NeoForge）**
 
@@ -30,6 +32,8 @@ UI 回退（2.3.16 风格改动按实机反馈回退，行为不变）：
 测试：Forge 310 / NeoForge 309 / Fabric 284 全绿
 
 **2.3.16 regression fixes + UI rollbacks + new features + a performance tweak (all loaders: Fabric / Forge / NeoForge)**
+
+**v2.4.0 is the formal release number for all of the 2.3.17 iterations** (four re-issues: fix1-fix3, async history saves, bubble_size, banner_opacity fix)
 
 Bug fixes:
 - **Message spacing off by one**: the 2.3.16 render loop applied the gap after computing screenY but before contentY, out of sync with the layout/jump loops - first-pair spacing was wrong; fixed
