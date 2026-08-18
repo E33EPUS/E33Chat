@@ -1592,11 +1592,13 @@ public class ChatBubbleScreen extends ChatScreen {
             g.getMatrices().push();
             g.getMatrices().translate(mDx, mDy, 0);
             if (mScale != 1f) {
-                // Bubble top-left for the ZOOM pivot (mirrors renderBubble's layout)
+                // Bubble top-left for the ZOOM pivot (mirrors renderBubble's layout incl. bubble_scale)
+                float bs = Appearance.bubbleScale();
+                int zMaxW = panelW - Appearance.avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
                 int zW = 0;
-                for (var zl : wrapContent(msg.content(), panelW - Appearance.avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16))
+                for (var zl : wrapContent(msg.content(), Appearance.bubbleWrapWidth(zMaxW)))
                     zW = Math.max(zW, textRenderer.getWidth(zl));
-                int zBubbleW = zW + BUBBLE_PAD_X * 2;
+                int zBubbleW = (int)((zW + BUBBLE_PAD_X * 2) * bs);
                 int zBubbleX = msg.isOwn()
                     ? panelX + panelW - PAD - Appearance.avatarSize() - 4 - zBubbleW
                     : panelX + PAD + Appearance.avatarSize() + 4;
@@ -1724,9 +1726,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 msgHeightCache.put(msg, h);
                 return h;
             }
-            List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
-            h = lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2 + NAME_H;
-            if (msg.replyContent() != null) h += textRenderer.fontHeight + 7;
+            float s = Appearance.bubbleScale();
+            List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), Appearance.bubbleWrapWidth(bubbleMaxW));
+            double contentH = lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2;
+            if (msg.replyContent() != null) contentH += textRenderer.fontHeight + 7;
+            h = NAME_H + (int) (contentH * s);
         }
         msgHeightCache.put(msg, h);
         return h;
@@ -1795,10 +1799,14 @@ public class ChatBubbleScreen extends ChatScreen {
             return;
         }
 
+        // Bubble path only: re-wrap at the scaled width so bigger bubbles fit fewer
+        // characters per line (bubble-less emote/image paths above keep the unscaled lines).
+        float s = Appearance.bubbleScale();
+        lines = wrapContent(parsed.textWithoutImages(), Appearance.bubbleWrapWidth(bubbleMaxW));
         int textW = 0;
         for (var line : lines) textW = Math.max(textW, textRenderer.getWidth(line));
-        int bubbleW = textW + BUBBLE_PAD_X * 2;
-        int bubbleH = lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2;
+        int bubbleW = (int) ((textW + BUBBLE_PAD_X * 2) * s);
+        int bubbleH = (int) ((lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2) * s);
 
         int avatarX, bubbleX;
         if (own) {
@@ -1843,9 +1851,32 @@ public class ChatBubbleScreen extends ChatScreen {
 
         Style fbP = findClickStyle(msg.content());
         int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
-        for (int li = 0; li < lines.size(); li++)
-            renderLineWithClicks(g, lines.get(li), bubbleX + BUBBLE_PAD_X,
-                bubbleY + BUBBLE_PAD_Y + li * textRenderer.fontHeight, fgA, fbP);
+        for (int li = 0; li < lines.size(); li++) {
+            // Bubble text is matrix-scaled around its (scaled) origin; clickable spans are
+            // recorded in design units and transformed back to screen space so hit-testing
+            // and the visual position stay in sync when bubble_scale != 100.
+            int textSX = bubbleX + (int)(BUBBLE_PAD_X * s);
+            int textSY = bubbleY + (int)(BUBBLE_PAD_Y * s) + (int)(li * textRenderer.fontHeight * s);
+            int beforeLine = clickableSpans.size();
+            if (s != 1f) {
+                g.getMatrices().push();
+                g.getMatrices().translate(textSX, textSY, 0);
+                g.getMatrices().scale(s, s, 1f);
+            }
+            renderLineWithClicks(g, lines.get(li), 0, 0, fgA, fbP);
+            if (s != 1f) g.getMatrices().pop();
+            if (s != 1f) {
+                for (int i = beforeLine; i < clickableSpans.size(); i++) {
+                    ClickableSpan sp = clickableSpans.get(i);
+                    clickableSpans.set(i, new ClickableSpan(
+                        textSX + (int)(sp.x * s),
+                        textSY + (int)(sp.y * s),
+                        Math.max(1, (int)(sp.w * s)),
+                        Math.max(1, (int)(sp.h * s)),
+                        sp.style));
+                }
+            }
+        }
 
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
             ? msg.rawPlayerName() : msg.senderName().getString();
@@ -1855,20 +1886,24 @@ public class ChatBubbleScreen extends ChatScreen {
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
-            int labelW = textRenderer.getWidth(label);
-            int labelX, labelY = bubbleY + (bubbleH - textRenderer.fontHeight) / 2;
+            int labelW = (int)(textRenderer.getWidth(label) * s);
+            int labelX, labelY = bubbleY + (bubbleH - (int)(textRenderer.fontHeight * s)) / 2;
             if (own) { labelX = bubbleX - labelW - 3; } else { labelX = bubbleX + bubbleW + 3; }
-            g.drawText(textRenderer, label, labelX, labelY, ChatBubbleTheme.alphaBlend(c().duplicateLabel(), (int)(255 * alpha)), false);
+            g.getMatrices().push();
+            g.getMatrices().translate(labelX, labelY, 0);
+            if (s != 1f) g.getMatrices().scale(s, s, 1f);
+            g.drawText(textRenderer, label, 0, 0, ChatBubbleTheme.alphaBlend(c().duplicateLabel(), (int)(255 * alpha)), false);
+            g.getMatrices().pop();
         }
 
         if (msg.replyContent() != null) {
             int quoteMaxW = panelW - PAD * 2 - Appearance.avatarSize() - 24;
             String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
-            String quoteDisplay = textRenderer.trimToWidth(quoteText, quoteMaxW - 10);
+            String quoteDisplay = textRenderer.trimToWidth(quoteText, Math.max(8, (int)((quoteMaxW - 10) / s)));
             if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
-            int quoteTextW = textRenderer.getWidth(quoteDisplay);
-            int quoteW = Math.min(quoteTextW + 8, quoteMaxW);
-            int quoteH = textRenderer.fontHeight + 4;
+            int quoteTextW = (int)(textRenderer.getWidth(quoteDisplay) * s);
+            int quoteW = Math.min(quoteTextW + (int)(8 * s), quoteMaxW);
+            int quoteH = Math.max(1, (int)((textRenderer.fontHeight + 4) * s));
             int quoteY = bubbleY + bubbleH + 3;
             int quoteX;
             if (own) { quoteX = bubbleX + bubbleW - quoteW; } else { quoteX = bubbleX; }
@@ -1876,7 +1911,11 @@ public class ChatBubbleScreen extends ChatScreen {
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
             // 引用块：SDF 圆角
             RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, ChatBubbleClientSetup.config().bubbleCornerRadius(), ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
-            g.drawText(textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
+            g.getMatrices().push();
+            g.getMatrices().translate(quoteX + (int)(4 * s), quoteY + (int)(2 * s), 0);
+            if (s != 1f) g.getMatrices().scale(s, s, 1f);
+            g.drawText(textRenderer, quoteDisplay, 0, 0, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
+            g.getMatrices().pop();
         }
 
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});

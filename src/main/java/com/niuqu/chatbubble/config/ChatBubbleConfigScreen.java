@@ -71,7 +71,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private String panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle;
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
-    private int messageGap, avatarSize;
+    private int messageGap, avatarSize, bubbleScale;
     private boolean hideRepeatedAvatars;
     private List<String> sidebarHidePatterns;
     private List<String> blockedPlayers;
@@ -183,7 +183,7 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().uploadField(),
             ChatBubbleClientSetup.config().uploadExtra(),
             ChatBubbleClientSetup.config().uploadResponse(),
-            messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity));
+            messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity, bubbleScale));
     }
 
     private void loadFromConfig() {
@@ -225,6 +225,7 @@ public class ChatBubbleConfigScreen extends Screen {
         blockedPlayers = new ArrayList<>(cfg.blockedPlayers());
         messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
         avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
+        bubbleScale = cfg.bubbleScale() != null ? cfg.bubbleScale() : 100;
         hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null && cfg.hideRepeatedAvatars();
     }
 
@@ -404,6 +405,7 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.hex("e33chat.config.other_text_color", Ref.s(() -> otherTextColor, v -> otherTextColor = v))),
         SectionDef.of("e33chat.config.section.msgdisplay",
             OptionDef.intBox("e33chat.config.message_gap", Ref.i(() -> messageGap, v -> messageGap = v), 0, 12, 2),
+            OptionDef.slider("e33chat.config.bubble_scale", Ref.i(() -> bubbleScale, v -> bubbleScale = v), 50, 200),
             OptionDef.bool("e33chat.config.enabled", Ref.b(() -> enabled, v -> enabled = v)),
             OptionDef.bool("e33chat.config.system_chat_as_bubble", Ref.b(() -> systemChatAsBubble, v -> systemChatAsBubble = v)),
             OptionDef.bool("e33chat.config.anti_spam", Ref.b(() -> antiSpam, v -> antiSpam = v)),

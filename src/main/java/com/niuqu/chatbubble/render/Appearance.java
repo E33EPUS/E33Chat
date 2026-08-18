@@ -31,4 +31,25 @@ public final class Appearance {
         Integer a = ChatBubbleClientSetup.config().avatarSize();
         return a == null ? 20 : Math.max(12, Math.min(32, a));
     }
+
+    /** 气泡大小百分比（钳制到 50-200）。 */
+    public static int bubbleScalePercent() {
+        Integer s = ChatBubbleClientSetup.config().bubbleScale();
+        return s == null ? 100 : Math.max(50, Math.min(200, s));
+    }
+
+    /** 气泡缩放系数（0.5-2.0）。 */
+    public static float bubbleScale() {
+        return bubbleScalePercent() / 100f;
+    }
+
+    /** 指定缩放下气泡文字换行宽度（设计单位，更大气泡每行容纳更少字符；钳制保证可读）。 */
+    public static int scaledWrapWidth(int bubbleMaxW, float scale) {
+        return Math.max(16, (int) (bubbleMaxW / scale));
+    }
+
+    /** 当前缩放下气泡文字换行宽度。 */
+    public static int bubbleWrapWidth(int bubbleMaxW) {
+        return scaledWrapWidth(bubbleMaxW, bubbleScale());
+    }
 }
