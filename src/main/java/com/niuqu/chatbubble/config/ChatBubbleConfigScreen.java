@@ -175,6 +175,7 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.hex("e33chat.config.other_text_color", ChatBubbleConfig.OTHER_TEXT_COLOR)),
         SectionDef.of("e33chat.config.section.msgdisplay",
             OptionDef.intBox("e33chat.config.message_gap", ChatBubbleConfig.MESSAGE_GAP, 0, 12, 2),
+            OptionDef.slider("e33chat.config.bubble_scale", ChatBubbleConfig.BUBBLE_SCALE, 50, 200),
             OptionDef.bool("e33chat.config.enabled", ChatBubbleConfig.ENABLED),
             OptionDef.bool("e33chat.config.system_chat_as_bubble", ChatBubbleConfig.SYSTEM_CHAT_AS_BUBBLE),
             OptionDef.bool("e33chat.config.anti_spam", ChatBubbleConfig.ANTI_SPAM),
