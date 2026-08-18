@@ -18,7 +18,7 @@ UI 回退（2.3.16 风格改动按实机反馈回退，行为不变）：
 
 新功能：
 - **close_chat_on_send（客户端，默认关）**：发送消息后关闭聊天框（原版行为），默认关闭方便连发
-- **banner_opacity（客户端，0–100 默认 100）**：通知横幅不透明度可调
+- **banner_opacity（客户端，0–100 默认 100）**：通知横幅背景不透明度可调（文本与头像保持清晰）
 - **media_auto_clean（服务端，默认开）**：服务器配置界面新增开关，自动清理超过 7 天的托管图片（开服时清理一次，之后每 6 小时最多一次）
 - **bubble_size（客户端，5–14 px 默认 9）**：气泡大小可调——气泡内文字的目标高度（像素），气泡框/引用块/xN 角标等比缩放，名字行与头像保持原大小
 
@@ -45,7 +45,7 @@ UI rollbacks (2.3.16 style changes reverted after hands-on feedback, behavior un
 
 New features:
 - **close_chat_on_send (client, default off)**: close the chat screen after sending a message (vanilla behaviour); off by default so you can send several messages in a row
-- **banner_opacity (client, 0-100, default 100)**: notification banner opacity is now adjustable
+- **banner_opacity (client, 0-100, default 100)**: notification banner background opacity is now adjustable (text and avatar stay readable)
 - **media_auto_clean (server, default on)**: new toggle in the server config screen - automatically deletes server-hosted chat images older than 7 days (once on server start, then at most every 6 hours)
 - **bubble_size (client, 5-14 px, default 9)**: adjustable bubble size - sets the target height of the bubble text in pixels; the bubble frame, quote block and xN badge scale proportionally while the sender-name row and avatar keep their size
 
