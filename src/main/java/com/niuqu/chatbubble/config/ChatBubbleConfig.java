@@ -31,7 +31,7 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.ConfigValue<String> OTHER_BUBBLE_COLOR;
     public static final ForgeConfigSpec.IntValue BUBBLE_CORNER_RADIUS;
     public static final ForgeConfigSpec.IntValue MESSAGE_GAP;
-    public static final ForgeConfigSpec.IntValue BUBBLE_SCALE;
+    public static final ForgeConfigSpec.IntValue BUBBLE_SIZE;
     public static final ForgeConfigSpec.IntValue AVATAR_SIZE;
     public static final ForgeConfigSpec.BooleanValue HIDE_REPEATED_AVATARS;
     public static final ForgeConfigSpec.ConfigValue<String> OWN_TEXT_COLOR;
@@ -218,10 +218,10 @@ public class ChatBubbleConfig {
             .translation("e33chat.config.message_gap")
             .defineInRange("message_gap", 6, 0, 12);
 
-        BUBBLE_SCALE = builder
-            .comment("Bubble size in percent (50 = half, 200 = double). Scales the bubble text and its frame; the sender-name row and avatar keep their size")
-            .translation("e33chat.config.bubble_scale")
-            .defineInRange("bubble_scale", 100, 50, 200);
+        BUBBLE_SIZE = builder
+            .comment("Bubble size: height of the bubble text in pixels (5-14, default 9 = vanilla). The bubble frame and quote block scale proportionally; the sender-name row and avatar keep their size")
+            .translation("e33chat.config.bubble_size")
+            .defineInRange("bubble_size", 9, 5, 14);
 
         AVATAR_SIZE = builder
             .comment("Avatar size in chat bubbles (pixels)")

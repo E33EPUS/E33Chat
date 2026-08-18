@@ -31,18 +31,23 @@ public final class ChatMessageRenderer {
     static final int NAME_H = 10;
     static final int TIME_SEP_H = 14;
 
-    // ---- Bubble size scale (percent 50-200, default 100) ----
+    // ---- Bubble size (px: target text height, 5-14, default 9 = vanilla) ----
     // Scales the bubble text and its frame; the sender-name row and the avatar
     // keep their size, so only the bubble content grows/shrinks.
 
-    /** Clamp a percent to 50-200 and convert to a float factor (pure, testable). */
-    public static float scaleFactor(int percent) {
-        return Math.max(0.5f, Math.min(2f, percent / 100f));
+    /** Current bubble text height in px from config, clamped to 5-14. */
+    public static int bubbleSizePx() {
+        return Math.max(5, Math.min(14, ChatBubbleConfig.BUBBLE_SIZE.get()));
     }
 
-    /** Current bubble scale factor from config. */
-    public static float bubbleScale() {
-        return scaleFactor(ChatBubbleConfig.BUBBLE_SCALE.get());
+    /** Scale factor for a target text height vs the actual line height (pure, testable). */
+    public static float scaleFor(int sizePx, int lineHeight) {
+        return Math.max(5, Math.min(14, sizePx)) / (float) lineHeight;
+    }
+
+    /** Current bubble scale factor (target text height / vanilla-ish line height). */
+    public static float bubbleScale(int lineHeight) {
+        return scaleFor(bubbleSizePx(), lineHeight);
     }
 
     /** Wrap width in design units for a given scale (bigger bubbles wrap earlier; clamped to stay legible). */
@@ -51,8 +56,8 @@ public final class ChatMessageRenderer {
     }
 
     /** Max bubble text width in design units for the current scale. */
-    public static int bubbleWrapWidth(int bubbleMaxW) {
-        return scaledWrapWidth(bubbleMaxW, bubbleScale());
+    public static int bubbleWrapWidth(int bubbleMaxW, int lineHeight) {
+        return scaledWrapWidth(bubbleMaxW, bubbleScale(lineHeight));
     }
 
     // Bubble-less image rendering: long-edge clamped to the panel width so
@@ -102,8 +107,8 @@ public final class ChatMessageRenderer {
             if (msg.replyContent() != null) h += font.lineHeight + 7;
             return h;
         }
-        float s = bubbleScale();
-        List<FormattedCharSequence> lines = wrapContent(parsed.textWithoutImages(), font, bubbleWrapWidth(bubbleMaxW));
+        float s = bubbleScale(font.lineHeight);
+        List<FormattedCharSequence> lines = wrapContent(parsed.textWithoutImages(), font, bubbleWrapWidth(bubbleMaxW, font.lineHeight));
         double contentH = lines.size() * font.lineHeight + BUBBLE_PAD_Y * 2;
         if (msg.replyContent() != null) contentH += font.lineHeight + 7;
         return NAME_H + (int) (contentH * s);
@@ -526,8 +531,8 @@ public final class ChatMessageRenderer {
 
         // Bubble path only: re-wrap at the scaled width so bigger bubbles fit fewer
         // characters per line (bubble-less emote/image paths above keep the unscaled lines).
-        float s = bubbleScale();
-        lines = wrapContent(parsed.textWithoutImages(), font, bubbleWrapWidth(bubbleMaxW));
+        float s = bubbleScale(font.lineHeight);
+        lines = wrapContent(parsed.textWithoutImages(), font, bubbleWrapWidth(bubbleMaxW, font.lineHeight));
         int textW = 0;
         for (var line : lines) textW = Math.max(textW, font.width(line));
         int bubbleW = (int) ((textW + BUBBLE_PAD_X * 2) * s);
@@ -559,35 +564,33 @@ public final class ChatMessageRenderer {
         int fg = own ? ownTextColor : otherTextColor;
 
         // 气泡背景：SDF 圆角（shader 数学，任何半径平滑；配置实时生效，不可被资源包覆盖）
+        // 坐标已含 bubble_size 缩放，圆角半径同样按比例缩放，否则放大后圆角相对变小
         RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
-            cornerRadius, ChatBubbleTheme.alphaBlend(bg, (int)(255 * alpha)));
+            cornerRadius * s, ChatBubbleTheme.alphaBlend(bg, (int)(255 * alpha)));
 
         Style fb = findClickStyle(msg.content());
         int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
         for (int li = 0; li < lines.size(); li++) {
-            // Bubble text is pose-scaled around its (scaled) origin; clickable spans are
-            // recorded in design units and transformed back to screen space so hit-testing
-            // and the visual position stay in sync when bubble_scale != 100.
+            // Bubble text is drawn at the pose origin; the translate must be unconditional
+            // (s == 1 still needs the offset, only the scale is skipped), and clickable spans
+            // are recorded in origin space then transformed back to screen space so
+            // hit-testing and the visual position stay in sync at every bubble size.
             int textSX = bubbleX + (int)(BUBBLE_PAD_X * s);
             int textSY = bubbleY + (int)(BUBBLE_PAD_Y * s) + (int)(li * font.lineHeight * s);
             int beforeLine = clickableSpans.size();
-            if (s != 1f) {
-                g.pose().pushPose();
-                g.pose().translate(textSX, textSY, 0);
-                g.pose().scale(s, s, 1f);
-            }
+            g.pose().pushPose();
+            g.pose().translate(textSX, textSY, 0);
+            if (s != 1f) g.pose().scale(s, s, 1f);
             renderLineWithClicks(g, font, lines.get(li), 0, 0, fgA, fb, clickableSpans);
-            if (s != 1f) g.pose().popPose();
-            if (s != 1f) {
-                for (int i = beforeLine; i < clickableSpans.size(); i++) {
-                    ClickableSpan sp = clickableSpans.get(i);
-                    clickableSpans.set(i, new ClickableSpan(
-                        textSX + (int)(sp.x() * s),
-                        textSY + (int)(sp.y() * s),
-                        Math.max(1, (int)(sp.w() * s)),
-                        Math.max(1, (int)(sp.h() * s)),
-                        sp.style()));
-                }
+            g.pose().popPose();
+            for (int i = beforeLine; i < clickableSpans.size(); i++) {
+                ClickableSpan sp = clickableSpans.get(i);
+                clickableSpans.set(i, new ClickableSpan(
+                    textSX + (int)(sp.x() * s),
+                    textSY + (int)(sp.y() * s),
+                    Math.max(1, (int)(sp.w() * s)),
+                    Math.max(1, (int)(sp.h() * s)),
+                    sp.style()));
             }
         }
 
@@ -620,8 +623,8 @@ public final class ChatMessageRenderer {
             if (quoteX < panelX + ChatLayout.PAD) quoteX = panelX + ChatLayout.PAD;
             if (quoteX + quoteW > panelX + panelW - ChatLayout.PAD)
                 quoteW = panelX + panelW - ChatLayout.PAD - quoteX;
-            // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, cornerRadius, ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
+            // 引用块：SDF 圆角（随 bubble_size 缩放）
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, cornerRadius * s, ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
             g.pose().pushPose();
             g.pose().translate(quoteX + (int)(4 * s), quoteY + (int)(2 * s), 0);
             if (s != 1f) g.pose().scale(s, s, 1f);
