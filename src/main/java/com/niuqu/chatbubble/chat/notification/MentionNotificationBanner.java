@@ -200,8 +200,10 @@ public class MentionNotificationBanner {
             float fadeRaw = Math.min(1f, raw / 0.6f);
             alpha = state == BannerState.SLIDING_UP ? exitFade(raw) : fadeRaw;
         }
-        // User-facing opacity on top of the animation fade (0-100%).
-        alpha *= ChatBubbleClientSetup.config().bannerOpacity() / 100f;
+        // User-facing opacity (0-100%) fades only the banner background (shadow +
+        // fill); text and avatar keep the animation alpha so the banner stays
+        // readable at low opacity.
+        float bgAlphaMul = alpha * (ChatBubbleClientSetup.config().bannerOpacity() / 100f);
 
         // Avatar (only for real senders; system banners stay plain text)
         OrderedText nameSeq = current.nameSeq;
@@ -223,13 +225,13 @@ public class MentionNotificationBanner {
         int bg = theme.bannerBg();
         int cornerRadius = ChatBubbleClientSetup.config().bannerCornerRadius();
 
-        int shadowAlpha = (int) (UiTokens.SHADOW_ALPHA_PANEL * alpha);
+        int shadowAlpha = (int) (UiTokens.SHADOW_ALPHA_PANEL * bgAlphaMul);
         int shadowColor = (shadowAlpha << 24);
         RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
             x + bannerW + SHADOW_OFF, y + bannerH + SHADOW_OFF, cornerRadius, shadowColor);
 
         // Background：SDF 圆角（与阴影同 shader，半径配置实时生效；不可被资源包覆盖）
-        int bgAlpha = (int) ((bg >>> 24) * alpha);
+        int bgAlpha = (int) ((bg >>> 24) * bgAlphaMul);
         RoundRectRenderer.fill(g, x, y, x + bannerW, y + bannerH, cornerRadius,
             (bgAlpha << 24) | (bg & 0x00FFFFFF));
 
