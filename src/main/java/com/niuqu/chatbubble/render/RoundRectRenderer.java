@@ -41,10 +41,15 @@ public class RoundRectRenderer {
         g.flush();
 
         Matrix4f pose = g.pose().last().pose();
-        // u_Rect must be in the same space as the baked vertex positions (pose is translation-only here)
+        // u_Rect must be in the same space as the baked vertex positions. Vertices are
+        // pre-multiplied by the pose (addVertex below), so the SDF rect must follow the
+        // pose's uniform scale too — translation-only was the old assumption, but message
+        // ZOOM animation and future callers may scale. GUI poses never rotate, m00 is the scale.
+        float poseScale = Math.abs(pose.m00());
         Vector4f center = pose.transform(new Vector4f((x1 + x2) / 2f, (y1 + y2) / 2f, 0f, 1f));
-        sh.safeGetUniform("u_Rect").set(center.x(), center.y(), (x2 - x1) / 2f, (y2 - y1) / 2f);
-        sh.safeGetUniform("u_Radius").set(radius);
+        sh.safeGetUniform("u_Rect").set(center.x(), center.y(),
+            (x2 - x1) / 2f * poseScale, (y2 - y1) / 2f * poseScale);
+        sh.safeGetUniform("u_Radius").set(radius * poseScale);
 
         float a = (argb >>> 24) / 255f;
         float r = (argb >> 16 & 0xFF) / 255f;

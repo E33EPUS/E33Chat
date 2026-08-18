@@ -185,24 +185,24 @@ class ChatMessageRendererTest {
         assertFalse(ChatMessageRenderer.isSameGroup(null, msg("Alice", "Alice", t, false)));
     }
 
-    // ---- bubble_scale: pure helpers (config-free) ----
+    // ---- bubble_size: pure helpers (config-free) ----
 
     @Test
-    void scaleFactor_defaultIsOne() {
-        assertEquals(1f, ChatMessageRenderer.scaleFactor(100));
+    void scaleFor_defaultTextHeightIsOne() {
+        assertEquals(1f, ChatMessageRenderer.scaleFor(9, 9), 0.0001f);
     }
 
     @Test
-    void scaleFactor_halfAndDouble() {
-        assertEquals(0.5f, ChatMessageRenderer.scaleFactor(50));
-        assertEquals(2f, ChatMessageRenderer.scaleFactor(200));
+    void scaleFor_ratioToLineHeight() {
+        assertEquals(1.5556f, ChatMessageRenderer.scaleFor(14, 9), 0.0001f);
+        assertEquals(0.5556f, ChatMessageRenderer.scaleFor(5, 9), 0.0001f);
+        assertEquals(0.9f, ChatMessageRenderer.scaleFor(9, 10), 0.0001f);
     }
 
     @Test
-    void scaleFactor_clampsToRange() {
-        assertEquals(0.5f, ChatMessageRenderer.scaleFactor(0));
-        assertEquals(0.5f, ChatMessageRenderer.scaleFactor(25));
-        assertEquals(2f, ChatMessageRenderer.scaleFactor(3000));
+    void scaleFor_clampsSizeToRange() {
+        assertEquals(ChatMessageRenderer.scaleFor(5, 9), ChatMessageRenderer.scaleFor(3, 9), 0.0001f);
+        assertEquals(ChatMessageRenderer.scaleFor(14, 9), ChatMessageRenderer.scaleFor(99, 9), 0.0001f);
     }
 
     @Test

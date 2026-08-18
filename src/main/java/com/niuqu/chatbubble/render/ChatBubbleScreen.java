@@ -1579,11 +1579,11 @@ public class ChatBubbleScreen extends ChatScreen {
             g.pose().pushPose();
             g.pose().translate(mDx, mDy, 0);
             if (mScale != 1f) {
-                // Bubble top-left for the ZOOM pivot (mirrors ChatMessageRenderer's layout incl. bubble_scale)
-                float bs = ChatMessageRenderer.bubbleScale();
+                // Bubble top-left for the ZOOM pivot (mirrors ChatMessageRenderer's layout incl. bubble_size)
+                float bs = ChatMessageRenderer.bubbleScale(font.lineHeight);
                 int zMaxW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - ChatMessageRenderer.BUBBLE_PAD_X * 2 - 16;
                 int zW = 0;
-                for (var zl : ChatMessageRenderer.wrapContent(msg.content(), font, ChatMessageRenderer.bubbleWrapWidth(zMaxW)))
+                for (var zl : ChatMessageRenderer.wrapContent(msg.content(), font, ChatMessageRenderer.bubbleWrapWidth(zMaxW, font.lineHeight)))
                     zW = Math.max(zW, font.width(zl));
                 int zBubbleW = (int)((zW + ChatMessageRenderer.BUBBLE_PAD_X * 2) * bs);
                 int zBubbleX = msg.isOwn()
