@@ -1,5 +1,39 @@
 # Changelog
 
+## v2.3.15
+
+**新功能（2.3.15）**
+- **发送后关闭聊天栏**（`close_chat_on_send`）：发送消息后自动关闭聊天栏，默认关闭。可在客户端配置界面「面板」分类中开启。
+- **横幅透明度**（`banner_opacity`）：通知横幅的背景与阴影透明度可调（0–100，默认 100），文字不受影响以保证可读性。可在「通知」分类中配置。
+- **气泡缩放**（`bubble_scale`）：聊天气泡整体缩放比例（50–200%，默认 100%），通过矩阵变换等比缩放文字、图片和引用块。可在「气泡字体」分类中配置。
+- **媒体自动清理**（`media_auto_clean`）：服务端自动删除超过 7 天的媒体文件，每次上传成功后最多每 6 小时执行一次清理。默认开启，可在服务端配置界面中切换。
+
+**修复（2.3.15）**
+- **上方向键历史跳级**：发送消息后 `historyPos` 未重同步，导致上方向键历史导航跳级。现已发送后重置到 `getMessageHistory().size()`。
+- **引用块圆角硬编码**：引用块圆角从硬编码 `3` 改为跟随 `bubbleCornerRadius` 配置。
+- **历史存盘阻塞渲染线程**：聊天历史存盘移至后台 daemon 线程（`SAVE_EXECUTOR`），通过快照机制避免并发修改。
+- **模板命令丢失 `media_auto_clean`**：`updateTemplates()` 保存 ServerConfig 时遗漏 `media_auto_clean` 字段，导致使用模板命令后该设置被重置为默认值。
+- **1.16.5 通知横幅离线皮肤加载缺失**：`MentionNotificationBanner.getSkin()` 第二个 try 块在 1.16.5 下为空（`supplySkinTextures` 代码被预处理器移除），现已填充 `getTextures` / `loadSkin` API。
+- **26.2 预处理 import 盲目注入**：`build.gradle` 无条件向所有 26.x 预处理文件注入 `FormattedCharSequence` 和 `TranslatableContents` import，现已改为按需注入（70 → 5 文件）。
+- **26.2 `DrawContext.java` 残留**：`#if MC < 12000` 清空文件后仍注入两行 import，现已跳过空文件，正确变为 0 字节。
+- **无用 import 残留**：`E33ChatCommands` 的 `ServerConfigScreenPayload` / `ServerPlayNetworking` import 未包裹 `#if MC >= 12005` 守卫；`MentionNotificationBanner` 的 `DrawContext` / `MatrixStack` import 未被使用。均已修复。
+
+**New Features (2.3.15)**
+- **Close chat on send** (`close_chat_on_send`): Automatically closes the chat bar after sending a message. Default off. Toggle in the client config screen under "Panel".
+- **Banner opacity** (`banner_opacity`): Adjustable transparency (0–100, default 100) for notification banner background and shadow. Text is unaffected for readability. Configure under "Notifications".
+- **Bubble scale** (`bubble_scale`): Chat bubble scale factor (50–200%, default 100%) via matrix transforms that proportionally scale text, images, and quote blocks. Configure under "Bubble & Font".
+- **Media auto-clean** (`media_auto_clean`): Server-side automatic deletion of media files older than 7 days, throttled to once every 6 hours after a successful upload. Default on. Toggle in the server config GUI.
+
+**Fixes (2.3.15)**
+- **Up-arrow history jump**: `historyPos` was not resynced after sending, causing up-arrow history navigation to skip. Now resets to `getMessageHistory().size()` after send.
+- **Reply block corner radius hardcoded**: Reply/quote block corner radius changed from hardcoded `3` to follow the `bubbleCornerRadius` config.
+- **History save blocking render thread**: Chat history save moved to a background daemon thread (`SAVE_EXECUTOR`) with a snapshot copy to avoid concurrent modification.
+- **Template command losing `media_auto_clean`**: `updateTemplates()` was not setting `media_auto_clean` when saving ServerConfig, causing the setting to be reset to the default after using template commands.
+- **1.16.5 notification banner offline skin loading missing**: The second try block in `MentionNotificationBanner.getSkin()` was empty on 1.16.5 (`supplySkinTextures` code stripped by preprocessor). Now filled with `getTextures` / `loadSkin` API.
+- **26.2 blind import injection**: `build.gradle` unconditionally injected `FormattedCharSequence` and `TranslatableContents` imports into all 26.x preprocessed files. Now conditional on actual class usage (70 → 5 files).
+- **26.2 `DrawContext.java` artifact**: `#if MC < 12000` stripped the file but import injection still added two orphan import lines. Now skips empty files, correctly producing 0 bytes.
+- **Unused import remnants**: `E33ChatCommands`'s `ServerConfigScreenPayload` / `ServerPlayNetworking` imports were not wrapped in `#if MC >= 12005` guard; `MentionNotificationBanner`'s `DrawContext` / `MatrixStack` imports were unused. Both fixed.
+
 ## v2.3.9
 
 **修复（2.3.9）**
