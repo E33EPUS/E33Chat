@@ -10,11 +10,6 @@ import com.niuqu.chatbubble.RenderHelper;
 import com.niuqu.chatbubble.RoundRectRenderer;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
 import net.minecraft.client.MinecraftClient;
-//#if MC >= 12000
-import net.minecraft.client.gui.DrawContext;
-//#else
-//$$ import net.minecraft.client.util.math.MatrixStack;
-//#endif
 import net.minecraft.client.util.DefaultSkinHelper;
 //#if MC >= 12004
 //#if MC >= 12109

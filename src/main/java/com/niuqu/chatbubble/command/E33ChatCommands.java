@@ -4,11 +4,15 @@ import com.niuqu.chatbubble.ChatBubbleMod;
 import com.niuqu.chatbubble.chat.TemplateMatcher;
 import com.niuqu.chatbubble.config.ServerConfig;
 import com.niuqu.chatbubble.config.ServerConfigManager;
+//#if MC >= 12005
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
+//#endif
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+//#if MC >= 12005
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+//#endif
 import net.minecraft.command.CommandSource;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
