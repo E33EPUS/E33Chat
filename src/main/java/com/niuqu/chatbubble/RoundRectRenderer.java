@@ -5,6 +5,22 @@ import net.minecraft.client.gui.DrawContext;
 //#else
 //$$ import net.minecraft.client.util.math.MatrixStack;
 //#endif
+//#if MC >= 12106
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import com.niuqu.chatbubble.mixin.DrawContextStateAccessor;
+import net.minecraft.client.gl.UniformType;
+import net.minecraft.client.gui.ScreenRect;
+import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.texture.TextureSetup;
+import net.minecraft.util.Identifier;
+import org.joml.Matrix3x2f;
+import org.jspecify.annotations.Nullable;
+//#endif
 
 /**
  * Rounded rectangle renderer.
@@ -43,9 +59,97 @@ public class RoundRectRenderer {
         int h = y2 - y1;
         if (w <= 0 || h <= 0) return;
         radius = Math.min(radius, Math.min(w, h) / 2f);
-
-        scanLineFill(g, x1, y1, x2, y2, radius, argb);
+        if (radius < 1) {
+            RenderHelper.fill(g, x1, y1, x2, y2, argb);
+            return;
+        }
+        //#if MC >= 12106
+        // 1.21.11+: deferred GUI pipeline with a custom SDF shader — the GPU
+        // computes coverage per physical pixel (fwidth AA), shader-quality
+        // corners at any GUI scale. One quad per rounded rect.
+        fillShaded(g, x1, y1, x2, y2, radius, argb);
+        //#else
+        //$$ scanLineFill(g, x1, y1, x2, y2, radius, argb);
+        //#endif
     }
+
+    //#if MC >= 12106
+    /**
+     * SDF rounded-rect pipeline (1.21.11+): custom vertex/fragment shaders on
+     * the deferred GUI render-state. Blending/depth match the vanilla GUI
+     * pipeline; the shader receives per-vertex SDF params via Position.z
+     * (radius) and UV0 (corner local coords, ±half).
+     */
+    private static final RenderPipeline ROUND_RECT_PIPELINE = RenderPipeline.builder()
+        .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
+        .withUniform("Projection", UniformType.UNIFORM_BUFFER)
+        .withVertexShader(Identifier.of("e33chat", "core/round_rect"))
+        .withFragmentShader(Identifier.of("e33chat", "core/round_rect"))
+        .withBlend(BlendFunction.TRANSLUCENT)
+        .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+        .withDepthWrite(false)
+        .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
+        .withLocation(Identifier.of("e33chat", "round_rect"))
+        .build();
+
+    private static void fillShaded(Object g, int x1, int y1, int x2, int y2, float radius, int argb) {
+        DrawContext dc = (DrawContext) g;
+        Matrix3x2f pose = new Matrix3x2f(dc.getMatrices());
+        ScreenRect scissor = RenderHelper.currentScissor();
+        ((DrawContextStateAccessor) dc).e33chat$state().addSimpleElement(
+            new RoundRectGuiElementRenderState(ROUND_RECT_PIPELINE, pose, x1, y1, x2, y2, radius, argb, scissor));
+    }
+
+    /** Deferred GUI element for the SDF rounded-rect pipeline. */
+    record RoundRectGuiElementRenderState(
+        RenderPipeline pipeline,
+        Matrix3x2f pose,
+        int x1,
+        int y1,
+        int x2,
+        int y2,
+        float radius,
+        int color,
+        @Nullable ScreenRect scissorArea,
+        @Nullable ScreenRect bounds
+    ) implements SimpleGuiElementRenderState {
+        RoundRectGuiElementRenderState(RenderPipeline pipeline, Matrix3x2f pose, int x1, int y1, int x2, int y2,
+                                       float radius, int color, @Nullable ScreenRect scissorArea) {
+            this(pipeline, pose, x1, y1, x2, y2, radius, color, scissorArea,
+                createBounds(x1, y1, x2, y2, pose, scissorArea));
+        }
+
+        @Override
+        public void setupVertices(VertexConsumer vertices) {
+            float hw = (x2 - x1) / 2f;
+            float hh = (y2 - y1) / 2f;
+            quadVertex(vertices, this.pose(), this.x1(), this.y1(), this.radius(), this.color(), -hw, -hh);
+            quadVertex(vertices, this.pose(), this.x1(), this.y2(), this.radius(), this.color(), -hw, hh);
+            quadVertex(vertices, this.pose(), this.x2(), this.y2(), this.radius(), this.color(), hw, hh);
+            quadVertex(vertices, this.pose(), this.x2(), this.y1(), this.radius(), this.color(), hw, -hh);
+        }
+
+        // VertexConsumer.vertex(Matrix3x2f, x, y) forces z=0, so the SDF radius
+        // rides on Position.z via the raw vertex(x, y, z) overload after a
+        // manual pose transform.
+        private static void quadVertex(VertexConsumer vertices, Matrix3x2f pose, float x, float y,
+                                       float radius, int color, float u, float v) {
+            org.joml.Vector2f p = pose.transformPosition(x, y, new org.joml.Vector2f());
+            vertices.vertex(p.x, p.y, radius).texture(u, v).color(color);
+        }
+
+        @Override
+        public TextureSetup textureSetup() {
+            return TextureSetup.empty();
+        }
+
+        private static @Nullable ScreenRect createBounds(int x1, int y1, int x2, int y2, Matrix3x2f pose,
+                                                         @Nullable ScreenRect scissorArea) {
+            ScreenRect rect = new ScreenRect(x1, y1, x2 - x1, y2 - y1).transformEachVertex(pose);
+            return scissorArea != null ? scissorArea.intersection(rect) : rect;
+        }
+    }
+    //#endif
 
     /**
      * Half-width of the SDF coverage band, in GUI px. A wider band spreads the
