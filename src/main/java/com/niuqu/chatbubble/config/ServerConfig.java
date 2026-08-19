@@ -9,6 +9,9 @@ public class ServerConfig {
     public List<String> whisper_templates;
     public boolean template_debug;
     public boolean media_enabled;
+    // 2.4.0 sync: auto-delete stored media older than 7 days. Boolean (nullable):
+    // old config files missing this key = null = enabled.
+    public Boolean media_auto_clean;
 
     public static ServerConfig defaults() {
         ServerConfig c = new ServerConfig();
@@ -18,6 +21,7 @@ public class ServerConfig {
         c.whisper_templates = List.of();
         c.template_debug = false;
         c.media_enabled = true;
+        c.media_auto_clean = true;
         return c;
     }
 }

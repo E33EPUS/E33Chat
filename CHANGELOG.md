@@ -1,5 +1,41 @@
 # Changelog
 
+## v2.4.0
+
+**v2.4.0 将官方 2.4.0 的 2.3.17 系列内容同步到大佬 1.21.11 fabric 移植版**（bubble_size / banner_opacity / close_chat_on_send / media_auto_clean / 历史存盘异步化 / 上键历史游标修复 / 引用块圆角跟随配置）
+
+**同步的新功能：**
+- **bubble_size（客户端，5–14 px 默认 9）**：气泡内文字的目标高度（像素）。气泡框 / 引用块 / xN 角标等比缩放，文字经矩阵缩放渲染，坐标与点击区域数值预乘、命中判定无需逆矩阵（适配 1.21.11 render-state 管线，走 `RenderHelper` 门面）；名字行与头像保持原大小；默认 9px = 1.0 缩放，行为与旧版一致
+- **banner_opacity（客户端，0–100 默认 100）**：通知横幅背景不透明度可调——只淡阴影 + 底色，文本与头像保持动画 alpha 清晰可读
+- **close_chat_on_send（客户端，默认关）**：发送消息后关闭聊天框（原版行为），默认关闭方便连发
+- **media_auto_clean（服务端，默认开）**：服务器配置界面新增开关，自动清理超过 7 天的托管图片（开服时清理一次，之后上传完成时每 6 小时最多一次）；旧配置文件缺省视为开启
+
+**修复：**
+- **上方向键历史跳级**：mod 发送后不关闭聊天屏，历史游标只在开屏时初始化；现在每次发送后重同步到最新端，按上键不再跳过刚发的消息
+- **引用块圆角跟随配置**：引用块圆角不再硬编码 3，跟随 `bubble_corner_radius` 且随 bubble_size 缩放
+
+**性能：**
+- **历史存盘异步化**：聊天历史的定期全量重写移到专用单线程后台 IO 线程（daemon，不挡退出），渲染线程只保留列表快照；原子替换机制不变，写入中断时旧文件完好
+
+**注意（协议变更）**：服务端配置网络包 `server_config_save` / `server_config_screen` 新增 `mediaAutoClean` 字段，客户端与服务端需同时升级，否则打开服务端配置界面会报错 / 混版本会 desync。
+
+**v2.4.0 syncs the official 2.4.0 (2.3.17 series) content into the 1.21.11 fabric port** (bubble_size / banner_opacity / close_chat_on_send / media_auto_clean / async history saves / up-arrow history cursor fix / quote-block radius follows config)
+
+New features:
+- **bubble_size (client, 5-14 px, default 9)**: target height of the bubble text in pixels. The bubble frame, quote block and xN counter scale proportionally; text renders through a matrix scale while coordinates and click regions are numerically pre-scaled, so hit-testing needs no inverse transform (adapted to the 1.21.11 render-state pipeline via the `RenderHelper` facade). The name row and avatar keep their size; default 9 px = 1.0 scale, behaviour unchanged
+- **banner_opacity (client, 0-100, default 100)**: notification banner background opacity — fades only the shadow + background; text and avatar keep the animation alpha so they stay readable
+- **close_chat_on_send (client, default off)**: closes the chat screen right after sending (vanilla behaviour); off by default for multi-send
+- **media_auto_clean (server, default on)**: new server-config GUI toggle that auto-deletes hosted images older than 7 days (swept once on server start, then at most every 6h after an upload finishes); missing in old config files = enabled
+
+Fixes:
+- **Up-arrow history skipping**: the history cursor was only initialized when the screen opened, so sending without closing made Up skip the freshly sent messages; the cursor now re-syncs after every send
+- **Quote-block radius follows config**: no longer hardcoded to 3; follows `bubble_corner_radius` and scales with bubble_size
+
+Performance:
+- **Async history saves**: the periodic full-file history rewrite now runs on a dedicated single-thread background IO thread (daemon, never blocks exit); the render thread only takes a list snapshot. The atomic-replace mechanism is unchanged — an interrupted write leaves the old file intact
+
+**Note (protocol change)**: the server-config packets `server_config_save` / `server_config_screen` gained a `mediaAutoClean` field — client and server must be upgraded together, otherwise opening the server-config GUI errors / mixed versions desync.
+
 ## v2.3.9
 
 **修复（2.3.9）**

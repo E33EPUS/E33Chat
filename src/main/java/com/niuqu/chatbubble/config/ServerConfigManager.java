@@ -16,7 +16,11 @@ public final class ServerConfigManager {
         if (Files.exists(path)) {
             try (Reader r = new InputStreamReader(Files.newInputStream(path), StandardCharsets.UTF_8)) {
                 ServerConfig loaded = GSON.fromJson(r, ServerConfig.class);
-                if (loaded != null) return loaded;
+                if (loaded != null) {
+                    // 2.4.0 sync: old files lack media_auto_clean -> null means enabled
+                    if (loaded.media_auto_clean == null) loaded.media_auto_clean = true;
+                    return loaded;
+                }
             } catch (Exception e) {
                 // log and fall through to defaults
             }

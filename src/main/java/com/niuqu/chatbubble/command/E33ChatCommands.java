@@ -103,7 +103,8 @@ public class E33ChatCommands {
         ServerPlayNetworking.send(player,
             new ServerConfigScreenPayload(ChatBubbleMod.useTpa(), ChatBubbleMod.historyEnabled(),
                 ChatBubbleMod.templateDebug(), new ArrayList<>(ChatBubbleMod.chatTemplates()),
-                new ArrayList<>(ChatBubbleMod.whisperTemplates()), ChatBubbleMod.mediaEnabled()));
+                new ArrayList<>(ChatBubbleMod.whisperTemplates()), ChatBubbleMod.mediaEnabled(),
+                ChatBubbleMod.mediaAutoClean()));
         return 1;
         //#else
         //$$ src.sendError(Text.literal("Server config GUI is only available on Minecraft 1.20.5+."));

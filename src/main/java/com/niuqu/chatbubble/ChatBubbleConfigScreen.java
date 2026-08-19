@@ -90,6 +90,8 @@ public class ChatBubbleConfigScreen extends Screen {
     private List<String> blockedPlayers;
     private int messageGap, avatarSize;
     private boolean hideRepeatedAvatars;
+    private int bannerOpacity, bubbleSize;
+    private boolean closeChatOnSend;
 
     // 打开时的快照——用于 changeCount / revertAll
     private ChatBubbleConfig snapshot;
@@ -206,6 +208,9 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> messageGap, v -> messageGap = v));
         tracked.add(track(() -> avatarSize, v -> avatarSize = v));
         tracked.add(track(() -> hideRepeatedAvatars, v -> hideRepeatedAvatars = v));
+        tracked.add(track(() -> bannerOpacity, v -> bannerOpacity = v));
+        tracked.add(track(() -> closeChatOnSend, v -> closeChatOnSend = v));
+        tracked.add(track(() -> bubbleSize, v -> bubbleSize = v));
     }
 
     private int changeCount() {
@@ -237,7 +242,8 @@ public class ChatBubbleConfigScreen extends Screen {
             uploadField.isEmpty() ? null : uploadField,
             uploadExtra.isEmpty() ? null : uploadExtra,
             uploadResponse.isEmpty() ? null : uploadResponse,
-            messageGap, avatarSize, hideRepeatedAvatars));
+            messageGap, avatarSize, hideRepeatedAvatars,
+            bannerOpacity, closeChatOnSend, bubbleSize));
     }
 
     private void loadFromConfig() {
@@ -281,6 +287,9 @@ public class ChatBubbleConfigScreen extends Screen {
         messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
         avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
         hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null ? cfg.hideRepeatedAvatars() : true;
+        bannerOpacity = cfg.bannerOpacity() != null ? cfg.bannerOpacity() : 100;
+        closeChatOnSend = cfg.closeChatOnSend();
+        bubbleSize = cfg.bubbleSize() != null ? cfg.bubbleSize() : 9;
     }
 
     // ---- ChatScrollbar geometry inline ----
@@ -422,6 +431,8 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(new Opt("e33chat.config.popup_anim_style", this::mkPopupStyleButton, null));
         chat.add(new Opt("e33chat.config.message_anim_style", this::mkMessageStyleButton, null));
         chat.add(Opt.header("e33chat.config.section.bubble_font"));
+        chat.add(new Opt("e33chat.config.bubble_size",
+            y -> mkIntBox(y, String.valueOf(bubbleSize), 5, 14, 2, v -> bubbleSize = v), null));
         chat.add(new Opt("e33chat.config.bubble_corner_radius",
             y -> mkIntBox(y, String.valueOf(bubbleCornerRadius), 0, 10, 2, v -> bubbleCornerRadius = v), null));
         chat.add(new Opt("e33chat.config.own_bubble_color",
@@ -496,6 +507,8 @@ public class ChatBubbleConfigScreen extends Screen {
             y -> mkIntBox(y, String.valueOf(mentionBannerDuration), 2, 10, 2, v -> mentionBannerDuration = v), null));
         notify.add(new Opt("e33chat.config.banner_corner_radius",
             y -> mkIntBox(y, String.valueOf(bannerCornerRadius), 0, 10, 2, v -> bannerCornerRadius = v), null));
+        notify.add(new Opt("e33chat.config.banner_opacity",
+            y -> mkIntBox(y, String.valueOf(bannerOpacity), 0, 100, 3, v -> bannerOpacity = v), null));
         notify.add(new Opt("e33chat.config.banner_offset_x",
             y -> mkIntBox(y, String.valueOf(bannerOffsetX), -500, 500, 2, v -> bannerOffsetX = v), null));
         notify.add(new Opt("e33chat.config.banner_offset_y",
@@ -518,6 +531,7 @@ public class ChatBubbleConfigScreen extends Screen {
         advanced.add(new Opt("e33chat.config.chat_history", y -> mkBoolButton(y, () -> chatHistoryEnabled, v -> chatHistoryEnabled = v), null));
         advanced.add(new Opt("e33chat.config.history_retention", y -> mkIntBox(y, String.valueOf(historyRetentionDays), 0, 365, 3, v -> historyRetentionDays = v), null));
         advanced.add(new Opt("e33chat.config.preserve_input", y -> mkBoolButton(y, () -> preserveInput, v -> preserveInput = v), null));
+        advanced.add(new Opt("e33chat.config.close_chat_on_send", y -> mkBoolButton(y, () -> closeChatOnSend, v -> closeChatOnSend = v), null));
         advanced.add(Opt.header("e33chat.config.section.upload"));
         advanced.add(new Opt("e33chat.config.upload_url", y -> {
             TextFieldWidget box = new TextFieldWidget(textRenderer, inputX, y, INPUT_W, 20, com.niuqu.chatbubble.Txt.literal(""));

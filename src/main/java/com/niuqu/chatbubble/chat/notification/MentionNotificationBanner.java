@@ -122,6 +122,16 @@ public class MentionNotificationBanner {
 
     public int pendingCount() { return queue.size() + (current != null ? 1 : 0); }
 
+    /**
+     * 2.4.0 sync: banner background opacity multiplier. banner_opacity (0-100)
+     * fades ONLY the shadow + background; text and avatar keep the animation
+     * alpha so they stay readable at low opacity. Pure math, unit-tested.
+     */
+    static float bannerBgAlphaMul(float animAlpha, Integer bannerOpacityPx) {
+        float opacityMul = (bannerOpacityPx != null ? bannerOpacityPx : 100) / 100f;
+        return animAlpha * opacityMul;
+    }
+
     public void tick() {
         long now = System.currentTimeMillis();
         BannerState prev = state;
@@ -230,13 +240,17 @@ public class MentionNotificationBanner {
         int bg = theme.bannerBg();
         int cornerRadius = ChatBubbleClientSetup.config().bannerCornerRadius();
 
-        int shadowAlpha = (int) (0x30 * alpha);
+        // 2.4.0 sync: banner_opacity fades ONLY the shadow+background; text and
+        // avatar keep the animation alpha so they stay readable at low opacity.
+        float bgMul = bannerBgAlphaMul(alpha, ChatBubbleClientSetup.config().bannerOpacity());
+
+        int shadowAlpha = (int) (0x30 * bgMul);
         int shadowColor = (shadowAlpha << 24);
         RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
             x + bannerW + SHADOW_OFF, y + bannerH + SHADOW_OFF, cornerRadius, shadowColor);
 
         // Background：SDF 圆角（与阴影同 shader，半径配置实时生效；不可被资源包覆盖）
-        int bgAlpha = (int) ((bg >>> 24) * alpha);
+        int bgAlpha = (int) ((bg >>> 24) * bgMul);
         RoundRectRenderer.fill(g, x, y, x + bannerW, y + bannerH, cornerRadius,
             (bgAlpha << 24) | (bg & 0x00FFFFFF));
 

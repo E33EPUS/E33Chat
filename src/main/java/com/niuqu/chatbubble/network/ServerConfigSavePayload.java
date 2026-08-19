@@ -22,7 +22,7 @@ import java.util.List;
  */
 public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                                       List<String> chatTemplates, List<String> whisperTemplates,
-                                      boolean mediaEnabled)
+                                      boolean mediaEnabled, boolean mediaAutoClean)
         //#if MC >= 12005
         implements CustomPayload {
         //#else
@@ -50,6 +50,7 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
             ConfigSyncV2Payload.writeList(buf, value.chatTemplates);
             ConfigSyncV2Payload.writeList(buf, value.whisperTemplates);
             buf.writeBoolean(value.mediaEnabled);
+            buf.writeBoolean(value.mediaAutoClean);
         },
         buf -> new ServerConfigSavePayload(
             buf.readBoolean(),
@@ -57,6 +58,7 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
             buf.readBoolean(),
             ConfigSyncV2Payload.readList(buf),
             ConfigSyncV2Payload.readList(buf),
+            buf.readBoolean(),
             buf.readBoolean()
         )
     );
@@ -89,6 +91,7 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
         cfg.chat_templates = new ArrayList<>(payload.chatTemplates());
         cfg.whisper_templates = new ArrayList<>(payload.whisperTemplates());
         cfg.media_enabled = payload.mediaEnabled();
+        cfg.media_auto_clean = payload.mediaAutoClean();
         applyAndSave.accept(cfg);
         //#if MC >= 26000
         //$$ player.sendSystemMessage(Text.translatable("e33chat.server.saved"));

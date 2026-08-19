@@ -69,6 +69,18 @@ public class ChatBubbleScreen extends ChatScreen {
         Integer g = ChatBubbleClientSetup.config().messageGap();
         return g == null ? 6 : Math.max(0, Math.min(12, g));
     }
+    /** Bubble text target height px (clamped 5-14, default 9 = vanilla font height). */
+    private static int bubbleSizePx() {
+        return BubbleLayout.clampBubbleSize(ChatBubbleClientSetup.config().bubbleSize());
+    }
+    /** Bubble scale factor: px / vanilla font height (9). Default 9 -> 1.0 (unchanged behaviour). */
+    private static float bubbleScale() {
+        return BubbleLayout.scale(bubbleSizePx(), 9);
+    }
+    /** Scaled text wrap width in design units: a bigger bubble fits fewer chars per line. */
+    private static int scaledWrapWidth(int bubbleMaxW, float scale) {
+        return BubbleLayout.scaledWrapWidth(bubbleMaxW, scale);
+    }
     private static final int NAME_H = 10;
     private static final int TIME_SEP_H = 14;
     static final int BAR_H = 26;
@@ -1897,11 +1909,12 @@ public class ChatBubbleScreen extends ChatScreen {
             //$$ g.getMatrices().translate(mDx, mDy, 0);
             //#endif
             if (mScale != 1f) {
-                // Bubble top-left for the ZOOM pivot (mirrors renderBubble's layout)
+                // Bubble top-left for the ZOOM pivot (mirrors renderBubble's layout incl. bubble_size)
+                float zs = bubbleScale();
                 int zW = 0;
-                for (var zl : wrapContent(msg.content(), panelW - avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16))
+                for (var zl : wrapContent(msg.content(), scaledWrapWidth(panelW - avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16, zs)))
                     zW = Math.max(zW, textRenderer.getWidth(zl));
-                int zBubbleW = zW + BUBBLE_PAD_X * 2;
+                int zBubbleW = (int) ((zW + BUBBLE_PAD_X * 2) * zs);
                 int zBubbleX = msg.isOwn()
                     ? panelX + panelW - PAD - avatarSize() - 4 - zBubbleW
                     : panelX + PAD + avatarSize() + 4;
@@ -2026,14 +2039,16 @@ public class ChatBubbleScreen extends ChatScreen {
             h = lines.size() * textRenderer.fontHeight + 4;
         } else {
             int bubbleMaxW = panelW - avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
+            float s = bubbleScale();
             int cardW = Math.min(IMAGE_MAX_W, bubbleMaxW);
             BracketCodec.ParseResult parsed = parseImages(msg);
-            List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
-            h = lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2 + NAME_H;
+            List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), scaledWrapWidth(bubbleMaxW, s));
+            h = NAME_H + (int) ((lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2) * s);
             for (var ref : parsed.images()) {
-                h += imageCardHeight(ref.url(), cardW) + 2;
+                h += (int) ((imageCardHeight(ref.url(), cardW) + 2) * s);
             }
-            if (msg.replyContent() != null) h += textRenderer.fontHeight + 7;
+            // Quote block hangs below the bubble (3px gap + scaled height)
+            if (msg.replyContent() != null) h += 3 + (int) ((textRenderer.fontHeight + 4) * s);
         }
         msgHeightCache.put(msg, h);
         return h;
@@ -2081,7 +2096,10 @@ public class ChatBubbleScreen extends ChatScreen {
         boolean own = msg.isOwn();
         int bubbleMaxW = panelW - avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
         BracketCodec.ParseResult parsed = parseImages(msg);
-        List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
+        float s = bubbleScale();
+        // Bubble text is re-wrapped at the scaled width so bigger bubbles fit
+        // fewer characters per line (bubble-less emote/image paths stay unscaled).
+        List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), scaledWrapWidth(bubbleMaxW, s));
 
         int textW = 0;
         for (var line : lines) textW = Math.max(textW, textRenderer.getWidth(line));
@@ -2089,10 +2107,12 @@ public class ChatBubbleScreen extends ChatScreen {
         int imageH = 0;
         if (!parsed.images().isEmpty()) {
             imageW = Math.min(IMAGE_MAX_W, bubbleMaxW);
-            for (var ref : parsed.images()) imageH += imageCardHeight(ref.url(), imageW) + 2;
+            for (var ref : parsed.images()) imageH += (int) ((imageCardHeight(ref.url(), imageW) + 2) * s);
         }
-        int bubbleW = Math.max(textW, imageW) + BUBBLE_PAD_X * 2;
-        int bubbleH = lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2 + imageH;
+        // Bubble coords/dims are numerically pre-scaled: hit-testing on bubbleRects
+        // needs no inverse-matrix transform at any bubble size.
+        int bubbleW = (int) ((Math.max(textW, imageW) + BUBBLE_PAD_X * 2) * s);
+        int bubbleH = (int) ((lines.size() * textRenderer.fontHeight + BUBBLE_PAD_Y * 2) * s) + imageH;
 
         int avatarX, bubbleX;
         if (own) {
@@ -2136,19 +2156,40 @@ public class ChatBubbleScreen extends ChatScreen {
             : ChatBubbleConfig.parseHexColor(ChatBubbleClientSetup.config().otherTextColor(), c().textPrimary());
 
         // 气泡背景：SDF 圆角（shader 数学，任何半径平滑；配置实时生效，不可被资源包覆盖）
+        // 坐标已含 bubble_size 缩放，圆角半径同乘 s，否则放大后圆角相对变小
         RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
-            ChatBubbleClientSetup.config().bubbleCornerRadius(), ChatBubbleTheme.alphaBlend(bg, (int)(255 * alpha)));
+            ChatBubbleClientSetup.config().bubbleCornerRadius() * s, ChatBubbleTheme.alphaBlend(bg, (int)(255 * alpha)));
 
         Style fbP = findClickStyle(msg.content());
         int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
-        for (int li = 0; li < lines.size(); li++)
-            renderLineWithClicks(g, lines.get(li), bubbleX + BUBBLE_PAD_X,
-                bubbleY + BUBBLE_PAD_Y + li * textRenderer.fontHeight, fgA, fbP);
+        for (int li = 0; li < lines.size(); li++) {
+            // Bubble text draws at the matrix origin; the translate is unconditional
+            // (s == 1 still needs the offset, only the scale is skipped). Clickable
+            // spans are recorded in origin space, then transformed back to screen
+            // space so hit-testing and the visual position stay in sync at every size.
+            int textSX = bubbleX + (int) (BUBBLE_PAD_X * s);
+            int textSY = bubbleY + (int) (BUBBLE_PAD_Y * s) + (int) (li * textRenderer.fontHeight * s);
+            int beforeLine = clickableSpans.size();
+            RenderHelper.pushMatrix(g);
+            RenderHelper.translate(g, textSX, textSY);
+            if (s != 1f) RenderHelper.scale(g, s, s);
+            renderLineWithClicks(g, lines.get(li), 0, 0, fgA, fbP);
+            RenderHelper.popMatrix(g);
+            for (int i = beforeLine; i < clickableSpans.size(); i++) {
+                ClickableSpan sp = clickableSpans.get(i);
+                clickableSpans.set(i, new ClickableSpan(
+                    textSX + (int) (sp.x * s),
+                    textSY + (int) (sp.y * s),
+                    Math.max(1, (int) (sp.w * s)),
+                    Math.max(1, (int) (sp.h * s)),
+                    sp.style));
+            }
+        }
 
         if (!parsed.images().isEmpty()) {
-            int imgTop = bubbleY + BUBBLE_PAD_Y + lines.size() * textRenderer.fontHeight;
-            renderImageCards(g, parsed.images(), bubbleX + BUBBLE_PAD_X, imgTop,
-                Math.max(textW, imageW), mouseX, mouseY, alpha);
+            int imgTop = bubbleY + (int) (BUBBLE_PAD_Y * s) + (int) (lines.size() * textRenderer.fontHeight * s);
+            renderImageCards(g, parsed.images(), bubbleX + (int) (BUBBLE_PAD_X * s), imgTop,
+                Math.max(textW, imageW), s, mouseX, mouseY, alpha);
         }
 
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
@@ -2158,28 +2199,37 @@ public class ChatBubbleScreen extends ChatScreen {
 
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
-            int labelW = textRenderer.getWidth(label);
-            int labelX, labelY = bubbleY + (bubbleH - textRenderer.fontHeight) / 2;
+            int labelW = (int) (textRenderer.getWidth(label) * s);
+            int labelX, labelY = bubbleY + (bubbleH - (int) (textRenderer.fontHeight * s)) / 2;
             if (own) { labelX = bubbleX - labelW - 3; } else { labelX = bubbleX + bubbleW + 3; }
-            g.drawText(textRenderer, label, labelX, labelY, ChatBubbleTheme.alphaBlend(c().duplicateLabel(), (int)(255 * alpha)), false);
+            RenderHelper.pushMatrix(g);
+            RenderHelper.translate(g, labelX, labelY);
+            if (s != 1f) RenderHelper.scale(g, s, s);
+            g.drawText(textRenderer, label, 0, 0, ChatBubbleTheme.alphaBlend(c().duplicateLabel(), (int)(255 * alpha)), false);
+            RenderHelper.popMatrix(g);
         }
 
         if (msg.replyContent() != null) {
             int quoteMaxW = panelW - PAD * 2 - avatarSize() - 24;
             String quoteText = "↳ " + msg.replySender() + ": " + msg.replyContent();
-            String quoteDisplay = textRenderer.trimToWidth(quoteText, quoteMaxW - 10);
+            String quoteDisplay = textRenderer.trimToWidth(quoteText, Math.max(8, (int) ((quoteMaxW - 10) / s)));
             if (!quoteDisplay.equals(quoteText)) quoteDisplay += "...";
-            int quoteTextW = textRenderer.getWidth(quoteDisplay);
-            int quoteW = Math.min(quoteTextW + 8, quoteMaxW);
-            int quoteH = textRenderer.fontHeight + 4;
+            int quoteTextW = (int) (textRenderer.getWidth(quoteDisplay) * s);
+            int quoteW = Math.min(quoteTextW + (int) (8 * s), quoteMaxW);
+            int quoteH = Math.max(1, (int) ((textRenderer.fontHeight + 4) * s));
             int quoteY = bubbleY + bubbleH + 3;
             int quoteX;
             if (own) { quoteX = bubbleX + bubbleW - quoteW; } else { quoteX = bubbleX; }
             if (quoteX < panelX + PAD) quoteX = panelX + PAD;
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
-            // 引用块：SDF 圆角
-            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, 3, ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
-            g.drawText(textRenderer, quoteDisplay, quoteX + 4, quoteY + 2, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
+            // 引用块：SDF 圆角（随 bubble_size 缩放，圆角跟随 bubbleCornerRadius 配置）
+            RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH,
+                ChatBubbleClientSetup.config().bubbleCornerRadius() * s, ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
+            RenderHelper.pushMatrix(g);
+            RenderHelper.translate(g, quoteX + (int) (4 * s), quoteY + (int) (2 * s));
+            if (s != 1f) RenderHelper.scale(g, s, s);
+            g.drawText(textRenderer, quoteDisplay, 0, 0, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
+            RenderHelper.popMatrix(g);
         }
 
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
@@ -2190,18 +2240,19 @@ public class ChatBubbleScreen extends ChatScreen {
 
     /** Draws one card per image ref below the bubble text. */
     private void renderImageCards(DrawContext g, List<BracketCodec.ImageRef> images,
-                                  int x, int y, int cardW, int mouseX, int mouseY, float alpha) {
+                                  int x, int y, int cardW, float s, int mouseX, int mouseY, float alpha) {
         int yy = y;
         for (var ref : images) {
-            int cardH = imageCardHeight(ref.url(), cardW);
+            int cardWsc = Math.max(1, (int) (cardW * s));
+            int cardHsc = Math.max(1, (int) (imageCardHeight(ref.url(), cardW) * s));
             ImageEntry entry = ImageLoader.getOrLoad(ref.url());
             logImageRenderState(ref.url(), entry);
             if (entry != null && entry.state() == ImageEntry.State.LOADED
                     && entry.textureId() != null && entry.width() > 0 && entry.height() > 0) {
-                int w = Math.min(cardW, entry.width());
-                int h = Math.min(IMAGE_MAX_H, entry.height() * w / entry.width());
-                int dx = x + (cardW - w) / 2;
-                int dy = yy + (cardH - h) / 2;
+                int w = Math.min(cardWsc, (int) (entry.width() * s));
+                int h = Math.min((int) (IMAGE_MAX_H * s), entry.height() * w / entry.width());
+                int dx = x + (cardWsc - w) / 2;
+                int dy = yy + (cardHsc - h) / 2;
                 // Image draws directly on the bubble (no card bg/padding — the
                 // 0x22 black backdrop read as a dark border on light bubbles).
                 // 1.21.1 drawTexture has no color tint; the 250ms enter animation
@@ -2218,13 +2269,13 @@ public class ChatBubbleScreen extends ChatScreen {
             } else if (entry != null && entry.state() == ImageEntry.State.FAILED) {
                 boolean limited = entry.failure() != null && entry.failure().contains("rate limited");
                 String txt = Text.translatable(limited ? "e33chat.image.ratelimited" : "e33chat.image.failed").getString();
-                g.drawText(textRenderer, txt, x + (cardW - textRenderer.getWidth(txt)) / 2,
-                    yy + (cardH - textRenderer.fontHeight) / 2,
+                g.drawText(textRenderer, txt, x + (cardWsc - textRenderer.getWidth(txt)) / 2,
+                    yy + (cardHsc - textRenderer.fontHeight) / 2,
                     ChatBubbleTheme.alphaBlend(0xFFFF5555, (int) (255 * alpha)), false);
             } else {
                 String txt = Text.translatable("e33chat.image.loading").getString();
-                g.drawText(textRenderer, txt, x + (cardW - textRenderer.getWidth(txt)) / 2,
-                    yy + (cardH - textRenderer.fontHeight) / 2,
+                g.drawText(textRenderer, txt, x + (cardWsc - textRenderer.getWidth(txt)) / 2,
+                    yy + (cardHsc - textRenderer.fontHeight) / 2,
                     ChatBubbleTheme.alphaBlend(c().textSecondary(), (int) (255 * alpha)), false);
             }
             // Open the URL in the system browser on click; hover shows the URL
@@ -2236,8 +2287,8 @@ public class ChatBubbleScreen extends ChatScreen {
                 //$$ .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, ref.url()))
                 //$$ .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(ref.url())));
                 //#endif
-            clickableSpans.add(new ClickableSpan(x, yy, cardW, cardH, st));
-            yy += cardH + 2;
+            clickableSpans.add(new ClickableSpan(x, yy, cardWsc, cardHsc, st));
+            yy += cardHsc + (int) (2 * s);
         }
     }
 
@@ -3015,6 +3066,10 @@ public class ChatBubbleScreen extends ChatScreen {
         GuiCompat.sendChat(client.player.networkHandler, text);
         client.inGameHud.getChatHud().addToMessageHistory(text);
 
+        // fix3: re-sync historyPos to the newest end — while the screen stays open
+        // the init() snapshot goes stale, and up-arrow would skip freshly sent entries.
+        historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
+
         ChatMessageStore.debugLog("[e33chat] Send | cmd='" + text + "' | display='" + displayText + "' | whisperTarget=" + whisperTarget + " | localBubble=" + localBubble);
         if (localBubble) {
             Text contentForSend = cfg != null && cfg.colorCodes() ? parseColorCodes(displayText) : Text.literal(displayText);
@@ -3051,6 +3106,10 @@ public class ChatBubbleScreen extends ChatScreen {
         chatField.setText("");
         savedInput = "";
         scrollToBottom = true;
+
+        // 2.4.0 sync: close the chat screen right after the message goes out
+        // (off by default — this screen supports multi-send).
+        if (cfg != null && cfg.closeChatOnSend()) onClose();
     }
 
 

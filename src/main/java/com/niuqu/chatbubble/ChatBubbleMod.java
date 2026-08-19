@@ -53,6 +53,7 @@ public class ChatBubbleMod implements ModInitializer {
     private static boolean useTpa;
     private static boolean templateDebug;
     private static boolean mediaEnabled;
+    private static boolean mediaAutoClean = true;
     private static List<String> chatTemplates = List.of();
     private static List<String> whisperTemplates = List.of();
     private static boolean configLoaded;
@@ -123,6 +124,8 @@ public class ChatBubbleMod implements ModInitializer {
                 if (result == null) return; // upload still in progress
                 store.discardUpload(payload.uploadId());
                 if (DiskMediaStore.isValidMediaId(result)) {
+                    // 2.4.0 sync: 6h-throttled sweep after a finished upload (opt-in)
+                    if (mediaAutoClean) store.cleanupExpiredThrottled();
                     ServerPlayNetworking.send(player,
                         new MediaUploadAckPayload(payload.uploadId(), result, null));
                 } else {
@@ -253,6 +256,8 @@ public class ChatBubbleMod implements ModInitializer {
                     .resolve("serverconfig").resolve("e33chat-server.json");
                 ServerConfig config = ServerConfigManager.load(configPath);
                 loadConfig(config);
+                // 2.4.0 sync: sweep expired media once per server start (opt-in)
+                if (mediaAutoClean) mediaStore(server).cleanupExpired();
             }
 
             // Always sync server-side settings so the client head menu matches the server
@@ -316,6 +321,7 @@ public class ChatBubbleMod implements ModInitializer {
         historyEnabled = config.history_enabled;
         templateDebug = config.template_debug;
         mediaEnabled = config.media_enabled;
+        mediaAutoClean = config.media_auto_clean != null ? config.media_auto_clean : true;
         chatTemplates = config.chat_templates != null ? config.chat_templates : List.of();
         whisperTemplates = config.whisper_templates != null ? config.whisper_templates : List.of();
     }
@@ -343,6 +349,7 @@ public class ChatBubbleMod implements ModInitializer {
     public static boolean historyEnabled() { return historyEnabled; }
     public static boolean templateDebug() { return templateDebug; }
     public static boolean mediaEnabled() { return mediaEnabled; }
+    public static boolean mediaAutoClean() { return mediaAutoClean; }
     public static List<String> chatTemplates() { return chatTemplates; }
     public static List<String> whisperTemplates() { return whisperTemplates; }
     public static void setTemplates(List<String> chat, List<String> whisper, boolean debug) {

@@ -1347,37 +1347,52 @@ public class ChatMessageStore {
         return out;
     }
 
+    // History saves run on a dedicated single-thread executor: the snapshot is
+    // taken on the client thread (the messages list is only mutated there), while
+    // the expensive styled-JSON serialization and the full-file rewrite stay off
+    // the render path. One thread preserves ordering (the tmp file is never
+    // written concurrently), and it is daemon so it never holds the JVM open.
+    private static final java.util.concurrent.ExecutorService SAVE_EXECUTOR =
+        java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "e33chat-history-save");
+            t.setDaemon(true);
+            return t;
+        });
+
     private static void saveMessages(String worldKey) {
         if (messages.isEmpty()) return;
+        List<ChatMessage> snapshot = new ArrayList<>(messages);
         File f = getHistoryFile(worldKey);
-        f.getParentFile().mkdirs();
-        // Atomic replace: write the tmp file fully, then move it over — a crash
-        // mid-write leaves the previous file intact instead of a truncated one
-        File tmp = new File(f.getParentFile(), f.getName() + ".tmp");
-        try (Writer w = new OutputStreamWriter(new FileOutputStream(tmp), StandardCharsets.UTF_8)) {
-            for (ChatMessage msg : messages) {
-                String line = toLine(msg);
-                if (line == null) continue;
-                w.write(line);
-                w.write("\n");
+        SAVE_EXECUTOR.execute(() -> {
+            f.getParentFile().mkdirs();
+            // Atomic replace: write the tmp file fully, then move it over — a crash
+            // mid-write leaves the previous file intact instead of a truncated one
+            File tmp = new File(f.getParentFile(), f.getName() + ".tmp");
+            try (Writer w = new OutputStreamWriter(new FileOutputStream(tmp), StandardCharsets.UTF_8)) {
+                for (ChatMessage msg : snapshot) {
+                    String line = toLine(msg);
+                    if (line == null) continue;
+                    w.write(line);
+                    w.write("\n");
+                }
+                w.flush();
+            } catch (Exception e) {
+                E33Log.warn("[e33chat] Failed to read/write chat history", e);
+                return;
             }
-            w.flush();
-        } catch (Exception e) {
-            E33Log.warn("[e33chat] Failed to read/write chat history", e);
-            return;
-        }
-        try {
-            java.nio.file.Files.move(tmp.toPath(), f.toPath(),
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-                java.nio.file.StandardCopyOption.ATOMIC_MOVE);
-        } catch (Exception e) {
             try {
                 java.nio.file.Files.move(tmp.toPath(), f.toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            } catch (Exception e2) {
-                E33Log.warn("[e33chat] Failed to read/write chat history", e2);
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (Exception e) {
+                try {
+                    java.nio.file.Files.move(tmp.toPath(), f.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (Exception e2) {
+                    E33Log.warn("[e33chat] Failed to read/write chat history", e2);
+                }
             }
-        }
+        });
     }
 
     // Periodic autosave: a crash only loses messages newer than the last flush.

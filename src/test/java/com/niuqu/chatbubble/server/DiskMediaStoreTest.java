@@ -137,6 +137,26 @@ class DiskMediaStoreTest {
     }
 
     @Test
+    void cleanupExpiredThrottledSkipsWithinWindow() throws IOException {
+        Path dir = Files.createTempDirectory("e33throttle");
+        DiskMediaStore store = new DiskMediaStore(dir, DiskMediaStore.MAX_SINGLE_BYTES,
+            DiskMediaStore.QUOTA_BYTES, 1_000);
+        // First call: an expired file is swept
+        Path old = dir.resolve(DiskMediaStore.newMediaId());
+        Files.write(old, new byte[10]);
+        Files.setLastModifiedTime(old, FileTime.fromMillis(System.currentTimeMillis() - 5_000));
+        store.cleanupExpiredThrottled();
+        assertFalse(Files.exists(old));
+        // Second call inside the 6h window must skip the sweep entirely, so a
+        // freshly-expired file is left in place
+        Path old2 = dir.resolve(DiskMediaStore.newMediaId());
+        Files.write(old2, new byte[10]);
+        Files.setLastModifiedTime(old2, FileTime.fromMillis(System.currentTimeMillis() - 5_000));
+        store.cleanupExpiredThrottled();
+        assertTrue(Files.exists(old2));
+    }
+
+    @Test
     void urlValidationMatchesStore() {
         // isUsableUrl-style check for the e33chat protocol (logic lives in ImageLoader;
         // here we only pin the mediaId contract used by both sides)
