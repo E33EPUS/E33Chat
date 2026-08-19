@@ -8,7 +8,7 @@ import net.minecraft.client.gui.DrawContext;
 //$$ import net.minecraft.client.gui.DrawableHelper;
 //$$ import net.minecraft.client.util.math.MatrixStack;
 //#endif
-//#if MC >= 12106
+//#if MC >= 12111
 import net.minecraft.client.gui.ScreenRect;
 import org.joml.Matrix3x2f;
 //#endif
@@ -162,7 +162,7 @@ public final class RenderHelper {
     }
 
     public static void enableScissor(Object ctx, int x1, int y1, int x2, int y2) {
-        //#if MC >= 12106
+        //#if MC >= 12111
         // Track the screen-space scissor rect ourselves so deferred elements
         // (e.g. the SDF rounded-rect pipeline) can attach the same clip.
         ScreenRect rect = new ScreenRect(x1, y1, x2 - x1, y2 - y1)
@@ -185,7 +185,7 @@ public final class RenderHelper {
     }
 
     public static void disableScissor(Object ctx) {
-        //#if MC >= 12106
+        //#if MC >= 12111
         if (!SCISSOR_RECTS.isEmpty()) SCISSOR_RECTS.pop();
         //#endif
         //#if MC >= 12000
@@ -195,7 +195,7 @@ public final class RenderHelper {
         //#endif
     }
 
-    //#if MC >= 12106
+    //#if MC >= 12111
     private static final java.util.ArrayDeque<ScreenRect> SCISSOR_RECTS = new java.util.ArrayDeque<>();
 
     /** Current screen-space scissor rect (null when none), for deferred elements. */

@@ -5,7 +5,7 @@ import net.minecraft.client.gui.DrawContext;
 //#else
 //$$ import net.minecraft.client.util.math.MatrixStack;
 //#endif
-//#if MC >= 12106
+//#if MC >= 12111
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
@@ -19,7 +19,6 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.TextureSetup;
 import net.minecraft.util.Identifier;
 import org.joml.Matrix3x2f;
-import org.jspecify.annotations.Nullable;
 //#endif
 
 /**
@@ -63,7 +62,7 @@ public class RoundRectRenderer {
             RenderHelper.fill(g, x1, y1, x2, y2, argb);
             return;
         }
-        //#if MC >= 12106
+        //#if MC >= 12111
         // 1.21.11+: deferred GUI pipeline with a custom SDF shader — the GPU
         // computes coverage per physical pixel (fwidth AA), shader-quality
         // corners at any GUI scale. One quad per rounded rect.
@@ -73,7 +72,7 @@ public class RoundRectRenderer {
         //#endif
     }
 
-    //#if MC >= 12106
+    //#if MC >= 12111
     /**
      * SDF rounded-rect pipeline (1.21.11+): custom vertex/fragment shaders on
      * the deferred GUI render-state. Blending/depth match the vanilla GUI
@@ -110,11 +109,11 @@ public class RoundRectRenderer {
         int y2,
         float radius,
         int color,
-        @Nullable ScreenRect scissorArea,
-        @Nullable ScreenRect bounds
+        ScreenRect scissorArea,
+        ScreenRect bounds
     ) implements SimpleGuiElementRenderState {
         RoundRectGuiElementRenderState(RenderPipeline pipeline, Matrix3x2f pose, int x1, int y1, int x2, int y2,
-                                       float radius, int color, @Nullable ScreenRect scissorArea) {
+                                       float radius, int color, ScreenRect scissorArea) {
             this(pipeline, pose, x1, y1, x2, y2, radius, color, scissorArea,
                 createBounds(x1, y1, x2, y2, pose, scissorArea));
         }
@@ -143,8 +142,8 @@ public class RoundRectRenderer {
             return TextureSetup.empty();
         }
 
-        private static @Nullable ScreenRect createBounds(int x1, int y1, int x2, int y2, Matrix3x2f pose,
-                                                         @Nullable ScreenRect scissorArea) {
+        private static ScreenRect createBounds(int x1, int y1, int x2, int y2, Matrix3x2f pose,
+                                               ScreenRect scissorArea) {
             ScreenRect rect = new ScreenRect(x1, y1, x2 - x1, y2 - y1).transformEachVertex(pose);
             return scissorArea != null ? scissorArea.intersection(rect) : rect;
         }
