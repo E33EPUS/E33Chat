@@ -107,6 +107,8 @@
   "e33chat.search.match": "匹配",
   "e33chat.emoji.tab_emoji": "😊 Emoji",
   "e33chat.emoji.tab_kaomoji": "✧ 颜文字",
+  "e33chat.emoji.tab_custom": "表情包",
+  "e33chat.emoji.add_hint": "把图片拖进窗口即可添加到表情包",
   "e33chat.sender.system": "系统",
   "e33chat.notif.new_messages": "条新消息",
   "e33chat.notif.mention": "有人@你",

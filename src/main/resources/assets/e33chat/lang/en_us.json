@@ -107,6 +107,8 @@
   "e33chat.search.match": "Match",
   "e33chat.emoji.tab_emoji": "😊 Emoji",
   "e33chat.emoji.tab_kaomoji": "✧ Kaomoji",
+  "e33chat.emoji.tab_custom": "Emote Pack",
+  "e33chat.emoji.add_hint": "Drag an image onto the window to add it to your emote pack",
   "e33chat.sender.system": "System",
   "e33chat.notif.new_messages": " new messages",
   "e33chat.notif.mention": "You were mentioned",

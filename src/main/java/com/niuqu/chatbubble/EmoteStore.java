@@ -1,0 +1,151 @@
+package com.niuqu.chatbubble;
+
+import com.niuqu.chatbubble.image.RasterImageDecoder;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.client.texture.TextureManager;
+import net.minecraft.util.Identifier;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Local emote pack (2.4.0 sync): static images in &lt;runDir&gt;/e33chat/emotes/
+ * (png/jpg/jpeg/gif). Clicking one sends it through the normal image upload path;
+ * drag an image onto the window while the emote tab is open to import it.
+ */
+public final class EmoteStore {
+    public static final int EMOTE_MAX = 10;
+    private static final List<File> emotes = new ArrayList<>();
+    private static final Map<File, Identifier> textures = new HashMap<>();
+    private static int textureSeq;
+    private static boolean scanned;
+
+    private EmoteStore() {}
+
+    public static File dir() {
+        return FabricLoader.getInstance().getConfigDir().resolve("e33chat/emotes").toFile();
+    }
+
+    public static boolean isImageFile(File f) {
+        if (f == null) return false;
+        String n = f.getName().toLowerCase();
+        return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg")
+            || n.endsWith(".gif");
+    }
+
+    private static boolean isImage(File f) { return isImageFile(f); }
+
+    /** Re-scans the emote dir. Called when the panel opens and after edits. */
+    public static void refresh() {
+        scanned = true;
+        emotes.clear();
+        File d = dir();
+        File[] files = d.listFiles();
+        if (files != null) {
+            // Sort FIRST, then truncate — listFiles() order is unspecified,
+            // truncating unsorted would pick a random subset when over the cap.
+            for (File f : files) {
+                if (isImage(f)) emotes.add(f);
+            }
+            emotes.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+            while (emotes.size() > EMOTE_MAX) emotes.remove(emotes.size() - 1);
+        }
+        textures.keySet().removeIf(f -> !emotes.contains(f));
+    }
+
+    public static List<File> list() {
+        if (!scanned) refresh();
+        return emotes;
+    }
+
+    /** Copies the file into the emote dir. False when full or invalid. */
+    public static boolean add(File f) {
+        if (!isImage(f)) return false;
+        if (emotes.size() >= EMOTE_MAX) return false;
+        try {
+            File d = dir();
+            if (!d.isDirectory() && !d.mkdirs()) return false;
+            File dest = new File(d, f.getName());
+            Files.copy(f.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            refresh();
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    public static boolean remove(File f) {
+        if (f.delete()) {
+            refresh();
+            return true;
+        }
+        return false;
+    }
+
+    /** Saves pasted image bytes into the emote dir. False when full or IO fails. */
+    public static boolean addBytes(byte[] png, String name) {
+        if (png == null || png.length == 0) return false;
+        if (emotes.size() >= EMOTE_MAX) return false;
+        try {
+            File d = dir();
+            if (!d.isDirectory() && !d.mkdirs()) return false;
+            String safe = name.replaceAll("[^A-Za-z0-9._-]", "_");
+            if (!safe.endsWith(".png")) safe += ".png";
+            File dest = new File(d, safe);
+            Files.write(dest.toPath(), png);
+            refresh();
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    public static boolean isFull() {
+        return emotes.size() >= EMOTE_MAX;
+    }
+
+    /**
+     * Lazily loads the file into a registered texture; null when it fails.
+     * Decoding goes through RasterImageDecoder (PNG fast path + ImageIO
+     * fallback for jpg/gif).
+     */
+    public static Identifier texture(File f) {
+        Identifier id = textures.get(f);
+        if (id != null) return id;
+        try {
+            RasterImageDecoder.DecodedImage dec =
+                RasterImageDecoder.decode(Files.readAllBytes(f.toPath()));
+            if (dec == null) {
+                E33Log.warn("[e33chat] emote decode failed: {}", f.getName());
+                return null;
+            }
+            // Monotonic id: textures.size() reuses ids after removals, which
+            // makes re-registration return a stale texture for the new file.
+            Identifier tex;
+            //#if MC >= 11900
+            tex = Identifier.of("e33chat", "emote/" + (textureSeq++));
+            //#else
+            //$$ tex = new Identifier("e33chat", "emote/" + (textureSeq++));
+            //#endif
+            TextureManager tm = MinecraftClient.getInstance().getTextureManager();
+            //#if MC >= 12105
+            tm.registerTexture(tex, new NativeImageBackedTexture(() -> tex.toString(), dec.image()));
+            //#else
+            //$$ tm.registerTexture(tex, new NativeImageBackedTexture(dec.image()));
+            //#endif
+            textures.put(f, tex);
+            return tex;
+        } catch (IOException e) {
+            E33Log.warn("[e33chat] emote read failed: {}", f.getName());
+            return null;
+        }
+    }
+}

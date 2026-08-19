@@ -79,7 +79,7 @@ public record ChatBubbleConfig(
             "slide", "slide", "fade", "fade",
             true, true,
             null, null, null, null,
-            6, 20, true,
+            6, 20, false,
             100, false, 9
         );
     }

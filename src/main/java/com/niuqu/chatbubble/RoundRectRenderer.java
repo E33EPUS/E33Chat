@@ -83,11 +83,11 @@ public class RoundRectRenderer {
     /**
      * Draws one pixel row of a rounded corner with anti-aliased edges.
      *
-     * <p>Uses a signed-distance-field approach: for each pixel, computes the
-     * distance from the pixel center to the corner circle center, then maps
-     * it to a coverage value in [0, 1] with a 1-pixel-wide transition band.
-     * Fully-covered pixels are batched into horizontal runs for efficiency;
-     * only boundary pixels invoke individual fill calls with partial alpha.</p>
+     * <p>Coverage is computed by supersampling: each GUI pixel is divided into
+     * N×N sub-samples and the SDF coverage is averaged over them. The old
+     * single center-sample produced a visibly stepped 1px AA band at higher
+     * GUI scales; the averaged coverage gives a smooth alpha gradient that
+     * closely matches the GPU-shader look without any custom shader.</p>
      *
      * @param originX    corner region left edge (screen coordinate)
      * @param originY    top of this pixel row (screen coordinate)
@@ -102,37 +102,40 @@ public class RoundRectRenderer {
     private static void drawAaCornerRow(Object g, int originX, int originY, int ir,
                                         float pcy, float ccx, float ccy,
                                         float radius, int baseAlpha, int rgb) {
-        float dy = pcy - ccy;
-        float dy2 = dy * dy;
-        float r2 = radius * radius;
-        if (dy2 >= r2) return;                        // row center outside circle
+        // 4x4 supersampling: 16 sub-samples per GUI pixel (1+ per screen pixel at
+        // scales up to 4x). Cost is a handful of sqrt per boundary pixel — trivial
+        // compared to the per-frame draw calls they replace.
+        final int N = 4;
 
-        float dx = (float) Math.sqrt(r2 - dy2);
-        float edgeLeft  = ccx - dx;
-        float edgeRight = ccx + dx;
+        // Only scan rows whose [py, py+1] band can intersect the circle (±0.5 AA band)
+        float rowTop = pcy - 0.5f, rowBot = pcy + 0.5f;
+        float cyTop = ccy - (radius + 0.5f), cyBot = ccy + (radius + 0.5f);
+        if (rowBot < cyTop || rowTop > cyBot) return;
 
-        // Clip to corner region [0, ir]
-        float fillLeft  = Math.max(0, edgeLeft);
-        float fillRight = Math.min(ir, edgeRight);
-        if (fillRight <= fillLeft) return;
+        int pxStart = Math.max(0, (int) Math.floor(ccx - (radius + 0.5f)));
+        int pxEnd   = Math.min(ir, (int) Math.ceil(ccx + (radius + 0.5f)));
+        if (pxEnd <= pxStart) return;
 
-        int pxStart = Math.max(0, (int) Math.floor(fillLeft));
-        int pxEnd   = Math.min(ir, (int) Math.ceil(fillRight));
-
-        // Precompute squared thresholds to avoid sqrt for non-boundary pixels
-        float rInSq  = (radius - 0.5f) * (radius - 0.5f);
-        float rOutSq = (radius + 0.5f) * (radius + 0.5f);
         int fullColor = (baseAlpha << 24) | rgb;
-
         int runStart = -1;
         for (int px = pxStart; px < pxEnd; px++) {
-            float pcx = px + 0.5f;
-            float distSq = (pcx - ccx) * (pcx - ccx) + dy2;
-
-            if (distSq <= rInSq) {
+            float covSum = 0f;
+            for (int sy = 0; sy < N; sy++) {
+                float pyr = rowTop + (sy + 0.5f) / N;   // sub-sample y (corner-relative)
+                float dy = pyr - ccy;
+                float dy2 = dy * dy;
+                for (int sx = 0; sx < N; sx++) {
+                    float dx = (px + (sx + 0.5f) / N) - ccx;
+                    float d = (float) Math.sqrt(dx * dx + dy2);
+                    float cov = (radius + 0.5f) - d;
+                    covSum += cov < 0f ? 0f : (cov > 1f ? 1f : cov);
+                }
+            }
+            float avg = covSum / (N * N);
+            if (avg >= 1f) {
                 // Fully inside circle — extend or start a run
                 if (runStart < 0) runStart = px;
-            } else if (distSq >= rOutSq) {
+            } else if (avg <= 0f) {
                 // Fully outside circle — flush any pending run
                 if (runStart >= 0) {
                     RenderHelper.fill(g, originX + runStart, originY, originX + px, originY + 1, fullColor);
@@ -144,9 +147,7 @@ public class RoundRectRenderer {
                     RenderHelper.fill(g, originX + runStart, originY, originX + px, originY + 1, fullColor);
                     runStart = -1;
                 }
-                float dist = (float) Math.sqrt(distSq);
-                float cov = (radius + 0.5f) - dist;
-                int a = (int) (baseAlpha * cov);
+                int a = (int) (baseAlpha * avg);
                 RenderHelper.fill(g, originX + px, originY, originX + px + 1, originY + 1, (a << 24) | rgb);
             }
         }

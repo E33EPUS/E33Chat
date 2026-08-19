@@ -286,7 +286,7 @@ public class ChatBubbleConfigScreen extends Screen {
         blockedPlayers = new ArrayList<>(cfg.blockedPlayers());
         messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
         avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
-        hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null ? cfg.hideRepeatedAvatars() : true;
+        hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null ? cfg.hideRepeatedAvatars() : false;
         bannerOpacity = cfg.bannerOpacity() != null ? cfg.bannerOpacity() : 100;
         closeChatOnSend = cfg.closeChatOnSend();
         bubbleSize = cfg.bubbleSize() != null ? cfg.bubbleSize() : 9;

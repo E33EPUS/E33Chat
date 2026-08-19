@@ -4,6 +4,20 @@
 
 **v2.4.0 将官方 2.4.0 的 2.3.17 系列内容同步到大佬 1.21.11 fabric 移植版**（bubble_size / banner_opacity / close_chat_on_send / media_auto_clean / 历史存盘异步化 / 上键历史游标修复 / 引用块圆角跟随配置）
 
+**实机验收后的修复（v2.4.0-fix1）：**
+- **面板模糊失效（1.21.11）**：1.21.11 render-state 延迟渲染下，旧的 GL 中间帧 blit 抓不到内容 → 无模糊。改用 1.21.11 原生 `DrawContext.applyBlur()`（全屏模糊，面板与气泡清晰叠于其上）；1.21.1 及更早版本保持原区域模糊不变
+- **圆角锯齿**：CPU 扫描线 SDF 从单中心采样改为 **4×4 子采样平均覆盖率**，过渡带平滑度接近官方 shader（官方 shader 在 1.21.11 已移除相关 API，需从零实现，列为后续专项）
+- **单人连续消息只显首条头像**：`hide_repeated_avatars` 默认改为**关**（原默认开，与官方一致；这是官方 2.3.16 的功能，非移植版独有）
+- **发送的图片带气泡**：图片消息改为**无气泡**渲染（名字 + 头像 + 文字 + 图片直接排布，图片长边限幅、等比、不放大），与官方一致
+- **表情包 tab 缺失**：补上第三个 **Emote Pack（表情包）** tab——图片存 `runDir/e33chat/emotes/`（上限 10 张，png/jpg/gif），点击即上传发送、悬停 ✕ 删除、+ 号提示「拖图片进窗口添加」（拖拽导入复用现有拖拽钩子）
+
+**Fixes after hands-on testing (v2.4.0-fix1):**
+- **Panel blur broken on 1.21.11**: the deferred render-state pipeline can't be captured by the old mid-frame GL blit, so the blur did nothing. Switched to the native `DrawContext.applyBlur()` (full-screen blur; panel and bubbles stay crisp on top); 1.21.1 and older keep the region blit unchanged
+- **Rounded-corner jaggies**: the CPU scanline SDF now uses 4x4 supersampled coverage per pixel instead of a single center sample, giving a gradient close to the official shader look (the official shader API was removed in 1.21.11; a from-scratch RenderPass port is a separate follow-up)
+- **Only the first avatar shows in single-player consecutive messages**: `hide_repeated_avatars` now defaults to **off** (it defaulted on, matching official; the feature is official 2.3.16, not a port-only addition)
+- **Sent images render inside a bubble**: image-bearing messages are now bubble-less (name + avatar + text + stacked images, long-edge clamped, aspect preserved, never upscaled), matching official
+- **Missing emote-pack tab**: added the third **Emote Pack** tab — images live in `runDir/e33chat/emotes/` (max 10, png/jpg/gif), click to upload+send, hover ✕ to delete, the + slot shows a "drag an image onto the window to add" hint (drag-import reuses the existing drop hook)
+
 **同步的新功能：**
 - **bubble_size（客户端，5–14 px 默认 9）**：气泡内文字的目标高度（像素）。气泡框 / 引用块 / xN 角标等比缩放，文字经矩阵缩放渲染，坐标与点击区域数值预乘、命中判定无需逆矩阵（适配 1.21.11 render-state 管线，走 `RenderHelper` 门面）；名字行与头像保持原大小；默认 9px = 1.0 缩放，行为与旧版一致
 - **banner_opacity（客户端，0–100 默认 100）**：通知横幅背景不透明度可调——只淡阴影 + 底色，文本与头像保持动画 alpha 清晰可读
