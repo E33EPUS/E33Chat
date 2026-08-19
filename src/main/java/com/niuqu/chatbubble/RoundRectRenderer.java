@@ -47,113 +47,100 @@ public class RoundRectRenderer {
         scanLineFill(g, x1, y1, x2, y2, radius, argb);
     }
 
+    /**
+     * Half-width of the SDF coverage band, in GUI px. A wider band spreads the
+     * alpha transition over several pixels, masking the GUI-pixel staircase that
+     * shows at higher GUI scales (the GPU shader samples per screen pixel; the
+     * CPU can only step per GUI pixel, so a wider band is the close equivalent).
+     */
+    private static final float BAND = 0.75f;
+
+    /**
+     * Supersampling factor per axis: each GUI pixel is split into N×N sub-samples
+     * and the SDF coverage is averaged over them for a smooth alpha gradient.
+     */
+    private static final int N = 4;
+
     private static void scanLineFill(Object g, int x1, int y1, int x2, int y2, float radius, int argb) {
         if (radius < 1) {
             RenderHelper.fill(g, x1, y1, x2, y2, argb);
             return;
         }
 
-        int ir = (int) Math.ceil(radius);
+        int w = x2 - x1;
+        int h = y2 - y1;
+        int cr = (int) Math.ceil(radius + BAND);
         int baseAlpha = (argb >>> 24) & 0xFF;
         int rgb = argb & 0x00FFFFFF;
+        int fullColor = (baseAlpha << 24) | rgb;
 
-        // Solid rectangular regions (no corner rounding needed)
-        RenderHelper.fill(g, x1, y1 + ir, x2, y2 - ir, argb);
-        RenderHelper.fill(g, x1 + ir, y1, x2 - ir, y1 + ir, argb);
-        RenderHelper.fill(g, x1 + ir, y2 - ir, x2 - ir, y2, argb);
-
-        // Anti-aliased corners via per-pixel SDF coverage
-        // Circle center relative to each corner's origin:
-        //   left corners: ccx = radius;  right corners: ccx = ir - radius
-        //   top  corners: ccy = radius;  bottom corners: ccy = ir - radius
-        float ccxL = radius;
-        float ccxR = ir - radius;
-        float ccyT = radius;
-        float ccyB = ir - radius;
-
-        for (int py = 0; py < ir; py++) {
-            float pcy = py + 0.5f;
-            drawAaCornerRow(g, x1,       y1 + py,         ir, pcy, ccxL, ccyT, radius, baseAlpha, rgb);
-            drawAaCornerRow(g, x2 - ir,  y1 + py,         ir, pcy, ccxR, ccyT, radius, baseAlpha, rgb);
-            drawAaCornerRow(g, x1,       y2 - ir + py,    ir, pcy, ccxL, ccyB, radius, baseAlpha, rgb);
-            drawAaCornerRow(g, x2 - ir,  y2 - ir + py,    ir, pcy, ccxR, ccyB, radius, baseAlpha, rgb);
+        // Per-row scanline: every row is drawn as one set of contiguous runs, so
+        // the old "3 solid rects + 4 corner grids" structure's internal horizontal
+        // seams (which showed as thin lines on the deferred 1.21.11 renderer) are
+        // impossible by construction. Corner coverage is supersampled per pixel.
+        for (int py = 0; py < h; py++) {
+            int rowY = y1 + py;
+            if (py >= cr && py < h - cr) {
+                // Straight middle rows: one full run.
+                RenderHelper.fill(g, x1, rowY, x2, rowY + 1, fullColor);
+                continue;
+            }
+            int runStart = -1;
+            for (int px = 0; px < w; px++) {
+                float cov = pixelCoverage(px, py, w, h, radius, cr);
+                if (cov >= 1f) {
+                    // Fully inside — extend or start a run
+                    if (runStart < 0) runStart = px;
+                } else if (cov <= 0f) {
+                    // Fully outside — flush any pending run
+                    if (runStart >= 0) {
+                        RenderHelper.fill(g, x1 + runStart, rowY, x1 + px, rowY + 1, fullColor);
+                        runStart = -1;
+                    }
+                } else {
+                    // Anti-aliasing band — partial coverage
+                    if (runStart >= 0) {
+                        RenderHelper.fill(g, x1 + runStart, rowY, x1 + px, rowY + 1, fullColor);
+                        runStart = -1;
+                    }
+                    int a = (int) (baseAlpha * cov);
+                    RenderHelper.fill(g, x1 + px, rowY, x1 + px + 1, rowY + 1, (a << 24) | rgb);
+                }
+            }
+            // Flush remaining full-coverage run
+            if (runStart >= 0) {
+                RenderHelper.fill(g, x1 + runStart, rowY, x1 + w, rowY + 1, fullColor);
+            }
         }
     }
 
     /**
-     * Draws one pixel row of a rounded corner with anti-aliased edges.
-     *
-     * <p>Coverage is computed by supersampling: each GUI pixel is divided into
-     * N×N sub-samples and the SDF coverage is averaged over them. The old
-     * single center-sample produced a visibly stepped 1px AA band at higher
-     * GUI scales; the averaged coverage gives a smooth alpha gradient that
-     * closely matches the GPU-shader look without any custom shader.</p>
-     *
-     * @param originX    corner region left edge (screen coordinate)
-     * @param originY    top of this pixel row (screen coordinate)
-     * @param ir         corner region width in pixels
-     * @param pcy        pixel center y relative to corner origin
-     * @param ccx        circle center x relative to corner origin
-     * @param ccy        circle center y relative to corner origin
-     * @param radius     corner radius
-     * @param baseAlpha  base alpha (0-255)
-     * @param rgb        RGB color bits (without alpha)
+     * Rounded-rect SDF coverage for one GUI pixel, averaged over N×N sub-samples.
+     * Pixels outside the four corner squares are fully inside (the straight
+     * edges). The circle center is picked by the pixel's half-plane so narrow
+     * rects whose corner regions overlap still get the correct nearest-arc value.
      */
-    private static void drawAaCornerRow(Object g, int originX, int originY, int ir,
-                                        float pcy, float ccx, float ccy,
-                                        float radius, int baseAlpha, int rgb) {
-        // 4x4 supersampling: 16 sub-samples per GUI pixel (1+ per screen pixel at
-        // scales up to 4x). Cost is a handful of sqrt per boundary pixel — trivial
-        // compared to the per-frame draw calls they replace.
-        final int N = 4;
-
-        // Only scan rows whose [py, py+1] band can intersect the circle (±0.5 AA band)
-        float rowTop = pcy - 0.5f, rowBot = pcy + 0.5f;
-        float cyTop = ccy - (radius + 0.5f), cyBot = ccy + (radius + 0.5f);
-        if (rowBot < cyTop || rowTop > cyBot) return;
-
-        int pxStart = Math.max(0, (int) Math.floor(ccx - (radius + 0.5f)));
-        int pxEnd   = Math.min(ir, (int) Math.ceil(ccx + (radius + 0.5f)));
-        if (pxEnd <= pxStart) return;
-
-        int fullColor = (baseAlpha << 24) | rgb;
-        int runStart = -1;
-        for (int px = pxStart; px < pxEnd; px++) {
-            float covSum = 0f;
-            for (int sy = 0; sy < N; sy++) {
-                float pyr = rowTop + (sy + 0.5f) / N;   // sub-sample y (corner-relative)
-                float dy = pyr - ccy;
-                float dy2 = dy * dy;
-                for (int sx = 0; sx < N; sx++) {
-                    float dx = (px + (sx + 0.5f) / N) - ccx;
-                    float d = (float) Math.sqrt(dx * dx + dy2);
-                    float cov = (radius + 0.5f) - d;
-                    covSum += cov < 0f ? 0f : (cov > 1f ? 1f : cov);
-                }
-            }
-            float avg = covSum / (N * N);
-            if (avg >= 1f) {
-                // Fully inside circle — extend or start a run
-                if (runStart < 0) runStart = px;
-            } else if (avg <= 0f) {
-                // Fully outside circle — flush any pending run
-                if (runStart >= 0) {
-                    RenderHelper.fill(g, originX + runStart, originY, originX + px, originY + 1, fullColor);
-                    runStart = -1;
-                }
-            } else {
-                // Anti-aliasing band — partial coverage
-                if (runStart >= 0) {
-                    RenderHelper.fill(g, originX + runStart, originY, originX + px, originY + 1, fullColor);
-                    runStart = -1;
-                }
-                int a = (int) (baseAlpha * avg);
-                RenderHelper.fill(g, originX + px, originY, originX + px + 1, originY + 1, (a << 24) | rgb);
+    private static float pixelCoverage(int px, int py, int w, int h, float radius, int cr) {
+        boolean nearLeft = px < cr;
+        boolean nearRight = px >= w - cr;
+        boolean nearTop = py < cr;
+        boolean nearBottom = py >= h - cr;
+        if (!((nearLeft || nearRight) && (nearTop || nearBottom))) return 1f;
+        float cx = (px < w / 2f) ? radius : w - radius;
+        float cy = (py < h / 2f) ? radius : h - radius;
+        float covSum = 0f;
+        for (int sy = 0; sy < N; sy++) {
+            float pyy = py + (sy + 0.5f) / N;
+            float dy = pyy - cy;
+            float dy2 = dy * dy;
+            for (int sx = 0; sx < N; sx++) {
+                float pxx = px + (sx + 0.5f) / N;
+                float dx = pxx - cx;
+                float d = (float) Math.sqrt(dx * dx + dy2);
+                float cov = (radius + BAND - d) / (2 * BAND);
+                covSum += cov < 0f ? 0f : (cov > 1f ? 1f : cov);
             }
         }
-        // Flush remaining full-coverage run
-        if (runStart >= 0) {
-            RenderHelper.fill(g, originX + runStart, originY, originX + pxEnd, originY + 1, fullColor);
-        }
+        return covSum / (N * N);
     }
 }

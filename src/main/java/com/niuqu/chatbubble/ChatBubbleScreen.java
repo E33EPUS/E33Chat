@@ -84,6 +84,9 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int NAME_H = 10;
     private static final int TIME_SEP_H = 14;
     static final int BAR_H = 26;
+    // QQ-style emote pack size cap (2.4.0 sync): E33Emote-only messages render at
+    // up to this many px, bubble-less.
+    private static final int EMOTE_MAX_SIZE = 32;
     private static final int SIDEBAR_W = 90;
     private static final int SIDEBAR_ITEM_H = 22;
     private static final int SIDEBAR_ICON_S = 20;
@@ -1068,7 +1071,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (emojiText != null && !emojiText.isEmpty()) {
                     if (emojiText.startsWith("@EMOTE:")) {
                         java.io.File f = new java.io.File(emojiText.substring(7));
-                        if (f.isFile()) upload(f);
+                        if (f.isFile()) uploadEmote(f);
                     } else if (emojiText.startsWith("@EMOTE_DEL:")) {
                         java.io.File f = new java.io.File(emojiText.substring(11));
                         if (f.isFile()) EmoteStore.remove(f);
@@ -1369,6 +1372,16 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void upload(java.io.File f) {
+        upload(f, false);
+    }
+
+    /** Emote-pack send: uploads and inserts [[E33Emote,...]] so it renders at the
+     * small emote size instead of a full-size chat image. */
+    private void uploadEmote(java.io.File f) {
+        upload(f, true);
+    }
+
+    private void upload(java.io.File f, boolean emote) {
         uploading = true;
         uploadBusyTicks = 60;
         ImageLoader.executor().execute(() -> {
@@ -1378,7 +1391,7 @@ public class ChatBubbleScreen extends ChatScreen {
                     client.execute(() -> { uploading = false; uploadBusyTicks = 0; uploadToastTicks = 60; });
                     return;
                 }
-                finishUpload(prep, f.getName());
+                finishUpload(prep, f.getName(), emote);
             } catch (Throwable t) {
                 E33Log.warn("[e33chat] file upload worker crashed", t);
                 client.execute(() -> { uploading = false; uploadBusyTicks = 0; uploadToastTicks = 60; });
@@ -1387,6 +1400,10 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void finishUpload(LocalImageSource.PreparedImage prep, String srcName) {
+        finishUpload(prep, srcName, false);
+    }
+
+    private void finishUpload(LocalImageSource.PreparedImage prep, String srcName, boolean emote) {
         com.niuqu.chatbubble.config.ChatBubbleConfig cfg = ChatBubbleClientSetup.config();
         String serverUrl = com.niuqu.chatbubble.image.MediaClient.serverEnabled()
             ? com.niuqu.chatbubble.image.MediaClient.upload(prep.bytes(), "image/png")
@@ -1404,7 +1421,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 uploadToastTicks = 60;
                 return;
             }
-            String code = "[[CICode,url=" + url + "]]";
+            String code = emote ? "[[E33Emote,url=" + url + "]]" : "[[CICode,url=" + url + "]]";
             String cur = chatField.getText();
             if (cur.contains("[[CICode,url=file://")) {
                 // Replace the local file:// CICode (chatimage drag/paste) with
@@ -2074,7 +2091,12 @@ public class ChatBubbleScreen extends ChatScreen {
         } else {
             int bubbleMaxW = panelW - avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
             BracketCodec.ParseResult parsed = parseImages(msg);
-            if (!parsed.images().isEmpty()) {
+            if (!parsed.images().isEmpty()
+                    && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
+                    && parsed.textWithoutImages().getString().isBlank()) {
+                // Pure emote message: name row + small emote, no bubble padding
+                h = NAME_H + textRenderer.fontHeight + 2 + EMOTE_MAX_SIZE + 2;
+            } else if (!parsed.images().isEmpty()) {
                 // 2.4.0 sync: image messages are bubble-less — no bubble padding
                 List<OrderedText> imgLines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
                 int textH = imgLines.size() * textRenderer.fontHeight;
@@ -2139,6 +2161,14 @@ public class ChatBubbleScreen extends ChatScreen {
         boolean own = msg.isOwn();
         int bubbleMaxW = panelW - avatarSize() - PAD * 2 - BUBBLE_PAD_X * 2 - 16;
         BracketCodec.ParseResult parsed = parseImages(msg);
+        // 2.4.0 sync: pure emote-pack sends (E33Emote) render at the small emote
+        // size, bubble-less (QQ style).
+        if (!parsed.images().isEmpty()
+                && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
+                && parsed.textWithoutImages().getString().isBlank()) {
+            renderEmoteMessage(g, msg, index, baseY, own, alpha, parsed, showAvatar);
+            return;
+        }
         // 2.4.0 sync: image-bearing messages render bubble-less — just the name,
         // avatar, text and stacked images, no bubble background (official behaviour).
         if (!parsed.images().isEmpty()) {
@@ -2397,6 +2427,77 @@ public class ChatBubbleScreen extends ChatScreen {
         // Hit-test region for avatar clicks / context menus: the message span
         bubbleRects.add(new int[]{own ? avatarX - 8 - maxTextW : avatarX + avatarSize() + 4,
             baseY, Math.max(maxTextW, maxImgW), y - baseY, index});
+    }
+
+    /** QQ-style emote (2.4.0 sync): pure E33Emote messages render bubble-less at
+     * the small emote size (max 32px), aligned by direction. */
+    private void renderEmoteMessage(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY,
+            boolean own, float alpha, BracketCodec.ParseResult parsed, boolean showAvatar) {
+        if (parsed.images().isEmpty()) return;
+        BracketCodec.ImageRef ref = parsed.images().get(0);
+
+        int avatarX = own ? panelX + panelW - PAD - avatarSize() : panelX + PAD;
+        int nameY = baseY;
+
+        if (!msg.senderName().getString().isEmpty()) {
+            int maxNameW = panelW - avatarSize() - PAD * 2 - 20;
+            Text sn = msg.senderName();
+            OrderedText nameSeq;
+            if (textRenderer.getWidth(sn) > maxNameW) {
+                //#if MC >= 26000
+                //$$ var cut = textRenderer.substrByWidth(sn, maxNameW - textRenderer.getWidth("..."));
+                //#else
+                var cut = textRenderer.trimToWidth(sn, maxNameW - textRenderer.getWidth("..."));
+                //#endif
+                nameSeq = Language.getInstance().reorder(
+                    StringVisitable.concat(cut, StringVisitable.plain("...")));
+            } else {
+                nameSeq = sn.asOrderedText();
+            }
+            int nameW = textRenderer.getWidth(nameSeq);
+            int startX = own ? (avatarX - 4 - nameW) : (avatarX + avatarSize() + 4);
+            g.drawText(textRenderer, nameSeq, startX, nameY,
+                ChatBubbleTheme.alphaBlend(c().nameColor(), (int)(255 * alpha)), false);
+        }
+
+        String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
+            ? msg.rawPlayerName() : msg.senderName().getString();
+        Identifier skin = getSkin(msg.senderUUID(), skinName);
+        if (showAvatar) drawPlayerHead(g, skin, avatarX, baseY, avatarSize(), avatarSize() + 2, alpha);
+
+        int emoteY = baseY + NAME_H + 2;
+        int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - avatarSize() - PAD * 2 - 16));
+        int w = maxE, h = maxE;
+        ImageEntry entry = ImageLoader.getOrLoad(ref.url());
+        if (entry != null && entry.state() == ImageEntry.State.LOADED
+                && entry.width() > 0 && entry.height() > 0) {
+            float ratio = Math.min((float) maxE / entry.width(), (float) maxE / entry.height());
+            ratio = Math.min(1f, ratio); // never upscale
+            w = Math.max(1, (int) (entry.width() * ratio));
+            h = Math.max(1, (int) (entry.height() * ratio));
+        }
+        int emoteX = own ? (avatarX - 4 - w) : (avatarX + avatarSize() + 4);
+        if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
+            //#if MC >= 12106
+            g.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, entry.textureId(), emoteX, emoteY, 0.0F, 0.0F, w, h, entry.width(), entry.height(), entry.width(), entry.height());
+            //#else
+            //#if MC >= 12102
+            //$$ g.drawTexture(id -> net.minecraft.client.render.RenderLayer.getGuiTextured(id), entry.textureId(), emoteX, emoteY, 0, 0, w, h, entry.width(), entry.height(), entry.width(), entry.height());
+            //#else
+            //$$ g.drawTexture(entry.textureId(), emoteX, emoteY, w, h, 0, 0, entry.width(), entry.height(), entry.width(), entry.height());
+            //#endif
+            //#endif
+        } else {
+            boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
+                && entry.failure() != null && entry.failure().contains("rate limited");
+            String txt = limited
+                ? Text.translatable("e33chat.image.ratelimited").getString()
+                : entry != null && entry.state() == ImageEntry.State.FAILED
+                    ? Text.translatable("e33chat.image.failed").getString()
+                    : Text.translatable("e33chat.image.loading").getString();
+            g.drawText(textRenderer, txt, emoteX, emoteY,
+                ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c().textSecondary(), (int)(255 * alpha)), false);
+        }
     }
 
     private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color) {

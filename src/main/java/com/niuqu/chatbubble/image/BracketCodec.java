@@ -23,11 +23,14 @@ import net.minecraft.text.Text;
  * text carrying a show_chatimage hover event) before 2.3.10.
  */
 public final class BracketCodec {
-    /** [tag,attrs] — attribute values may be URL-encoded, commas are not quoted. */
+    /** [tag,attrs] — attribute values may be URL-encoded, commas are not quoted.
+     * E33Emote is e33chat's own bubble-less emote code (emote-pack sends). */
     private static final Pattern BRACKET = Pattern.compile(
-        "\\[\\[(ChatUpgrade|CICode),([^\\]]+)\\]\\]", Pattern.CASE_INSENSITIVE);
+        "\\[\\[(ChatUpgrade|CICode|E33Emote),([^\\]]+)\\]\\]", Pattern.CASE_INSENSITIVE);
 
-    public record ImageRef(String url, String name) {}
+    public record ImageRef(String url, String name, boolean emote) {
+        public ImageRef(String url, String name) { this(url, name, false); }
+    }
 
     public record ParseResult(Text textWithoutImages, List<ImageRef> images) {}
 
@@ -151,7 +154,9 @@ public final class BracketCodec {
         // Only images are rendered as cards; audio/video refs stay stripped
         // (their text is dropped so the raw bracket never shows).
         if (type != null && !type.equalsIgnoreCase("image")) return null;
-        return new ImageRef(url, name);
+        // E33Emote is e33chat's own bubble-less emote code; older e33chat
+        // versions used the same code as CICode for everything.
+        return new ImageRef(url, name, tag.equalsIgnoreCase("E33Emote"));
     }
 
     /**
