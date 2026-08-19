@@ -2511,7 +2511,6 @@ public class ChatBubbleScreen extends ChatScreen {
         final int beforeCount = clickableSpans.size();
         int runStart = -1;
         Style runStyle = null;
-        List<int[]> clickableCharRanges = new ArrayList<>();
         for (int idx = 0; idx <= styles.size(); idx++) {
             Style st = idx < styles.size() ? styles.get(idx) : null;
             boolean clickable = st != null && (st.getClickEvent() != null || st.getHoverEvent() != null);
@@ -2521,7 +2520,6 @@ public class ChatBubbleScreen extends ChatScreen {
                 int x0 = prefixWidth(line, runStart);
                 int x1 = prefixWidth(line, idx);
                 clickableSpans.add(new ClickableSpan(x + x0, y, x1 - x0, textRenderer.fontHeight, runStyle));
-                clickableCharRanges.add(new int[]{runStart, idx});
                 runStart = clickable ? idx : -1;
                 runStyle = clickable ? st : null;
             }
@@ -2531,7 +2529,6 @@ public class ChatBubbleScreen extends ChatScreen {
             if (clickableSpans.size() == beforeCount) {
                 clickableSpans.add(new ClickableSpan(x, y, textRenderer.getWidth(line), textRenderer.fontHeight,
                     fallback.withUnderline(true)));
-                clickableCharRanges.add(new int[]{0, styles.size()});
             } else {
                 for (int i = beforeCount; i < clickableSpans.size(); i++) {
                     ClickableSpan s = clickableSpans.get(i);
@@ -2543,21 +2540,18 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
-        int styleLen = styles.size();
-        boolean[] hasClickEvent = new boolean[styleLen];
-        for (int ri = 0; ri < clickableCharRanges.size(); ri++) {
-            int spanIdx = beforeCount + ri;
-            if (spanIdx < clickableSpans.size()
-                && clickableSpans.get(spanIdx).style.getClickEvent() != null) {
-                int[] r = clickableCharRanges.get(ri);
-                for (int i = r[0]; i < r[1]; i++) hasClickEvent[i] = true;
+        // Draw the line plain and add a CONTINUOUS underline per clickable span.
+        // The vanilla per-glyph underline rectangles rasterize with gaps on the
+        // deferred 1.21.11 renderer (and the styled-rebuild variant could apply
+        // underlines to the wrong runs); one fill quad per span is seamless.
+        g.drawText(textRenderer, line, x, y, color, false);
+        int underlineY = y + textRenderer.fontHeight - 1;
+        for (int i = beforeCount; i < clickableSpans.size(); i++) {
+            ClickableSpan s = clickableSpans.get(i);
+            if (s.style.getClickEvent() != null && s.w > 0) {
+                RenderHelper.fill(g, s.x, underlineY, s.x + s.w, underlineY + 1, color);
             }
         }
-
-        OrderedText decorated = sink -> line.accept((i, st, cp) ->
-            sink.accept(i, (i < styleLen ? hasClickEvent[i] : st.getClickEvent() != null)
-                && !st.isUnderlined() ? st.withUnderline(true) : st, cp));
-        g.drawText(textRenderer, decorated, x, y, color, false);
     }
 
     private int prefixWidth(OrderedText line, int count) {
