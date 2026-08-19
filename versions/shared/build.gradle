@@ -203,6 +203,44 @@ abstract class PreprocessTask extends DefaultTask {
                             processed = processed.replaceAll("BufferRenderer\\.draw\\(buffer\\);", "// handled by Tessellator.draw()")
                         }
                         outLines.add(processed)
+
+                    }
+                }
+                // 26.x: 注入额外 import（类移动到了不同的包）
+                if (targetMcVersion >= 26000) {
+                    def pkgIdx = -1
+                    for (int i = 0; i < outLines.size(); i++) {
+                        if (outLines[i].startsWith("package ")) { pkgIdx = i; break }
+                    }
+                    if (pkgIdx >= 0) {
+                        def content = outLines.join("\n")
+                        def toAdd = []
+                        if (content.contains("FormattedCharSequence") &&
+                            !outLines.any { it.trim() == "import net.minecraft.util.FormattedCharSequence;" })
+                            toAdd.add("import net.minecraft.util.FormattedCharSequence;")
+                        if (content.contains("TranslatableContents") &&
+                            !outLines.any { it.trim() == "import net.minecraft.network.chat.contents.TranslatableContents;" })
+                            toAdd.add("import net.minecraft.network.chat.contents.TranslatableContents;")
+                        if (toAdd) outLines.addAll(pkgIdx + 1, toAdd)
+                    }
+                }
+                // Pre-1.19: 注入 LiteralText/TranslatableText import
+                if (targetMcVersion < 11900 && targetMcVersion < 26000) {
+                    def pkgIdx = -1
+                    for (int i = 0; i < outLines.size(); i++) {
+                        if (outLines[i].startsWith("package ")) { pkgIdx = i; break }
+                    }
+                    if (pkgIdx >= 0) {
+                        def content = outLines.join("\n")
+                        def toAdd = []
+                        if (content.contains("LiteralText") &&
+                            !outLines.any { it.trim() == "import net.minecraft.text.LiteralText;" })
+                            toAdd.add("import net.minecraft.text.LiteralText;")
+                        if (content.contains("TranslatableText") && !content.contains("TranslatableTextContent") &&
+                            !outLines.any { it.trim() == "import net.minecraft.text.TranslatableText;" })
+                            toAdd.add("import net.minecraft.text.TranslatableText;")
+                        if (toAdd) outLines.addAll(pkgIdx + 1, toAdd)
+
                     }
                 }
                 // 26.x: 注入额外 import（类移动到了不同的包）
