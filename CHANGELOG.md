@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.4.1
 
 **ModernUI emoji 短码支持（三端同步：Fabric / Forge / NeoForge）**
 - 聊天输入框里输入 `:pig2:` 等 ModernUI 短码时，现在会随输入实时转换为对应 emoji（仅当 ModernUI 已安装且其 emoji shortcodes 选项开启时；命令输入不转换）
