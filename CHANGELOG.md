@@ -10,6 +10,14 @@
 - Typing ModernUI shortcodes such as `:pig2:` in the chat input now converts them to the matching emoji as you type (only when ModernUI is installed and its emoji shortcodes option is enabled; commands are left untouched)
 - Added pig face / pig `🐷` `🐖` to the default emoji panel
 
+**点击文本下划线修复（三端同步：Fabric / Forge / NeoForge）**
+- 只有实际带 clickEvent 的文本才会补下划线，不再因消息里其他段落的点击事件把整行/无关行都划线
+- 修正多样式段下划线映射用错 `i` 下标导致的断线/错位
+
+**Clickable text underline fix (all loaders: Fabric / Forge / NeoForge)**
+- Only text that actually has a click event is underlined; unrelated sibling click events no longer underline whole lines or unrelated segments
+- Fixed the broken/offset underline mapping that used the segment-local `i` index against the global style list
+
 ## v2.4.0
 
 **v2.4.0 为 2.3.17 全量内容的正式版本号**（2.3.17 曾以四次重发迭代：fix1-fix3、历史存盘异步化、bubble_size、banner_opacity 修正）

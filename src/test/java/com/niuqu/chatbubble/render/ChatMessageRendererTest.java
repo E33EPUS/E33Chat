@@ -91,54 +91,72 @@ class ChatMessageRendererTest {
         assertEquals("2025-12-31 15:30", ChatMessageRenderer.formatTime(old));
     }
 
-    // ---- findClickStyle ----
+    // ---- findRootClickStyle (parent-level fallback only) ----
 
     @Test
-    void findClickStyle_nullOnPlainText() {
-        assertNull(ChatMessageRenderer.findClickStyle(Component.literal("hello")));
+    void findRootClickStyle_nullOnPlainText() {
+        assertNull(ChatMessageRenderer.findRootClickStyle(Component.literal("hello")));
     }
 
     @Test
-    void findClickStyle_findsTopLevel() {
+    void findRootClickStyle_findsTopLevel() {
         var c = Component.literal("click me")
             .withStyle(Style.EMPTY.withClickEvent(
                 new ClickEvent(ClickEvent.Action.OPEN_URL, "https://example.com")));
-        var found = ChatMessageRenderer.findClickStyle(c);
+        var found = ChatMessageRenderer.findRootClickStyle(c);
         assertNotNull(found);
         assertEquals("https://example.com", found.getClickEvent().getValue());
     }
 
     @Test
-    void findClickStyle_findsInSibling() {
+    void findRootClickStyle_findsRootOnParentWithSiblings() {
+        var click = Style.EMPTY.withClickEvent(
+            new ClickEvent(ClickEvent.Action.OPEN_URL, "https://example.com"));
+        var c = Component.literal("A").withStyle(click).append(Component.literal("B"));
+        var found = ChatMessageRenderer.findRootClickStyle(c);
+        assertNotNull(found);
+        assertEquals("https://example.com", found.getClickEvent().getValue());
+    }
+
+    @Test
+    void findRootClickStyle_nullOnSiblingOnlyClick() {
         var styled = Component.literal("link")
             .withStyle(Style.EMPTY.withClickEvent(
                 new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/help")));
         var c = Component.empty().append(Component.literal("prefix ")).append(styled);
-        var found = ChatMessageRenderer.findClickStyle(c);
-        assertNotNull(found);
-        assertEquals("/help", found.getClickEvent().getValue());
+        assertNull(ChatMessageRenderer.findRootClickStyle(c));
     }
 
     @Test
-    void findClickStyle_nullOnHoverOnly() {
+    void parentClickStyleIsInheritedBySiblings() {
+        var click = Style.EMPTY.withClickEvent(
+            new ClickEvent(ClickEvent.Action.OPEN_URL, "https://example.com"));
+        var c = Component.literal("A").withStyle(click).append(Component.literal("B"));
+        java.util.List<Style> seen = new java.util.ArrayList<>();
+        c.visit((style, text) -> { seen.add(style); return java.util.Optional.empty(); }, Style.EMPTY);
+        assertEquals(2, seen.size(), "A and B should be visited as separate segments");
+        assertTrue(seen.get(0).getClickEvent() != null, "parent style must reach first sibling");
+        assertTrue(seen.get(1).getClickEvent() != null, "parent style must reach later siblings");
+    }
+
+    @Test
+    void findRootClickStyle_nullOnHoverOnly() {
         var c = Component.literal("hover")
             .withStyle(Style.EMPTY.withHoverEvent(
                 new net.minecraft.network.chat.HoverEvent(
                     net.minecraft.network.chat.HoverEvent.Action.SHOW_TEXT,
                     Component.literal("tooltip"))));
-        assertNull(ChatMessageRenderer.findClickStyle(c));
+        assertNull(ChatMessageRenderer.findRootClickStyle(c));
     }
 
     @Test
-    void findClickStyle_nestedSiblings() {
+    void findRootClickStyle_nullOnNestedSiblingClick() {
         var link = Component.literal("deep")
             .withStyle(Style.EMPTY.withClickEvent(
                 new ClickEvent(ClickEvent.Action.OPEN_FILE, "/tmp/test")));
         var group = Component.empty().append(Component.literal("a")).append(link);
         var outer = Component.empty().append(Component.literal("p: ")).append(group);
-        var found = ChatMessageRenderer.findClickStyle(outer);
-        assertNotNull(found);
-        assertEquals(ClickEvent.Action.OPEN_FILE, found.getClickEvent().getAction());
+        assertNull(ChatMessageRenderer.findRootClickStyle(outer));
     }
 
     // ---- D07: message grouping (in-group vs section spacing) ----
