@@ -190,7 +190,7 @@ public final class ChatMessageRenderer {
             int fg = own
                 ? ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_TEXT_COLOR.get(), 0xFFFFFFFF)
                 : ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OTHER_TEXT_COLOR.get(), c.textPrimary());
-            Style fb = findClickStyle(msg.content());
+            Style fb = findRootClickStyle(msg.content());
             int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
             for (int li = 0; li < lines.size(); li++)
                 renderLineWithClicks(g, font, lines.get(li), textX, y + li * font.lineHeight, fgA, fb, clickableSpans);
@@ -332,14 +332,14 @@ public final class ChatMessageRenderer {
         return dt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
-    public static Style findClickStyle(Component c) {
+    public static Style findRootClickStyle(Component c) {
+        // Only a click event on the root/wrapper style is a true "parent-level"
+        // fallback. A click event buried in one sibling must NOT underline or
+        // make clickable unrelated lines/segments; per-character styles already
+        // carry inherited parent styles, so the recursive search is unnecessary
+        // and caused whole-line underlines on system messages.
         Style s = c.getStyle();
-        if (s != null && s.getClickEvent() != null) return s;
-        for (Component child : c.getSiblings()) {
-            s = findClickStyle(child);
-            if (s != null) return s;
-        }
-        return null;
+        return s != null && s.getClickEvent() != null ? s : null;
     }
 
     public static int prefixWidth(FormattedCharSequence line, int count, Font font) {
@@ -432,8 +432,9 @@ public final class ChatMessageRenderer {
             }
         }
 
-        // 下划线按“字符级是否有 ClickEvent”逐字标注；i 越界（ModernUI 类文本引擎
-        // 会访问超出样式列表的字符索引）时退回按样式自身判断，避免数组越界
+        // 下划线按“字符级是否有 ClickEvent”逐字标注。line.accept 的 i 是每个
+        // 样式段内部的字符下标（会重复从 0 开始），不能直接当 styles 下标；
+        // 用运行序号 idx 映射到 hasClickEvent，避免错位/整行下划线。
         int styleLen = styles.size();
         boolean[] hasClickEvent = new boolean[styleLen];
         for (int ri = 0; ri < clickableCharRanges.size(); ri++) {
@@ -445,9 +446,12 @@ public final class ChatMessageRenderer {
             }
         }
 
-        FormattedCharSequence decorated = sink -> line.accept((i, st, cp) ->
-            sink.accept(i, (i < styleLen ? hasClickEvent[i] : st.getClickEvent() != null)
-                && !st.isUnderlined() ? st.withUnderlined(true) : st, cp));
+        int[] idx = {0};
+        FormattedCharSequence decorated = sink -> line.accept((i, st, cp) -> {
+            int pos = Math.min(idx[0]++, styleLen);
+            boolean underline = pos < styleLen ? hasClickEvent[pos] : st.getClickEvent() != null;
+            return sink.accept(i, underline && !st.isUnderlined() ? st.withUnderlined(true) : st, cp);
+        });
         g.drawString(font, decorated, x, y, color, false);
 
     }
@@ -480,7 +484,7 @@ public final class ChatMessageRenderer {
         if (msg.isSystem()) {
             List<FormattedCharSequence> lines = wrapContent(msg.content(), font, panelW - ChatLayout.PAD * 2 - 20);
             int yy = baseY + 2;
-            Style fb = findClickStyle(msg.content());
+            Style fb = findRootClickStyle(msg.content());
             int sysColor = ChatBubbleTheme.alphaBlend(c.textMuted(), (int)(255 * alpha));
             int beforeSys = clickableSpans.size();
             for (var line : lines) {
@@ -568,7 +572,7 @@ public final class ChatMessageRenderer {
         RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
             cornerRadius * s, ChatBubbleTheme.alphaBlend(bg, (int)(255 * alpha)));
 
-        Style fb = findClickStyle(msg.content());
+        Style fb = findRootClickStyle(msg.content());
         int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
         for (int li = 0; li < lines.size(); li++) {
             // Bubble text is drawn at the pose origin; the translate must be unconditional

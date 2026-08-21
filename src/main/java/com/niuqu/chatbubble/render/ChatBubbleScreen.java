@@ -1698,8 +1698,8 @@ public class ChatBubbleScreen extends ChatScreen {
         return ChatMessageRenderer.prefixWidth(line, count, font);
     }
 
-    private net.minecraft.network.chat.Style findClickStyle(net.minecraft.network.chat.Component c) {
-        return ChatMessageRenderer.findClickStyle(c);
+    private net.minecraft.network.chat.Style findRootClickStyle(net.minecraft.network.chat.Component c) {
+        return ChatMessageRenderer.findRootClickStyle(c);
     }
 
     private net.minecraft.network.chat.Style getHoveredStyle(double mouseX, double mouseY) {
