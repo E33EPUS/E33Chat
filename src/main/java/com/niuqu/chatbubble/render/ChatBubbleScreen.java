@@ -12,6 +12,7 @@ import com.niuqu.chatbubble.render.RoundRectRenderer;
 import com.niuqu.chatbubble.render.BlurRenderer;
 import com.niuqu.chatbubble.compat.NativeFileDialog;
 import com.niuqu.chatbubble.compat.IMBlockerCompat;
+import com.niuqu.chatbubble.compat.ModernUIEmojiCompat;
 import com.niuqu.chatbubble.ui.BedScreen;
 import com.niuqu.chatbubble.ui.EmoteStore;
 import com.niuqu.chatbubble.ui.ChatQuickChatPanel;
@@ -110,6 +111,7 @@ public class ChatBubbleScreen extends ChatScreen {
     private boolean scrollToBottom = true;
     private boolean firstRender = true;
     private static String savedInput = "";
+    private boolean emojiReplacing;
 
     // Emoji panel
     final ChatEmojiPanel emojiPanel = new ChatEmojiPanel();
@@ -373,6 +375,19 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void onInputEdited(String text) {
+        // ModernUI hooks vanilla ChatScreen.onEdited; E33Chat installs its own
+        // responder, so mirror the shortcode transformation here when ModernUI
+        // is installed and has the feature enabled.
+        if (!emojiReplacing && ModernUIEmojiCompat.isEnabled() && !text.startsWith("/")) {
+            emojiReplacing = true;
+            try {
+                if (ModernUIEmojiCompat.replaceIn(input)) {
+                    return; // reentrant onInputEdited already did post-processing
+                }
+            } finally {
+                emojiReplacing = false;
+            }
+        }
         showMentions = false;
         mentionNavigated = false;
         int atIdx = text.lastIndexOf('@');
