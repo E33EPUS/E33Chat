@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+**ModernUI emoji 短码支持（三端同步：Fabric / Forge / NeoForge）**
+- 聊天输入框里输入 `:pig2:` 等 ModernUI 短码时，现在会随输入实时转换为对应 emoji（仅当 ModernUI 已安装且其 emoji shortcodes 选项开启时；命令输入不转换）
+- 默认表情面板补充猪脸 / 猪 `🐷` `🐖`
+
+**ModernUI emoji shortcode support (all loaders: Fabric / Forge / NeoForge)**
+- Typing ModernUI shortcodes such as `:pig2:` in the chat input now converts them to the matching emoji as you type (only when ModernUI is installed and its emoji shortcodes option is enabled; commands are left untouched)
+- Added pig face / pig `🐷` `🐖` to the default emoji panel
+
 ## v2.4.0
 
 **v2.4.0 为 2.3.17 全量内容的正式版本号**（2.3.17 曾以四次重发迭代：fix1-fix3、历史存盘异步化、bubble_size、banner_opacity 修正）
