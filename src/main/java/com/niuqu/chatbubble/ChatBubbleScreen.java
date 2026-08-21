@@ -1783,7 +1783,7 @@ public class ChatBubbleScreen extends ChatScreen {
         if (msg.isSystem()) {
             List<OrderedText> lines = wrapContent(msg.content(), panelW - PAD * 2 - 20);
             int yy = baseY + 2;
-            Style fb = findClickStyle(msg.content());
+            Style fb = findRootClickStyle(msg.content());
             int sysColor = ChatBubbleTheme.alphaBlend(c().textMuted(), (int)(255 * alpha));
             for (var line : lines) {
                 int lw = textRenderer.getWidth(line);
@@ -1865,7 +1865,7 @@ public class ChatBubbleScreen extends ChatScreen {
         RoundRectRenderer.fill(g, bubbleX, bubbleY, bubbleX + bubbleW, bubbleY + bubbleH,
             ChatBubbleClientSetup.config().bubbleCornerRadius() * s, ChatBubbleTheme.alphaBlend(bg, (int)(255 * alpha)));
 
-        Style fbP = findClickStyle(msg.content());
+        Style fbP = findRootClickStyle(msg.content());
         int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
         for (int li = 0; li < lines.size(); li++) {
             // Bubble text is drawn at the matrix origin; the translate must be unconditional
@@ -1973,7 +1973,7 @@ public class ChatBubbleScreen extends ChatScreen {
             int fg = own
                 ? ChatBubbleConfig.parseHexColor(ChatBubbleClientSetup.config().ownTextColor(), 0xFFFFFFFF)
                 : ChatBubbleConfig.parseHexColor(ChatBubbleClientSetup.config().otherTextColor(), c().textPrimary());
-            Style fb = findClickStyle(msg.content());
+            Style fb = findRootClickStyle(msg.content());
             int fgA = ChatBubbleTheme.alphaBlend(fg, (int) (255 * alpha));
             for (int li = 0; li < lines.size(); li++)
                 renderLineWithClicks(g, lines.get(li), textX, y + li * textRenderer.fontHeight, fgA, fb);
@@ -2157,9 +2157,12 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
-        OrderedText decorated = sink -> line.accept((i, st, cp) ->
-            sink.accept(i, (i < styleLen ? hasClickEvent[i] : st.getClickEvent() != null)
-                && !st.isUnderlined() ? st.withUnderline(true) : st, cp));
+        int[] idx = {0};
+        OrderedText decorated = sink -> line.accept((i, st, cp) -> {
+            int pos = Math.min(idx[0]++, styleLen);
+            boolean underline = pos < styleLen ? hasClickEvent[pos] : st.getClickEvent() != null;
+            return sink.accept(i, underline && !st.isUnderlined() ? st.withUnderline(true) : st, cp);
+        });
         g.drawText(textRenderer, decorated, x, y, color, false);
 
     }
@@ -2173,14 +2176,14 @@ public class ChatBubbleScreen extends ChatScreen {
         });
     }
 
-    private Style findClickStyle(Text c) {
+    private Style findRootClickStyle(Text c) {
+        // Only a click event on the root/wrapper style is a true "parent-level"
+        // fallback. A click event buried in one sibling must NOT underline or
+        // make clickable unrelated lines/segments; per-character styles already
+        // carry inherited parent styles, so the recursive search is unnecessary
+        // and caused whole-line underlines on system messages.
         Style s = c.getStyle();
-        if (s != null && s.getClickEvent() != null) return s;
-        for (Text child : c.getSiblings()) {
-            s = findClickStyle(child);
-            if (s != null) return s;
-        }
-        return null;
+        return s != null && s.getClickEvent() != null ? s : null;
     }
 
     private Style getHoveredStyle(double mouseX, double mouseY) {
