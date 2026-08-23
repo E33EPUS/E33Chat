@@ -66,6 +66,7 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.IntValue BANNER_OPACITY;
     public static final ModConfigSpec.IntValue BANNER_OFFSET_X;
     public static final ModConfigSpec.IntValue BANNER_OFFSET_Y;
+    public static final ModConfigSpec.IntValue BANNER_MAX_STACK;
     public static final ModConfigSpec.EnumValue<AnimationStyle> PANEL_ANIM_STYLE;
     public static final ModConfigSpec.EnumValue<AnimationStyle> BANNER_ANIM_STYLE;
     public static final ModConfigSpec.EnumValue<AnimationStyle> POPUP_ANIM_STYLE;
@@ -345,6 +346,11 @@ public class ChatBubbleConfig {
             .comment("Banner vertical offset in px (negative = up). Nudge to avoid HUD overlaps (e.g. Jade).")
             .translation("e33chat.config.banner_offset_y")
             .defineInRange("banner_offset_y", 0, -1000, 1000);
+
+        BANNER_MAX_STACK = builder
+            .comment("Maximum number of stacked notification banners (1-5, default 3). New banners push older ones down; the oldest is evicted when the stack is full.")
+            .translation("e33chat.config.banner_max_stack")
+            .defineInRange("banner_max_stack", 3, 1, 5);
 
         PANEL_ANIM_STYLE = builder
             .comment("Chat panel/sidebar open-close animation style: SLIDE, FADE, ZOOM or NONE")

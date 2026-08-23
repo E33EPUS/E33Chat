@@ -24,7 +24,8 @@ public class MentionNotificationBanner {
     public enum NotificationType { MENTION, QUOTE, WHISPER, SYSTEM }
 
     private static final long SLIDE_IN_MS = 250;
-    private static final long SLIDE_OUT_MS = 150;
+    private static final long PUSH_MS = 200;
+    private static final long EXIT_MS = 150;
     private static final long VISIBLE_MS_PERIOD = 1000;
     private static final int AVATAR = 24;
     private static final int AVATAR_HAT = 26;
@@ -35,13 +36,13 @@ public class MentionNotificationBanner {
     private static final int BANNER_H = 36;
     private static final int MAX_MSG_LINES = 2;
     private static final int SHADOW_OFF = UiTokens.SHADOW_OFFSET_PANEL;
+    private static final float COMPACT_SCALE = 0.75f;
+    private static final int STACK_GAP = 4;
     private static final UUID NIL_UUID = new UUID(0, 0);
 
-    private final Deque<PendingBanner> queue = new ArrayDeque<>();
-    private PendingBanner current;
-    private BannerState state = BannerState.HIDDEN;
-    private long stateStartMs;
-    private long visibleDurationMs;
+    /** Newest first. */
+    private final List<ActiveBanner> banners = new ArrayList<>();
+    private final List<ExitingBanner> exiting = new ArrayList<>();
 
     private static final Map<UUID, ResourceLocation> skinCache = new LinkedHashMap<>(16, 0.75f, true) {
         @Override
@@ -104,155 +105,250 @@ public class MentionNotificationBanner {
         int bannerH = hasAvatar ? BANNER_H
             : mc.font.lineHeight * msgLines.size() + 10;
 
-        queue.addLast(new PendingBanner(senderUUID, senderName, content, messageIndex,
-            type, hasAvatar, nameSeq, msgLines, textW, bannerW, bannerH));
+        PendingBanner pb = new PendingBanner(senderUUID, senderName, content, messageIndex,
+            type, hasAvatar, nameSeq, msgLines, textW, bannerW, bannerH);
+        addBanner(pb);
     }
 
-    public int pendingCount() { return queue.size() + (current != null ? 1 : 0); }
+    public int pendingCount() { return banners.size() + exiting.size(); }
 
     public void tick() {
         long now = System.currentTimeMillis();
-        BannerState prev = state;
-        switch (state) {
-            case HIDDEN:
-                if (!queue.isEmpty()) {
-                    current = queue.pollFirst();
-                    visibleDurationMs = (long) ChatBubbleConfig.MENTION_BANNER_DURATION.get() * VISIBLE_MS_PERIOD;
-                    state = BannerState.SLIDING_DOWN;
-                    stateStartMs = now;
-                }
-                break;
-            case SLIDING_DOWN:
-                if (now - stateStartMs >= SLIDE_IN_MS) {
-                    state = BannerState.VISIBLE;
-                    stateStartMs = now;
-                }
-                break;
-            case VISIBLE:
-                if (now - stateStartMs >= visibleDurationMs) {
-                    state = BannerState.SLIDING_UP;
-                    stateStartMs = now;
-                }
-                break;
-            case SLIDING_UP:
-                if (now - stateStartMs >= SLIDE_OUT_MS) {
-                    current = null;
-                    if (!queue.isEmpty()) {
-                        current = queue.pollFirst();
-                        visibleDurationMs = (long) ChatBubbleConfig.MENTION_BANNER_DURATION.get() * VISIBLE_MS_PERIOD;
-                        state = BannerState.SLIDING_DOWN;
-                    } else {
-                        state = BannerState.HIDDEN;
-                    }
-                    stateStartMs = now;
-                }
-                break;
+
+        // Natural expiry: snapshot every current position, remove expired banners,
+        // then let the remaining ones push up to fill the gaps.
+        List<ActiveBanner> expired = new ArrayList<>();
+        for (ActiveBanner b : banners) {
+            if (now - b.bornMs >= b.totalVisibleMs) expired.add(b);
         }
-        if (state != prev) {
-            String sender = current != null ? current.senderName.getString() : "?";
-            ChatMessageStore.debugLog(() -> "[e33chat] Banner " + prev + " -> "
-                + state + " | queue=" + queue.size() + " | sender=" + sender);
+        if (!expired.isEmpty()) {
+            for (ActiveBanner b : banners) {
+                b.fromY = currentY(b, now);
+                b.fromScale = currentScale(b, now);
+            }
+            for (ActiveBanner b : expired) {
+                float y = b.fromY;
+                float scale = b.fromScale;
+                banners.remove(b);
+                exiting.add(new ExitingBanner(b.data, now, y, scale));
+            }
+            for (ActiveBanner b : banners) {
+                b.enterStartMs = -1;
+                b.pushStartMs = now;
+            }
+        }
+
+        exiting.removeIf(e -> now - e.startMs >= EXIT_MS);
+
+        if (!banners.isEmpty() || !exiting.isEmpty()) {
+            ChatMessageStore.debugLog(() -> "[e33chat] Banner stack | visible=" + banners.size()
+                + " | exiting=" + exiting.size());
         }
     }
 
     public void render(GuiGraphics g, int screenW, int screenH) {
-        if (current == null || state == BannerState.HIDDEN) return;
         if (!ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) return;
+        if (banners.isEmpty() && exiting.isEmpty()) return;
 
         Minecraft mc = Minecraft.getInstance();
         long now = System.currentTimeMillis();
 
-        float raw = state == BannerState.SLIDING_DOWN
-            ? Math.min(1f, (float)(now - stateStartMs) / SLIDE_IN_MS)
-            : state == BannerState.SLIDING_UP
-                ? Math.max(0f, 1f - (float)(now - stateStartMs) / SLIDE_OUT_MS)
-                : 1f;
+        // Exiting banners render behind the active stack while they shrink/fade.
+        for (ExitingBanner e : exiting) {
+            float t = Math.min(1f, (float) (now - e.startMs) / EXIT_MS);
+            float alpha = exitFade(1f - t);
+            float scale = e.scale * (1f - 0.5f * t);
+            renderBanner(g, e.data, screenW, e.y, scale, alpha);
+        }
+
+        for (int i = 0; i < banners.size(); i++) {
+            ActiveBanner b = banners.get(i);
+            float y = currentY(b, now);
+            float scale = currentScale(b, now);
+            float alpha = currentAlpha(b, now);
+            renderBanner(g, b.data, screenW, y, scale, alpha);
+        }
+    }
+
+    public int currentMessageIndex() {
+        return banners.isEmpty() ? -1 : banners.get(0).data.messageIndex;
+    }
+
+    private void addBanner(PendingBanner pb) {
+        long now = System.currentTimeMillis();
+        int maxStack = maxStack();
+
+        // New messages always win: drop any banners that are already exiting.
+        exiting.clear();
+
+        // Snapshot current render state before mutating the list.
+        for (ActiveBanner b : banners) {
+            b.fromY = currentY(b, now);
+            b.fromScale = currentScale(b, now);
+        }
+
+        // Full stack: evict the oldest (bottom) banner.
+        if (banners.size() >= maxStack && !banners.isEmpty()) {
+            ActiveBanner oldest = banners.get(banners.size() - 1);
+            exiting.add(new ExitingBanner(oldest.data, now, oldest.fromY, oldest.fromScale));
+            banners.remove(banners.size() - 1);
+        }
+
+        ActiveBanner nb = new ActiveBanner(pb, now, now + visibleDurationMs(), now);
+        banners.add(0, nb);
+
+        // Every previously visible banner is now pushed down / compacted.
+        for (ActiveBanner b : banners) {
+            if (b != nb) {
+                b.enterStartMs = -1;
+                b.pushStartMs = now;
+            }
+        }
+    }
+
+    private long visibleDurationMs() {
+        return (long) ChatBubbleConfig.MENTION_BANNER_DURATION.get() * VISIBLE_MS_PERIOD;
+    }
+
+    private int maxStack() {
+        return Math.max(1, Math.min(5, ChatBubbleConfig.BANNER_MAX_STACK.get()));
+    }
+
+    private float targetY(int index, ActiveBanner b) {
+        float y = ChatBubbleConfig.BANNER_OFFSET_Y.get();
+        for (int i = 0; i < index; i++) {
+            ActiveBanner prev = banners.get(i);
+            float prevScale = i == 0 ? 1f : COMPACT_SCALE;
+            y += prev.data.bannerH * prevScale + STACK_GAP;
+        }
+        return y;
+    }
+
+    private float targetScale(int index) {
+        return index == 0 ? 1f : COMPACT_SCALE;
+    }
+
+    private float currentY(ActiveBanner b, long now) {
+        int i = banners.indexOf(b);
+        if (i < 0) return ChatBubbleConfig.BANNER_OFFSET_Y.get();
+        float target = targetY(i, b);
+        if (b.pushStartMs >= 0) {
+            float t = Math.min(1f, (float) (now - b.pushStartMs) / PUSH_MS);
+            float e = Animation.easeOutCubic(t);
+            return b.fromY + (target - b.fromY) * e;
+        }
+        if (i == 0 && b.enterStartMs >= 0) {
+            long elapsed = now - b.enterStartMs;
+            if (elapsed < SLIDE_IN_MS) {
+                float raw = Math.min(1f, (float) elapsed / SLIDE_IN_MS);
+                AnimationStyle bstyle = ChatBubbleConfig.BANNER_ANIM_STYLE.get();
+                if (bstyle == AnimationStyle.SLIDE) {
+                    float c = 1.70158f;
+                    float slide = 1f + c * (float) Math.pow(raw - 1, 3) + c * (float) Math.pow(raw - 1, 2);
+                    return (-b.data.bannerH) + slide * b.data.bannerH + ChatBubbleConfig.BANNER_OFFSET_Y.get();
+                }
+            }
+        }
+        return target;
+    }
+
+    private float currentScale(ActiveBanner b, long now) {
+        int i = banners.indexOf(b);
+        if (i < 0) return 1f;
+        float target = targetScale(i);
+        if (b.pushStartMs >= 0) {
+            float t = Math.min(1f, (float) (now - b.pushStartMs) / PUSH_MS);
+            float e = Animation.easeOutCubic(t);
+            return b.fromScale + (target - b.fromScale) * e;
+        }
+        if (i == 0 && b.enterStartMs >= 0) {
+            long elapsed = now - b.enterStartMs;
+            if (elapsed < SLIDE_IN_MS) {
+                float raw = Math.min(1f, (float) elapsed / SLIDE_IN_MS);
+                AnimationStyle bstyle = ChatBubbleConfig.BANNER_ANIM_STYLE.get();
+                if (bstyle == AnimationStyle.ZOOM) {
+                    return 0.8f + 0.2f * Animation.easeOutBack(raw);
+                }
+            }
+        }
+        return target;
+    }
+
+    private float currentAlpha(ActiveBanner b, long now) {
+        if (b.pushStartMs >= 0) return 1f;
+        int i = banners.indexOf(b);
+        if (i == 0 && b.enterStartMs >= 0) {
+            long elapsed = now - b.enterStartMs;
+            if (elapsed < SLIDE_IN_MS) {
+                float raw = Math.min(1f, (float) elapsed / SLIDE_IN_MS);
+                AnimationStyle bstyle = ChatBubbleConfig.BANNER_ANIM_STYLE.get();
+                if (bstyle == AnimationStyle.NONE) return 1f;
+                if (bstyle == AnimationStyle.SLIDE) return Math.min(1f, raw / 0.6f);
+                return Animation.easeOutQuad(raw);
+            }
+        }
+        return 1f;
+    }
+
+    private void renderBanner(GuiGraphics g, PendingBanner b, int screenW,
+                              float y, float scale, float alpha) {
+        if (alpha <= 0.003f) return;
+        Minecraft mc = Minecraft.getInstance();
 
         AnimationStyle bstyle = ChatBubbleConfig.BANNER_ANIM_STYLE.get();
-        float slide;
-        float alpha;
-        float bscale = 1f;
-        if (bstyle == AnimationStyle.NONE) {
-            slide = 1f;
-            alpha = 1f;
-        } else if (bstyle == AnimationStyle.FADE) {
-            slide = 1f;
-            alpha = state == BannerState.SLIDING_UP ? exitFade(raw) : Animation.easeOutQuad(raw);
-        } else if (bstyle == AnimationStyle.ZOOM) {
-            slide = 1f;
-            alpha = state == BannerState.SLIDING_UP ? exitFade(raw) : Animation.easeOutQuad(raw);
-            if (state == BannerState.SLIDING_DOWN) bscale = 0.8f + 0.2f * Animation.easeOutBack(raw);
-            else if (state == BannerState.SLIDING_UP) bscale = 0.8f + 0.2f * raw;
-        } else {
-            // SLIDE (default): slide from the top with overshoot, fade in early
-            if (state == BannerState.SLIDING_DOWN) {
-                float c = 1.70158f;
-                slide = 1f + c * (float)Math.pow(raw - 1, 3) + c * (float)Math.pow(raw - 1, 2);
-            } else if (state == BannerState.SLIDING_UP) {
-                slide = raw * raw;
-            } else {
-                slide = 1f;
-            }
-            float fadeRaw = Math.min(1f, raw / 0.6f);
-            alpha = state == BannerState.SLIDING_UP ? exitFade(raw) : fadeRaw;
-        }
-        // User-facing opacity (0-100%) fades only the banner background (shadow +
-        // fill); text and avatar keep the animation alpha so the banner stays
-        // readable at low opacity.
         float bgAlphaMul = alpha * (ChatBubbleConfig.BANNER_OPACITY.get() / 100f);
 
         var theme = Appearance.snapshot();
         int bg = theme.bannerBg();
         int cornerRadius = ChatBubbleConfig.BANNER_CORNER_RADIUS.get();
 
-        // Avatar (only for real senders; system banners stay plain text)
-        FormattedCharSequence nameSeq = current.nameSeq;
-        List<FormattedCharSequence> msgLines = current.msgLines;
-        int textW = current.textW;
-        int bannerW = current.bannerW;
-        int bannerH = current.bannerH;
+        int bannerW = b.bannerW;
+        int bannerH = b.bannerH;
         int x = (screenW - bannerW) / 2 + ChatBubbleConfig.BANNER_OFFSET_X.get();
-        int y = (int)((-bannerH) + slide * bannerH) + ChatBubbleConfig.BANNER_OFFSET_Y.get();
+        int iy = (int) y;
 
-        if (bscale != 1f) {
+        if (scale != 1f) {
             g.pose().pushPose();
             g.pose().translate(x + bannerW / 2f, y + bannerH / 2f, 0);
-            g.pose().scale(bscale, bscale, 1f);
+            g.pose().scale(scale, scale, 1f);
             g.pose().translate(-(x + bannerW / 2f), -(y + bannerH / 2f), 0);
         }
 
         // Shadow
         int shadowAlpha = (int)(UiTokens.SHADOW_ALPHA_PANEL * bgAlphaMul);
         int shadowColor = (shadowAlpha << 24);
-        RoundRectRenderer.fill(g, x + SHADOW_OFF, y + SHADOW_OFF,
-            x + bannerW + SHADOW_OFF, y + bannerH + SHADOW_OFF, cornerRadius, shadowColor);
+        RoundRectRenderer.fill(g, x + SHADOW_OFF, iy + SHADOW_OFF,
+            x + bannerW + SHADOW_OFF, iy + bannerH + SHADOW_OFF, cornerRadius, shadowColor);
 
         // Background：SDF 圆角（与阴影同 shader，半径配置实时生效；不可被资源包覆盖）
         int bgAlpha = (int)((bg >>> 24) * bgAlphaMul);
-        RoundRectRenderer.fill(g, x, y, x + bannerW, y + bannerH, cornerRadius,
+        RoundRectRenderer.fill(g, x, iy, x + bannerW, iy + bannerH, cornerRadius,
             (bgAlpha << 24) | (bg & 0x00FFFFFF));
 
-        int textX = x + (current.hasAvatar ? TEXT_X : TEXT_X_PLAIN);
+        int textX = x + (b.hasAvatar ? TEXT_X : TEXT_X_PLAIN);
+        // Compact banners show only the first content line, matching the mobile
+        // notification style: avatar + title + one-line preview.
+        List<FormattedCharSequence> drawLines = scale < 1f && b.msgLines.size() > 1
+            ? b.msgLines.subList(0, 1) : b.msgLines;
         int nameColor, msgColor;
-        if (current.hasAvatar) {
-            int avatarY = y + (bannerH - AVATAR_HAT) / 2;
-            ResourceLocation skin = getSkin(current.senderUUID, current.senderName.getString());
+        if (b.hasAvatar) {
+            int avatarY = iy + (bannerH - AVATAR_HAT) / 2;
+            ResourceLocation skin = getSkin(b.senderUUID, b.senderName.getString());
             RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
             drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT, alpha);
             RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-
             // Name (prefix already baked into nameSeq in enqueue)
-            int nameY = y + 6;
+            int nameY = iy + 6;
             int nameAlpha = (int)((theme.textPrimary() >>> 24) * alpha);
             nameColor = (nameAlpha << 24) | (theme.textPrimary() & 0x00FFFFFF);
-            g.drawString(mc.font, nameSeq, textX, nameY, nameColor, false);
+            g.drawString(mc.font, b.nameSeq, textX, nameY, nameColor, false);
 
             // Message lines
             int msgAlpha = (int)((theme.textSecondary() >>> 24) * alpha);
             msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
             int msgY = nameY + mc.font.lineHeight + 2;
-            for (int i = 0; i < msgLines.size(); i++)
-                g.drawString(mc.font, msgLines.get(i), textX,
+            for (int i = 0; i < drawLines.size(); i++)
+                g.drawString(mc.font, drawLines.get(i), textX,
                     msgY + i * mc.font.lineHeight, msgColor, false);
         } else {
             // Plain-text banner: [系统] label sits on the same line as the first
@@ -262,21 +358,17 @@ public class MentionNotificationBanner {
             int msgAlpha = (int)((theme.textSecondary() >>> 24) * alpha);
             msgColor = (msgAlpha << 24) | (theme.textSecondary() & 0x00FFFFFF);
             int lineH = mc.font.lineHeight;
-            int totalH = lineH * msgLines.size();
-            int textY = y + (bannerH - totalH) / 2;
-            g.drawString(mc.font, nameSeq, textX, textY, nameColor, false);
-            int contentX = textX + mc.font.width(nameSeq);
-            g.drawString(mc.font, msgLines.get(0), contentX, textY, msgColor, false);
-            for (int i = 1; i < msgLines.size(); i++)
-                g.drawString(mc.font, msgLines.get(i), textX,
+            int totalH = lineH * drawLines.size();
+            int textY = iy + (bannerH - totalH) / 2;
+            g.drawString(mc.font, b.nameSeq, textX, textY, nameColor, false);
+            int contentX = textX + mc.font.width(b.nameSeq);
+            g.drawString(mc.font, drawLines.get(0), contentX, textY, msgColor, false);
+            for (int i = 1; i < drawLines.size(); i++)
+                g.drawString(mc.font, drawLines.get(i), textX,
                     textY + i * lineH, msgColor, false);
         }
 
-        if (bscale != 1f) g.pose().popPose();
-    }
-
-    public int currentMessageIndex() {
-        return current != null ? current.messageIndex : -1;
+        if (scale != 1f) g.pose().popPose();
     }
 
     private ResourceLocation getSkin(UUID uuid, String name) {
@@ -337,7 +429,36 @@ public class MentionNotificationBanner {
         return out.append(Component.literal(suffix));
     }
 
-    private enum BannerState { HIDDEN, SLIDING_DOWN, VISIBLE, SLIDING_UP }
+    private static final class ActiveBanner {
+        final PendingBanner data;
+        final long bornMs;
+        final long totalVisibleMs;
+        long enterStartMs;
+        long pushStartMs = -1;
+        float fromY;
+        float fromScale;
+
+        ActiveBanner(PendingBanner data, long bornMs, long totalVisibleMs, long enterStartMs) {
+            this.data = data;
+            this.bornMs = bornMs;
+            this.totalVisibleMs = totalVisibleMs;
+            this.enterStartMs = enterStartMs;
+        }
+    }
+
+    private static final class ExitingBanner {
+        final PendingBanner data;
+        final long startMs;
+        final float y;
+        final float scale;
+
+        ExitingBanner(PendingBanner data, long startMs, float y, float scale) {
+            this.data = data;
+            this.startMs = startMs;
+            this.y = y;
+            this.scale = scale;
+        }
+    }
 
     private record PendingBanner(UUID senderUUID, Component senderName, Component content,
                                   int messageIndex, NotificationType type, boolean hasAvatar,

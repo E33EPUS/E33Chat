@@ -203,6 +203,7 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.bool("e33chat.config.sound_system", ChatBubbleConfig.SOUND_SYSTEM)),
         SectionDef.of("e33chat.config.section.banner",
             OptionDef.intBox("e33chat.config.mention_banner_duration", ChatBubbleConfig.MENTION_BANNER_DURATION, 2, 10, 2),
+            OptionDef.intBox("e33chat.config.banner_max_stack", ChatBubbleConfig.BANNER_MAX_STACK, 1, 5, 2),
             OptionDef.intBox("e33chat.config.banner_corner_radius", ChatBubbleConfig.BANNER_CORNER_RADIUS, 0, 10, 2),
             OptionDef.intBox("e33chat.config.banner_opacity", ChatBubbleConfig.BANNER_OPACITY, 0, 100, 3),
             OptionDef.intBox("e33chat.config.banner_offset_x", ChatBubbleConfig.BANNER_OFFSET_X, -1000, 1000, 2),
