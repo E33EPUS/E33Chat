@@ -2128,7 +2128,19 @@ public class ChatBubbleScreen extends ChatScreen {
                         ? target.rawPlayerName() : target.senderName().getString();
                     String quoted = ChatMessageStore.singleLine(target.content().getString());
                     ChatMessageStore.setPendingReply(quoted, quoteSender);
-                    QuoteSyncPayload.send(quoteSender, quoted, displayText);
+                    // Optional payload: only send when the server negotiated e33chat:quote_sync.
+                    // NeoForge's NetworkRegistry.checkPacket throws otherwise, which would
+                    // abort the actual chat send on servers without the E33Chat server mod.
+                    if (minecraft.player != null && minecraft.player.connection != null
+                            && minecraft.player.connection.hasChannel(QuoteSyncPayload.TYPE)) {
+                        try {
+                            QuoteSyncPayload.send(quoteSender, quoted, displayText);
+                        } catch (UnsupportedOperationException e) {
+                            ChatMessageStore.debugLog(() -> "[e33chat] quote_sync skipped | channel unavailable: " + e.getMessage());
+                        }
+                    } else {
+                        ChatMessageStore.debugLog(() -> "[e33chat] quote_sync skipped | server has no e33chat:quote_sync channel");
+                    }
                 }
             }
             replyTargetIndex = -1;
