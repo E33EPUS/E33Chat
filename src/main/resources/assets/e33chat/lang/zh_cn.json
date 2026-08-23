@@ -28,6 +28,8 @@
   "e33chat.config.panel_anim_style.desc": "聊天面板/侧边栏开合的动画风格",
   "e33chat.config.banner_anim_style": "横幅动画",
   "e33chat.config.banner_anim_style.desc": "通知横幅弹出/收起的动画风格",
+  "e33chat.config.banner_max_stack": "横幅最大堆叠数",
+  "e33chat.config.banner_max_stack.desc": "新横幅弹出时，旧横幅最多同时显示多少条（1–5，默认 3）",
   "e33chat.config.popup_anim_style": "弹层动画",
   "e33chat.config.popup_anim_style.desc": "设置/表情/快捷/搜索面板弹出时的动画风格",
   "e33chat.config.message_anim_style": "消息条目动画",
