@@ -40,6 +40,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
+import com.niuqu.chatbubble.network.NetworkHandler;
 import com.niuqu.chatbubble.packets.QuoteSyncPacket;
 import com.niuqu.chatbubble.render.ChatBars;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
@@ -2125,7 +2126,21 @@ public class ChatBubbleScreen extends ChatScreen {
                         ? target.rawPlayerName() : target.senderName().getString();
                     String quoted = ChatMessageStore.singleLine(target.content().getString());
                     ChatMessageStore.setPendingReply(quoted, quoteSender);
-                    QuoteSyncPacket.send(quoteSender, quoted, displayText);
+                    // Optional channel: only sync when the server actually has E33Chat.
+                    // Forge's SimpleChannel silently tolerates a missing peer in some
+                    // paths, but sending the packet anyway is useless and can disturb
+                    // the send flow on servers without the server mod.
+                    if (minecraft.player != null && minecraft.player.connection != null
+                            && minecraft.player.connection.getConnection() != null
+                            && NetworkHandler.CHANNEL.isRemotePresent(minecraft.player.connection.getConnection())) {
+                        try {
+                            QuoteSyncPacket.send(quoteSender, quoted, displayText);
+                        } catch (Exception e) {
+                            ChatMessageStore.debugLog(() -> "[e33chat] quote_sync skipped | " + e.getMessage());
+                        }
+                    } else {
+                        ChatMessageStore.debugLog(() -> "[e33chat] quote_sync skipped | server has no e33chat:quote_sync channel");
+                    }
                 }
             }
             replyTargetIndex = -1;

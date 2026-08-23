@@ -18,6 +18,14 @@
 - Only text that actually has a click event is underlined; unrelated sibling click events no longer underline whole lines or unrelated segments
 - Fixed the broken/offset underline mapping that used the segment-local `i` index against the global style list
 
+**右键引用在无服务端 E33Chat 时不再阻断发送（三端同步：Fabric / Forge / NeoForge）**
+- 服务端未协商 `e33chat:quote_sync` 通道时，右键“引用”不再发送该可选包，聊天消息照常发出，避免 NeoForge `NetworkRegistry.checkPacket` 抛错导致发送中断
+- 服务端装有 E33Chat 时行为不变，引用块照常同步
+
+**Right-click quote no longer blocks sending when the server lacks E33Chat (all loaders: Fabric / Forge / NeoForge)**
+- When the server has not negotiated the `e33chat:quote_sync` channel, right-click Quote skips the optional payload and the chat message sends normally, avoiding NeoForge `NetworkRegistry.checkPacket` throwing and interrupting the send
+- Behavior is unchanged on servers with E33Chat installed; quote blocks still sync as before
+
 ## v2.4.0
 
 **v2.4.0 为 2.3.17 全量内容的正式版本号**（2.3.17 曾以四次重发迭代：fix1-fix3、历史存盘异步化、bubble_size、banner_opacity 修正）
