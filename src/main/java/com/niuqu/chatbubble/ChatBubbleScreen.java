@@ -2685,7 +2685,18 @@ public class ChatBubbleScreen extends ChatScreen {
                         ? target.rawPlayerName() : target.senderName().getString();
                     String quoted = ChatMessageStore.singleLine(target.content().getString());
                     ChatMessageStore.setPendingReply(quoted, quoteSender);
-                    ClientPlayNetworking.send(new QuoteSyncPayload(quoteSender, quoted, displayText));
+                    // Optional payload: only send when the server registered e33chat:quote_sync.
+                    // Without this guard, right-click quote on servers without the E33Chat
+                    // server mod still works locally but can fail on the network layer.
+                    if (ClientPlayNetworking.canSend(QuoteSyncPayload.ID)) {
+                        try {
+                            ClientPlayNetworking.send(new QuoteSyncPayload(quoteSender, quoted, displayText));
+                        } catch (Exception e) {
+                            ChatMessageStore.debugLog(() -> "[e33chat] quote_sync skipped | " + e.getMessage());
+                        }
+                    } else {
+                        ChatMessageStore.debugLog(() -> "[e33chat] quote_sync skipped | server has no e33chat:quote_sync channel");
+                    }
                 }
             }
             replyTargetIndex = -1;
