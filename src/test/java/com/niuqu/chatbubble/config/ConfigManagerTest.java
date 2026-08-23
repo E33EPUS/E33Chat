@@ -29,7 +29,7 @@ class ConfigManagerTest {
             false, false, true, false, true, false,
             java.util.List.of(), java.util.List.of(), java.util.List.of(),
             true, true, 0, true, true, true,
-            true, 0, 0, false, false, false, 0, 0, 0,
+            true, 0, 0, false, false, false, 0, 0, 0, 3,
             "slide", "slide", "fade", "fade",
             true, true,
             null, null, null, null,
@@ -59,6 +59,7 @@ class ConfigManagerTest {
         assertEquals(4, loaded.mentionBannerDuration(), "missing duration falls back to default");
         assertFalse(loaded.closeChatOnSend(), "missing close_chat_on_send falls back to default (off)");
         assertEquals(100, loaded.bannerOpacity(), "missing banner opacity falls back to default 100");
+        assertEquals(3, loaded.bannerMaxStack(), "missing banner max stack falls back to default 3");
     }
 
     @Test

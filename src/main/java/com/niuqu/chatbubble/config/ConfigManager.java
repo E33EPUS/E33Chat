@@ -67,6 +67,7 @@ public final class ConfigManager {
             c.ownMentionNotify(), c.ownQuoteNotify(), c.ownWhisperNotify(),
             c.bannerCornerRadius() != null ? c.bannerCornerRadius() : d.bannerCornerRadius(),
             c.bannerOffsetX(), c.bannerOffsetY(),
+            c.bannerMaxStack() != null ? c.bannerMaxStack() : d.bannerMaxStack(),
             c.panelAnimStyle() != null ? c.panelAnimStyle() : d.panelAnimStyle(),
             c.bannerAnimStyle() != null ? c.bannerAnimStyle() : d.bannerAnimStyle(),
             c.popupAnimStyle() != null ? c.popupAnimStyle() : d.popupAnimStyle(),

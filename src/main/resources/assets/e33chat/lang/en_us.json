@@ -28,6 +28,8 @@
   "e33chat.config.panel_anim_style.desc": "Animation style for opening/closing the chat panel and sidebar",
   "e33chat.config.banner_anim_style": "Banner animation",
   "e33chat.config.banner_anim_style.desc": "Animation style for notification banners appearing and leaving",
+  "e33chat.config.banner_max_stack": "Banner Max Stack",
+  "e33chat.config.banner_max_stack.desc": "Maximum number of banners shown at once when new banners arrive (1-5, default 3)",
   "e33chat.config.popup_anim_style": "Popup animation",
   "e33chat.config.popup_anim_style.desc": "Animation style for the settings/emoji/quick-chat/search popups when they open",
   "e33chat.config.message_anim_style": "Message animation",

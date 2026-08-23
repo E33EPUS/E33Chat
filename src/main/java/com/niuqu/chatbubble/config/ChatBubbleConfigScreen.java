@@ -67,7 +67,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean blurEnabled, ownMentionNotify, ownQuoteNotify, ownWhisperNotify;
     private int mentionBannerDuration, timeSeparatorMinutes;
     private int panelWidth, bubbleCornerRadius, panelOpacity, soundVolume, bannerCornerRadius, bannerOpacity;
-    private int bannerOffsetX, bannerOffsetY;
+    private int bannerOffsetX, bannerOffsetY, bannerMaxStack;
     private String panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle;
     private int historyRetentionDays;
     private String ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor;
@@ -176,7 +176,7 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().quickChatPhrases(),
             mentionBannerEnabled, systemBannerEnabled, mentionBannerDuration, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner,
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius,
-            bannerOffsetX, bannerOffsetY, panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle,
+            bannerOffsetX, bannerOffsetY, bannerMaxStack, panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle,
             ChatBubbleClientSetup.config().imageRenderEnabled(),
             receiveImages,
             uploadUrl.isEmpty() ? null : uploadUrl,
@@ -214,6 +214,7 @@ public class ChatBubbleConfigScreen extends Screen {
         bannerOpacity = cfg.bannerOpacity();
         bannerOffsetX = cfg.bannerOffsetX();
         bannerOffsetY = cfg.bannerOffsetY();
+        bannerMaxStack = cfg.bannerMaxStack() != null ? cfg.bannerMaxStack() : 3;
         panelAnimStyle = cfg.panelAnimStyle(); bannerAnimStyle = cfg.bannerAnimStyle();
         popupAnimStyle = cfg.popupAnimStyle(); messageAnimStyle = cfg.messageAnimStyle();
         historyRetentionDays = cfg.historyRetentionDays();
@@ -433,6 +434,7 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.bool("e33chat.config.sound_system", Ref.b(() -> soundSystem, v -> soundSystem = v))),
         SectionDef.of("e33chat.config.section.banner",
             OptionDef.intBox("e33chat.config.mention_banner_duration", Ref.i(() -> mentionBannerDuration, v -> mentionBannerDuration = v), 2, 10, 2),
+            OptionDef.intBox("e33chat.config.banner_max_stack", Ref.i(() -> bannerMaxStack, v -> bannerMaxStack = v), 1, 5, 2),
             OptionDef.intBox("e33chat.config.banner_corner_radius", Ref.i(() -> bannerCornerRadius, v -> bannerCornerRadius = v), 0, 10, 2),
             OptionDef.intBox("e33chat.config.banner_opacity", Ref.i(() -> bannerOpacity, v -> bannerOpacity = v), 0, 100, 3),
             // Fabric 输入范围 -500~500 与 Forge/Neo -1000~1000 不同——既有差异，红线不动

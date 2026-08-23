@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.4.2
+
+**横幅堆叠机制（三端同步：Fabric / Forge / NeoForge）**
+- 通知横幅改为手机式堆叠：新横幅立即出现在最上方，旧横幅 200ms 平滑下移并缩小到 75%，保留头像+标题+首行内容
+- 同时最多显示 3 条（可配置 1–5），满员时最旧一条 150ms 缩小淡出被顶掉，其余自动上移补位
+- 旧横幅被顶下/自然退场都使用平滑动画，新横幅入场仍沿用 SLIDE/FADE/ZOOM/NONE 动画风格；系统横幅也参与同一堆叠
+- 新增配置 `banner_max_stack`（默认 3，范围 1–5）
+
+**Stacked notification banners (all loaders: Fabric / Forge / NeoForge)**
+- Notification banners now stack like phone notifications: new banners appear immediately at the top, older ones smoothly move down over 200ms and shrink to 75%, keeping avatar + title + first content line
+- Up to 3 banners are shown at once (configurable 1–5); when full, the oldest shrinks and fades out over 150ms while the rest slide up to fill
+- Push-down and natural exit animations are smooth; new banner entrance still uses the selected SLIDE/FADE/ZOOM/NONE style; system banners join the same stack
+- Added `banner_max_stack` config (default 3, range 1–5)
+
 ## v2.4.1
 
 **ModernUI emoji 短码支持（三端同步：Fabric / Forge / NeoForge）**
