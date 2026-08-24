@@ -716,9 +716,14 @@ public class ChatBubbleScreen extends ChatScreen {
         // Ctrl+V with an image in the clipboard uploads it and inserts the code;
         // on the custom-emote tab it adds the image to the emote pack instead.
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_V && (modifiers & 0x2) != 0) {
-            if (emojiPanel.visible && emojiPanel.tab == 2) {
+            // Text paste must stay on the text field path. Only try the AWT image
+            // path when the GLFW clipboard has no text, so Ctrl+V text paste is
+            // never delayed or disturbed by the background clipboard probe.
+            boolean hasText = client.keyboard.getClipboard() != null
+                && !client.keyboard.getClipboard().isEmpty();
+            if (!hasText && emojiPanel.visible && emojiPanel.tab == 2) {
                 addClipboardEmote();
-            } else {
+            } else if (!hasText) {
                 startUploadFromClipboard();
             }
         }
@@ -1103,7 +1108,15 @@ public class ChatBubbleScreen extends ChatScreen {
                 handleTextClick(style); return true;
             }
         }
-        return this.chatField.mouseClicked(origX, mouseY, button);
+        boolean chatHandled = this.chatField.mouseClicked(origX, mouseY, button);
+        if (chatHandled) {
+            setFocused(this.chatField);
+            // We bypass Screen.mouseClicked -> super.mouseClicked, so the container
+            // drag state is never set automatically. Without it, mouseDragged won't
+            // reach the text field and selection (needed for Ctrl+C) is broken.
+            if (button == 0) setDragging(true);
+        }
+        return chatHandled;
     }
 
     @Override
