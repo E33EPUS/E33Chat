@@ -14,6 +14,14 @@
 - Push-down and natural exit animations are smooth; new banner entrance still uses the selected SLIDE/FADE/ZOOM/NONE style; system banners join the same stack
 - Added `banner_max_stack` config (default 3, range 1–5)
 
+**键盘快捷键修复（三端同步：Fabric / Forge / NeoForge）**
+- 修复聊天输入框鼠标拖选失效导致 Ctrl+C 无法复制的问题：自定义鼠标点击处理绕过容器事件后，现在会正确设置拖拽状态
+- Ctrl+V 粘贴文本时不再启动后台图片剪贴板探测，避免干扰文本粘贴；剪贴板为图片时仍走图片上传/表情包添加
+
+**Keyboard shortcut fix (all loaders: Fabric / Forge / NeoForge)**
+- Fixed mouse text selection in the chat input being broken (which made Ctrl+C copy nothing) by restoring the container dragging state after custom mouse click handling
+- Ctrl+V with text no longer starts the background image-clipboard probe, so text paste is not disturbed; image clipboard still uploads / adds to the emote pack
+
 ## v2.4.1
 
 **ModernUI emoji 短码支持（三端同步：Fabric / Forge / NeoForge）**
