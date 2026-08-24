@@ -28,6 +28,14 @@
 **Banner stack overlap tweak (all loaders: Fabric / Forge / NeoForge)**
 - The newest banner now covers the top half of the banner below it, so older banners peek out from the bottom like a phone notification stack
 
+**横幅倒计时与音效防重（三端同步：Fabric / Forge / NeoForge）**
+- 修复横幅无法消失：每条横幅独立从出现起倒计时，到期后按当前 BANNER_ANIM_STYLE 退场（SLIDE 上滑 / FADE 淡出 / ZOOM 缩小淡出 / NONE 瞬间消失），被顶下不重置计时
+- 通知音效全局 2 秒内只响一次：短时间大量通知时只有第一条响，横幅仍全部正常弹出
+
+**Banner countdown and sound dedupe (all loaders: Fabric / Forge / NeoForge)**
+- Fixed banners never disappearing: each banner counts down independently from appearance and exits with the selected BANNER_ANIM_STYLE (SLIDE up / FADE out / ZOOM shrink-fade / NONE instant); being pushed down does not reset the timer
+- Notification sounds are globally deduplicated to one per 2 seconds: burst notifications only play the first sound while all banners still appear
+
 ## v2.4.1
 
 **ModernUI emoji 短码支持（三端同步：Fabric / Forge / NeoForge）**

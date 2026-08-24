@@ -123,7 +123,7 @@ public class MentionNotificationBanner {
         // then let the remaining ones push up to fill the gaps.
         List<ActiveBanner> expired = new ArrayList<>();
         for (ActiveBanner b : banners) {
-            if (now - b.bornMs >= b.totalVisibleMs) expired.add(b);
+            if (now >= b.totalVisibleMs) expired.add(b);
         }
         if (!expired.isEmpty()) {
             for (ActiveBanner b : banners) {
@@ -157,12 +157,28 @@ public class MentionNotificationBanner {
         MinecraftClient mc = MinecraftClient.getInstance();
         long now = System.currentTimeMillis();
 
-        // Exiting banners render behind the active stack while they shrink/fade.
+        // Exiting banners render behind the active stack. Their exit follows the
+        // selected banner animation style so natural expiry and eviction feel
+        // consistent with the entrance style.
+        AnimationStyle exitStyle = AnimationStyle.parse(ChatBubbleClientSetup.config().bannerAnimStyle());
         for (ExitingBanner e : exiting) {
             float t = Math.min(1f, (float) (now - e.startMs) / EXIT_MS);
-            float alpha = exitFade(1f - t);
-            float scale = e.scale * (1f - 0.5f * t);
-            renderBanner(g, e.data, screenW, e.y, scale, alpha);
+            float y = e.y;
+            float scale = e.scale;
+            float alpha;
+            if (exitStyle == AnimationStyle.NONE) {
+                alpha = 0f;
+            } else if (exitStyle == AnimationStyle.SLIDE) {
+                float ease = t * t;
+                y = e.y - (e.data.bannerH * e.scale) * ease;
+                alpha = exitFade(1f - t);
+            } else if (exitStyle == AnimationStyle.FADE) {
+                alpha = exitFade(1f - t);
+            } else { // ZOOM
+                alpha = exitFade(1f - t);
+                scale = e.scale * (1f - 0.5f * t);
+            }
+            renderBanner(g, e.data, screenW, y, scale, alpha);
         }
 
         // Draw oldest first so newer banners render on top and can overlap them.

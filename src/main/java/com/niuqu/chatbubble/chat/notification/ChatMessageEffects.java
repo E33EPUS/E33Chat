@@ -41,8 +41,10 @@ public class ChatMessageEffects implements ChatMessageStore.MessageEffectObserve
     }
 
     private static void playChime() {
-        var player = MinecraftClient.getInstance().player;
-        if (player != null)
-            player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
+        NotificationSoundGate.tryPlay(() -> {
+            var player = MinecraftClient.getInstance().player;
+            if (player != null)
+                player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_CHIME.value(), 0.6F * ChatBubbleClientSetup.config().soundVolume() / 100f, 1.0F);
+        });
     }
 }

@@ -54,9 +54,9 @@ public class MentionNotificationController {
             + " | preview=" + text.substring(0, Math.min(40, text.length())));
 
         if ((!isOwn || selfNotify) && ChatBubbleClientSetup.config().mentionSoundEnabled()) {
-            mc.getSoundManager().play(PositionedSoundInstance.master(
+            NotificationSoundGate.tryPlay(() -> mc.getSoundManager().play(PositionedSoundInstance.master(
                 SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 0.25f,
-                0.25f * ChatBubbleClientSetup.config().soundVolume() / 100f));
+                0.25f * ChatBubbleClientSetup.config().soundVolume() / 100f)));
         }
 
         if ((!isOwn || selfNotify) && ChatBubbleClientSetup.config().mentionBannerEnabled()) {
@@ -82,9 +82,9 @@ public class MentionNotificationController {
 
         boolean selfNotify = isOwn && ChatBubbleClientSetup.config().ownWhisperNotify();
         if ((!isOwn || selfNotify) && ChatBubbleClientSetup.config().soundWhisper()) {
-            mc.getSoundManager().play(PositionedSoundInstance.master(
+            NotificationSoundGate.tryPlay(() -> mc.getSoundManager().play(PositionedSoundInstance.master(
                 SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 0.25f,
-                0.25f * ChatBubbleClientSetup.config().soundVolume() / 100f));
+                0.25f * ChatBubbleClientSetup.config().soundVolume() / 100f)));
         }
 
         if ((!isOwn || selfNotify) && ChatBubbleClientSetup.config().mentionWhisperBanner()) {
