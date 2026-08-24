@@ -37,7 +37,9 @@ public class MentionNotificationBanner {
     private static final int MAX_MSG_LINES = 2;
     private static final int SHADOW_OFF = UiTokens.SHADOW_OFFSET_PANEL;
     private static final float COMPACT_SCALE = 0.75f;
-    private static final int STACK_GAP = 4;
+    // Mobile-style overlap: each newer banner covers the top half of the banner
+    // below it, so older banners peek out from behind like a notification stack.
+    private static final float STACK_OVERLAP = 0.5f;
     private static final UUID NIL_UUID = new UUID(0, 0);
 
     /** Newest first. */
@@ -161,7 +163,8 @@ public class MentionNotificationBanner {
             renderBanner(g, e.data, screenW, e.y, scale, alpha);
         }
 
-        for (int i = 0; i < banners.size(); i++) {
+        // Draw oldest first so newer banners render on top and can overlap them.
+        for (int i = banners.size() - 1; i >= 0; i--) {
             ActiveBanner b = banners.get(i);
             float y = currentY(b, now);
             float scale = currentScale(b, now);
@@ -219,7 +222,7 @@ public class MentionNotificationBanner {
         for (int i = 0; i < index; i++) {
             ActiveBanner prev = banners.get(i);
             float prevScale = i == 0 ? 1f : COMPACT_SCALE;
-            y += prev.data.bannerH * prevScale + STACK_GAP;
+            y += prev.data.bannerH * prevScale * STACK_OVERLAP;
         }
         return y;
     }
