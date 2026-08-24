@@ -22,6 +22,12 @@
 - Fixed mouse text selection in the chat input being broken (which made Ctrl+C copy nothing) by restoring the container dragging state after custom mouse click handling
 - Ctrl+V with text no longer starts the background image-clipboard probe, so text paste is not disturbed; image clipboard still uploads / adds to the emote pack
 
+**横幅堆叠视觉调整（三端同步：Fabric / Forge / NeoForge）**
+- 最新横幅现在会遮住上一条横幅的上半部分，旧横幅只从底部露出一半，更像手机通知堆叠
+
+**Banner stack overlap tweak (all loaders: Fabric / Forge / NeoForge)**
+- The newest banner now covers the top half of the banner below it, so older banners peek out from the bottom like a phone notification stack
+
 ## v2.4.1
 
 **ModernUI emoji 短码支持（三端同步：Fabric / Forge / NeoForge）**
