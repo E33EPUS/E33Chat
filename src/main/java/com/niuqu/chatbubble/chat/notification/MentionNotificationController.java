@@ -52,8 +52,8 @@ public class MentionNotificationController {
             + " | preview=" + text.substring(0, Math.min(40, text.length())));
 
         if ((!isOwn || selfNotify) && ChatBubbleConfig.MENTION_SOUND_ENABLED.get()) {
-            mc.getSoundManager().play(SimpleSoundInstance.forUI(
-                SoundEvents.EXPERIENCE_ORB_PICKUP, 0.25f, 0.25f * ChatBubbleConfig.soundVolume()));
+            NotificationSoundGate.tryPlay(() -> mc.getSoundManager().play(SimpleSoundInstance.forUI(
+                SoundEvents.EXPERIENCE_ORB_PICKUP, 0.25f, 0.25f * ChatBubbleConfig.soundVolume())));
         }
 
         if ((!isOwn || selfNotify) && ChatBubbleConfig.MENTION_BANNER_ENABLED.get()) {
@@ -78,8 +78,8 @@ public class MentionNotificationController {
 
         boolean notify = !isOwn || ChatBubbleConfig.OWN_WHISPER_NOTIFY.get();
         if (notify && ChatBubbleConfig.SOUND_WHISPER.get()) {
-            mc.getSoundManager().play(SimpleSoundInstance.forUI(
-                SoundEvents.EXPERIENCE_ORB_PICKUP, 0.25f, 0.25f * ChatBubbleConfig.soundVolume()));
+            NotificationSoundGate.tryPlay(() -> mc.getSoundManager().play(SimpleSoundInstance.forUI(
+                SoundEvents.EXPERIENCE_ORB_PICKUP, 0.25f, 0.25f * ChatBubbleConfig.soundVolume())));
         }
 
         if (notify && ChatBubbleConfig.MENTION_WHISPER_BANNER.get()) {
