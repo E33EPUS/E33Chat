@@ -144,6 +144,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     // Real drag selection for EditBox inputs (vanilla doesn't support mouse-drag selection)
     private net.minecraft.client.gui.components.EditBox inputDragTarget;
+    private int inputDragAnchor = -1;
 
     // Scrollbar
     private boolean scrollbarDragging;
@@ -853,6 +854,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (handled && button == 0) {
                     setDragging(true);
                     inputDragTarget = sidebarSearchBox;
+                    inputDragAnchor = inputDragTarget.getCursorPosition();
                 }
                 return true;
             }
@@ -1028,6 +1030,7 @@ public class ChatBubbleScreen extends ChatScreen {
                     if (handled && button == 0) {
                         setDragging(true);
                         inputDragTarget = quickChatInput;
+                        inputDragAnchor = inputDragTarget.getCursorPosition();
                     }
                     return true;
                 }
@@ -1047,6 +1050,7 @@ public class ChatBubbleScreen extends ChatScreen {
                     if (handled && button == 0) {
                         setDragging(true);
                         inputDragTarget = searchInput;
+                        inputDragAnchor = inputDragTarget.getCursorPosition();
                     }
                     return true;
                 }
@@ -1154,6 +1158,7 @@ public class ChatBubbleScreen extends ChatScreen {
             if (button == 0) {
                 setDragging(true);
                 inputDragTarget = this.input;
+                inputDragAnchor = inputDragTarget.getCursorPosition();
             }
         }
         return inputHandled;
@@ -1203,8 +1208,8 @@ public class ChatBubbleScreen extends ChatScreen {
                 && isPanelSliding()) {
                 mx -= currentPanelOffset();
             }
-            int idx = inputCharAt(inputDragTarget, mx);
-            inputDragTarget.setCursorPosition(idx);
+            inputDragTarget.onClick(mx, mouseY);
+            inputDragTarget.setHighlightPos(inputDragAnchor);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -1224,6 +1229,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         if (inputDragTarget != null) {
             inputDragTarget = null;
+            inputDragAnchor = -1;
         }
         if (scrollbarDragging) {
             scrollbarDragging = false;
@@ -1881,14 +1887,6 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
         return lo;
-    }
-
-    private int inputCharAt(net.minecraft.client.gui.components.EditBox box, double mouseX) {
-        String v = box.getValue();
-        if (v.isEmpty()) return 0;
-        int rel = Math.max(0, (int) mouseX - box.getX());
-        int idx = font.plainSubstrByWidth(v, rel).length();
-        return Math.min(idx, v.length());
     }
 
     private void executeClickAction(double mouseX, double mouseY) {
