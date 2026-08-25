@@ -179,6 +179,10 @@ public class ChatBubbleScreen extends ChatScreen {
     // Clickable text span tracking (for ClickEvent support)
     private final List<ChatMessageRenderer.ClickableSpan> clickableSpans = new ArrayList<>();
 
+    // Selectable text span tracking (for text selection support)
+    private final List<TextSpan> textSpans = new ArrayList<>();
+    private final ChatTextSelection textSelection = new ChatTextSelection();
+
     // Reply / quote
     private int replyTargetIndex = -1;
 
@@ -1442,6 +1446,7 @@ public class ChatBubbleScreen extends ChatScreen {
         msgHeightCache.clear();
         bubbleRects.clear();
         clickableSpans.clear();
+        textSpans.clear();
         List<ChatMessageStore.ChatMessage> messages;
         if (whisperPartner != null) {
             messages = ChatMessageStore.getWhisperMessages(whisperPartner);
@@ -1693,7 +1698,8 @@ public class ChatBubbleScreen extends ChatScreen {
         ChatMessageRenderer.renderBubble(g, font, msg, index, baseY, mouseX, mouseY,
             panelX, panelW, ownBg, otherBg, ownFg, otherFg, own,
             ChatBubbleConfig.BUBBLE_CORNER_RADIUS.get(), c(), skin,
-            searchHighlightIndex, bubbleMaxW, bubbleRects, clickableSpans, alpha, showAvatar);
+            searchHighlightIndex, bubbleMaxW, bubbleRects, clickableSpans,
+            textSpans, textSelection, alpha, showAvatar);
     }
 
     private void renderLineWithClicks(GuiGraphics g, FormattedCharSequence line,
