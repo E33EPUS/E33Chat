@@ -263,7 +263,7 @@ public class ChatBubbleScreen extends ChatScreen {
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
-        msgBottom = Math.max(0, barTop - 1 - ChatBubbleClientSetup.config().messageGap());
+        msgBottom = Math.max(0, barTop - 1 - Appearance.messageGap());
 
         int ibY = barTop + (BAR_H - INPUT_H) / 2;
         inputY = ibY;
@@ -344,7 +344,7 @@ public class ChatBubbleScreen extends ChatScreen {
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
-        msgBottom = Math.max(0, barTop - 1 - ChatBubbleClientSetup.config().messageGap());
+        msgBottom = Math.max(0, barTop - 1 - Appearance.messageGap());
 
         int ibY = barTop + (BAR_H - INPUT_H) / 2;
         inputY = ibY;
@@ -1814,12 +1814,20 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void autoScrollSelection(double mouseY) {
+        boolean changed = false;
         if (mouseY < msgTop + 16 && scrollOffset > 0) {
             scrollOffset = Math.max(0, scrollOffset - 4);
+            changed = true;
         } else if (mouseY > msgBottom - 16 && scrollOffset < maxScroll) {
             scrollOffset = Math.min(maxScroll, scrollOffset + 4);
+            changed = true;
         }
-        lastScrollTime = Util.getMeasuringTimeMs();
+        if (changed) {
+            textSelection.markMoved();
+            scrollToBottom = false;
+            scrollAnimActive = false;
+            lastScrollTime = Util.getMeasuringTimeMs();
+        }
     }
 
     private int charAt(TextSpan span, double mouseX) {
@@ -2322,7 +2330,7 @@ public class ChatBubbleScreen extends ChatScreen {
         int[] range = null;
         int selBg = 0;
         int selFg = 0;
-        if (messageIndex >= 0) {
+        if (textSpans != null && messageIndex >= 0) {
             int w = textRenderer.getWidth(line);
             int cpCount = text.codePointCount(0, text.length());
             int[] prefixWidths = new int[cpCount + 1];
@@ -2330,13 +2338,15 @@ public class ChatBubbleScreen extends ChatScreen {
             for (int i = 0; i < cpCount; i++) {
                 int cp = text.codePointAt(charOff);
                 int charLen = Character.charCount(cp);
-                prefixWidths[i + 1] = prefixWidths[i] + textRenderer.getWidth(text.substring(charOff, charOff + charLen));
+                net.minecraft.text.Style st = i < styles.size() ? styles.get(i) : net.minecraft.text.Style.EMPTY;
+                int cw = textRenderer.getWidth(sink -> sink.accept(0, st, cp));
+                prefixWidths[i + 1] = prefixWidths[i] + cw;
                 charOff += charLen;
             }
             selBg = ChatTextSelection.selectionBgFor(backgroundRgb);
             selFg = ChatTextSelection.selectionFgFor(backgroundRgb);
             textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
-                x, y, w, textRenderer.fontHeight, text, scale, line, prefixWidths, selBg, selFg));
+                x, y, w, textRenderer.fontHeight, text, scale, line, prefixWidths));
             if (selection != null) {
                 range = selection.rangeFor(textSpans.get(textSpans.size() - 1));
                 if (range != null) {
