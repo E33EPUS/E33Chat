@@ -78,28 +78,12 @@ public final class ChatTextSelection {
             end = Math.max(anchorChar, focusChar);
         } else if (a < f) {
             if (s < a || s > f) return null;
-            if (s == a) {
-                start = anchorChar;
-                end = (anchorChar == 0) ? len : len - 1;
-            } else if (s == f) {
-                start = 0;
-                end = focusChar;
-            } else {
-                start = 0;
-                end = len;
-            }
+            start = (s == a) ? anchorChar : 0;
+            end = (s == f) ? focusChar : len;
         } else {
             if (s < f || s > a) return null;
-            if (s == f) {
-                start = focusChar;
-                end = (focusChar == 0) ? len : len - 1;
-            } else if (s == a) {
-                start = 0;
-                end = anchorChar;
-            } else {
-                start = 0;
-                end = len;
-            }
+            start = (s == f) ? focusChar : 0;
+            end = (s == a) ? anchorChar : len;
         }
         start = Math.max(0, Math.min(len, start));
         end = Math.max(0, Math.min(len, end));
