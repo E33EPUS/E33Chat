@@ -90,7 +90,7 @@ class ChatTextSelectionTest {
         List<TextSpan> spans = List.of(
             span(0, 0, TextSpan.KIND_CONTENT, "hello"),
             span(0, 1, TextSpan.KIND_CONTENT, "world"));
-        assertEquals("ell\nwo", sel.copyText(spans));
+        assertEquals("ello\nwo", sel.copyText(spans));
     }
 
     @Test
