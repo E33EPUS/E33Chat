@@ -110,15 +110,15 @@ class ChatTextSelectionTest {
     }
 
     @Test
-    void selectionFgFor_darkBackgroundReturnsWhite() {
-        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFF000000));
-        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFF444444));
-        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFF1E90FF));
+    void selectionFgFor_darkBackgroundReturnsBlack() {
+        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFF000000));
+        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFF444444));
+        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFF1E90FF));
     }
 
     @Test
-    void selectionFgFor_lightBackgroundReturnsBlack() {
-        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFFFFFFFF));
-        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFFCCCCCC));
+    void selectionFgFor_lightBackgroundReturnsWhite() {
+        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFFFFFFFF));
+        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFFCCCCCC));
     }
 }

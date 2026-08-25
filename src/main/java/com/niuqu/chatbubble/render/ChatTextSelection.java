@@ -17,7 +17,7 @@ public final class ChatTextSelection {
         int g = (backgroundRgb >> 8) & 0xFF;
         int b = backgroundRgb & 0xFF;
         double lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
-        return lum >= 0.5 ? 0xFF000000 : 0xFFFFFFFF;
+        return lum >= 0.5 ? 0xFFFFFFFF : 0xFF000000;
     }
 
     private int anchorMsg = -1, anchorLine = -1, anchorKind = -1, anchorChar = -1;

@@ -139,6 +139,10 @@ public class ChatBubbleScreen extends ChatScreen {
     private int sidebarMaxScroll;
     private TextFieldWidget sidebarSearchBox;
 
+    // Real drag selection for TextFieldWidget inputs (vanilla doesn't support mouse-drag selection)
+    private net.minecraft.client.gui.widget.TextFieldWidget inputDragTarget;
+    private int inputDragAnchor = -1;
+
     private long sidebarAnimStart;
     private boolean sidebarTargetOpen;
     private boolean sidebarAnimating;
@@ -263,7 +267,7 @@ public class ChatBubbleScreen extends ChatScreen {
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
-        msgBottom = Math.max(0, barTop - 1 - Appearance.messageGap());
+        msgBottom = barTop - 1;
 
         int ibY = barTop + (BAR_H - INPUT_H) / 2;
         inputY = ibY;
@@ -344,7 +348,7 @@ public class ChatBubbleScreen extends ChatScreen {
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
-        msgBottom = Math.max(0, barTop - 1 - Appearance.messageGap());
+        msgBottom = barTop - 1;
 
         int ibY = barTop + (BAR_H - INPUT_H) / 2;
         inputY = ibY;
@@ -906,7 +910,11 @@ public class ChatBubbleScreen extends ChatScreen {
             if (mouseY >= searchY && mouseY <= searchY + searchH) {
                 boolean handled = sidebarSearchBox.mouseClicked(origX, mouseY, button);
                 setFocused(sidebarSearchBox); chatField.setFocused(false);
-                if (handled && button == 0) setDragging(true);
+                if (handled && button == 0) {
+                    setDragging(true);
+                    inputDragTarget = sidebarSearchBox;
+                    inputDragAnchor = inputCharAt(sidebarSearchBox, origX);
+                }
                 return true;
             }
             if (sidebarSearchBox.isFocused()) setFocused(chatField);
@@ -1047,7 +1055,11 @@ public class ChatBubbleScreen extends ChatScreen {
                     setFocused(chatField);
                 } else if (result == -2) {
                     setFocused(quickChatInput);
-                    if (button == 0) setDragging(true);
+                    if (button == 0) {
+                        setDragging(true);
+                        inputDragTarget = quickChatInput;
+                        inputDragAnchor = inputCharAt(quickChatInput, mouseX);
+                    }
                 }
                 return true;
             }
@@ -1055,7 +1067,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (searchPanel.isClickOnPanel((int) mouseX, (int) mouseY, panelX, panelW, barTop)) {
                     boolean handled = searchInput.mouseClicked(mouseX, mouseY, button);
                     setFocused(searchInput);
-                    if (handled && button == 0) setDragging(true);
+                    if (handled && button == 0) {
+                        setDragging(true);
+                        inputDragTarget = searchInput;
+                        inputDragAnchor = inputCharAt(searchInput, mouseX);
+                    }
                     return true;
                 }
                 closeSearchPanel(); return true;
@@ -1160,7 +1176,11 @@ public class ChatBubbleScreen extends ChatScreen {
             // We bypass Screen.mouseClicked -> super.mouseClicked, so the container
             // drag state is never set automatically. Without it, mouseDragged won't
             // reach the text field and selection (needed for Ctrl+C) is broken.
-            if (button == 0) setDragging(true);
+            if (button == 0) {
+                setDragging(true);
+                inputDragTarget = this.chatField;
+                inputDragAnchor = inputCharAt(this.chatField, origX);
+            }
         }
         return chatHandled;
     }
@@ -1200,6 +1220,11 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             return true;
         }
+        if (inputDragTarget != null && button == 0) {
+            int idx = inputCharAt(inputDragTarget, mouseX);
+            inputDragTarget.setSelectionStart(idx);
+            return true;
+        }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -1214,6 +1239,10 @@ public class ChatBubbleScreen extends ChatScreen {
                 textSelection.clear();
             }
             return true;
+        }
+        if (inputDragTarget != null) {
+            inputDragTarget = null;
+            inputDragAnchor = -1;
         }
         if (scrollbarDragging) { scrollbarDragging = false; return true; }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -1580,6 +1609,7 @@ public class ChatBubbleScreen extends ChatScreen {
             totalH += getMsgHeight(msg);
             prevMsg = msg;
         }
+        totalH += Appearance.messageGap();
         int prevMaxScroll = maxScroll;
         maxScroll = Math.max(0, totalH - areaH);
         this.messageTotalH = totalH;
@@ -1834,19 +1864,32 @@ public class ChatBubbleScreen extends ChatScreen {
         String text = span.text();
         if (text.isEmpty()) return 0;
         double localX = (mouseX - span.x()) / span.scale();
-        int[] widths = span.prefixWidths();
-        if (widths == null) return 0;
         int lo = 0;
-        int hi = widths.length - 1;
+        int hi = text.codePointCount(0, text.length());
+        Object visual = span.visualLine();
         while (lo < hi) {
             int mid = (lo + hi + 1) >>> 1;
-            if (widths[mid] <= localX) {
+            double w;
+            if (visual instanceof net.minecraft.text.OrderedText ot) {
+                w = prefixWidth(ot, mid);
+            } else {
+                w = textRenderer.getWidth(text.substring(0, text.offsetByCodePoints(0, mid)));
+            }
+            if (w <= localX) {
                 lo = mid;
             } else {
                 hi = mid - 1;
             }
         }
         return lo;
+    }
+
+    private int inputCharAt(net.minecraft.client.gui.widget.TextFieldWidget box, double mouseX) {
+        String v = box.getText();
+        if (v.isEmpty()) return 0;
+        int rel = Math.max(0, (int) mouseX - box.getX());
+        int idx = textRenderer.trimToWidth(v, rel).length();
+        return Math.min(idx, v.length());
     }
 
     private void executeClickAction(double mouseX, double mouseY) {
@@ -2332,26 +2375,15 @@ public class ChatBubbleScreen extends ChatScreen {
         int selFg = 0;
         if (textSpans != null && messageIndex >= 0) {
             int w = textRenderer.getWidth(line);
-            int cpCount = text.codePointCount(0, text.length());
-            int[] prefixWidths = new int[cpCount + 1];
-            int charOff = 0;
-            for (int i = 0; i < cpCount; i++) {
-                int cp = text.codePointAt(charOff);
-                int charLen = Character.charCount(cp);
-                net.minecraft.text.Style st = i < styles.size() ? styles.get(i) : net.minecraft.text.Style.EMPTY;
-                int cw = textRenderer.getWidth(sink -> sink.accept(0, st, cp));
-                prefixWidths[i + 1] = prefixWidths[i] + cw;
-                charOff += charLen;
-            }
             selBg = ChatTextSelection.selectionBgFor(backgroundRgb);
             selFg = ChatTextSelection.selectionFgFor(backgroundRgb);
             textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
-                x, y, w, textRenderer.fontHeight, text, scale, line, prefixWidths));
+                x, y, w, textRenderer.fontHeight, text, scale, line));
             if (selection != null) {
                 range = selection.rangeFor(textSpans.get(textSpans.size() - 1));
                 if (range != null) {
-                    int hx = x + prefixWidths[range[0]];
-                    int hw = Math.max(1, prefixWidths[range[1]] - prefixWidths[range[0]]);
+                    int hx = x + prefixWidth(line, range[0]);
+                    int hw = Math.max(1, prefixWidth(line, range[1]) - prefixWidth(line, range[0]));
                     g.fill(hx, y, hx + hw, y + textRenderer.fontHeight, selBg);
                 }
             }
