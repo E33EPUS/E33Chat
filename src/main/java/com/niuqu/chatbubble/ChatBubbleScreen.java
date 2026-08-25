@@ -24,6 +24,8 @@ import com.niuqu.chatbubble.image.ImageUploader;
 import com.niuqu.chatbubble.image.LocalImageSource;
 import com.niuqu.chatbubble.render.Appearance;
 import com.niuqu.chatbubble.render.ChatBubbleTheme;
+import com.niuqu.chatbubble.render.ChatTextSelection;
+import com.niuqu.chatbubble.render.TextSpan;
 import com.niuqu.chatbubble.store.ChatMessageStore;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.texture.ColoredTextureRenderer;
@@ -209,6 +211,8 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private final List<int[]> bubbleRects = new ArrayList<>();
     private final List<ClickableSpan> clickableSpans = new ArrayList<>();
+    private final List<TextSpan> textSpans = new ArrayList<>();
+    private final ChatTextSelection textSelection = new ChatTextSelection();
 
     private int replyTargetIndex = -1;
     private int copyToastTicks;
@@ -1468,6 +1472,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         bubbleRects.clear();
         clickableSpans.clear();
+        textSpans.clear();
         List<ChatMessageStore.ChatMessage> messages;
         if (whisperPartner != null) {
             messages = ChatMessageStore.getWhisperMessages(whisperPartner);
@@ -1798,9 +1803,11 @@ public class ChatBubbleScreen extends ChatScreen {
             int yy = baseY + 2;
             Style fb = findRootClickStyle(msg.content());
             int sysColor = ChatBubbleTheme.alphaBlend(c().textMuted(), (int)(255 * alpha));
-            for (var line : lines) {
+            for (int li = 0; li < lines.size(); li++) {
+                OrderedText line = lines.get(li);
                 int lw = textRenderer.getWidth(line);
-                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, sysColor, fb);
+                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, sysColor, fb,
+                    index, li, TextSpan.KIND_CONTENT, 1f, textSelection);
                 yy += textRenderer.fontHeight;
             }
             return;
@@ -1814,7 +1821,7 @@ public class ChatBubbleScreen extends ChatScreen {
         if (!parsed.images().isEmpty()
                 && parsed.images().stream().allMatch(BracketCodec.ImageRef::emote)
                 && parsed.textWithoutImages().getString().isBlank()) {
-            renderEmoteMessage(g, msg, baseY, own, alpha, showAvatar);
+            renderEmoteMessage(g, msg, index, baseY, own, alpha, showAvatar);
             return;
         }
 
@@ -1860,7 +1867,9 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             int nameW = textRenderer.getWidth(nameSeq);
             int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
-            g.drawText(textRenderer, nameSeq, startX, nameY, ChatBubbleTheme.alphaBlend(c().nameColor(), (int)(255 * alpha)), false);
+            renderLineWithClicks(g, nameSeq, startX, nameY,
+                ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), null,
+                index, 0, TextSpan.KIND_NAME, 1f, textSelection);
         }
 
         int bubbleY = baseY + NAME_H;
@@ -1887,11 +1896,13 @@ public class ChatBubbleScreen extends ChatScreen {
             // hit-testing and the visual position stay in sync at every bubble size.
             int textSX = bubbleX + (int)(BUBBLE_PAD_X * s);
             int textSY = bubbleY + (int)(BUBBLE_PAD_Y * s) + (int)(li * textRenderer.fontHeight * s);
+            int beforeText = textSpans.size();
             int beforeLine = clickableSpans.size();
             g.getMatrices().push();
             g.getMatrices().translate(textSX, textSY, 0);
             if (s != 1f) g.getMatrices().scale(s, s, 1f);
-            renderLineWithClicks(g, lines.get(li), 0, 0, fgA, fbP);
+            renderLineWithClicks(g, lines.get(li), 0, 0, fgA, fbP,
+                index, li, TextSpan.KIND_CONTENT, s, textSelection);
             g.getMatrices().pop();
             for (int i = beforeLine; i < clickableSpans.size(); i++) {
                 ClickableSpan sp = clickableSpans.get(i);
@@ -1901,6 +1912,14 @@ public class ChatBubbleScreen extends ChatScreen {
                     Math.max(1, (int)(sp.w * s)),
                     Math.max(1, (int)(sp.h * s)),
                     sp.style));
+            }
+            for (int i = beforeText; i < textSpans.size(); i++) {
+                TextSpan sp = textSpans.get(i);
+                textSpans.set(i, sp.withPosition(
+                    textSX + (int)(sp.x() * s),
+                    textSY + (int)(sp.y() * s),
+                    Math.max(1, (int)(sp.w() * s)),
+                    Math.max(1, (int)(sp.h() * s))));
             }
         }
 
@@ -1937,11 +1956,22 @@ public class ChatBubbleScreen extends ChatScreen {
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
             // 引用块：SDF 圆角（随 bubble_size 缩放）
             RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH, ChatBubbleClientSetup.config().bubbleCornerRadius() * s, ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
+            int beforeText = textSpans.size();
             g.getMatrices().push();
             g.getMatrices().translate(quoteX + (int)(4 * s), quoteY + (int)(2 * s), 0);
             if (s != 1f) g.getMatrices().scale(s, s, 1f);
-            g.drawText(textRenderer, quoteDisplay, 0, 0, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
+            renderLineWithClicks(g, Text.literal(quoteDisplay).asOrderedText(), 0, 0,
+                ChatBubbleTheme.alphaBlend(c().textSecondary(), (int) (255 * alpha)), null,
+                index, 0, TextSpan.KIND_QUOTE, s, textSelection);
             g.getMatrices().pop();
+            for (int i = beforeText; i < textSpans.size(); i++) {
+                TextSpan sp = textSpans.get(i);
+                textSpans.set(i, sp.withPosition(
+                    quoteX + (int)(4 * s) + (int)(sp.x() * s),
+                    quoteY + (int)(2 * s) + (int)(sp.y() * s),
+                    Math.max(1, (int)(sp.w() * s)),
+                    Math.max(1, (int)(sp.h() * s))));
+            }
         }
 
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
@@ -1969,8 +1999,10 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             int nameW = textRenderer.getWidth(nameSeq);
             int startX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - nameW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
-            g.drawText(textRenderer, nameSeq, startX, baseY,
-                ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), false);
+            int nameY = baseY;
+            renderLineWithClicks(g, nameSeq, startX, nameY,
+                ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), null,
+                index, 0, TextSpan.KIND_NAME, 1f, textSelection);
         }
 
         Identifier skin = com.niuqu.chatbubble.render.SkinResolver.getSkin(msg.senderUUID(), msg.rawPlayerName());
@@ -1989,7 +2021,8 @@ public class ChatBubbleScreen extends ChatScreen {
             Style fb = findRootClickStyle(msg.content());
             int fgA = ChatBubbleTheme.alphaBlend(fg, (int) (255 * alpha));
             for (int li = 0; li < lines.size(); li++)
-                renderLineWithClicks(g, lines.get(li), textX, y + li * textRenderer.fontHeight, fgA, fb);
+                renderLineWithClicks(g, lines.get(li), textX, y + li * textRenderer.fontHeight, fgA, fb,
+                    index, li, TextSpan.KIND_CONTENT, 1f, textSelection);
             y += lines.size() * textRenderer.fontHeight;
         }
 
@@ -2049,8 +2082,9 @@ public class ChatBubbleScreen extends ChatScreen {
             if (quoteX + quoteW > panelX + panelW - PAD) quoteW = panelX + panelW - PAD - quoteX;
             RoundRectRenderer.fill(g, quoteX, y, quoteX + quoteW, y + textRenderer.fontHeight + 4, ChatBubbleClientSetup.config().bubbleCornerRadius(),
                 ChatBubbleTheme.alphaBlend(c().contextHover(), (int) (255 * alpha)));
-            g.drawText(textRenderer, quoteDisplay, quoteX + 4, y + 2,
-                ChatBubbleTheme.alphaBlend(c().textSecondary(), (int) (255 * alpha)), false);
+            renderLineWithClicks(g, Text.literal(quoteDisplay).asOrderedText(),
+                quoteX + 4, y + 2, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int) (255 * alpha)),
+                null, index, 0, TextSpan.KIND_QUOTE, 1f, textSelection);
         }
 
         // Hit-test region for avatar clicks / context menus: the message span.
@@ -2059,7 +2093,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     /** QQ-style emote: bubble-less image, max 64px, aligned by direction. */
-    private void renderEmoteMessage(DrawContext g, ChatMessageStore.ChatMessage msg, int baseY, boolean own, float alpha, boolean showAvatar) {
+    private void renderEmoteMessage(DrawContext g, ChatMessageStore.ChatMessage msg, int index, int baseY, boolean own, float alpha, boolean showAvatar) {
         BracketCodec.ParseResult parsed = parseImages(msg);
         if (parsed.images().isEmpty()) return;
         BracketCodec.ImageRef ref = parsed.images().get(0);
@@ -2080,8 +2114,9 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             int nameW = textRenderer.getWidth(nameSeq);
             int startX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - nameW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
-            g.drawText(textRenderer, nameSeq, startX, nameY,
-                ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), false);
+            renderLineWithClicks(g, nameSeq, startX, nameY,
+                ChatBubbleTheme.alphaBlend(c().nameColor(), (int) (255 * alpha)), null,
+                index, 0, TextSpan.KIND_NAME, 1f, textSelection);
         }
 
         Identifier skin = com.niuqu.chatbubble.render.SkinResolver.getSkin(msg.senderUUID(), msg.rawPlayerName());
@@ -2121,8 +2156,35 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color, Style fallback) {
+        renderLineWithClicks(g, line, x, y, color, fallback, -1, -1,
+            TextSpan.KIND_CONTENT, 1f, null);
+    }
+
+    private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color,
+                                      Style fallback, int messageIndex, int lineIndex,
+                                      int kind, float scale, ChatTextSelection selection) {
         final List<Style> styles = new ArrayList<>();
-        line.accept((i, st, cp) -> { styles.add(st); return true; });
+        StringBuilder textBuilder = new StringBuilder();
+        line.accept((i, st, cp) -> {
+            styles.add(st);
+            textBuilder.appendCodePoint(cp);
+            return true;
+        });
+        String text = textBuilder.toString();
+
+        if (messageIndex >= 0) {
+            int w = textRenderer.getWidth(line);
+            textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
+                x, y, w, textRenderer.fontHeight, text, scale));
+            if (selection != null) {
+                int[] range = selection.rangeFor(textSpans.get(textSpans.size() - 1));
+                if (range != null) {
+                    int hx = x + textRenderer.getWidth(text.substring(0, range[0]));
+                    int hw = Math.max(1, textRenderer.getWidth(text.substring(range[0], range[1])));
+                    g.fill(hx, y, hx + hw, y + textRenderer.fontHeight, ChatTextSelection.SELECTION_BG);
+                }
+            }
+        }
 
         final int beforeCount = clickableSpans.size();
         int runStart = -1;
@@ -2177,7 +2239,6 @@ public class ChatBubbleScreen extends ChatScreen {
             return sink.accept(i, underline && !st.isUnderlined() ? st.withUnderline(true) : st, cp);
         });
         g.drawText(textRenderer, decorated, x, y, color, false);
-
     }
 
     private int prefixWidth(OrderedText line, int count) {
