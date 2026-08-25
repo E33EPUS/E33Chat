@@ -1199,7 +1199,10 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         if (inputDragTarget != null && button == 0) {
             double mx = mouseX;
-            if (isPanelSliding()) mx -= currentPanelOffset();
+            if ((inputDragTarget == quickChatInput || inputDragTarget == searchInput)
+                && isPanelSliding()) {
+                mx -= currentPanelOffset();
+            }
             int idx = inputCharAt(inputDragTarget, mx);
             inputDragTarget.setCursorPosition(idx);
             return true;
