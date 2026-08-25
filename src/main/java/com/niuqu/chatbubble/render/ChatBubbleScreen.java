@@ -1814,12 +1814,20 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void autoScrollSelection(double mouseY) {
+        boolean changed = false;
         if (mouseY < msgTop + 16 && scrollOffset > 0) {
             scrollOffset = Math.max(0, scrollOffset - 4);
+            changed = true;
         } else if (mouseY > msgBottom - 16 && scrollOffset < maxScroll) {
             scrollOffset = Math.min(maxScroll, scrollOffset + 4);
+            changed = true;
         }
-        lastScrollTime = net.minecraft.Util.getMillis();
+        if (changed) {
+            textSelection.markMoved();
+            scrollToBottom = false;
+            scrollAnimActive = false;
+            lastScrollTime = net.minecraft.Util.getMillis();
+        }
     }
 
     private int charAt(TextSpan span, double mouseX) {

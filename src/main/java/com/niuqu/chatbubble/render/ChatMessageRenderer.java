@@ -432,13 +432,15 @@ public final class ChatMessageRenderer {
             for (int i = 0; i < cpCount; i++) {
                 int cp = text.codePointAt(charOff);
                 int charLen = Character.charCount(cp);
-                prefixWidths[i + 1] = prefixWidths[i] + font.width(text.substring(charOff, charOff + charLen));
+                net.minecraft.network.chat.Style st = i < styles.size() ? styles.get(i) : net.minecraft.network.chat.Style.EMPTY;
+                int cw = font.width(sink -> sink.accept(0, st, cp));
+                prefixWidths[i + 1] = prefixWidths[i] + cw;
                 charOff += charLen;
             }
             selBg = ChatTextSelection.selectionBgFor(backgroundRgb);
             selFg = ChatTextSelection.selectionFgFor(backgroundRgb);
             textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
-                x, y, w, font.lineHeight, text, scale, line, prefixWidths, selBg, selFg));
+                x, y, w, font.lineHeight, text, scale, line, prefixWidths));
             if (selection != null) {
                 range = selection.rangeFor(textSpans.get(textSpans.size() - 1));
                 if (range != null) {
