@@ -73,7 +73,7 @@ public final class ChatTextSelection {
         long a = key(anchorMsg, anchorLine, anchorKind);
         long f = key(focusMsg, focusLine, focusKind);
         long s = span.orderKey();
-        int len = span.text().length();
+        int len = span.text().codePointCount(0, span.text().length());
         int start;
         int end;
         if (a == f) {
@@ -102,7 +102,9 @@ public final class ChatTextSelection {
             int[] r = rangeFor(span);
             if (r == null) continue;
             if (!first) sb.append('\n');
-            sb.append(span.text(), r[0], r[1]);
+            int cs = span.text().offsetByCodePoints(0, r[0]);
+            int ce = span.text().offsetByCodePoints(0, r[1]);
+            sb.append(span.text(), cs, ce);
             first = false;
         }
         return sb.toString();
