@@ -141,6 +141,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     // Real drag selection for TextFieldWidget inputs (vanilla doesn't support mouse-drag selection)
     private net.minecraft.client.gui.widget.TextFieldWidget inputDragTarget;
+    private int inputDragAnchor = -1;
 
     private long sidebarAnimStart;
     private boolean sidebarTargetOpen;
@@ -912,6 +913,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (handled && button == 0) {
                     setDragging(true);
                     inputDragTarget = sidebarSearchBox;
+                    inputDragAnchor = inputDragTarget.getCursor();
                 }
                 return true;
             }
@@ -1049,6 +1051,7 @@ public class ChatBubbleScreen extends ChatScreen {
                     if (handled && button == 0) {
                         setDragging(true);
                         inputDragTarget = quickChatInput;
+                        inputDragAnchor = inputDragTarget.getCursor();
                     }
                     return true;
                 }
@@ -1068,6 +1071,7 @@ public class ChatBubbleScreen extends ChatScreen {
                     if (handled && button == 0) {
                         setDragging(true);
                         inputDragTarget = searchInput;
+                        inputDragAnchor = inputDragTarget.getCursor();
                     }
                     return true;
                 }
@@ -1176,6 +1180,7 @@ public class ChatBubbleScreen extends ChatScreen {
             if (button == 0) {
                 setDragging(true);
                 inputDragTarget = this.chatField;
+                inputDragAnchor = inputDragTarget.getCursor();
             }
         }
         return chatHandled;
@@ -1222,8 +1227,8 @@ public class ChatBubbleScreen extends ChatScreen {
                 && isPanelSliding()) {
                 mx -= currentPanelOffset();
             }
-            int idx = inputCharAt(inputDragTarget, mx);
-            inputDragTarget.setSelectionStart(idx);
+            inputDragTarget.onClick(mx, mouseY);
+            inputDragTarget.setSelectionEnd(inputDragAnchor);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -1243,6 +1248,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         if (inputDragTarget != null) {
             inputDragTarget = null;
+            inputDragAnchor = -1;
         }
         if (scrollbarDragging) { scrollbarDragging = false; return true; }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -1882,14 +1888,6 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
         return lo;
-    }
-
-    private int inputCharAt(net.minecraft.client.gui.widget.TextFieldWidget box, double mouseX) {
-        String v = box.getText();
-        if (v.isEmpty()) return 0;
-        int rel = Math.max(0, (int) mouseX - box.getX());
-        int idx = textRenderer.trimToWidth(v, rel).length();
-        return Math.min(idx, v.length());
     }
 
     private void executeClickAction(double mouseX, double mouseY) {
