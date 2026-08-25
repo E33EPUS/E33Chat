@@ -426,26 +426,15 @@ public final class ChatMessageRenderer {
         int selFg = 0;
         if (textSpans != null && messageIndex >= 0) {
             int w = font.width(line);
-            int cpCount = text.codePointCount(0, text.length());
-            int[] prefixWidths = new int[cpCount + 1];
-            int charOff = 0;
-            for (int i = 0; i < cpCount; i++) {
-                int cp = text.codePointAt(charOff);
-                int charLen = Character.charCount(cp);
-                net.minecraft.network.chat.Style st = i < styles.size() ? styles.get(i) : net.minecraft.network.chat.Style.EMPTY;
-                int cw = font.width(sink -> sink.accept(0, st, cp));
-                prefixWidths[i + 1] = prefixWidths[i] + cw;
-                charOff += charLen;
-            }
             selBg = ChatTextSelection.selectionBgFor(backgroundRgb);
             selFg = ChatTextSelection.selectionFgFor(backgroundRgb);
             textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
-                x, y, w, font.lineHeight, text, scale, line, prefixWidths));
+                x, y, w, font.lineHeight, text, scale, line));
             if (selection != null) {
                 range = selection.rangeFor(textSpans.get(textSpans.size() - 1));
                 if (range != null) {
-                    int hx = x + prefixWidths[range[0]];
-                    int hw = Math.max(1, prefixWidths[range[1]] - prefixWidths[range[0]]);
+                    int hx = x + prefixWidth(line, range[0], font);
+                    int hw = Math.max(1, prefixWidth(line, range[1], font) - prefixWidth(line, range[0], font));
                     g.fill(hx, y, hx + hw, y + font.lineHeight, selBg);
                 }
             }
