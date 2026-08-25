@@ -717,6 +717,15 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_C && (modifiers & 0x2) != 0
+            && textSelection.hasSelection()) {
+            String copied = textSelection.copyText(textSpans);
+            if (!copied.isEmpty()) {
+                client.keyboard.setClipboard(copied);
+                copyToastTicks = 30;
+            }
+            return true;
+        }
         // Ctrl+V with an image in the clipboard uploads it and inserts the code;
         // on the custom-emote tab it adds the image to the emote pack instead.
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_V && (modifiers & 0x2) != 0) {
@@ -1042,6 +1051,48 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
+        // Text selection: a drag selects text; a simple click on text starts a
+        // selection and is deferred to mouseReleased so the old immediate
+        // clickable-style handling only remains for non-text spans (images/emotes).
+        if (button == 0) {
+            TextSpan hit = findTextSpanAt(mouseX, mouseY);
+            if (hit != null) {
+                if (textSelection.hasSelection()) textSelection.clear();
+                textSelection.begin(hit.messageIndex(), hit.lineIndex(), hit.kind(),
+                    charAt(hit, mouseX));
+                return true;
+            }
+            if (textSelection.hasSelection() || textSelection.isDragActive()) {
+                textSelection.clear();
+            }
+        }
+
+        // Clickable text
+        if (button == 0) {
+            Style style = getHoveredStyle(mouseX, mouseY);
+            if (style != null && style.getClickEvent() != null) {
+                ClickEvent click = style.getClickEvent();
+                if (click.getAction() == ClickEvent.Action.SUGGEST_COMMAND) {
+                    chatField.setText(click.getValue()); return true;
+                }
+                if (click.getAction() == ClickEvent.Action.OPEN_FILE) {
+                    java.io.File file = new java.io.File(click.getValue());
+                    Util.getOperatingSystem().open(file); return true;
+                }
+                if (click.getAction() == ClickEvent.Action.OPEN_URL) {
+                    // Local file:// links (e.g. legacy chatimage messages) are not
+                    // browser URLs; opening them throws URISyntaxException. Only
+                    // hand http(s) to the vanilla handler.
+                    String clickUrl = click.getValue();
+                    if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
+                        handleTextClick(style);
+                    }
+                    return true;
+                }
+                handleTextClick(style); return true;
+            }
+        }
+
         // Avatar click for @mention
         if (button == 0) {
             for (int[] r : bubbleRects) {
@@ -1087,31 +1138,6 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
-        // Clickable text
-        if (button == 0) {
-            Style style = getHoveredStyle(mouseX, mouseY);
-            if (style != null && style.getClickEvent() != null) {
-                ClickEvent click = style.getClickEvent();
-                if (click.getAction() == ClickEvent.Action.SUGGEST_COMMAND) {
-                    chatField.setText(click.getValue()); return true;
-                }
-                if (click.getAction() == ClickEvent.Action.OPEN_FILE) {
-                    java.io.File file = new java.io.File(click.getValue());
-                    Util.getOperatingSystem().open(file); return true;
-                }
-                if (click.getAction() == ClickEvent.Action.OPEN_URL) {
-                    // Local file:// links (e.g. legacy chatimage messages) are not
-                    // browser URLs; opening them throws URISyntaxException. Only
-                    // hand http(s) to the vanilla handler.
-                    String clickUrl = click.getValue();
-                    if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
-                        handleTextClick(style);
-                    }
-                    return true;
-                }
-                handleTextClick(style); return true;
-            }
-        }
         boolean chatHandled = this.chatField.mouseClicked(origX, mouseY, button);
         if (chatHandled) {
             setFocused(this.chatField);
@@ -1125,6 +1151,15 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (textSelection.isDragActive()) {
+            double mx = mouseX;
+            if (isPanelSliding()) mx -= currentPanelOffset();
+            TextSpan hit = findTextSpanAt(mx, mouseY);
+            if (hit != null) {
+                textSelection.update(hit.messageIndex(), hit.lineIndex(), hit.kind(), charAt(hit, mx));
+            }
+            return true;
+        }
         if (scrollbarDragging && maxScroll > 0) {
             lastScrollTime = Util.getMeasuringTimeMs();
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
@@ -1146,6 +1181,16 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (textSelection.isDragActive()) {
+            textSelection.endDrag();
+            if (!textSelection.didMove()) {
+                double mx = mouseX;
+                if (isPanelSliding()) mx -= currentPanelOffset();
+                executeClickAction(mx, mouseY);
+                textSelection.clear();
+            }
+            return true;
+        }
         if (scrollbarDragging) { scrollbarDragging = false; return true; }
         return super.mouseReleased(mouseX, mouseY, button);
     }
@@ -1713,6 +1758,54 @@ public class ChatBubbleScreen extends ChatScreen {
         for (Text p : paras) out.addAll(textRenderer.wrapLines(p, width));
         if (out.isEmpty()) out.addAll(textRenderer.wrapLines(c, width));
         return out;
+    }
+
+    private TextSpan findTextSpanAt(double mouseX, double mouseY) {
+        for (int i = textSpans.size() - 1; i >= 0; i--) {
+            TextSpan s = textSpans.get(i);
+            if (mouseX >= s.x() && mouseX <= s.x() + s.w()
+                && mouseY >= s.y() && mouseY <= s.y() + s.h()) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    private int charAt(TextSpan span, double mouseX) {
+        String text = span.text();
+        if (text.isEmpty()) return 0;
+        double localX = (mouseX - span.x()) / span.scale();
+        int lo = 0;
+        int hi = text.length();
+        while (lo < hi) {
+            int mid = (lo + hi + 1) >>> 1;
+            if (textRenderer.getWidth(text.substring(0, mid)) <= localX) {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return lo;
+    }
+
+    private void executeClickAction(double mouseX, double mouseY) {
+        Style style = getHoveredStyle(mouseX, mouseY);
+        if (style != null && style.getClickEvent() != null) {
+            ClickEvent click = style.getClickEvent();
+            if (click.getAction() == ClickEvent.Action.SUGGEST_COMMAND) {
+                chatField.setText(click.getValue());
+            } else if (click.getAction() == ClickEvent.Action.OPEN_FILE) {
+                java.io.File file = new java.io.File(click.getValue());
+                Util.getOperatingSystem().open(file);
+            } else if (click.getAction() == ClickEvent.Action.OPEN_URL) {
+                String clickUrl = click.getValue();
+                if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
+                    handleTextClick(style);
+                }
+            } else {
+                handleTextClick(style);
+            }
+        }
     }
 
     private boolean isPanelSliding() {
