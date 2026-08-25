@@ -6,6 +6,22 @@ public final class ChatTextSelection {
 
     public static final int SELECTION_BG = 0x8033B5E5;
 
+    public static int selectionBgFor(int backgroundRgb) {
+        int r = (backgroundRgb >> 16) & 0xFF;
+        int g = (backgroundRgb >> 8) & 0xFF;
+        int b = backgroundRgb & 0xFF;
+        double lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+        return lum > 0.5 ? 0x66000000 : 0x80FFFFFF;
+    }
+
+    public static int selectionFgFor(int backgroundRgb) {
+        int r = (backgroundRgb >> 16) & 0xFF;
+        int g = (backgroundRgb >> 8) & 0xFF;
+        int b = backgroundRgb & 0xFF;
+        double lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+        return lum > 0.5 ? 0xFF000000 : 0xFFFFFFFF;
+    }
+
     private int anchorMsg = -1, anchorLine = -1, anchorKind = -1, anchorChar = -1;
     private int focusMsg = -1, focusLine = -1, focusKind = -1, focusChar = -1;
     private boolean dragActive;
