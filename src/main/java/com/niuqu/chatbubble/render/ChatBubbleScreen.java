@@ -145,6 +145,7 @@ public class ChatBubbleScreen extends ChatScreen {
     // Real drag selection for EditBox inputs (vanilla doesn't support mouse-drag selection)
     private net.minecraft.client.gui.components.EditBox inputDragTarget;
     private int inputDragAnchor = -1;
+    private boolean suppressInputChange;
 
     // Scrollbar
     private boolean scrollbarDragging;
@@ -388,6 +389,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void onInputEdited(String text) {
+        if (suppressInputChange) return;
         // ModernUI hooks vanilla ChatScreen.onEdited; E33Chat installs its own
         // responder, so mirror the shortcode transformation here when ModernUI
         // is installed and has the feature enabled.
@@ -432,6 +434,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void onSearchEdited(String text) {
+        if (suppressInputChange) return;
         searchMatches.clear();
         searchMatchIdx = -1;
         searchHighlightIndex = -1;
@@ -1208,8 +1211,13 @@ public class ChatBubbleScreen extends ChatScreen {
                 && isPanelSliding()) {
                 mx -= currentPanelOffset();
             }
-            inputDragTarget.onClick(mx, mouseY);
-            inputDragTarget.setHighlightPos(inputDragAnchor);
+            suppressInputChange = true;
+            try {
+                inputDragTarget.onClick(mx, mouseY);
+                inputDragTarget.setHighlightPos(inputDragAnchor);
+            } finally {
+                suppressInputChange = false;
+            }
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
