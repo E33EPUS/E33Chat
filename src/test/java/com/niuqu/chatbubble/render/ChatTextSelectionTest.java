@@ -80,6 +80,14 @@ class ChatTextSelectionTest {
     }
 
     @Test
+    void updateAloneDoesNotMarkMoved() {
+        ChatTextSelection sel = new ChatTextSelection();
+        sel.begin(0, 0, TextSpan.KIND_CONTENT, 1);
+        sel.update(0, 0, TextSpan.KIND_CONTENT, 3);
+        assertFalse(sel.didMove());
+    }
+
+    @Test
     void emojiSelectionUsesCodePoints() {
         ChatTextSelection sel = new ChatTextSelection();
         sel.begin(0, 0, TextSpan.KIND_CONTENT, 1);

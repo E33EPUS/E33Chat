@@ -929,6 +929,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         // Scrollbar interaction
         if (button == 0 && maxScroll > 0) {
+            if (textSelection.hasSelection()) textSelection.clear();
             int trackX = panelX + panelW - ChatScrollbar.WIDTH;
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
             if (mouseX >= trackX && mouseX < trackX + ChatScrollbar.WIDTH
@@ -1159,6 +1160,7 @@ public class ChatBubbleScreen extends ChatScreen {
             return true;
         }
         if (scrollbarDragging && maxScroll > 0) {
+            if (textSelection.hasSelection()) textSelection.clear();
             lastScrollTime = net.minecraft.Util.getMillis();
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
             int trackH = effBottom - msgTop;
