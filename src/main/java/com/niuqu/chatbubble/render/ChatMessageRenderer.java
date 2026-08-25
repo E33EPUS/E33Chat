@@ -423,12 +423,12 @@ public final class ChatMessageRenderer {
         if (textSpans != null && messageIndex >= 0) {
             int w = font.width(line);
             textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
-                x, y, w, font.lineHeight, text, scale));
+                x, y, w, font.lineHeight, text, scale, line));
             if (selection != null) {
                 int[] range = selection.rangeFor(textSpans.get(textSpans.size() - 1));
                 if (range != null) {
-                    int hx = x + font.width(text.substring(0, range[0]));
-                    int hw = Math.max(1, font.width(text.substring(range[0], range[1])));
+                    int hx = x + prefixWidth(line, range[0], font);
+                    int hw = Math.max(1, prefixWidth(line, range[1], font) - prefixWidth(line, range[0], font));
                     g.fill(hx, y, hx + hw, y + font.lineHeight, ChatTextSelection.SELECTION_BG);
                 }
             }

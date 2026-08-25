@@ -78,4 +78,14 @@ class ChatTextSelectionTest {
         sel.markMoved();
         assertTrue(sel.didMove());
     }
+
+    @Test
+    void emojiSelectionUsesCodePoints() {
+        ChatTextSelection sel = new ChatTextSelection();
+        sel.begin(0, 0, TextSpan.KIND_CONTENT, 1);
+        sel.update(0, 0, TextSpan.KIND_CONTENT, 2);
+        TextSpan emoji = span(0, 0, TextSpan.KIND_CONTENT, "a\uD83D\uDE00b");
+        assertArrayEquals(new int[]{1, 2}, sel.rangeFor(emoji));
+        assertEquals("\uD83D\uDE00", sel.copyText(List.of(emoji)));
+    }
 }

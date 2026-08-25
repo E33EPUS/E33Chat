@@ -184,6 +184,9 @@ public class ChatBubbleScreen extends ChatScreen {
     private final List<TextSpan> textSpans = new ArrayList<>();
     private final ChatTextSelection textSelection = new ChatTextSelection();
 
+    private double selectionStartX;
+    private double selectionStartY;
+
     // Reply / quote
     private int replyTargetIndex = -1;
 
@@ -759,6 +762,9 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (delta != 0 && textSelection.hasSelection()) {
+            textSelection.clear();
+        }
         if (emojiPanel.visible) {
             emojiPanel.handleScroll(delta);
             return true;
@@ -1040,6 +1046,8 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (textSelection.hasSelection()) textSelection.clear();
                 textSelection.begin(hit.messageIndex(), hit.lineIndex(), hit.kind(),
                     charAt(hit, mouseX));
+                selectionStartX = mouseX;
+                selectionStartY = mouseY;
                 return true;
             }
             if (textSelection.hasSelection() || textSelection.isDragActive()) {
@@ -1132,10 +1140,14 @@ public class ChatBubbleScreen extends ChatScreen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (textSelection.isDragActive()) {
-            textSelection.markMoved();
             double mx = mouseX;
             if (isPanelSliding()) mx -= currentPanelOffset();
             TextSpan hit = findTextSpanAt(mx, mouseY);
+            if (hit == null) {
+                textSelection.markMoved();
+            } else if (Math.abs(mx - selectionStartX) + Math.abs(mouseY - selectionStartY) > 3.0) {
+                textSelection.markMoved();
+            }
             if (hit != null) {
                 textSelection.update(hit.messageIndex(), hit.lineIndex(), hit.kind(), charAt(hit, mx));
             }
@@ -1778,10 +1790,17 @@ public class ChatBubbleScreen extends ChatScreen {
         if (text.isEmpty()) return 0;
         double localX = (mouseX - span.x()) / span.scale();
         int lo = 0;
-        int hi = text.length();
+        int hi = text.codePointCount(0, text.length());
+        Object visual = span.visualLine();
         while (lo < hi) {
             int mid = (lo + hi + 1) >>> 1;
-            if (font.width(text.substring(0, mid)) <= localX) {
+            double w;
+            if (visual instanceof net.minecraft.util.FormattedCharSequence fcs) {
+                w = prefixWidth(fcs, mid);
+            } else {
+                w = font.width(text.substring(0, text.offsetByCodePoints(0, mid)));
+            }
+            if (w <= localX) {
                 lo = mid;
             } else {
                 hi = mid - 1;
