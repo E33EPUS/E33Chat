@@ -260,7 +260,7 @@ public class ChatBubbleScreen extends ChatScreen {
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
-        msgBottom = barTop - 1;
+        msgBottom = Math.max(0, barTop - 1 - ChatBubbleConfig.MESSAGE_GAP.get());
 
         // Input box: gear (left) → input → emoji → send (right)
         int ibY = barTop + (BAR_H - INPUT_H) / 2;
@@ -342,7 +342,7 @@ public class ChatBubbleScreen extends ChatScreen {
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
-        msgBottom = barTop - 1;
+        msgBottom = Math.max(0, barTop - 1 - ChatBubbleConfig.MESSAGE_GAP.get());
 
         int ibY = barTop + (BAR_H - INPUT_H) / 2;
         inputY = ibY;
@@ -844,8 +844,10 @@ public class ChatBubbleScreen extends ChatScreen {
             int searchY = 2;
             int searchH = SIDEBAR_SEARCH_H;
             if (mouseY >= searchY && mouseY <= searchY + searchH) {
+                boolean handled = sidebarSearchBox.mouseClicked(origX, mouseY, button);
                 setFocused(sidebarSearchBox);
                 input.setFocused(false);
+                if (handled && button == 0) setDragging(true);
                 return true;
             }
             if (sidebarSearchBox.isFocused()) {
@@ -1024,12 +1026,15 @@ public class ChatBubbleScreen extends ChatScreen {
                     setFocused(input);
                 } else if (result == -2) {
                     setFocused(quickChatInput);
+                    if (button == 0) setDragging(true);
                 }
                 return true;
             }
             if (searchPanel.visible) {
                 if (searchPanel.isClickOnPanel((int) mouseX, (int) mouseY, panelX, panelW, barTop)) {
+                    boolean handled = searchInput.mouseClicked(mouseX, mouseY, button);
                     setFocused(searchInput);
+                    if (handled && button == 0) setDragging(true);
                     return true;
                 }
                 closeSearchPanel();
@@ -1146,12 +1151,14 @@ public class ChatBubbleScreen extends ChatScreen {
             TextSpan hit = findTextSpanAt(mx, mouseY);
             if (hit == null) {
                 textSelection.markMoved();
+                hit = findNearestTextSpan(mx, mouseY);
             } else if (Math.abs(mx - selectionStartX) + Math.abs(mouseY - selectionStartY) > 3.0) {
                 textSelection.markMoved();
             }
             if (hit != null) {
                 textSelection.update(hit.messageIndex(), hit.lineIndex(), hit.kind(), charAt(hit, mx));
             }
+            autoScrollSelection(mouseY);
             return true;
         }
         if (scrollbarDragging && maxScroll > 0) {
@@ -1787,22 +1794,44 @@ public class ChatBubbleScreen extends ChatScreen {
         return null;
     }
 
+
+    private TextSpan findNearestTextSpan(double mouseX, double mouseY) {
+        TextSpan best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (TextSpan s : textSpans) {
+            double cx = Math.max(s.x(), Math.min(mouseX, s.x() + s.w()));
+            double cy = Math.max(s.y(), Math.min(mouseY, s.y() + s.h()));
+            double dx = mouseX - cx;
+            double dy = mouseY - cy;
+            double dist = dx * dx + dy * dy;
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    private void autoScrollSelection(double mouseY) {
+        if (mouseY < msgTop + 16 && scrollOffset > 0) {
+            scrollOffset = Math.max(0, scrollOffset - 4);
+        } else if (mouseY > msgBottom - 16 && scrollOffset < maxScroll) {
+            scrollOffset = Math.min(maxScroll, scrollOffset + 4);
+        }
+        lastScrollTime = net.minecraft.Util.getMillis();
+    }
+
     private int charAt(TextSpan span, double mouseX) {
         String text = span.text();
         if (text.isEmpty()) return 0;
         double localX = (mouseX - span.x()) / span.scale();
+        int[] widths = span.prefixWidths();
+        if (widths == null) return 0;
         int lo = 0;
-        int hi = text.codePointCount(0, text.length());
-        Object visual = span.visualLine();
+        int hi = widths.length - 1;
         while (lo < hi) {
             int mid = (lo + hi + 1) >>> 1;
-            double w;
-            if (visual instanceof net.minecraft.util.FormattedCharSequence fcs) {
-                w = prefixWidth(fcs, mid);
-            } else {
-                w = font.width(text.substring(0, text.offsetByCodePoints(0, mid)));
-            }
-            if (w <= localX) {
+            if (widths[mid] <= localX) {
                 lo = mid;
             } else {
                 hi = mid - 1;

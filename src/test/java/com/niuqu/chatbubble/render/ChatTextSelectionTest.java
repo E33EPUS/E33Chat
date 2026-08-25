@@ -96,4 +96,30 @@ class ChatTextSelectionTest {
         assertArrayEquals(new int[]{1, 2}, sel.rangeFor(emoji));
         assertEquals("\uD83D\uDE00", sel.copyText(List.of(emoji)));
     }
+    @Test
+    void selectionBgFor_darkBackgroundReturnsWhiteOverlay() {
+        assertEquals(0x80FFFFFF, ChatTextSelection.selectionBgFor(0xFF000000));
+        assertEquals(0x80FFFFFF, ChatTextSelection.selectionBgFor(0xFF444444));
+        assertEquals(0x80FFFFFF, ChatTextSelection.selectionBgFor(0xFF1E90FF));
+    }
+
+    @Test
+    void selectionBgFor_lightBackgroundReturnsBlackOverlay() {
+        assertEquals(0x66000000, ChatTextSelection.selectionBgFor(0xFFFFFFFF));
+        assertEquals(0x66000000, ChatTextSelection.selectionBgFor(0xFFCCCCCC));
+    }
+
+    @Test
+    void selectionFgFor_darkBackgroundReturnsWhite() {
+        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFF000000));
+        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFF444444));
+        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFF1E90FF));
+    }
+
+    @Test
+    void selectionFgFor_lightBackgroundReturnsBlack() {
+        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFFFFFFFF));
+        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFFCCCCCC));
+    }
 }
+

@@ -178,7 +178,7 @@ public final class ChatMessageRenderer {
             int startX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - nameW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
             renderLineWithClicks(g, font, nameSeq, startX, baseY,
                 ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), null,
-                index, 0, TextSpan.KIND_NAME, 1f, clickableSpans, textSpans, selection);
+                index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection);
         }
 
         // 头像顶与名字行顶对齐（2.3.16 曾改气泡顶对齐，实测回退老锚点）
@@ -197,7 +197,7 @@ public final class ChatMessageRenderer {
             int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
             for (int li = 0; li < lines.size(); li++)
                 renderLineWithClicks(g, font, lines.get(li), textX, y + li * font.lineHeight, fgA, fb,
-                    index, li, TextSpan.KIND_CONTENT, 1f, clickableSpans, textSpans, selection);
+                    index, li, TextSpan.KIND_CONTENT, 1f, c.panelBg(), clickableSpans, textSpans, selection);
             y += lines.size() * font.lineHeight;
         }
 
@@ -258,7 +258,7 @@ public final class ChatMessageRenderer {
                 ChatBubbleTheme.alphaBlend(c.contextHover(), (int)(255 * alpha)));
             renderLineWithClicks(g, font, Component.literal(quoteDisplay).getVisualOrderText(),
                 quoteX + 4, y + 2, ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)),
-                null, index, 0, TextSpan.KIND_QUOTE, 1f, clickableSpans, textSpans, selection);
+                null, index, 0, TextSpan.KIND_QUOTE, 1f, c.contextHover(), clickableSpans, textSpans, selection);
         }
 
         // Hit-test region for avatar clicks / context menus: the message span.
@@ -284,7 +284,7 @@ public final class ChatMessageRenderer {
             int startX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - nameW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
             renderLineWithClicks(g, font, nameSeq, startX, baseY,
                 ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), null,
-                index, 0, TextSpan.KIND_NAME, 1f, clickableSpans, textSpans, selection);
+                index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection);
         }
 
         if (showAvatar) drawAvatar(g, skin, avatarX, baseY, alpha);
@@ -394,7 +394,7 @@ public final class ChatMessageRenderer {
                                              int x, int y, int color,
                                              List<ClickableSpan> clickableSpans) {
         renderLineWithClicks(g, font, line, x, y, color, null, -1, -1,
-            TextSpan.KIND_CONTENT, 1f, clickableSpans, null, null);
+            TextSpan.KIND_CONTENT, 1f, 0, clickableSpans, null, null);
     }
 
     public static void renderLineWithClicks(GuiGraphics g, Font font, FormattedCharSequence line,
@@ -402,12 +402,13 @@ public final class ChatMessageRenderer {
                                              Style fallback,
                                              List<ClickableSpan> clickableSpans) {
         renderLineWithClicks(g, font, line, x, y, color, fallback, -1, -1,
-            TextSpan.KIND_CONTENT, 1f, clickableSpans, null, null);
+            TextSpan.KIND_CONTENT, 1f, 0, clickableSpans, null, null);
     }
 
     public static void renderLineWithClicks(GuiGraphics g, Font font, FormattedCharSequence line,
                                              int x, int y, int color, Style fallback,
                                              int messageIndex, int lineIndex, int kind, float scale,
+                                             int backgroundRgb,
                                              List<ClickableSpan> clickableSpans,
                                              List<TextSpan> textSpans,
                                              ChatTextSelection selection) {
@@ -420,16 +421,30 @@ public final class ChatMessageRenderer {
         });
         String text = textBuilder.toString();
 
+        int[] range = null;
+        int selBg = 0;
+        int selFg = 0;
         if (textSpans != null && messageIndex >= 0) {
             int w = font.width(line);
+            int cpCount = text.codePointCount(0, text.length());
+            int[] prefixWidths = new int[cpCount + 1];
+            int charOff = 0;
+            for (int i = 0; i < cpCount; i++) {
+                int cp = text.codePointAt(charOff);
+                int charLen = Character.charCount(cp);
+                prefixWidths[i + 1] = prefixWidths[i] + font.width(text.substring(charOff, charOff + charLen));
+                charOff += charLen;
+            }
+            selBg = ChatTextSelection.selectionBgFor(backgroundRgb);
+            selFg = ChatTextSelection.selectionFgFor(backgroundRgb);
             textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
-                x, y, w, font.lineHeight, text, scale, line));
+                x, y, w, font.lineHeight, text, scale, line, prefixWidths, selBg, selFg));
             if (selection != null) {
-                int[] range = selection.rangeFor(textSpans.get(textSpans.size() - 1));
+                range = selection.rangeFor(textSpans.get(textSpans.size() - 1));
                 if (range != null) {
-                    int hx = x + prefixWidth(line, range[0], font);
-                    int hw = Math.max(1, prefixWidth(line, range[1], font) - prefixWidth(line, range[0], font));
-                    g.fill(hx, y, hx + hw, y + font.lineHeight, ChatTextSelection.SELECTION_BG);
+                    int hx = x + prefixWidths[range[0]];
+                    int hw = Math.max(1, prefixWidths[range[1]] - prefixWidths[range[0]]);
+                    g.fill(hx, y, hx + hw, y + font.lineHeight, selBg);
                 }
             }
         }
@@ -486,10 +501,16 @@ public final class ChatMessageRenderer {
         }
 
         int[] idx = {0};
+        int[] selectionRange = range;
+        int selectionFg = selFg;
         FormattedCharSequence decorated = sink -> line.accept((i, st, cp) -> {
             int pos = Math.min(idx[0]++, styleLen);
             boolean underline = pos < styleLen ? hasClickEvent[pos] : st.getClickEvent() != null;
-            return sink.accept(i, underline && !st.isUnderlined() ? st.withUnderlined(true) : st, cp);
+            Style out = underline && !st.isUnderlined() ? st.withUnderlined(true) : st;
+            if (selectionRange != null && pos >= selectionRange[0] && pos < selectionRange[1]) {
+                out = out.withColor(net.minecraft.network.chat.TextColor.fromRgb(selectionFg));
+            }
+            return sink.accept(i, out, cp);
         });
         g.drawString(font, decorated, x, y, color, false);
     }
@@ -531,7 +552,7 @@ public final class ChatMessageRenderer {
                 FormattedCharSequence line = lines.get(li);
                 int lw = font.width(line);
                 renderLineWithClicks(g, font, line, panelX + (panelW - lw) / 2, yy, sysColor, fb,
-                    index, li, TextSpan.KIND_CONTENT, 1f, clickableSpans, textSpans, selection);
+                    index, li, TextSpan.KIND_CONTENT, 1f, c.panelBg(), clickableSpans, textSpans, selection);
                 yy += font.lineHeight;
             }
             for (int i = beforeSys; i < clickableSpans.size(); i++) {
@@ -602,7 +623,7 @@ public final class ChatMessageRenderer {
             int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
             renderLineWithClicks(g, font, nameSeq, startX, nameY,
                 ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), null,
-                index, 0, TextSpan.KIND_NAME, 1f, clickableSpans, textSpans, selection);
+                index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection);
         }
 
         int bubbleY = baseY + NAME_H;
@@ -631,7 +652,7 @@ public final class ChatMessageRenderer {
             g.pose().translate(textSX, textSY, 0);
             if (s != 1f) g.pose().scale(s, s, 1f);
             renderLineWithClicks(g, font, lines.get(li), 0, 0, fgA, fb,
-                index, li, TextSpan.KIND_CONTENT, s, clickableSpans, textSpans, selection);
+                index, li, TextSpan.KIND_CONTENT, s, bg, clickableSpans, textSpans, selection);
             g.pose().popPose();
             for (int i = beforeLine; i < clickableSpans.size(); i++) {
                 ClickableSpan sp = clickableSpans.get(i);
@@ -689,7 +710,7 @@ public final class ChatMessageRenderer {
             if (s != 1f) g.pose().scale(s, s, 1f);
             renderLineWithClicks(g, font, Component.literal(quoteDisplay).getVisualOrderText(),
                 0, 0, ChatBubbleTheme.alphaBlend(c.textSecondary(), (int)(255 * alpha)), null,
-                index, 0, TextSpan.KIND_QUOTE, s, clickableSpans, textSpans, selection);
+                index, 0, TextSpan.KIND_QUOTE, s, c.contextHover(), clickableSpans, textSpans, selection);
             g.pose().popPose();
             for (int i = beforeText; i < textSpans.size(); i++) {
                 TextSpan sp = textSpans.get(i);
