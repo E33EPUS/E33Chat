@@ -1048,6 +1048,31 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         if (button == 0) {
+            net.minecraft.network.chat.Style style = getHoveredStyle(mouseX, mouseY);
+            if (style != null && style.getClickEvent() != null) {
+                net.minecraft.network.chat.ClickEvent click = style.getClickEvent();
+                if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.SUGGEST_COMMAND) {
+                    input.setValue(click.getValue());
+                    return true;
+                }
+                if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.OPEN_FILE) {
+                    java.io.File file = new java.io.File(click.getValue());
+                    net.minecraft.Util.getPlatform().openFile(file);
+                    return true;
+                }
+                if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.OPEN_URL) {
+                    String clickUrl = click.getValue();
+                    if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
+                        handleComponentClicked(style);
+                    }
+                    return true;
+                }
+                handleComponentClicked(style);
+                return true;
+            }
+        }
+
+        if (button == 0) {
             for (int[] r : bubbleRects) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem()) continue;
