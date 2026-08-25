@@ -1152,6 +1152,7 @@ public class ChatBubbleScreen extends ChatScreen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (textSelection.isDragActive()) {
+            textSelection.markMoved();
             double mx = mouseX;
             if (isPanelSliding()) mx -= currentPanelOffset();
             TextSpan hit = findTextSpanAt(mx, mouseY);

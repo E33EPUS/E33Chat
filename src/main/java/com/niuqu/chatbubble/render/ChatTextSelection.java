@@ -43,6 +43,10 @@ public final class ChatTextSelection {
         return moved;
     }
 
+    public void markMoved() {
+        if (dragActive) moved = true;
+    }
+
     public void clear() {
         anchorMsg = focusMsg = -1;
         anchorLine = focusLine = -1;
