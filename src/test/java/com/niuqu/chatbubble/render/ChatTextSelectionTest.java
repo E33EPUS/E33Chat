@@ -69,4 +69,13 @@ class ChatTextSelectionTest {
         sel.clear();
         assertNull(sel.rangeFor(span(0, 0, TextSpan.KIND_CONTENT, "hello")));
     }
+
+    @Test
+    void markMovedMarksDragAsMoved() {
+        ChatTextSelection sel = new ChatTextSelection();
+        sel.begin(0, 0, TextSpan.KIND_CONTENT, 0);
+        assertFalse(sel.didMove());
+        sel.markMoved();
+        assertTrue(sel.didMove());
+    }
 }
