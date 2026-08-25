@@ -560,6 +560,15 @@ git commit -m "feat: record selectable text spans in forge and neoforge renderer
 - Consumes: `TextSpan`, `ChatTextSelection` from Task 1.
 - Produces: private helper `renderLineWithClicks(DrawContext, OrderedText, int x, int y, int color, Style fallback, int messageIndex, int lineIndex, int kind, float scale, ChatTextSelection selection)`.
 
+- [ ] **Step 0: Add fields**
+
+Next to `clickableSpans`:
+
+```java
+private final List<TextSpan> textSpans = new ArrayList<>();
+private final ChatTextSelection textSelection = new ChatTextSelection();
+```
+
 - [ ] **Step 1: Add selection-aware `renderLineWithClicks`**
 
 Replace the existing private `renderLineWithClicks(DrawContext, OrderedText, int x, int y, int color, Style fallback)` with this full implementation (keep a 6-arg overload delegating with `messageIndex = -1`, `lineIndex = -1`, `kind = TextSpan.KIND_CONTENT`, `scale = 1f`, `selection = null`):
@@ -765,14 +774,9 @@ git commit -m "feat: record selectable text spans in fabric renderer"
   - `int charAt(TextSpan span, double mouseX)`
   - `void executeClickAction(double mouseX, double mouseY)`
 
-- [ ] **Step 1: Add fields**
+- [ ] **Step 1: Fields already exist**
 
-Add next to `clickableSpans`:
-
-```java
-private final List<TextSpan> textSpans = new ArrayList<>();
-private final ChatTextSelection textSelection = new ChatTextSelection();
-```
+`textSpans` and `textSelection` were added in Task 2; no code change in this task.
 
 - [ ] **Step 2: Add hit-testing helpers**
 
@@ -926,14 +930,9 @@ git commit -m "feat: drag-select and ctrl-c for chat text on forge and neoforge"
 - Consumes: `textSpans`, `textSelection` fields from Task 3, `TextSpan`, `ChatTextSelection`.
 - Produces: same helpers as Task 4, using Fabric APIs.
 
-- [ ] **Step 1: Add fields**
+- [ ] **Step 1: Fields already exist**
 
-Next to `clickableSpans`:
-
-```java
-private final List<TextSpan> textSpans = new ArrayList<>();
-private final ChatTextSelection textSelection = new ChatTextSelection();
-```
+`textSpans` and `textSelection` were added in Task 3; no code change in this task.
 
 - [ ] **Step 2: Add hit-testing helpers**
 
