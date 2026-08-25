@@ -22,9 +22,6 @@ public final class ChatTextSelection {
 
     public void update(int msg, int line, int kind, int ch) {
         if (!dragActive) return;
-        if (msg != focusMsg || line != focusLine || kind != focusKind || ch != focusChar) {
-            moved = true;
-        }
         focusMsg = msg;
         focusLine = line;
         focusKind = kind;

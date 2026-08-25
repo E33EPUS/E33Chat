@@ -957,6 +957,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         // Scrollbar interaction
         if (button == 0 && maxScroll > 0) {
+            if (textSelection.hasSelection()) textSelection.clear();
             int trackX = panelX + panelW - SCROLLBAR_WIDTH;
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
             if (mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH
@@ -1174,6 +1175,7 @@ public class ChatBubbleScreen extends ChatScreen {
             return true;
         }
         if (scrollbarDragging && maxScroll > 0) {
+            if (textSelection.hasSelection()) textSelection.clear();
             lastScrollTime = Util.getMeasuringTimeMs();
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
             int trackH = effBottom - msgTop;
