@@ -214,6 +214,9 @@ public class ChatBubbleScreen extends ChatScreen {
     private final List<TextSpan> textSpans = new ArrayList<>();
     private final ChatTextSelection textSelection = new ChatTextSelection();
 
+    private double selectionStartX;
+    private double selectionStartY;
+
     private int replyTargetIndex = -1;
     private int copyToastTicks;
 
@@ -835,6 +838,9 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scrollY != 0 && textSelection.hasSelection()) {
+            textSelection.clear();
+        }
         if (emojiPanel.visible) { emojiPanel.handleScroll(scrollY); return true; }
         if (quickChatPanel.visible) { quickChatPanel.handleScroll(scrollY); return true; }
         if (searchPanel.visible && !searchMatches.isEmpty()) {
@@ -1060,6 +1066,8 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (textSelection.hasSelection()) textSelection.clear();
                 textSelection.begin(hit.messageIndex(), hit.lineIndex(), hit.kind(),
                     charAt(hit, mouseX));
+                selectionStartX = mouseX;
+                selectionStartY = mouseY;
                 return true;
             }
             if (textSelection.hasSelection() || textSelection.isDragActive()) {
@@ -1152,10 +1160,14 @@ public class ChatBubbleScreen extends ChatScreen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (textSelection.isDragActive()) {
-            textSelection.markMoved();
             double mx = mouseX;
             if (isPanelSliding()) mx -= currentPanelOffset();
             TextSpan hit = findTextSpanAt(mx, mouseY);
+            if (hit == null) {
+                textSelection.markMoved();
+            } else if (Math.abs(mx - selectionStartX) + Math.abs(mouseY - selectionStartY) > 3.0) {
+                textSelection.markMoved();
+            }
             if (hit != null) {
                 textSelection.update(hit.messageIndex(), hit.lineIndex(), hit.kind(), charAt(hit, mx));
             }
@@ -1777,10 +1789,17 @@ public class ChatBubbleScreen extends ChatScreen {
         if (text.isEmpty()) return 0;
         double localX = (mouseX - span.x()) / span.scale();
         int lo = 0;
-        int hi = text.length();
+        int hi = text.codePointCount(0, text.length());
+        Object visual = span.visualLine();
         while (lo < hi) {
             int mid = (lo + hi + 1) >>> 1;
-            if (textRenderer.getWidth(text.substring(0, mid)) <= localX) {
+            double w;
+            if (visual instanceof net.minecraft.text.OrderedText ot) {
+                w = prefixWidth(ot, mid);
+            } else {
+                w = textRenderer.getWidth(text.substring(0, text.offsetByCodePoints(0, mid)));
+            }
+            if (w <= localX) {
                 lo = mid;
             } else {
                 hi = mid - 1;
@@ -2269,12 +2288,12 @@ public class ChatBubbleScreen extends ChatScreen {
         if (messageIndex >= 0) {
             int w = textRenderer.getWidth(line);
             textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
-                x, y, w, textRenderer.fontHeight, text, scale));
+                x, y, w, textRenderer.fontHeight, text, scale, line));
             if (selection != null) {
                 int[] range = selection.rangeFor(textSpans.get(textSpans.size() - 1));
                 if (range != null) {
-                    int hx = x + textRenderer.getWidth(text.substring(0, range[0]));
-                    int hw = Math.max(1, textRenderer.getWidth(text.substring(range[0], range[1])));
+                    int hx = x + prefixWidth(line, range[0]);
+                    int hw = Math.max(1, prefixWidth(line, range[1]) - prefixWidth(line, range[0]));
                     g.fill(hx, y, hx + hw, y + textRenderer.fontHeight, ChatTextSelection.SELECTION_BG);
                 }
             }
