@@ -35,6 +35,7 @@ import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
@@ -610,6 +611,16 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // Ctrl+C copies the current drag-selected chat text.
+        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_C && (modifiers & 0x2) != 0
+            && textSelection.hasSelection()) {
+            String copied = textSelection.copyText(textSpans);
+            if (!copied.isEmpty()) {
+                minecraft.keyboardHandler.setClipboard(copied);
+                copyToastTicks = 30;
+            }
+            return true;
+        }
         // Ctrl+V with an image in the clipboard uploads it and inserts the code;
         // on the custom-emote tab it adds the image to the emote pack instead.
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_V && (modifiers & 0x2) != 0) {
@@ -1029,6 +1040,19 @@ public class ChatBubbleScreen extends ChatScreen {
         }
 
         if (button == 0) {
+            TextSpan hit = findTextSpanAt(mouseX, mouseY);
+            if (hit != null) {
+                if (textSelection.hasSelection()) textSelection.clear();
+                textSelection.begin(hit.messageIndex(), hit.lineIndex(), hit.kind(),
+                    charAt(hit, mouseX));
+                return true;
+            }
+            if (textSelection.hasSelection() || textSelection.isDragActive()) {
+                textSelection.clear();
+            }
+        }
+
+        if (button == 0) {
             for (int[] r : bubbleRects) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem()) continue;
@@ -1074,33 +1098,6 @@ public class ChatBubbleScreen extends ChatScreen {
                 }
             }
         }
-        if (button == 0) {
-            net.minecraft.network.chat.Style style = getHoveredStyle(mouseX, mouseY);
-            if (style != null && style.getClickEvent() != null) {
-                net.minecraft.network.chat.ClickEvent click = style.getClickEvent();
-                if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.SUGGEST_COMMAND) {
-                    input.setValue(click.getValue());
-                    return true;
-                }
-                if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.OPEN_FILE) {
-                    java.io.File file = new java.io.File(click.getValue());
-                    net.minecraft.Util.getPlatform().openFile(file);
-                    return true;
-                }
-                if (click.getAction() == net.minecraft.network.chat.ClickEvent.Action.OPEN_URL) {
-                    // Local file:// links (e.g. legacy chatimage messages) are not
-                    // browser URLs; opening them throws URISyntaxException. Only
-                    // hand http(s) to the vanilla handler.
-                    String clickUrl = click.getValue();
-                    if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
-                        handleComponentClicked(style);
-                    }
-                    return true;
-                }
-                handleComponentClicked(style);
-                return true;
-            }
-        }
         boolean inputHandled = this.input.mouseClicked(origX, mouseY, button);
         if (inputHandled) {
             setFocused(this.input);
@@ -1114,6 +1111,15 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (textSelection.isDragActive()) {
+            double mx = mouseX;
+            if (isPanelSliding()) mx -= currentPanelOffset();
+            TextSpan hit = findTextSpanAt(mx, mouseY);
+            if (hit != null) {
+                textSelection.update(hit.messageIndex(), hit.lineIndex(), hit.kind(), charAt(hit, mx));
+            }
+            return true;
+        }
         if (scrollbarDragging && maxScroll > 0) {
             lastScrollTime = net.minecraft.Util.getMillis();
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
@@ -1138,6 +1144,16 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (textSelection.isDragActive()) {
+            textSelection.endDrag();
+            if (!textSelection.didMove()) {
+                double mx = mouseX;
+                if (isPanelSliding()) mx -= currentPanelOffset();
+                executeClickAction(mx, mouseY);
+                textSelection.clear();
+            }
+            return true;
+        }
         if (scrollbarDragging) {
             scrollbarDragging = false;
             return true;
@@ -1719,6 +1735,54 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private net.minecraft.network.chat.Style findRootClickStyle(net.minecraft.network.chat.Component c) {
         return ChatMessageRenderer.findRootClickStyle(c);
+    }
+
+    private TextSpan findTextSpanAt(double mouseX, double mouseY) {
+        for (int i = textSpans.size() - 1; i >= 0; i--) {
+            TextSpan s = textSpans.get(i);
+            if (mouseX >= s.x() && mouseX <= s.x() + s.w()
+                && mouseY >= s.y() && mouseY <= s.y() + s.h()) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    private int charAt(TextSpan span, double mouseX) {
+        String text = span.text();
+        if (text.isEmpty()) return 0;
+        double localX = (mouseX - span.x()) / span.scale();
+        int lo = 0;
+        int hi = text.length();
+        while (lo < hi) {
+            int mid = (lo + hi + 1) >>> 1;
+            if (font.width(text.substring(0, mid)) <= localX) {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return lo;
+    }
+
+    private void executeClickAction(double mouseX, double mouseY) {
+        Style style = getHoveredStyle(mouseX, mouseY);
+        if (style != null && style.getClickEvent() != null) {
+            ClickEvent click = style.getClickEvent();
+            if (click.getAction() == ClickEvent.Action.SUGGEST_COMMAND) {
+                input.setValue(click.getValue());
+            } else if (click.getAction() == ClickEvent.Action.OPEN_FILE) {
+                java.io.File file = new java.io.File(click.getValue());
+                net.minecraft.Util.getPlatform().openFile(file);
+            } else if (click.getAction() == ClickEvent.Action.OPEN_URL) {
+                String clickUrl = click.getValue();
+                if (clickUrl != null && (clickUrl.startsWith("http://") || clickUrl.startsWith("https://"))) {
+                    handleComponentClicked(style);
+                }
+            } else {
+                handleComponentClicked(style);
+            }
+        }
     }
 
     private net.minecraft.network.chat.Style getHoveredStyle(double mouseX, double mouseY) {
