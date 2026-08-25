@@ -122,4 +122,3 @@ class ChatTextSelectionTest {
         assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFFCCCCCC));
     }
 }
-
