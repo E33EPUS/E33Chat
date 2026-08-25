@@ -144,7 +144,6 @@ public class ChatBubbleScreen extends ChatScreen {
 
     // Real drag selection for EditBox inputs (vanilla doesn't support mouse-drag selection)
     private net.minecraft.client.gui.components.EditBox inputDragTarget;
-    private int inputDragAnchor = -1;
 
     // Scrollbar
     private boolean scrollbarDragging;
@@ -264,7 +263,7 @@ public class ChatBubbleScreen extends ChatScreen {
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
-        msgBottom = barTop - 1;
+        msgBottom = Math.max(0, barTop - 1);
 
         // Input box: gear (left) → input → emoji → send (right)
         int ibY = barTop + (BAR_H - INPUT_H) / 2;
@@ -347,7 +346,7 @@ public class ChatBubbleScreen extends ChatScreen {
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
-        msgBottom = barTop - 1;
+        msgBottom = Math.max(0, barTop - 1);
 
         int ibY = barTop + (BAR_H - INPUT_H) / 2;
         inputY = ibY;
@@ -859,7 +858,6 @@ public class ChatBubbleScreen extends ChatScreen {
                 if (handled && button == 0) {
                     setDragging(true);
                     inputDragTarget = sidebarSearchBox;
-                    inputDragAnchor = inputCharAt(sidebarSearchBox, origX);
                 }
                 return true;
             }
@@ -1031,6 +1029,11 @@ public class ChatBubbleScreen extends ChatScreen {
                     quickChatInput.setVisible(true);
                     setFocused(quickChatInput);
                     input.setFocused(false);
+                    boolean handled = quickChatInput.mouseClicked(mouseX, mouseY, button);
+                    if (handled && button == 0) {
+                        setDragging(true);
+                        inputDragTarget = quickChatInput;
+                    }
                     return true;
                 }
                 int result = quickChatPanel.handleClick((int) mouseX, (int) mouseY, font, c(), panelX, panelW, barTop, quickChatInput);
@@ -1039,11 +1042,6 @@ public class ChatBubbleScreen extends ChatScreen {
                     setFocused(input);
                 } else if (result == -2) {
                     setFocused(quickChatInput);
-                    if (button == 0) {
-                        setDragging(true);
-                        inputDragTarget = quickChatInput;
-                        inputDragAnchor = inputCharAt(quickChatInput, mouseX);
-                    }
                 }
                 return true;
             }
@@ -1054,7 +1052,6 @@ public class ChatBubbleScreen extends ChatScreen {
                     if (handled && button == 0) {
                         setDragging(true);
                         inputDragTarget = searchInput;
-                        inputDragAnchor = inputCharAt(searchInput, mouseX);
                     }
                     return true;
                 }
@@ -1162,7 +1159,6 @@ public class ChatBubbleScreen extends ChatScreen {
             if (button == 0) {
                 setDragging(true);
                 inputDragTarget = this.input;
-                inputDragAnchor = inputCharAt(this.input, origX);
             }
         }
         return inputHandled;
@@ -1207,7 +1203,9 @@ public class ChatBubbleScreen extends ChatScreen {
             return true;
         }
         if (inputDragTarget != null && button == 0) {
-            int idx = inputCharAt(inputDragTarget, mouseX);
+            double mx = mouseX;
+            if (isPanelSliding()) mx -= currentPanelOffset();
+            int idx = inputCharAt(inputDragTarget, mx);
             inputDragTarget.setCursorPosition(idx);
             return true;
         }
@@ -1228,7 +1226,6 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         if (inputDragTarget != null) {
             inputDragTarget = null;
-            inputDragAnchor = -1;
         }
         if (scrollbarDragging) {
             scrollbarDragging = false;
