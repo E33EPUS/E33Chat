@@ -36,6 +36,20 @@
 - Fixed banners never disappearing: each banner counts down independently from appearance and exits with the selected BANNER_ANIM_STYLE (SLIDE up / FADE out / ZOOM shrink-fade / NONE instant); being pushed down does not reset the timer
 - Notification sounds are globally deduplicated to one per 2 seconds: burst notifications only play the first sound while all banners still appear
 
+**文本选择功能（三端同步：Fabric / Forge / NeoForge）**
+- 新增鼠标拖选文本：气泡内发送者名字、正文、引用块、系统消息都可逐字符选取，支持跨行/跨消息，Ctrl+C 复制选中内容（行间以换行拼接）
+- 选区高亮按背景亮度自适应：暗背景用半透明白遮罩+黑色选中文字，亮背景用半透明黑遮罩+白色选中文字，不再与蓝色气泡/引用块重色
+- 拖选经过行间空隙时自动吸附最近文本，拖到消息区边缘自动滚动聊天；普通点击仍正常触发链接/指令
+- 聊天主输入框、快捷短语、搜索、侧边栏搜索框均支持鼠标拖选文本
+- 修复滚动条与下栏之间出现间隙的问题：消息底部呼吸空间改为计入内容高度，滚动条轨道仍贴到下栏
+
+**Text selection (all loaders: Fabric / Forge / NeoForge)**
+- Added mouse drag selection: sender names, bubble content, quote blocks, and system messages can be selected character-by-character across lines/messages; Ctrl+C copies the selection (lines joined with newlines)
+- Selection highlight adapts to background brightness: dark backgrounds use a light overlay with black selected text, light backgrounds use a dark overlay with white selected text; no more clashing with blue bubbles or quote blocks
+- Dragging through gaps snaps to the nearest text, and dragging near the chat edges auto-scrolls; plain clicks still trigger links/commands
+- Main chat input, quick-chat, search, and sidebar search inputs all support mouse drag selection
+- Fixed the gap between the scrollbar and the bottom bar: the bottom breathing room now lives in the content height while the scrollbar track stays flush with the bottom bar
+
 ## v2.4.1
 
 **ModernUI emoji 短码支持（三端同步：Fabric / Forge / NeoForge）**
