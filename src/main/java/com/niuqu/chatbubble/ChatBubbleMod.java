@@ -5,6 +5,7 @@ import com.niuqu.chatbubble.config.ServerConfigManager;
 import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
+import com.niuqu.chatbubble.network.EasyBotConfigPayload;
 import com.niuqu.chatbubble.network.HistoryPayload;
 import com.niuqu.chatbubble.network.MediaRequestPayload;
 import com.niuqu.chatbubble.network.MediaResponsePayload;
@@ -49,6 +50,7 @@ public class ChatBubbleMod implements ModInitializer {
     private static boolean templateDebug;
     private static boolean mediaEnabled;
     private static boolean mediaAutoClean = true;
+    private static boolean easyBotCompat = true;
     private static List<String> chatTemplates = List.of();
     private static List<String> whisperTemplates = List.of();
     private static boolean configLoaded;
@@ -95,6 +97,7 @@ public class ChatBubbleMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(MediaUploadAckPayload.ID, MediaUploadAckPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MediaResponsePayload.ID, MediaResponsePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MediaCapPayload.ID, MediaCapPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(EasyBotConfigPayload.ID, EasyBotConfigPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(MediaUploadPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -234,6 +237,7 @@ public class ChatBubbleMod implements ModInitializer {
         templateDebug = config.template_debug;
         mediaEnabled = config.media_enabled;
         mediaAutoClean = config.media_auto_clean == null || config.media_auto_clean;
+        easyBotCompat = config.easy_bot_compat == null || config.easy_bot_compat;
         chatTemplates = config.chat_templates != null ? config.chat_templates : List.of();
         whisperTemplates = config.whisper_templates != null ? config.whisper_templates : List.of();
     }
@@ -244,14 +248,16 @@ public class ChatBubbleMod implements ModInitializer {
         }
     }
 
-    // 三 payload 组合（use_tpa + templates + media cap）：JOIN 与 broadcast 共用。
-    // media 是独立能力 type——旧客户端安全丢未知 payload，mediaEnabled 不会在混版本时 desync。
+    // 四 payload 组合（use_tpa + templates + media cap + easybot）：JOIN 与 broadcast 共用。
+    // media/easybot 是独立能力 type——旧客户端安全丢未知 payload，混版本不会 desync。
     private static void sendServerConfigTripleTo(ServerPlayerEntity player) {
         ServerPlayNetworking.send(player,
             new ConfigSyncPayload(useTpa));
         ServerPlayNetworking.send(player, buildConfigV2());
         ServerPlayNetworking.send(player,
             new MediaCapPayload(mediaEnabled));
+        ServerPlayNetworking.send(player,
+            new EasyBotConfigPayload(easyBotCompat));
     }
 
     private static ConfigSyncV2Payload buildConfigV2() {
@@ -265,6 +271,7 @@ public class ChatBubbleMod implements ModInitializer {
     public static boolean templateDebug() { return templateDebug; }
     public static boolean mediaEnabled() { return mediaEnabled; }
     public static boolean mediaAutoClean() { return mediaAutoClean; }
+    public static boolean easyBotCompat() { return easyBotCompat; }
     public static List<String> chatTemplates() { return chatTemplates; }
     public static List<String> whisperTemplates() { return whisperTemplates; }
     public static void setTemplates(List<String> chat, List<String> whisper, boolean debug) {

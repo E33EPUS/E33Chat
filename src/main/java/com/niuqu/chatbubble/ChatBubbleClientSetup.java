@@ -11,6 +11,7 @@ import com.niuqu.chatbubble.image.ImageLoader;
 import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
+import com.niuqu.chatbubble.network.EasyBotConfigPayload;
 import com.niuqu.chatbubble.network.HistoryPayload;
 import com.niuqu.chatbubble.network.MediaCapPayload;
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
@@ -110,12 +111,15 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(ConfigSyncV2Payload.ID, (payload, context) -> {
             context.client().execute(() -> ConfigSyncV2Payload.handle(payload));
         });
+        ClientPlayNetworking.registerGlobalReceiver(EasyBotConfigPayload.ID, (payload, context) -> {
+            context.client().execute(() -> EasyBotConfigPayload.handle(payload));
+        });
         // Server-config GUI: opened on the client only (server never loads the Screen)
         ClientPlayNetworking.registerGlobalReceiver(ServerConfigScreenPayload.ID, (payload, context) -> {
             context.client().execute(() -> MinecraftClient.getInstance().setScreen(new ServerConfigScreen(
                 MinecraftClient.getInstance().currentScreen,
                 payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
-                payload.mediaEnabled(), payload.mediaAutoClean(),
+                payload.mediaEnabled(), payload.mediaAutoClean(), payload.easyBotCompat(),
                 payload.chatTemplates(), payload.whisperTemplates())));
         });
 

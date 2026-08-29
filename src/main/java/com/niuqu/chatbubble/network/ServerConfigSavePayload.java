@@ -19,7 +19,7 @@ import java.util.List;
  * every template, persists to the JSON file, and rebroadcasts to all players.
  */
 public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
-                                      boolean mediaEnabled, boolean mediaAutoClean,
+                                      boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
                                       List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPayload {
 
@@ -29,11 +29,12 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
     public static final PacketCodec<PacketByteBuf, ServerConfigSavePayload> CODEC = PacketCodec.of(
         (value, buf) -> ServerConfigDto.encode(new ServerConfigDto(
             value.useTpa, value.historyEnabled, value.templateDebug, value.mediaEnabled,
-            value.mediaAutoClean, value.chatTemplates, value.whisperTemplates), buf),
+            value.mediaAutoClean, value.easyBotCompat, value.chatTemplates, value.whisperTemplates), buf),
         buf -> {
             ServerConfigDto d = ServerConfigDto.decode(buf);
             return new ServerConfigSavePayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-                d.mediaEnabled(), d.mediaAutoClean(), d.chatTemplates(), d.whisperTemplates());
+                d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(),
+                d.chatTemplates(), d.whisperTemplates());
         }
     );
 
@@ -56,6 +57,7 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
         cfg.template_debug = payload.templateDebug();
         cfg.media_enabled = payload.mediaEnabled();
         cfg.media_auto_clean = payload.mediaAutoClean();
+        cfg.easy_bot_compat = payload.easyBotCompat();
         cfg.chat_templates = new ArrayList<>(payload.chatTemplates());
         cfg.whisper_templates = new ArrayList<>(payload.whisperTemplates());
         applyAndSave.accept(cfg);

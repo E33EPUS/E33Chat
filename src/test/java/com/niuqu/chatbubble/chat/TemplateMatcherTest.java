@@ -232,6 +232,30 @@ class TemplateMatcherTest {
         assertEquals("hello", r.content());
     }
 
+    @Test void externalAcceptsUnknownSender() {
+        // EasyBot QQ relays have external senders that are not known players.
+        // {external} templates must match them without the known-name gate.
+        var r = matchChat("[闲聊群] <小明(123456789)> 你好", "[{prefix}] <{external}> {content}").orElseThrow();
+        assertEquals("闲聊群", r.prefix());
+        assertEquals("小明(123456789)", r.displayName());
+        assertEquals("你好", r.content());
+        assertEquals("小明(123456789)", r.verifiedName());
+    }
+
+    @Test void externalWithoutQqIdMatches() {
+        var r = matchChat("[闲聊群] <小明> 你好", "[{prefix}] <{external}> {content}").orElseThrow();
+        assertEquals("小明", r.displayName());
+        assertEquals("你好", r.content());
+    }
+
+    @Test void externalRejectsCombinedWithDisplayName() {
+        assertNotNull(TemplateMatcher.compile("{display_name} {external}: {content}").error());
+    }
+
+    @Test void externalRejectsWhisperTemplate() {
+        assertNotNull(TemplateMatcher.compile("{sender} {external}: {content}").error());
+    }
+
     @Test void matchesCmiAdjacentPrefix() {
         // {prefix}{display_name} adjacent without an anchor: the lazy prefix takes the
         // empty match and display absorbs the decoration — the name still resolves

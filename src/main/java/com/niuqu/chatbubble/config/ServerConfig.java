@@ -11,6 +11,8 @@ public class ServerConfig {
     public boolean media_enabled;
     /** null in old files = absent → treated as enabled (default on). */
     public Boolean media_auto_clean;
+    /** null in old files = absent → treated as enabled (default on). */
+    public Boolean easy_bot_compat;
 
     public static ServerConfig defaults() {
         ServerConfig c = new ServerConfig();
@@ -21,6 +23,7 @@ public class ServerConfig {
         c.template_debug = false;
         c.media_enabled = true;
         c.media_auto_clean = true;
+        c.easy_bot_compat = true;
         return c;
     }
 }

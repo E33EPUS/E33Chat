@@ -91,12 +91,13 @@ public final class BracketCodec {
         ParseResult r = parse(text);
         if (!r.images().isEmpty() || text == null) return r;
         List<ImageRef> refs = extractFromHover(text);
+        if (refs.isEmpty()) refs = extractFromShowTextHover(text);
         if (refs.isEmpty()) return r;
         MutableText out = Text.empty();
         text.visit((style, part) -> {
             net.minecraft.text.HoverEvent hover = style.getHoverEvent();
-            if (hover != null && isChatImageHover(hover)) {
-                return Optional.empty(); // drop the [Image] placeholder text
+            if (hover != null && (isChatImageHover(hover) || isEasyBotCICodeHover(hover))) {
+                return Optional.empty(); // drop the [Image]/summary placeholder text
             }
             out.append(Text.literal(part).fillStyle(style));
             return Optional.empty();
@@ -179,6 +180,53 @@ public final class BracketCodec {
             return Optional.empty();
         }, Style.EMPTY);
         return out;
+    }
+
+    /**
+     * Recovers image URLs from EasyBot's relay format: the visible summary run
+     * (e.g. "[图片]") carries a normal SHOW_TEXT hover whose tooltip text is the
+     * {@code [[CICode,url=...,name=...]]} bracket. ChatImage understands this
+     * format; E33Chat now does too.
+     */
+    public static List<ImageRef> extractFromShowTextHover(Text text) {
+        if (text == null) return List.of();
+        List<ImageRef> out = new ArrayList<>();
+        text.visit((style, part) -> {
+            net.minecraft.text.HoverEvent hover = style.getHoverEvent();
+            if (hover != null && isEasyBotCICodeHover(hover)) {
+                String tooltip = hoverText(hover);
+                if (tooltip != null) {
+                    Matcher m = BRACKET.matcher(tooltip);
+                    while (m.find()) {
+                        ImageRef ref = parseAttrs(m.group(2), m.group(1));
+                        if (ref != null) out.add(ref);
+                    }
+                }
+            }
+            return Optional.empty();
+        }, Style.EMPTY);
+        return out;
+    }
+
+    private static boolean isEasyBotCICodeHover(net.minecraft.text.HoverEvent hover) {
+        try {
+            if (hover.getAction() != net.minecraft.text.HoverEvent.Action.SHOW_TEXT) return false;
+            String tooltip = hoverText(hover);
+            return tooltip != null && BRACKET.matcher(tooltip).find();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private static String hoverText(net.minecraft.text.HoverEvent hover) {
+        try {
+            Object value = hover.getValue(net.minecraft.text.HoverEvent.Action.SHOW_TEXT);
+            if (value instanceof Text c) return c.getString();
+            if (value instanceof String s) return s;
+        } catch (Throwable t) {
+            return null;
+        }
+        return null;
     }
 
     private static boolean isChatImageHover(net.minecraft.text.HoverEvent hover) {

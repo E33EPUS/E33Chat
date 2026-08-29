@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.4.3-beta
+
+**EasyBot 群消息兼容（NeoForge 先行）**
+- 新增服务端配置 `easybot_compat`（默认开）：把 EasyBot 转发进游戏的 QQ 群消息（默认格式 `[群名] <昵称(QQ号)> 内容`）解析为 E33Chat 玩家气泡，不再显示为灰色系统消息；不需要可手动关闭
+- 支持 EasyBot/ChatImage 的 CICode 图片：气泡内可直接显示 QQ 图片卡片（从 SHOW_TEXT hover 里的 `[[CICode,...]]` 提取）
+- 服务端模板新增 `{external}` 占位符：用于“外部/QQ 发送者”，不要求名字能解析为已知玩家；`/e33chat gui` 聊天模板预设区已加入 EasyBot 默认格式，方便服主在 EasyBot 模板被自定义时覆盖
+- README / README_EN 增加 EasyBot 兼容说明
+
+**EasyBot group-message compatibility (NeoForge first)**
+- New server config `easybot_compat` (on by default): QQ group messages relayed by EasyBot (default format `[Group] <Nick(QQ#)> content`) are parsed as E33Chat player bubbles instead of grey system messages; turn it off if you prefer the old system-message style
+- EasyBot/ChatImage CICode images are supported: QQ images render as cards inside bubbles (extracted from `[[CICode,...]]` in SHOW_TEXT hover)
+- Server templates gained `{external}` for external/QQ senders that do not need to resolve to known players; the `/e33chat gui` chat-template presets now include the EasyBot default format so server owners can override customized EasyBot templates
+- README / README_EN updated with EasyBot compatibility docs
+
 ## v2.4.2
 
 **横幅堆叠机制（三端同步：Fabric / Forge / NeoForge）**
