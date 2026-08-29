@@ -92,6 +92,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean hideRepeatedAvatars;
     private int bannerOpacity, bubbleSize;
     private boolean closeChatOnSend;
+    private boolean panelFullscreen;
 
     // 打开时的快照——用于 changeCount / revertAll
     private ChatBubbleConfig snapshot;
@@ -178,6 +179,7 @@ public class ChatBubbleConfigScreen extends Screen {
         tracked.add(track(() -> ownTextColor, v -> ownTextColor = v));
         tracked.add(track(() -> otherTextColor, v -> otherTextColor = v));
         tracked.add(track(() -> panelWidth, v -> panelWidth = v));
+        tracked.add(track(() -> panelFullscreen, v -> panelFullscreen = v));
         tracked.add(track(() -> blurEnabled, v -> blurEnabled = v));
         tracked.add(track(() -> panelOpacity, v -> panelOpacity = v));
         tracked.add(track(() -> debugLog, v -> debugLog = v));
@@ -243,7 +245,8 @@ public class ChatBubbleConfigScreen extends Screen {
             uploadExtra.isEmpty() ? null : uploadExtra,
             uploadResponse.isEmpty() ? null : uploadResponse,
             messageGap, avatarSize, hideRepeatedAvatars,
-            bannerOpacity, closeChatOnSend, bubbleSize));
+            bannerOpacity, closeChatOnSend, bubbleSize,
+            panelFullscreen));
     }
 
     private void loadFromConfig() {
@@ -289,6 +292,7 @@ public class ChatBubbleConfigScreen extends Screen {
         hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null ? cfg.hideRepeatedAvatars() : false;
         bannerOpacity = cfg.bannerOpacity() != null ? cfg.bannerOpacity() : 100;
         closeChatOnSend = cfg.closeChatOnSend();
+        panelFullscreen = cfg.panelFullscreen() != null && cfg.panelFullscreen();
         bubbleSize = cfg.bubbleSize() != null ? cfg.bubbleSize() : 9;
     }
 
@@ -417,7 +421,8 @@ public class ChatBubbleConfigScreen extends Screen {
         chat.add(Opt.header("e33chat.config.section.panel"));
         chat.add(new Opt("e33chat.config.theme", this::mkThemeButton, null));
         chat.add(new Opt("e33chat.config.panel_width",
-            y -> mkIntBox(y, String.valueOf(panelWidth), 800, 1600, 4, v -> panelWidth = v), null));
+            y -> mkIntBox(y, String.valueOf(panelWidth), 400, 1600, 4, v -> panelWidth = v), null));
+        chat.add(new Opt("e33chat.config.panel_fullscreen", y -> mkBoolButton(y, () -> panelFullscreen, v -> panelFullscreen = v), null));
         chat.add(new Opt("e33chat.config.blur_enabled", y -> mkBoolButton(y, () -> blurEnabled, v -> blurEnabled = v), null));
         chat.add(new Opt("e33chat.config.panel_opacity",
             y -> mkIntBox(y, String.valueOf(panelOpacity), 0, 100, 3, v -> panelOpacity = v), null));

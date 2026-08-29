@@ -64,7 +64,9 @@ public record ChatBubbleConfig(
     // 2.4.0 sync: close the chat screen right after sending (default off = chain sends)
     boolean closeChatOnSend,
     // 2.4.0 sync: bubble text height in px 5-14 (default 9 = scale 1.0)
-    Integer bubbleSize
+    Integer bubbleSize,
+    // 2.4.4 sync: fill the whole screen width with the chat panel (ignores panel_width)
+    Boolean panelFullscreen
 ) {
     public static ChatBubbleConfig defaults() {
         return new ChatBubbleConfig(
@@ -80,7 +82,8 @@ public record ChatBubbleConfig(
             true, true,
             null, null, null, null,
             6, 20, false,
-            100, false, 9
+            100, false, 9,
+            false
         );
     }
 
@@ -106,7 +109,7 @@ public record ChatBubbleConfig(
             panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
             uploadUrl, uploadField, uploadExtra, uploadResponse,
             messageGap, avatarSize, hideRepeatedAvatars,
-            bannerOpacity, closeChatOnSend, bubbleSize);
+            bannerOpacity, closeChatOnSend, bubbleSize, panelFullscreen);
     }
 
     public ChatBubbleConfig withQuickChatPhrases(List<String> phrases) {
@@ -120,7 +123,7 @@ public record ChatBubbleConfig(
             panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
             uploadUrl, uploadField, uploadExtra, uploadResponse,
             messageGap, avatarSize, hideRepeatedAvatars,
-            bannerOpacity, closeChatOnSend, bubbleSize);
+            bannerOpacity, closeChatOnSend, bubbleSize, panelFullscreen);
     }
 
     public ChatBubbleConfig withSidebarHidePatterns(List<String> patterns) {
@@ -134,7 +137,7 @@ public record ChatBubbleConfig(
             panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
             uploadUrl, uploadField, uploadExtra, uploadResponse,
             messageGap, avatarSize, hideRepeatedAvatars,
-            bannerOpacity, closeChatOnSend, bubbleSize);
+            bannerOpacity, closeChatOnSend, bubbleSize, panelFullscreen);
     }
 
     public ChatBubbleConfig withBlockedPlayers(List<String> blocked) {
@@ -148,7 +151,7 @@ public record ChatBubbleConfig(
             panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
             uploadUrl, uploadField, uploadExtra, uploadResponse,
             messageGap, avatarSize, hideRepeatedAvatars,
-            bannerOpacity, closeChatOnSend, bubbleSize);
+            bannerOpacity, closeChatOnSend, bubbleSize, panelFullscreen);
     }
 
     public boolean isSidebarHidden(String playerName) {

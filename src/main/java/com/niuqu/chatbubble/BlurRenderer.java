@@ -108,8 +108,11 @@ public class BlurRenderer {
             boolean scissor = GL30.glIsEnabled(GL30.GL_SCISSOR_TEST);
 
             try {
-                int s = (int) mc.getWindow().getScaleFactor();
-                int px = x * s, py = y * s, pw = w * s, ph = h * s;
+                // Exact (possibly fractional) GUI scale: truncating made the
+                // blur region drift off the panel rectangle (2.4.4 sync).
+                double s = mc.getWindow().getScaleFactor();
+                int px = (int) Math.round(x * s), py = (int) Math.round(y * s),
+                    pw = (int) Math.round(w * s), ph = (int) Math.round(h * s);
                 int y2 = Math.min(py + ph, fbH);
                 if (y2 <= py) return;
                 ph = y2 - py;

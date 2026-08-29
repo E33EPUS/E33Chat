@@ -3,7 +3,10 @@ package com.niuqu.chatbubble;
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import com.niuqu.chatbubble.compat.ModernUIEmojiCompat;
 import com.niuqu.chatbubble.config.ChatBubbleConfig;
+import com.niuqu.chatbubble.render.ChatTextSelection;
+import com.niuqu.chatbubble.render.TextSpan;
 import com.niuqu.chatbubble.image.BracketCodec;
 import com.niuqu.chatbubble.image.ImageEntry;
 import com.niuqu.chatbubble.image.ImageLoader;
@@ -88,6 +91,13 @@ public class ChatBubbleScreen extends ChatScreen {
     // up to this many px, bubble-less.
     private static final int EMOTE_MAX_SIZE = 32;
     private static final int SIDEBAR_W = 90;
+
+    /**
+     * Windowed-mode cap: the panel never exceeds this fraction of the window
+     * width (40% keeps a 1000px panel intact on a 2560px fullscreen display
+     * while shrinking it on smaller windows). Fullscreen panel mode opts out.
+     */
+    private static final double MAX_WINDOW_FRACTION = 0.40;
     private static final int SIDEBAR_ITEM_H = 22;
     private static final int SIDEBAR_ICON_S = 20;
 
@@ -158,6 +168,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     // Popup open animation timestamps (opening only; closing stays instant)
     private long settingsAnimStart, emojiAnimStart, quickAnimStart, searchAnimStart;
+    private long settingsCloseStart, emojiCloseStart, quickCloseStart, searchCloseStart;
     private String whisperPartner;
     private int sidebarScrollOffset;
     private int sidebarMaxScroll;
@@ -217,6 +228,10 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private final List<int[]> bubbleRects = new ArrayList<>();
     private final List<ClickableSpan> clickableSpans = new ArrayList<>();
+    private final List<TextSpan> textSpans = new ArrayList<>();
+    private final ChatTextSelection textSelection = new ChatTextSelection();
+    private double selectionStartX, selectionStartY;
+    private boolean emojiReplacing;
 
     private int replyTargetIndex = -1;
     private int copyToastTicks;
@@ -253,9 +268,6 @@ public class ChatBubbleScreen extends ChatScreen {
         closing = false;
         firstRender = true;
 
-        int physicalW = ChatBubbleClientSetup.config().panelWidth();
-        int guiScale = (int) Math.round(client.getWindow().getScaleFactor());
-        panelW = Math.max(100, Math.min(physicalW / Math.max(1, guiScale), width));
         if (sidebarOpen) {
             panelX = SIDEBAR_W;
             sidebarAnimating = false; // sidebar is already in place; the panel's
@@ -266,7 +278,10 @@ public class ChatBubbleScreen extends ChatScreen {
             sidebarAnimating = false;
             sidebarTargetOpen = false;
         }
-        if (panelX + panelW > width) panelW = width - panelX;
+        panelW = computePanelWidth(ChatBubbleClientSetup.config().panelWidth(),
+            client.getWindow().getScaleFactor(), width, panelX,
+            ChatBubbleClientSetup.config().panelFullscreen() != null
+                && ChatBubbleClientSetup.config().panelFullscreen());
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
@@ -339,11 +354,30 @@ public class ChatBubbleScreen extends ChatScreen {
         onInputEdited(chatField.getText());
     }
 
+    /**
+     * Panel width in logical GUI pixels (2.4.4/2.4.5 sync).
+     *
+     * <p>{@code panel_width} is a PHYSICAL-pixel size: the logical width divides
+     * by the exact — possibly fractional — GUI scale (rounding the scale to an
+     * int made the panel drift with the window). Fullscreen panel mode fills the
+     * remaining width instead. The result is clamped to the remaining width, to
+     * 40% of the window in windowed mode, and to a 100px safety floor.
+     */
+    static int computePanelWidth(int physicalW, double guiScale, int width, int panelX, boolean fullscreen) {
+        if (fullscreen) {
+            return Math.max(100, width - panelX);
+        }
+        double s = guiScale > 0.01 ? guiScale : 1.0;
+        int w = (int) Math.round(physicalW / s);
+        w = Math.min(w, (int) (width * MAX_WINDOW_FRACTION));
+        return Math.max(100, Math.min(w, width - panelX));
+    }
+
     private void rebuildLayout() {
-        int physicalW = ChatBubbleClientSetup.config().panelWidth();
-        int guiScale = (int) Math.round(client.getWindow().getScaleFactor());
-        panelW = Math.max(100, Math.min(physicalW / Math.max(1, guiScale), width));
-        if (panelX + panelW > width) panelW = width - panelX;
+        panelW = computePanelWidth(ChatBubbleClientSetup.config().panelWidth(),
+            client.getWindow().getScaleFactor(), width, panelX,
+            ChatBubbleClientSetup.config().panelFullscreen() != null
+                && ChatBubbleClientSetup.config().panelFullscreen());
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
@@ -575,6 +609,19 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void onInputEdited(String text) {
+        // 2.4.1 sync: ModernUI transforms shortcodes like :pig2: in the vanilla
+        // ChatScreen responder; E33Chat installs its own listener, so mirror the
+        // hook here when ModernUI is installed and the feature is enabled.
+        if (!emojiReplacing && ModernUIEmojiCompat.isEnabled() && !text.startsWith("/")) {
+            emojiReplacing = true;
+            try {
+                if (ModernUIEmojiCompat.replaceIn(chatField)) {
+                    return; // reentrant onInputEdited already did post-processing
+                }
+            } finally {
+                emojiReplacing = false;
+            }
+        }
         showMentions = false;
         mentionNavigated = false;
         int atIdx = text.lastIndexOf('@');
@@ -634,6 +681,19 @@ public class ChatBubbleScreen extends ChatScreen {
     @Override
     public void tick() {
         if (copyToastTicks > 0) copyToastTicks--;
+        finishPopupClose(settingsCloseStart, () -> { settingsCloseStart = 0; settingsMenu.visible = false; });
+        finishPopupClose(emojiCloseStart, () -> { emojiCloseStart = 0; emojiPanel.visible = false; });
+        finishPopupClose(quickCloseStart, () -> {
+            quickCloseStart = 0;
+            quickChatPanel.visible = false;
+            quickChatInput.setVisible(false);
+        });
+        finishPopupClose(searchCloseStart, () -> {
+            searchCloseStart = 0;
+            searchPanel.visible = false;
+            searchInput.setVisible(false);
+            searchMatches.clear(); searchMatchIdx = -1; searchHighlightIndex = -1;
+        });
         if (emoteHintTicks > 0) emoteHintTicks--;
         if (uploadBusyTicks > 0) uploadBusyTicks--;
         if (uploadToastTicks > 0) uploadToastTicks--;
@@ -674,6 +734,25 @@ public class ChatBubbleScreen extends ChatScreen {
     }
     //#endif
 
+    /** 开始弹层关闭动画（2.4.5 sync）：动画关/风格 NONE 时立即隐藏，否则 150ms 后由 tick 隐藏。 */
+    private void beginPopupClose(java.util.function.LongConsumer setCloseStart, Runnable hide) {
+        if (!ChatBubbleClientSetup.config().animationEnabled()
+                || AnimationStyle.parse(ChatBubbleClientSetup.config().popupAnimStyle()) == AnimationStyle.NONE) {
+            setCloseStart.accept(0);
+            hide.run();
+            return;
+        }
+        // Same clock as renderPopupWithAnim reads — one clock end-to-end.
+        setCloseStart.accept(Util.getMeasuringTimeMs());
+    }
+
+    /** tick 调用：关闭动画到期后真正隐藏。 */
+    private void finishPopupClose(long closeStart, Runnable hide) {
+        if (closeStart > 0 && Util.getMeasuringTimeMs() - closeStart >= POPUP_CLOSE_MS) {
+            hide.run();
+        }
+    }
+
     private float getAnimProgress() {
         if (!ChatBubbleClientSetup.config().animationEnabled()) return 1.0f;
         AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().panelAnimStyle());
@@ -684,19 +763,36 @@ public class ChatBubbleScreen extends ChatScreen {
         return Animation.styleCurve(style, t);
     }
 
-    // Popup open animation (opening only — closing stays instant). The panel
-    // renders itself with the given alpha (per-element fade); ZOOM additionally
-    // scales it in around the screen center with overshoot.
-    private void renderPopupWithAnim(DrawContext g, long startMs, java.util.function.Function<Float, Runnable> renderer) {
-        float alpha = 1f;
-        float t = 1f;
+    // Popup open/close animation (2.4.5 sync). Open: 200ms style curve; close:
+    // 150ms replaying the open curve in reverse, so the two directions are
+    // symmetric (ZOOM overshoot included). The closeStartMs > openStartMs guard
+    // makes a reopen during a close animation win over the stale close.
+    // alpha <= 0.02 is never rendered: vanilla Font.adjustColor snaps colors
+    // with alpha <= 3 back to fully opaque, which flashed text on the last
+    // fade frame while the panel (per-element float alpha) faded correctly.
+    private static final float POPUP_OPEN_MS = 200f;
+    private static final float POPUP_CLOSE_MS = 150f;
+
+    private void renderPopupWithAnim(DrawContext g, long openStartMs, long closeStartMs,
+                                     java.util.function.Function<Float, Runnable> renderer) {
         AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().popupAnimStyle());
-        if (ChatBubbleClientSetup.config().animationEnabled() && style != AnimationStyle.NONE) {
-            t = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - startMs) / 150f, 0f, 1f);
+        float alpha;
+        boolean animating;
+        if (closeStartMs > 0 && closeStartMs > openStartMs) {
+            float tc = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - closeStartMs) / POPUP_CLOSE_MS, 0f, 1f);
+            alpha = Animation.styleCurve(style, 1f - tc);
+            animating = tc < 1f;
+        } else if (ChatBubbleClientSetup.config().animationEnabled() && style != AnimationStyle.NONE) {
+            float t = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - openStartMs) / POPUP_OPEN_MS, 0f, 1f);
             alpha = Animation.styleCurve(style, t);
+            animating = t < 1f;
+        } else {
+            alpha = 1f;
+            animating = false;
         }
+        if (alpha <= 0.02f) return;
         Runnable render = renderer.apply(alpha);
-        if (t >= 1f || style == AnimationStyle.NONE) { render.run(); return; }
+        if (!animating || style == AnimationStyle.NONE) { render.run(); return; }
         if (style == AnimationStyle.ZOOM) {
             //#if MC >= 12106
             g.getMatrices().pushMatrix();
@@ -726,7 +822,7 @@ public class ChatBubbleScreen extends ChatScreen {
             //$$ g.getMatrices().pop();
             //#endif
         } else if (style == AnimationStyle.SLIDE) {
-            // SLIDE: rise up from below while fading in
+            // SLIDE: rise up from below while fading in; close sinks back down
             //#if MC >= 12106
             g.getMatrices().pushMatrix();
             //#else
@@ -757,14 +853,33 @@ public class ChatBubbleScreen extends ChatScreen {
     //#else
     //$$ public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
     //#endif
+        // Ctrl+C copies the current drag-selected chat text (2.4.2 sync).
+        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_C && (modifiers & 0x2) != 0
+            && textSelection.hasSelection()) {
+            String copied = textSelection.copyText(textSpans);
+            if (!copied.isEmpty()) {
+                client.keyboard.setClipboard(copied);
+                copyToastTicks = 30;
+            }
+            return true;
+        }
         // Ctrl+V with an image in the clipboard uploads it and inserts the code.
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_V && (modifiers & 0x2) != 0) {
             startUploadFromClipboard();
         }
-        if (settingsMenu.visible && keyCode == 256) { settingsMenu.visible = false; return true; }
-        if (emojiPanel.visible && keyCode == 256) { emojiPanel.visible = false; return true; }
+        if (settingsMenu.visible && keyCode == 256) {
+            beginPopupClose(s -> settingsCloseStart = s, () -> settingsMenu.visible = false);
+            return true;
+        }
+        if (emojiPanel.visible && keyCode == 256) {
+            beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
+            return true;
+        }
         if (quickChatPanel.visible && keyCode == 256) {
-            quickChatPanel.visible = false; quickChatInput.setVisible(false); setFocused(chatField); return true;
+            beginPopupClose(s -> quickCloseStart = s, () -> {
+                quickChatPanel.visible = false; quickChatInput.setVisible(false); setFocused(chatField);
+            });
+            return true;
         }
         if (searchPanel.visible && keyCode == 256) { closeSearchPanel(); return true; }
 
@@ -1120,7 +1235,7 @@ public class ChatBubbleScreen extends ChatScreen {
         if (button == 0) {
             for (int[] r : bubbleRects) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
-                if (msg == null || msg.isSystem()) continue;
+                if (msg == null || msg.isSystem() || !avatarVisibleAt(r[4])) continue;
                 int avatarX = msg.isOwn() ? r[0] + r[2] + 4 : r[0] - avatarSize() - 4;
                 int avatarY = msg.replyContent() != null ? r[1] - textRenderer.fontHeight - 2 : r[1] - NAME_H;
                 if (mouseX >= avatarX && mouseX <= avatarX + avatarSize()
@@ -1144,6 +1259,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem() || msg.isOwn()) continue;
                 if (msg.rawPlayerName() == null || msg.rawPlayerName().isEmpty()) continue;
+                if (!avatarVisibleAt(r[4])) continue;
                 int avatarX = r[0] - avatarSize() - 4;
                 int avatarY = msg.replyContent() != null ? r[1] - textRenderer.fontHeight - 2 : r[1] - NAME_H;
                 if (mouseX >= avatarX && mouseX <= avatarX + avatarSize()
@@ -1165,6 +1281,40 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
+        // Text selection (2.4.2 sync): a drag selects text; a simple click on
+        // text starts a selection and is deferred to mouseReleased so the old
+        // immediate clickable-style handling only remains for non-text clicks.
+        if (button == 0) {
+            TextSpan hit = findTextSpanAt(mouseX, mouseY);
+            if (hit != null) {
+                if (textSelection.hasSelection()) textSelection.clear();
+                textSelection.begin(hit.messageIndex(), hit.lineIndex(), hit.kind(),
+                    charAt(hit, mouseX));
+                selectionStartX = mouseX;
+                selectionStartY = mouseY;
+                return true;
+            }
+            if (textSelection.hasSelection() || textSelection.isDragActive()) {
+                textSelection.clear();
+            }
+        }
+
+        // Clickable text (immediate when no text span was hit; clicks that began
+        // a selection are deferred to mouseReleased -> handleClickableTextClick)
+        if (button == 0 && handleClickableTextClick(mouseX, mouseY, button)) return true;
+        //#if MC >= 12109
+        // 1.21.9+: ClickableWidget.mouseClicked takes (Click, boolean). The chat field
+        // is drawn outside the panel slide, so use the unshifted origX coordinate.
+        return this.chatField.mouseClicked(new Click(origX, mouseY, click.buttonInfo()), inside);
+        //#else
+        //$$ return this.chatField.mouseClicked(origX, mouseY, button);
+        //#endif
+    }
+
+    /** Handle a left click on clickable text (2.4.2 sync). Called immediately
+     *  for clicks that did not start a text selection, and deferred to
+     *  mouseReleased for clicks that began one (drag vs click disambiguation). */
+    private boolean handleClickableTextClick(double mouseX, double mouseY, int button) {
         // Clickable text
         if (button == 0) {
             Style style = getHoveredStyle(mouseX, mouseY);
@@ -1221,13 +1371,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 //#endif
             }
         }
-        //#if MC >= 12109
-        // 1.21.9+: ClickableWidget.mouseClicked takes (Click, boolean). The chat field
-        // is drawn outside the panel slide, so use the unshifted origX coordinate.
-        return this.chatField.mouseClicked(new Click(origX, mouseY, click.buttonInfo()), inside);
-        //#else
-        //$$ return this.chatField.mouseClicked(origX, mouseY, button);
-        //#endif
+        return false;
     }
 
     @Override
@@ -1241,7 +1385,24 @@ public class ChatBubbleScreen extends ChatScreen {
     //#else
     //$$ public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
     //#endif
+        if (textSelection.isDragActive()) {
+            double mx = mouseX;
+            if (isPanelSliding()) mx -= currentPanelOffset();
+            TextSpan hit = findTextSpanAt(mx, mouseY);
+            if (hit == null) {
+                textSelection.markMoved();
+                hit = findNearestTextSpan(mx, mouseY);
+            } else if (Math.abs(mx - selectionStartX) + Math.abs(mouseY - selectionStartY) > 3.0) {
+                textSelection.markMoved();
+            }
+            if (hit != null) {
+                textSelection.update(hit.messageIndex(), hit.lineIndex(), hit.kind(), charAt(hit, mx));
+            }
+            autoScrollSelection(mouseY);
+            return true;
+        }
         if (scrollbarDragging && maxScroll > 0) {
+            if (textSelection.hasSelection()) textSelection.clear();
             lastScrollTime = Util.getMeasuringTimeMs();
             int effBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
             int trackH = effBottom - msgTop;
@@ -1274,6 +1435,16 @@ public class ChatBubbleScreen extends ChatScreen {
     //#else
     //$$ public boolean mouseReleased(double mouseX, double mouseY, int button) {
     //#endif
+        if (textSelection.isDragActive()) {
+            textSelection.endDrag();
+            if (!textSelection.didMove()) {
+                double mx = mouseX;
+                if (isPanelSliding()) mx -= currentPanelOffset();
+                if (handleClickableTextClick(mx, mouseY, 0)) return true;
+                textSelection.clear();
+            }
+            return true;
+        }
         if (scrollbarDragging) { scrollbarDragging = false; return true; }
         //#if MC >= 12109
         // 1.21.9+: mouseReleased takes a Click.
@@ -1287,7 +1458,7 @@ public class ChatBubbleScreen extends ChatScreen {
         int iconY = barTop + (BAR_H - ICON_S) / 2;
         int gearX = panelX + 4;
         if (mx >= gearX && mx <= gearX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
-            if (emojiPanel.visible) emojiPanel.visible = false;
+            if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
             if (searchPanel.visible) closeSearchPanel();
             boolean opening = !settingsMenu.visible;
             settingsMenu.visible = opening;
@@ -1297,7 +1468,7 @@ public class ChatBubbleScreen extends ChatScreen {
         int sendX = panelX + panelW - PAD - ICON_S + 2;
         int emojiX = sendX - ICON_S - 6;
         if (mx >= emojiX && mx <= emojiX + ICON_S && my >= iconY && my <= iconY + ICON_S) {
-            if (settingsMenu.visible) settingsMenu.visible = false;
+            if (settingsMenu.visible) beginPopupClose(s -> settingsCloseStart = s, () -> settingsMenu.visible = false);
             if (searchPanel.visible) closeSearchPanel();
             boolean opening = !emojiPanel.visible;
             emojiPanel.visible = opening;
@@ -1637,10 +1808,10 @@ public class ChatBubbleScreen extends ChatScreen {
         //#else
         //$$ g.getMatrices().translate(0, 0, 100);
         //#endif
-        renderPopupWithAnim(g, settingsAnimStart, a -> () -> settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex, a));
-        renderPopupWithAnim(g, emojiAnimStart, a -> () -> emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD, a));
-        renderPopupWithAnim(g, quickAnimStart, a -> () -> quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput, a));
-        renderPopupWithAnim(g, searchAnimStart, a -> () -> searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx, a));
+        renderPopupWithAnim(g, settingsAnimStart, settingsCloseStart, a -> () -> settingsMenu.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ChatBubbleScreen::iconTex, a));
+        renderPopupWithAnim(g, emojiAnimStart, emojiCloseStart, a -> () -> emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD, a));
+        renderPopupWithAnim(g, quickAnimStart, quickCloseStart, a -> () -> quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput, a));
+        renderPopupWithAnim(g, searchAnimStart, searchCloseStart, a -> () -> searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx, a));
         // 输入框 widget 在 z=50 的 children 循环渲染，会被这里 z=100 的不透明面板背景盖住
         // （5bb740e 弹层 z 提升引入）——面板打开时在同 z 重画一次，文字/光标才可见。
         // widget 无背景（drawsBackground=false），只画文字/光标，不遮挡面板内容
@@ -1809,6 +1980,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         bubbleRects.clear();
         clickableSpans.clear();
+        textSpans.clear();
         List<ChatMessageStore.ChatMessage> messages;
         if (whisperPartner != null) {
             messages = ChatMessageStore.getWhisperMessages(whisperPartner);
@@ -1831,11 +2003,17 @@ public class ChatBubbleScreen extends ChatScreen {
         int effectiveMsgBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
         int areaH = effectiveMsgBottom - effectiveMsgTop;
 
+        final boolean hideRep = ChatBubbleClientSetup.config().hideRepeatedAvatars() != null
+            && ChatBubbleClientSetup.config().hideRepeatedAvatars();
         int timeSeps = 0;
         String lastKey = null;
         int totalH = 0;
-        for (var msg : messages) {
-            totalH += getMsgHeight(msg) + messageGap();
+        for (int mi = 0; mi < messages.size(); mi++) {
+            var msg = messages.get(mi);
+            boolean gPrev = isGroupedWithPrev(messages, mi, hideRep);
+            totalH += getMsgHeight(msg) - (gPrev ? NAME_H : 0)
+                + (isGroupedWithNext(messages, mi, hideRep)
+                    ? com.niuqu.chatbubble.chat.MessageGrouping.groupedGap(messageGap()) : messageGap());
             if (!msg.isSystem()) {
                 String key = timeKey(msg.time());
                 if (lastKey == null || !key.equals(lastKey)) { timeSeps++; lastKey = key; }
@@ -1895,14 +2073,15 @@ public class ChatBubbleScreen extends ChatScreen {
 
         int contentY = 0;
         lastKey = null;
-        ChatMessageStore.ChatMessage prevRenderMsg = null;
         for (int i = 0; i < messages.size(); i++) {
             var msg = messages.get(i);
             while (fullIdx < fullList.size() && fullList.get(fullIdx) != msg) fullIdx++;
 
-            boolean hideRep = ChatBubbleClientSetup.config().hideRepeatedAvatars() != null
-                && ChatBubbleClientSetup.config().hideRepeatedAvatars();
-            boolean showAvatar = !hideRep || !com.niuqu.chatbubble.chat.MessageGrouping.isSameGroup(prevRenderMsg, msg);
+            // 2.4.6 sync: grouped (compact) message — showAvatar=false also drops
+            // the name row and shrinks the height; the gap AFTER this message is
+            // tight when the next message joins the group (lookahead).
+            boolean grouped = isGroupedWithPrev(messages, i, hideRep);
+            boolean showAvatar = !grouped;
             if (!msg.isSystem()) {
                 String key = timeKey(msg.time());
                 if (lastKey == null || !key.equals(lastKey)) {
@@ -1914,9 +2093,10 @@ public class ChatBubbleScreen extends ChatScreen {
                 }
             }
 
-            int h = getMsgHeight(msg);
+            int h = getMsgHeight(msg) - (grouped ? NAME_H : 0);
             int screenY = effectiveMsgTop + contentY - scrollOffset;
-            contentY += h + messageGap();
+            contentY += h + (isGroupedWithNext(messages, i, hideRep)
+                ? com.niuqu.chatbubble.chat.MessageGrouping.groupedGap(messageGap()) : messageGap());
 
             if (screenY + h <= effectiveMsgTop || screenY >= effectiveMsgBottom) { fullIdx++; continue; }
 
@@ -1969,7 +2149,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 int zBubbleX = msg.isOwn()
                     ? panelX + panelW - PAD - avatarSize() - 4 - zBubbleW
                     : panelX + PAD + avatarSize() + 4;
-                int zBubbleY = screenY + NAME_H;
+                int zBubbleY = screenY + (grouped ? 0 : NAME_H);
                 //#if MC >= 12106
                 g.getMatrices().translate(zBubbleX + zBubbleW / 2f, zBubbleY);
                 //#else
@@ -1993,9 +2173,21 @@ public class ChatBubbleScreen extends ChatScreen {
             //$$ g.getMatrices().pop();
             //#endif
             fullIdx++;
-            prevRenderMsg = msg;
         }
         renderScrollbar(g, mouseX, mouseY, effectiveMsgBottom);
+
+        // Copied-text toast (2.4.2 sync)
+        if (copyToastTicks > 0) {
+            float ta = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
+            String text = net.minecraft.text.Text.translatable("e33chat.toast.copied").getString();
+            int tw = textRenderer.getWidth(text);
+            int tx = panelX + (panelW - tw) / 2;
+            int ty = msgBottom - 24;
+            g.fill(tx - 6, ty - 3, tx + tw + 6, ty + textRenderer.fontHeight + 3,
+                ((int) (ta * 0xB3) << 24) | (c().toastBg() & 0x00FFFFFF));
+            g.drawText(textRenderer, text, tx, ty,
+                ChatBubbleTheme.alphaBlend(c().toastText(), (int) (ta * 255)), false);
+        }
         g.disableScissor();
     }
 
@@ -2081,6 +2273,31 @@ public class ChatBubbleScreen extends ChatScreen {
         return (int) ((anim - 1.0f) * moveDist);
     }
 
+    /** 2.4.6 sync: message i continues the previous sender's group (compact:
+     *  no avatar/name row, reduced height). A time separator breaks the group. */
+    private boolean isGroupedWithPrev(java.util.List<ChatMessageStore.ChatMessage> msgs, int i, boolean hideRep) {
+        if (!hideRep || i <= 0) return false;
+        var prev = msgs.get(i - 1);
+        var cur = msgs.get(i);
+        if (prev.isSystem() || cur.isSystem()) return false;
+        if (!timeKey(prev.time()).equals(timeKey(cur.time()))) return false;
+        return com.niuqu.chatbubble.chat.MessageGrouping.isSameGroup(prev, cur);
+    }
+
+    /** 2.4.6 sync: message i+1 joins this group — the gap after message i is tight. */
+    private boolean isGroupedWithNext(java.util.List<ChatMessageStore.ChatMessage> msgs, int i, boolean hideRep) {
+        return i + 1 < msgs.size() && isGroupedWithPrev(msgs, i + 1, hideRep);
+    }
+
+    /** Grouped (compact) messages draw no avatar — skip its hit-test region too. */
+    private boolean avatarVisibleAt(int index) {
+        var cfg = ChatBubbleClientSetup.config();
+        if (!(cfg.hideRepeatedAvatars() != null && cfg.hideRepeatedAvatars())) return true;
+        ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(index);
+        ChatMessageStore.ChatMessage prev = ChatMessageStore.getMessageAt(index - 1);
+        return !com.niuqu.chatbubble.chat.MessageGrouping.isSameGroup(prev, msg);
+    }
+
     private int getMsgHeight(ChatMessageStore.ChatMessage msg) {
         Integer cached = msgHeightCache.get(msg);
         if (cached != null) return cached;
@@ -2150,10 +2367,13 @@ public class ChatBubbleScreen extends ChatScreen {
             int yy = baseY + 2;
             Style fb = findClickStyle(msg.content());
             int sysColor = ChatBubbleTheme.alphaBlend(c().textMuted(), (int)(255 * alpha));
+            int sysLi = 0;
             for (var line : lines) {
                 int lw = textRenderer.getWidth(line);
-                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, sysColor, fb);
+                renderLineWithClicks(g, line, panelX + (panelW - lw) / 2, yy, sysColor, fb,
+                    index, sysLi, TextSpan.KIND_CONTENT, 1f);
                 yy += textRenderer.fontHeight;
+                sysLi++;
             }
             return;
         }
@@ -2198,7 +2418,9 @@ public class ChatBubbleScreen extends ChatScreen {
 
         int nameY = baseY;
 
-        if (!msg.senderName().getString().isEmpty()) {
+        // Grouped (compact) message: showAvatar=false means the name row and the
+        // avatar are omitted and the bubble starts at the row top (2.4.6 sync).
+        if (showAvatar && !msg.senderName().getString().isEmpty()) {
             int maxNameW = panelW - avatarSize() - PAD * 2 - 20;
             Text sn = msg.senderName();
             OrderedText nameSeq;
@@ -2215,10 +2437,11 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             int nameW = textRenderer.getWidth(nameSeq);
             int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
-            g.drawText(textRenderer, nameSeq, startX, nameY, ChatBubbleTheme.alphaBlend(c().nameColor(), (int)(255 * alpha)), false);
+            drawSelectableText(g, nameSeq, startX, nameY, ChatBubbleTheme.alphaBlend(c().nameColor(), (int)(255 * alpha)),
+                index, 0, TextSpan.KIND_NAME, 1f);
         }
 
-        int bubbleY = baseY + NAME_H;
+        int bubbleY = baseY + (showAvatar ? NAME_H : 0);
         int avatarY = baseY;
 
         int bg = own
@@ -2243,10 +2466,11 @@ public class ChatBubbleScreen extends ChatScreen {
             int textSX = bubbleX + (int) (BUBBLE_PAD_X * s);
             int textSY = bubbleY + (int) (BUBBLE_PAD_Y * s) + (int) (li * textRenderer.fontHeight * s);
             int beforeLine = clickableSpans.size();
+            int beforeText = textSpans.size();
             RenderHelper.pushMatrix(g);
             RenderHelper.translate(g, textSX, textSY);
             if (s != 1f) RenderHelper.scale(g, s, s);
-            renderLineWithClicks(g, lines.get(li), 0, 0, fgA, fbP);
+            renderLineWithClicks(g, lines.get(li), 0, 0, fgA, fbP, index, li, TextSpan.KIND_CONTENT, s);
             RenderHelper.popMatrix(g);
             for (int i = beforeLine; i < clickableSpans.size(); i++) {
                 ClickableSpan sp = clickableSpans.get(i);
@@ -2256,6 +2480,14 @@ public class ChatBubbleScreen extends ChatScreen {
                     Math.max(1, (int) (sp.w * s)),
                     Math.max(1, (int) (sp.h * s)),
                     sp.style));
+            }
+            for (int i = beforeText; i < textSpans.size(); i++) {
+                TextSpan sp = textSpans.get(i);
+                textSpans.set(i, sp.withPosition(
+                    textSX + (int) (sp.x() * s),
+                    textSY + (int) (sp.y() * s),
+                    Math.max(1, (int) (sp.w() * s)),
+                    Math.max(1, (int) (sp.h() * s))));
             }
         }
 
@@ -2292,11 +2524,23 @@ public class ChatBubbleScreen extends ChatScreen {
             // 引用块：SDF 圆角（随 bubble_size 缩放，圆角跟随 bubbleCornerRadius 配置）
             RoundRectRenderer.fill(g, quoteX, quoteY, quoteX + quoteW, quoteY + quoteH,
                 ChatBubbleClientSetup.config().bubbleCornerRadius() * s, ChatBubbleTheme.alphaBlend(c().contextHover(), (int)(255 * alpha)));
+            int beforeQuote = textSpans.size();
             RenderHelper.pushMatrix(g);
             RenderHelper.translate(g, quoteX + (int) (4 * s), quoteY + (int) (2 * s));
             if (s != 1f) RenderHelper.scale(g, s, s);
-            g.drawText(textRenderer, quoteDisplay, 0, 0, ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)), false);
+            drawSelectableText(g, Language.getInstance().reorder(
+                    StringVisitable.plain(quoteDisplay)), 0, 0,
+                ChatBubbleTheme.alphaBlend(c().textSecondary(), (int)(255 * alpha)),
+                index, 99, TextSpan.KIND_QUOTE, s);
             RenderHelper.popMatrix(g);
+            for (int i = beforeQuote; i < textSpans.size(); i++) {
+                TextSpan sp = textSpans.get(i);
+                textSpans.set(i, sp.withPosition(
+                    quoteX + (int) (4 * s) + (int) (sp.x() * s),
+                    quoteY + (int) (2 * s) + (int) (sp.y() * s),
+                    Math.max(1, (int) (sp.w() * s)),
+                    Math.max(1, (int) (sp.h() * s))));
+            }
         }
 
         bubbleRects.add(new int[]{bubbleX, bubbleY, bubbleW, bubbleH, index});
@@ -2314,7 +2558,7 @@ public class ChatBubbleScreen extends ChatScreen {
         List<OrderedText> lines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
         int avatarX = own ? panelX + panelW - PAD - avatarSize() : panelX + PAD;
 
-        if (!msg.senderName().getString().isEmpty()) {
+        if (showAvatar && !msg.senderName().getString().isEmpty()) {
             int maxNameW = panelW - avatarSize() - PAD * 2 - 20;
             Text sn = msg.senderName();
             OrderedText nameSeq;
@@ -2331,8 +2575,8 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             int nameW = textRenderer.getWidth(nameSeq);
             int startX = own ? (avatarX - 4 - nameW) : (avatarX + avatarSize() + 4);
-            g.drawText(textRenderer, nameSeq, startX, baseY,
-                ChatBubbleTheme.alphaBlend(c().nameColor(), (int)(255 * alpha)), false);
+            drawSelectableText(g, nameSeq, startX, baseY, ChatBubbleTheme.alphaBlend(c().nameColor(), (int)(255 * alpha)),
+                index, 0, TextSpan.KIND_NAME, 1f);
         }
 
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
@@ -2344,7 +2588,7 @@ public class ChatBubbleScreen extends ChatScreen {
         for (var line : lines) maxTextW = Math.max(maxTextW, textRenderer.getWidth(line));
         int textX = own ? (avatarX - 4 - maxTextW) : (avatarX + avatarSize() + 4);
 
-        int y = baseY + NAME_H;
+        int y = baseY + (showAvatar ? NAME_H : 0);
         if (!lines.isEmpty()) {
             int fg = own
                 ? ChatBubbleConfig.parseHexColor(ChatBubbleClientSetup.config().ownTextColor(), 0xFFFFFFFF)
@@ -2352,7 +2596,8 @@ public class ChatBubbleScreen extends ChatScreen {
             Style fb = findClickStyle(msg.content());
             int fgA = ChatBubbleTheme.alphaBlend(fg, (int)(255 * alpha));
             for (int li = 0; li < lines.size(); li++)
-                renderLineWithClicks(g, lines.get(li), textX, y + li * textRenderer.fontHeight, fgA, fb);
+                renderLineWithClicks(g, lines.get(li), textX, y + li * textRenderer.fontHeight, fgA, fb,
+                    index, li, TextSpan.KIND_CONTENT, 1f);
             y += lines.size() * textRenderer.fontHeight;
         }
 
@@ -2405,7 +2650,7 @@ public class ChatBubbleScreen extends ChatScreen {
         if (msg.duplicateCount() > 1) {
             String label = "x" + msg.duplicateCount();
             int labelX = own ? (avatarX - 4 - textRenderer.getWidth(label) - 3) : (avatarX + avatarSize() + 4 + 3);
-            g.drawText(textRenderer, label, labelX, baseY + NAME_H + 2,
+            g.drawText(textRenderer, label, labelX, baseY + (showAvatar ? NAME_H + 2 : 2),
                 ChatBubbleTheme.alphaBlend(c().duplicateLabel(), (int)(255 * alpha)), false);
         }
 
@@ -2439,7 +2684,7 @@ public class ChatBubbleScreen extends ChatScreen {
         int avatarX = own ? panelX + panelW - PAD - avatarSize() : panelX + PAD;
         int nameY = baseY;
 
-        if (!msg.senderName().getString().isEmpty()) {
+        if (showAvatar && !msg.senderName().getString().isEmpty()) {
             int maxNameW = panelW - avatarSize() - PAD * 2 - 20;
             Text sn = msg.senderName();
             OrderedText nameSeq;
@@ -2456,8 +2701,8 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             int nameW = textRenderer.getWidth(nameSeq);
             int startX = own ? (avatarX - 4 - nameW) : (avatarX + avatarSize() + 4);
-            g.drawText(textRenderer, nameSeq, startX, nameY,
-                ChatBubbleTheme.alphaBlend(c().nameColor(), (int)(255 * alpha)), false);
+            drawSelectableText(g, nameSeq, startX, nameY, ChatBubbleTheme.alphaBlend(c().nameColor(), (int)(255 * alpha)),
+                index, 0, TextSpan.KIND_NAME, 1f);
         }
 
         String skinName = (msg.rawPlayerName() != null && !msg.rawPlayerName().isEmpty())
@@ -2465,7 +2710,7 @@ public class ChatBubbleScreen extends ChatScreen {
         Identifier skin = getSkin(msg.senderUUID(), skinName);
         if (showAvatar) drawPlayerHead(g, skin, avatarX, baseY, avatarSize(), avatarSize() + 2, alpha);
 
-        int emoteY = baseY + NAME_H + 2;
+        int emoteY = baseY + (showAvatar ? NAME_H + 2 : 2);
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - avatarSize() - PAD * 2 - 16));
         int w = maxE, h = maxE;
         ImageEntry entry = ImageLoader.getOrLoad(ref.url());
@@ -2500,11 +2745,130 @@ public class ChatBubbleScreen extends ChatScreen {
         }
     }
 
-    private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color) {
-        renderLineWithClicks(g, line, x, y, color, null);
+    private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color, Style fallback) {
+        renderLineWithClicks(g, line, x, y, color, fallback, -1, -1, TextSpan.KIND_CONTENT, 1f);
     }
 
-    private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color, Style fallback) {
+    /** 2.4.2 sync: records a selectable text span and paints the selection
+     *  highlight (selection blue + white glyphs) for the selected range. */
+    private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color, Style fallback,
+                                      int messageIndex, int lineIndex, int kind, float scale) {
+        TextSpan span = null;
+        if (messageIndex >= 0) {
+            span = new TextSpan(messageIndex, lineIndex, kind, x, y,
+                textRenderer.getWidth(line), textRenderer.fontHeight,
+                orderedTextPlain(line), scale, line);
+            textSpans.add(span);
+        }
+        int[] selRange = (span != null && textSelection.hasSelection()) ? textSelection.rangeFor(span) : null;
+        if (selRange != null) {
+            int sx0 = x + prefixWidth(line, selRange[0]);
+            int sx1 = x + prefixWidth(line, selRange[1]);
+            g.fill(sx0, y, Math.max(sx0 + 1, sx1), y + textRenderer.fontHeight, ChatTextSelection.selectionBg());
+        }
+        renderLineWithClicks(g, line, x, y, color, fallback, selRange);
+    }
+
+    /** Plain-text helper for span recording. */
+    private static String orderedTextPlain(OrderedText line) {
+        StringBuilder sb = new StringBuilder();
+        line.accept((i, st, cp) -> {
+            sb.appendCodePoint(cp);
+            return true;
+        });
+        return sb.toString();
+    }
+
+    /** Selectable plain text (names, quotes): records a span, paints the
+     *  selection highlight, and recolors selected glyphs white. */
+    private void drawSelectableText(DrawContext g, OrderedText line, int x, int y, int color,
+                                    int messageIndex, int lineIndex, int kind, float scale) {
+        TextSpan span = new TextSpan(messageIndex, lineIndex, kind, x, y,
+            textRenderer.getWidth(line), textRenderer.fontHeight,
+            orderedTextPlain(line), scale, line);
+        if (messageIndex >= 0) textSpans.add(span);
+        OrderedText draw = line;
+        if (messageIndex >= 0 && textSelection.hasSelection()) {
+            int[] r = textSelection.rangeFor(span);
+            if (r != null) {
+                int sx0 = x + prefixWidth(line, r[0]);
+                int sx1 = x + prefixWidth(line, r[1]);
+                g.fill(sx0, y, Math.max(sx0 + 1, sx1), y + textRenderer.fontHeight, ChatTextSelection.selectionBg());
+                final int fs = r[0], fe = r[1];
+                draw = sink -> line.accept((i, st, cp) ->
+                    sink.accept(i, (i >= fs && i < fe)
+                        ? st.withColor(net.minecraft.text.TextColor.fromRgb(ChatTextSelection.selectionFg()))
+                        : st, cp));
+            }
+        }
+        g.drawText(textRenderer, draw, x, y, color, false);
+    }
+
+    private TextSpan findTextSpanAt(double mouseX, double mouseY) {
+        for (int i = textSpans.size() - 1; i >= 0; i--) {
+            TextSpan s = textSpans.get(i);
+            if (mouseX >= s.x() && mouseX <= s.x() + s.w()
+                && mouseY >= s.y() && mouseY <= s.y() + s.h()) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    private TextSpan findNearestTextSpan(double mouseX, double mouseY) {
+        TextSpan best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (TextSpan s : textSpans) {
+            double cx = Math.max(s.x(), Math.min(mouseX, s.x() + s.w()));
+            double cy = Math.max(s.y(), Math.min(mouseY, s.y() + s.h()));
+            double dx = mouseX - cx;
+            double dy = mouseY - cy;
+            double dist = dx * dx + dy * dy;
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    private int charAt(TextSpan span, double mouseX) {
+        String text = span.text();
+        if (text.isEmpty()) return 0;
+        double localX = (mouseX - span.x()) / span.scale();
+        if (!(span.visualLine() instanceof OrderedText ot)) {
+            return text.codePointCount(0, text.length());
+        }
+        int lo = 0;
+        int hi = text.codePointCount(0, text.length());
+        while (lo < hi) {
+            int mid = (lo + hi + 1) >>> 1;
+            if (prefixWidth(ot, mid) <= localX) {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return lo;
+    }
+
+    private void autoScrollSelection(double mouseY) {
+        if (mouseY < msgTop + 16 && scrollOffset > 0) {
+            scrollOffset = Math.max(0, scrollOffset - 4);
+            textSelection.markMoved();
+            scrollToBottom = false;
+        } else if (mouseY > msgBottom - 16 && scrollOffset < maxScroll) {
+            scrollOffset = Math.min(maxScroll, scrollOffset + 4);
+            textSelection.markMoved();
+            scrollToBottom = false;
+        }
+    }
+
+    private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color) {
+        renderLineWithClicks(g, line, x, y, color, null, -1, -1, TextSpan.KIND_CONTENT, 1f);
+    }
+
+    private void renderLineWithClicks(DrawContext g, OrderedText line, int x, int y, int color, Style fallback, int[] selRange) {
         final List<Style> styles = new ArrayList<>();
         line.accept((i, st, cp) -> { styles.add(st); return true; });
 
@@ -2554,9 +2918,14 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
-        OrderedText decorated = sink -> line.accept((i, st, cp) ->
-            sink.accept(i, (i < styleLen ? hasClickEvent[i] : st.getClickEvent() != null)
-                && !st.isUnderlined() ? st.withUnderline(true) : st, cp));
+        OrderedText decorated = sink -> line.accept((i, st, cp) -> {
+            Style st2 = st;
+            if (selRange != null && i >= selRange[0] && i < selRange[1]) {
+                st2 = st2.withColor(net.minecraft.text.TextColor.fromRgb(ChatTextSelection.selectionFg()));
+            }
+            boolean underlined = (i < styleLen ? hasClickEvent[i] : st2.getClickEvent() != null);
+            return sink.accept(i, underlined && !st2.isUnderlined() ? st2.withUnderline(true) : st2, cp);
+        });
         g.drawText(textRenderer, decorated, x, y, color, false);
     }
 
@@ -2810,8 +3179,12 @@ public class ChatBubbleScreen extends ChatScreen {
     private void executeMenuAction(int action) {
         switch (action) {
             case 0: // search
-                if (quickChatPanel.visible) { quickChatPanel.visible = false; quickChatInput.setVisible(false); }
-                if (emojiPanel.visible) emojiPanel.visible = false;
+                if (quickChatPanel.visible) {
+                    beginPopupClose(s -> quickCloseStart = s, () -> {
+                        quickChatPanel.visible = false; quickChatInput.setVisible(false);
+                    });
+                }
+                if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
                 searchPanel.visible = true;
                 searchAnimStart = Util.getMeasuringTimeMs();
                 searchInput.setText("");
@@ -2820,7 +3193,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 break;
             case 1: // quick_chat
                 if (searchPanel.visible) closeSearchPanel();
-                if (emojiPanel.visible) emojiPanel.visible = false;
+                if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
                 quickChatPanel.visible = true;
                 quickAnimStart = Util.getMeasuringTimeMs();
                 quickChatPanel.scrollOffset = 0;
@@ -2860,10 +3233,12 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void closeSearchPanel() {
-        searchPanel.visible = false;
-        searchInput.setVisible(false);
-        searchMatches.clear(); searchMatchIdx = -1; searchHighlightIndex = -1;
-        setFocused(chatField);
+        beginPopupClose(s -> searchCloseStart = s, () -> {
+            searchPanel.visible = false;
+            searchInput.setVisible(false);
+            searchMatches.clear(); searchMatchIdx = -1; searchHighlightIndex = -1;
+            setFocused(chatField);
+        });
     }
 
     private void renderBottomBar(DrawContext g, int mouseX, int mouseY, float panelAlpha) {
@@ -3256,7 +3631,12 @@ public class ChatBubbleScreen extends ChatScreen {
                     String quoted = ChatMessageStore.singleLine(target.content().getString());
                     ChatMessageStore.setPendingReply(quoted, quoteSender);
                     //#if MC >= 12005
-                    ClientPlayNetworking.send(new QuoteSyncPayload(quoteSender, quoted, displayText));
+                    // 2.4.1 sync: only send when the server actually receives this
+                    // channel — unregistered custom payloads are dropped silently
+                    // and pointless (and trip server-side mod checks).
+                    if (ClientPlayNetworking.canSend(QuoteSyncPayload.ID)) {
+                        ClientPlayNetworking.send(new QuoteSyncPayload(quoteSender, quoted, displayText));
+                    }
                     //#endif
                 }
             }

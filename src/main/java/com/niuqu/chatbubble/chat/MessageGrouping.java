@@ -18,6 +18,11 @@ public final class MessageGrouping {
         return msg.time() - prev.time() <= GROUP_TIME_MS;
     }
 
+    /** 组内（紧凑）消息间距：收紧（gap/3），但不低于 2px（2.4.6 sync）。 */
+    public static int groupedGap(int messageGap) {
+        return Math.max(2, messageGap / 3);
+    }
+
     public static int groupGap(int messageGap) {
         return Math.max(2, messageGap * 2 / 3);
     }
