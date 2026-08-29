@@ -66,4 +66,18 @@ class MessageGroupingTest {
             msg("Alice", "AliceB", t + 1000, false)));
     }
 
+    // ---- groupedGap (2.4.6 compact message groups) ----
+
+    @Test
+    void groupedGap_isOneThirdOfGap() {
+        assertEquals(4, MessageGrouping.groupedGap(12));
+        assertEquals(3, MessageGrouping.groupedGap(9));
+    }
+
+    @Test
+    void groupedGap_flooredAtTwo() {
+        assertEquals(2, MessageGrouping.groupedGap(6));
+        assertEquals(2, MessageGrouping.groupedGap(3));
+        assertEquals(2, MessageGrouping.groupedGap(0));
+    }
 }

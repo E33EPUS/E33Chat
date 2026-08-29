@@ -256,6 +256,6 @@
   "e33chat.upload.wait": "图片上传中，稍候再发",
   "e33chat.upload.queue_full": "上传队列已满，请稍后再试",
   "e33chat.emoji.tab_custom": "表情包",
-  "e33chat.config.hide_repeated_avatars": "隐藏连续消息头像",
-  "e33chat.config.hide_repeated_avatars.desc": "同一人连续消息只首条显示头像（QQ 风格）"
+  "e33chat.config.hide_repeated_avatars": "消息紧凑分组",
+  "e33chat.config.hide_repeated_avatars.desc": "同一人 5 分钟内的连续消息只在首条显示头像和名字，后续只留气泡并收紧间距（类 Discord/Telegram）；关闭则每条完整显示"
 }

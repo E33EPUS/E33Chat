@@ -13,6 +13,11 @@ public final class MessageGrouping {
     public static final long GROUP_TIME_MS = 5 * 60_000L;
 
     /** 两条消息是否同组：同一发送者（rawPlayerName 优先）+ 5 分钟窗口内 + 非系统消息。 */
+    /** 组内（紧凑）消息间距：收紧（gap/3），但不低于 2px（2.4.6）。 */
+    public static int groupedGap(int messageGap) {
+        return Math.max(2, messageGap / 3);
+    }
+
     public static boolean isSameGroup(ChatMessageStore.ChatMessage prev, ChatMessageStore.ChatMessage msg) {
         if (prev == null || msg == null) return false;
         if (prev.isSystem() || msg.isSystem()) return false;
