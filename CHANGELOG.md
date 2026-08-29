@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.4.5
+
+**窗口模式面板宽度上限（三端同步：Fabric / Forge / NeoForge）**
+- 窗口模式下聊天面板不再超过窗口宽度的 40%：此前面板按固定物理像素宽渲染（如 1000px），在较小的窗口里会占据大半屏幕（实测 2184px 宽窗口、GUI 缩放 5 时占 66%）；现在自动收缩到 40%，2560 宽全屏下 1000px 面板（39%）不受影响
+- 上限按窗口宽度比例计算，与 GUI 缩放无关；`panel_fullscreen` 铺满模式不受此上限约束
+- 布局单测从 12 例扩到 17 例（窗口占比上限 / 缩放无关性 / 全屏豁免 / 下限优先级）
+
+**Windowed-mode panel width cap (all three loaders: Fabric / Forge / NeoForge)**
+- In windowed mode the chat panel no longer exceeds 40% of the window width: the panel previously rendered at a fixed physical pixel width (e.g. 1000px), dominating smaller windows (measured 66% of a 2184px window at GUI scale 5); it now shrinks automatically to 40%, while a 1000px panel on a 2560px fullscreen display (39%) is unaffected
+- The cap is proportional to the window width and independent of GUI scale; the `panel_fullscreen` fill mode is exempt from the cap
+- Layout unit tests expanded from 12 to 17 cases (window cap / scale invariance / fullscreen exemption / floor precedence)
+
 ## v2.4.4
 
 **面板限制与像素修复（NeoForge 先行）**

@@ -78,6 +78,13 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int TIME_SEP_H = 14;
     public static final int BAR_H = 26;
     private static final int SIDEBAR_W = 90;
+
+    /**
+     * Windowed-mode cap: the panel never exceeds this fraction of the window
+     * width (40% keeps a 1000px panel intact on a 2560px fullscreen display
+     * while shrinking it on smaller windows). Fullscreen panel mode opts out.
+     */
+    private static final double MAX_WINDOW_FRACTION = 0.40;
     private static final int SIDEBAR_ITEM_H = 22;
     private static final int SIDEBAR_ICON_S = 20;
 
@@ -347,6 +354,12 @@ public class ChatBubbleScreen extends ChatScreen {
      * width drift with the window and misalign on resize. Fullscreen mode ignores
      * {@code panel_width} and fills the remaining width instead. The result is
      * clamped to the remaining width and to a 100px safety floor.
+     *
+     * <p>2.4.5: in windowed mode the panel is additionally capped at
+     * {@link #MAX_WINDOW_FRACTION} of the window width. A fixed physical width
+     * otherwise dominates smaller windows (a 1000px panel covered 66% of a
+     * 2184px window at GUI scale 5); the fraction is scale-invariant because
+     * both sides are logical pixels.
      */
     static int computePanelWidth(int physicalW, double guiScale, int width, int panelX, boolean fullscreen) {
         if (fullscreen) {
@@ -354,6 +367,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         double s = guiScale > 0.01 ? guiScale : 1.0;
         int w = (int) Math.round(physicalW / s);
+        w = Math.min(w, (int) (width * MAX_WINDOW_FRACTION));
         return Math.max(100, Math.min(w, width - panelX));
     }
 
