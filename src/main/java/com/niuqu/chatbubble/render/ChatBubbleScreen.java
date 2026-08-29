@@ -1132,7 +1132,7 @@ public class ChatBubbleScreen extends ChatScreen {
         if (button == 0) {
             for (int[] r : bubbleRects) {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
-                if (msg == null || msg.isSystem()) continue;
+                if (msg == null || msg.isSystem() || !avatarVisibleAt(r[4])) continue;
                 int avatarX = msg.isOwn() ? r[0] + r[2] + UiTokens.AVATAR_GAP : r[0] - Appearance.avatarSize() - UiTokens.AVATAR_GAP;
                 int avatarY = msg.replyContent() != null ? r[1] - font.lineHeight - 2 : r[1] - NAME_H;
                 if (mouseX >= avatarX && mouseX <= avatarX + Appearance.avatarSize()
@@ -1152,6 +1152,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(r[4]);
                 if (msg == null || msg.isSystem() || msg.isOwn()) continue;
                 if (msg.rawPlayerName() == null || msg.rawPlayerName().isEmpty()) continue;
+                if (!avatarVisibleAt(r[4])) continue;
                 int avatarX = r[0] - Appearance.avatarSize() - UiTokens.AVATAR_GAP;
                 int avatarY = msg.replyContent() != null ? r[1] - font.lineHeight - 2 : r[1] - NAME_H;
                 if (mouseX >= avatarX && mouseX <= avatarX + Appearance.avatarSize()
@@ -1609,8 +1610,10 @@ public class ChatBubbleScreen extends ChatScreen {
                     prevMsg = null;
                 }
             }
-            if (prevMsg != null) totalH += ChatBubbleConfig.MESSAGE_GAP.get();
-            totalH += getMsgHeight(msg);
+            boolean grouped = ChatBubbleConfig.HIDE_REPEATED_AVATARS.get()
+                && ChatMessageRenderer.isSameGroup(prevMsg, msg);
+            if (prevMsg != null) totalH += grouped ? ChatMessageRenderer.groupedGap(ChatBubbleConfig.MESSAGE_GAP.get()) : ChatBubbleConfig.MESSAGE_GAP.get();
+            totalH += getMsgHeight(msg) - (grouped ? ChatMessageRenderer.NAME_H : 0);
             prevMsg = msg;
         }
         totalH += ChatBubbleConfig.MESSAGE_GAP.get();
@@ -1698,12 +1701,16 @@ public class ChatBubbleScreen extends ChatScreen {
                 }
             }
 
-            int h = getMsgHeight(msg);
-            if (prevRenderMsg != null) contentY += ChatBubbleConfig.MESSAGE_GAP.get();
-            int screenY = effectiveMsgTop + contentY - scrollOffset;
-            // showAvatar 必须用“上一条消息”比较；先赋值 prevRenderMsg 再比会恒自比（2.3.16 回归）
+            // showAvatar 必须用“上一条消息”比较；先赋值 prevRenderMsg 再比会恒自比（2.3.16 回归）。
+            // showAvatar=false 即紧凑分组（2.4.6）：无头像/名字行，高度减 NAME_H，间距收紧
             boolean showAvatar = !(ChatBubbleConfig.HIDE_REPEATED_AVATARS.get()
                 && ChatMessageRenderer.isSameGroup(prevRenderMsg, msg));
+            boolean grouped = !showAvatar;
+            int h = getMsgHeight(msg) - (grouped ? ChatMessageRenderer.NAME_H : 0);
+            if (prevRenderMsg != null) {
+                contentY += grouped ? ChatMessageRenderer.groupedGap(ChatBubbleConfig.MESSAGE_GAP.get()) : ChatBubbleConfig.MESSAGE_GAP.get();
+            }
+            int screenY = effectiveMsgTop + contentY - scrollOffset;
             contentY += h;
             prevRenderMsg = msg;
 
@@ -1751,7 +1758,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 int zBubbleX = msg.isOwn()
                     ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() - UiTokens.AVATAR_GAP - zBubbleW
                     : panelX + ChatLayout.PAD + Appearance.avatarSize() + UiTokens.AVATAR_GAP;
-                int zBubbleY = screenY + 10; // ChatMessageRenderer.NAME_H (package-private)
+                int zBubbleY = screenY + (grouped ? 0 : 10); // ChatMessageRenderer.NAME_H (package-private)
                 g.pose().translate(zBubbleX + zBubbleW / 2f, zBubbleY, 0);
                 g.pose().scale(mScale, mScale, 1f);
                 g.pose().translate(-(zBubbleX + zBubbleW / 2f), -zBubbleY, 0);
@@ -1798,6 +1805,14 @@ public class ChatBubbleScreen extends ChatScreen {
             moveDist = panelW;
         }
         return (int) ((anim - 1.0f) * moveDist);
+    }
+
+    /** Grouped (compact) messages draw no avatar — skip its hit-test region too. */
+    private boolean avatarVisibleAt(int index) {
+        if (!ChatBubbleConfig.HIDE_REPEATED_AVATARS.get()) return true;
+        ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(index);
+        ChatMessageStore.ChatMessage prev = ChatMessageStore.getMessageAt(index - 1);
+        return !ChatMessageRenderer.isSameGroup(prev, msg);
     }
 
     private int getMsgHeight(ChatMessageStore.ChatMessage msg) {
@@ -2212,8 +2227,10 @@ public class ChatBubbleScreen extends ChatScreen {
                     prevMsg = null;
                 }
             }
-            if (prevMsg != null) cy += ChatBubbleConfig.MESSAGE_GAP.get();
-            cy += getMsgHeight(m);
+            boolean grouped = ChatBubbleConfig.HIDE_REPEATED_AVATARS.get()
+                && ChatMessageRenderer.isSameGroup(prevMsg, m);
+            if (prevMsg != null) cy += grouped ? ChatMessageRenderer.groupedGap(ChatBubbleConfig.MESSAGE_GAP.get()) : ChatBubbleConfig.MESSAGE_GAP.get();
+            cy += getMsgHeight(m) - (grouped ? ChatMessageRenderer.NAME_H : 0);
             prevMsg = m;
         }
         scrollOffset = Math.max(0, cy - 20);

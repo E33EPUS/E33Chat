@@ -247,4 +247,18 @@ class ChatMessageRendererTest {
             msg("Alice", "AliceB", t + 1000, false)));
     }
 
+    // ---- groupedGap (2.4.6 compact message groups) ----
+
+    @Test
+    void groupedGap_isOneThirdOfGap() {
+        assertEquals(4, ChatMessageRenderer.groupedGap(12));
+        assertEquals(3, ChatMessageRenderer.groupedGap(9));
+    }
+
+    @Test
+    void groupedGap_flooredAtTwo() {
+        assertEquals(2, ChatMessageRenderer.groupedGap(6));
+        assertEquals(2, ChatMessageRenderer.groupedGap(3));
+        assertEquals(2, ChatMessageRenderer.groupedGap(0));
+    }
 }

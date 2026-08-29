@@ -236,9 +236,9 @@ public class ChatBubbleConfig {
             .defineInRange("avatar_size", 20, 12, 32);
 
         HIDE_REPEATED_AVATARS = builder
-            .comment("Hide the avatar on the 2nd+ message of a consecutive same-sender run (QQ-style)")
+            .comment("Compact grouped messages: only the first message of a same-sender run (within 5 min) shows avatar and name; the rest render as bubbles with tighter spacing (Discord/Telegram-style)")
             .translation("e33chat.config.hide_repeated_avatars")
-            .define("hide_repeated_avatars", true);
+            .define("hide_repeated_avatars", false);
 
         builder.pop();
         builder.push("text");
