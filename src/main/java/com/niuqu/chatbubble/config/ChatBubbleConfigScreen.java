@@ -158,7 +158,8 @@ public class ChatBubbleConfigScreen extends Screen {
     private static final List<SectionDef> CHAT_SECTIONS = List.of(
         SectionDef.of("e33chat.config.section.panel",
             OptionDef.themeCycle("e33chat.config.theme", ChatBubbleConfig.THEME),
-            OptionDef.intBox("e33chat.config.panel_width", ChatBubbleConfig.PANEL_WIDTH, 800, 1600, 4),
+            OptionDef.intBox("e33chat.config.panel_width", ChatBubbleConfig.PANEL_WIDTH, 400, 1600, 4),
+            OptionDef.bool("e33chat.config.panel_fullscreen", ChatBubbleConfig.PANEL_FULLSCREEN),
             OptionDef.bool("e33chat.config.blur_enabled", ChatBubbleConfig.BLUR_ENABLED),
             OptionDef.intBox("e33chat.config.panel_opacity", ChatBubbleConfig.PANEL_OPACITY, 0, 100, 3),
             OptionDef.bool("e33chat.config.animation", ChatBubbleConfig.ANIMATION_ENABLED),
