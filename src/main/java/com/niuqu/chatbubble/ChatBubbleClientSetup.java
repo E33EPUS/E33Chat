@@ -7,6 +7,7 @@ import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
 import com.niuqu.chatbubble.network.HistoryPayload;
+import com.niuqu.chatbubble.network.EasyBotConfigPayload;
 import com.niuqu.chatbubble.network.MediaCapPayload;
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
 import net.fabricmc.api.ClientModInitializer;
@@ -76,12 +77,15 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                 MinecraftClient.getInstance().currentScreen,
                 payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
                 payload.chatTemplates(), payload.whisperTemplates(), payload.mediaEnabled(),
-                payload.mediaAutoClean())));
+                payload.mediaAutoClean(), payload.easyBotCompat())));
         });
 
         com.niuqu.chatbubble.image.MediaClient.registerReceivers();
         ClientPlayNetworking.registerGlobalReceiver(MediaCapPayload.ID, (payload, context) -> {
             context.client().execute(() -> MediaCapPayload.handle(payload));
+        });
+        ClientPlayNetworking.registerGlobalReceiver(EasyBotConfigPayload.ID, (payload, context) -> {
+            context.client().execute(() -> EasyBotConfigPayload.handle(payload));
         });
         //#endif
 

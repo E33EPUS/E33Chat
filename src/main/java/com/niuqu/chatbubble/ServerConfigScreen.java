@@ -66,6 +66,7 @@ public class ServerConfigScreen extends Screen {
         "{display_name} >> {content}",
         "-{display_name}- {content}",
         "【{display_name}】{content}",
+        "[{prefix}] <{external}> {content}",                // EasyBot 默认群消息格式
     };
     private static final String[] WHISPER_PRESETS = {
         "{sender}悄悄地对你说{sep}{content}",
@@ -85,8 +86,8 @@ public class ServerConfigScreen extends Screen {
     };
 
     // 打开时的快照（用于变更检测）+ 可编辑的本地副本（发送前不生效）
-    private final boolean initUseTpa, initHistory, initDebug, initMedia, initAutoClean;
-    private boolean useTpaV, historyV, debugV, mediaV, autoCleanV;
+    private final boolean initUseTpa, initHistory, initDebug, initMedia, initAutoClean, initEasyBot;
+    private boolean useTpaV, historyV, debugV, mediaV, autoCleanV, easyBotV;
     private final List<String> initChat, initWhisper;
     private final List<String> chatV = new ArrayList<>();
     private final List<String> whisperV = new ArrayList<>();
@@ -126,7 +127,8 @@ public class ServerConfigScreen extends Screen {
     private ButtonWidget doneBtn, exitBtn, saveBtn;
 
     public ServerConfigScreen(Screen lastScreen, boolean useTpa, boolean history, boolean debug,
-                              List<String> chat, List<String> whisper, boolean media, boolean mediaAutoClean) {
+                              List<String> chat, List<String> whisper, boolean media, boolean mediaAutoClean,
+                              boolean easyBotCompat) {
         super(com.niuqu.chatbubble.Txt.translatable("e33chat.server.title"));
         this.lastScreen = lastScreen;
         initUseTpa = useTpa;
@@ -134,6 +136,7 @@ public class ServerConfigScreen extends Screen {
         initDebug = debug;
         initMedia = media;
         initAutoClean = mediaAutoClean;
+        initEasyBot = easyBotCompat;
         initChat = new ArrayList<>(chat);
         initWhisper = new ArrayList<>(whisper);
         useTpaV = useTpa;
@@ -141,6 +144,7 @@ public class ServerConfigScreen extends Screen {
         debugV = debug;
         mediaV = media;
         autoCleanV = mediaAutoClean;
+        easyBotV = easyBotCompat;
         chatV.addAll(chat);
         whisperV.addAll(whisper);
     }
@@ -207,6 +211,8 @@ public class ServerConfigScreen extends Screen {
                     List.of(mkToggle(() -> mediaV, nv -> mediaV = nv)), null, "e33chat.server.media"));
                 rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.media_auto_clean"),
                     List.of(mkToggle(() -> autoCleanV, nv -> autoCleanV = nv)), null, "e33chat.server.media_auto_clean"));
+                rows.add(row(com.niuqu.chatbubble.Txt.translatable("e33chat.server.easybot_compat"),
+                    List.of(mkToggle(() -> easyBotV, nv -> easyBotV = nv)), null, "e33chat.server.easybot_compat"));
             }
             case 1 -> buildTemplateRows(chatV, true);
             case 2 -> buildTemplateRows(whisperV, false);
@@ -399,7 +405,7 @@ public class ServerConfigScreen extends Screen {
 
     private boolean changed() {
         return useTpaV != initUseTpa || historyV != initHistory || debugV != initDebug
-            || mediaV != initMedia || autoCleanV != initAutoClean
+            || mediaV != initMedia || autoCleanV != initAutoClean || easyBotV != initEasyBot
             || !Objects.equals(chatV, initChat) || !Objects.equals(whisperV, initWhisper);
     }
 
@@ -412,7 +418,8 @@ public class ServerConfigScreen extends Screen {
         }
         //#if MC >= 12005
         ClientPlayNetworking.send(new ServerConfigSavePayload(
-            useTpaV, historyV, debugV, new ArrayList<>(chatV), new ArrayList<>(whisperV), mediaV, autoCleanV));
+            useTpaV, historyV, debugV, new ArrayList<>(chatV), new ArrayList<>(whisperV), mediaV, autoCleanV,
+            easyBotV));
         //#endif
         doClose();
     }

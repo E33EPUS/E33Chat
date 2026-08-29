@@ -10,6 +10,7 @@
 - **消息紧凑分组（2.4.6）**：`hide_repeated_avatars` 升级为完整紧凑分组且默认改为**关**（与官方一致；本移植版 fix1 已先行改关）——开启后同人 5 分钟内连续消息只首条显示头像+名字，后续只留气泡并收紧间距（gap/3，不低于 2px）；头像的 @ 与右键菜单命中区随头像隐藏
 - **ModernUI emoji 短码（2.4.1）**：输入 `:pig2:` 等短码随输入实时转换（ModernUI 安装且开启短码选项时）；默认表情面板补猪 🐷🐖
 - **引用同步门控（2.4.1）**：服务器未接 `e33chat:quote_sync` 通道时不再发送引用包
+- **EasyBot 群消息兼容（2.4.3-beta）**：服务端新增 `easybot_compat` 开关（默认开，旧配置文件缺省=开）——开启后 EasyBot 转发的 QQ 群消息（`[群名] <昵称(QQ号)> 内容`）解析为玩家气泡而非灰色系统消息；服务器模板新增 `{external}` 占位符（外部/QQ 发送者，不要求解析到已知玩家，私聊模板不可用），配置屏模板预设补 EasyBot 默认格式；EasyBot 图片走 SHOW_TEXT hover 里的 `[[CICode,url=…]]`（ChatImage 兼容）恢复为图片卡片；协议变更——`server_config_save`/`server_config_screen` 新增 easyBotCompat 字段，混版本客户端/服务端会导致配置屏解码错位，请两端同版本
 
 **Official 2.4.1–2.4.6 ported to the 1.21.11 fabric build**
 - **Windowed-mode panel width cap (2.4.5)**: `panel_width` is physical pixels; in windowed mode the panel never exceeds 40% of the window width (a 1000px panel is untouched on a 2560 fullscreen display); panel width range 800–1600 → **400–1600**; conversion now uses the exact fractional GUI scale (fixes width drifting with the window); the blur region follows the same fix
@@ -19,6 +20,7 @@
 - **Compact message groups (2.4.6)**: `hide_repeated_avatars` upgraded to full compact grouping, default **off** (matching official; this build's fix1 already flipped it) — when on, only the first message of a same-sender run (5 min) shows avatar and name; the rest are bubbles with tighter spacing (gap/3, min 2px); the avatar's @-mention and context-menu hit regions hide with it
 - **ModernUI emoji shortcodes (2.4.1)**: typing `:pig2:` etc. converts live when ModernUI is installed with shortcodes enabled; pig emojis added to the default panel
 - **Quote-sync gating (2.4.1)**: the quote packet is no longer sent when the server doesn't receive the channel
+- **EasyBot group message compat (2.4.3-beta)**: new server-side `easybot_compat` toggle (on by default; missing key in old config files = on) — EasyBot-relayed QQ group messages (`[group] <nick(QQ id)> content`) render as player bubbles instead of gray system text; server templates gain `{external}` (external/QQ sender, no known-player resolution required, not allowed in whisper templates) with the EasyBot default format added to the config-screen presets; EasyBot images carried in a SHOW_TEXT hover as `[[CICode,url=…]]` (ChatImage-compatible) are restored into image cards; protocol change — `server_config_save`/`server_config_screen` gain an easyBotCompat field, mixed client/server versions desync the config screen, keep both ends on the same version
 
 ## v2.4.0
 

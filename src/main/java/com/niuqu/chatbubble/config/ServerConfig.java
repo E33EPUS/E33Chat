@@ -12,6 +12,9 @@ public class ServerConfig {
     // 2.4.0 sync: auto-delete stored media older than 7 days. Boolean (nullable):
     // old config files missing this key = null = enabled.
     public Boolean media_auto_clean;
+    // 2.4.3-beta port: EasyBot QQ relay compatibility. Boolean (nullable):
+    // old config files missing this key = null = enabled.
+    public Boolean easy_bot_compat;
 
     public static ServerConfig defaults() {
         ServerConfig c = new ServerConfig();
@@ -22,6 +25,7 @@ public class ServerConfig {
         c.template_debug = false;
         c.media_enabled = true;
         c.media_auto_clean = true;
+        c.easy_bot_compat = true;
         return c;
     }
 }

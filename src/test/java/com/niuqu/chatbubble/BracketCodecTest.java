@@ -133,4 +133,27 @@ class BracketCodecTest {
         assertFalse(ImageLoader.isUsableUrl("not a url"));
         assertFalse(ImageLoader.isUsableUrl("https://"));
     }
+
+    @Test
+    void parseOrExtractReadsEasyBotShowTextHover() {
+        // Yarn's HoverEvent static init pulls ItemStack, which cannot initialize
+        // in the headless Fabric unit-test environment — skip gracefully there
+        // (this path is covered by the Forge/NeoForge unit tests).
+        try {
+            new net.minecraft.text.HoverEvent(net.minecraft.text.HoverEvent.Action.SHOW_TEXT,
+                Text.literal("probe"));
+        } catch (Throwable t) {
+            org.junit.jupiter.api.Assumptions.abort("HoverEvent unavailable in this test environment");
+            return;
+        }
+        // EasyBot relays images as a visible summary run whose SHOW_TEXT hover
+        // contains the [[CICode,...]] bracket (ChatImage-compatible).
+        Text input = Text.literal("[图片]").setStyle(Style.EMPTY.withHoverEvent(
+            new net.minecraft.text.HoverEvent(net.minecraft.text.HoverEvent.Action.SHOW_TEXT,
+                Text.literal("[[CICode,url=https://a.com/x.png]]"))));
+        ParseResult r = BracketCodec.parseOrExtract(input);
+        assertEquals(1, r.images().size());
+        assertEquals("https://a.com/x.png", r.images().get(0).url());
+        assertEquals("", r.textWithoutImages().getString());
+    }
 }

@@ -19,6 +19,7 @@ public final class ServerConfigManager {
                 if (loaded != null) {
                     // 2.4.0 sync: old files lack media_auto_clean -> null means enabled
                     if (loaded.media_auto_clean == null) loaded.media_auto_clean = true;
+                    if (loaded.easy_bot_compat == null) loaded.easy_bot_compat = true;
                     return loaded;
                 }
             } catch (Exception e) {

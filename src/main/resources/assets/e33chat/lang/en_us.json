@@ -245,6 +245,8 @@
   "e33chat.server.media.desc": "When enabled, chat images are uploaded to and hosted by this server (requires the e33chat server-side component). When disabled, uploads fall back to a third-party host or a local link.",
 "e33chat.server.media_auto_clean": "Auto-clean Stored Images",
   "e33chat.server.media_auto_clean.desc": "Automatically delete server-hosted chat images older than 7 days (checked on server start, then at most every 6h after uploads). Off = images kept forever.",
+"e33chat.server.easybot_compat": "EasyBot Group Message Compat",
+  "e33chat.server.easybot_compat.desc": "Parse EasyBot-relayed QQ group messages ([group] <nick(QQ id)> content) into player bubbles instead of gray system text. Requires matching client version.",
   "e33chat.server.template_n.desc": "Template format: {prefix} decoration prefix, {display_name} player name (may include decorations), {content} message body (must be the last field), {sender}/{target} whisper sender/receiver. Leave the list empty to disable templates and let the guards take over.",
   "e33chat.server.actions.desc": "Add creates a blank template row. Below, the preset section offers common formats ready to add in one click.",
   "e33chat.server.gen.desc": "Paste a real chat line and generate — the template is inferred automatically (the message must contain an online or seen player name).",

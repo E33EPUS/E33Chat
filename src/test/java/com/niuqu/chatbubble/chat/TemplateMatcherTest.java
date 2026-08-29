@@ -335,4 +335,31 @@ class TemplateMatcherTest {
         assertTrue(r.whisper());
         assertEquals("Alex", r.sender());
     }
+
+    // ===== 2.4.3-beta: {external} =====
+
+    @Test void externalAcceptsUnknownSenders() {
+        var r = TemplateMatcher.match("[闲聊群] <小明(123456789)> 你好",
+            List.of(chat("[{prefix}] <{external}> {content}")), List.of(), KNOWN).orElseThrow();
+        assertFalse(r.whisper());
+        assertEquals("小明(123456789)", r.displayName());
+        assertEquals("你好", r.content());
+    }
+
+    @Test void externalStillMatchesWhenNameUnknown() {
+        // KNOWN resolves nothing here; external templates trust the format
+        assertTrue(matchChat("[群] <路人> 早", "[{prefix}] <{external}> {content}").isPresent());
+    }
+
+    @Test void externalConflictsWithDisplayName() {
+        assertTrue(TemplateMatcher.compile("{display_name}{external}: {content}").template() == null);
+    }
+
+    @Test void externalRejectedInWhisper() {
+        assertTrue(TemplateMatcher.compile("{sender}悄悄地对你说{sep}{external}: {content}").template() == null);
+    }
+
+    @Test void externalAloneSatisfiesChatRequirement() {
+        assertNull(TemplateMatcher.compile("{external}: {content}").error());
+    }
 }

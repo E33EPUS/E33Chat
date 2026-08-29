@@ -10,6 +10,7 @@ import com.niuqu.chatbubble.network.MediaRequestPayload;
 import com.niuqu.chatbubble.network.MediaResponsePayload;
 import com.niuqu.chatbubble.network.MediaUploadAckPayload;
 import com.niuqu.chatbubble.network.MediaUploadPayload;
+import com.niuqu.chatbubble.network.EasyBotConfigPayload;
 import com.niuqu.chatbubble.network.MediaCapPayload;
 import com.niuqu.chatbubble.network.QuoteSyncPayload;
 import com.niuqu.chatbubble.network.ServerConfigSavePayload;
@@ -54,6 +55,7 @@ public class ChatBubbleMod implements ModInitializer {
     private static boolean templateDebug;
     private static boolean mediaEnabled;
     private static boolean mediaAutoClean = true;
+    private static boolean easyBotCompat = true;
     private static List<String> chatTemplates = List.of();
     private static List<String> whisperTemplates = List.of();
     private static boolean configLoaded;
@@ -101,6 +103,7 @@ public class ChatBubbleMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(MediaUploadAckPayload.ID, MediaUploadAckPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MediaResponsePayload.ID, MediaResponsePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MediaCapPayload.ID, MediaCapPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(EasyBotConfigPayload.ID, EasyBotConfigPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(MediaUploadPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -269,6 +272,8 @@ public class ChatBubbleMod implements ModInitializer {
             // mediaEnabled never desyncs mixed client/server versions.
             ServerPlayNetworking.send(handler.player,
                 new MediaCapPayload(mediaEnabled));
+            ServerPlayNetworking.send(handler.player,
+                new EasyBotConfigPayload(easyBotCompat));
 
             if (!historyEnabled) return;
             if (historyBuffer.isEmpty()) return;
@@ -322,6 +327,7 @@ public class ChatBubbleMod implements ModInitializer {
         templateDebug = config.template_debug;
         mediaEnabled = config.media_enabled;
         mediaAutoClean = config.media_auto_clean != null ? config.media_auto_clean : true;
+        easyBotCompat = config.easy_bot_compat != null ? config.easy_bot_compat : true;
         chatTemplates = config.chat_templates != null ? config.chat_templates : List.of();
         whisperTemplates = config.whisper_templates != null ? config.whisper_templates : List.of();
     }
@@ -335,6 +341,8 @@ public class ChatBubbleMod implements ModInitializer {
             // from the GUI takes effect for already-connected clients immediately
             // (it is otherwise only sent on join).
             ServerPlayNetworking.send(p, new MediaCapPayload(mediaEnabled));
+            // Re-broadcast the EasyBot toggle for already-connected clients
+            ServerPlayNetworking.send(p, new EasyBotConfigPayload(easyBotCompat));
         }
         //#endif
     }
@@ -350,6 +358,7 @@ public class ChatBubbleMod implements ModInitializer {
     public static boolean templateDebug() { return templateDebug; }
     public static boolean mediaEnabled() { return mediaEnabled; }
     public static boolean mediaAutoClean() { return mediaAutoClean; }
+    public static boolean easyBotCompat() { return easyBotCompat; }
     public static List<String> chatTemplates() { return chatTemplates; }
     public static List<String> whisperTemplates() { return whisperTemplates; }
     public static void setTemplates(List<String> chat, List<String> whisper, boolean debug) {

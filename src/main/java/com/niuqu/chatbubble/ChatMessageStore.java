@@ -58,6 +58,8 @@ public class ChatMessageStore {
     private static volatile List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> serverChatTemplates = List.of();
     private static volatile List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> serverWhisperTemplates = List.of();
     private static volatile boolean serverTemplateDebug = false;
+    // Server-synced setting: EasyBot QQ relay compatibility (2.4.3-beta port)
+    private static volatile boolean easyBotCompat = false;
 
     public static void setServerConfig(boolean useTpa, List<String> chatTemplates,
                                        List<String> whisperTemplates, boolean templateDebug) {
@@ -96,6 +98,9 @@ public class ChatMessageStore {
     }
 
     public static boolean serverTemplateDebug() { return serverTemplateDebug; }
+
+    public static void setEasyBotCompat(boolean v) { easyBotCompat = v; }
+    public static boolean isEasyBotCompat() { return easyBotCompat; }
 
     public static void rememberPlayer(UUID uuid, String profileName, String displayName) {
         if (uuid == null || uuid.equals(new UUID(0, 0)) || profileName == null || profileName.isEmpty()) return;

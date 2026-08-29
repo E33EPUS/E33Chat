@@ -18,7 +18,7 @@ import java.util.List;
  */
 public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                                         List<String> chatTemplates, List<String> whisperTemplates,
-                                        boolean mediaEnabled, boolean mediaAutoClean)
+                                        boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat)
         //#if MC >= 12005
         implements CustomPayload {
         //#else
@@ -47,6 +47,7 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
             ConfigSyncV2Payload.writeList(buf, value.whisperTemplates);
             buf.writeBoolean(value.mediaEnabled);
             buf.writeBoolean(value.mediaAutoClean);
+            buf.writeBoolean(value.easyBotCompat);
         },
         buf -> new ServerConfigScreenPayload(
             buf.readBoolean(),
@@ -54,6 +55,7 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
             buf.readBoolean(),
             ConfigSyncV2Payload.readList(buf),
             ConfigSyncV2Payload.readList(buf),
+            buf.readBoolean(),
             buf.readBoolean(),
             buf.readBoolean()
         )

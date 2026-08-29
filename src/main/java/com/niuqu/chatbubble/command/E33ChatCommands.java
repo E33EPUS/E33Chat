@@ -104,7 +104,7 @@ public class E33ChatCommands {
             new ServerConfigScreenPayload(ChatBubbleMod.useTpa(), ChatBubbleMod.historyEnabled(),
                 ChatBubbleMod.templateDebug(), new ArrayList<>(ChatBubbleMod.chatTemplates()),
                 new ArrayList<>(ChatBubbleMod.whisperTemplates()), ChatBubbleMod.mediaEnabled(),
-                ChatBubbleMod.mediaAutoClean()));
+                ChatBubbleMod.mediaAutoClean(), ChatBubbleMod.easyBotCompat()));
         return 1;
         //#else
         //$$ src.sendError(Text.literal("Server config GUI is only available on Minecraft 1.20.5+."));
@@ -236,6 +236,7 @@ public class E33ChatCommands {
         cfg.whisper_templates = new ArrayList<>(ChatBubbleMod.whisperTemplates());
         cfg.media_enabled = ChatBubbleMod.mediaEnabled();
         cfg.media_auto_clean = ChatBubbleMod.mediaAutoClean();
+        cfg.easy_bot_compat = ChatBubbleMod.easyBotCompat();
         ServerConfigManager.save(path, cfg);
         ChatBubbleMod.broadcastServerConfig(server);
     }
