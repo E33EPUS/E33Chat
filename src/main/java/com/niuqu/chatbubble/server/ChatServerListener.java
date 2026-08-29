@@ -5,6 +5,7 @@ import com.niuqu.chatbubble.network.NetworkHandler;
 import com.niuqu.chatbubble.packets.ChatMetaPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncV2Payload;
+import com.niuqu.chatbubble.packets.EasyBotConfigPayload;
 import com.niuqu.chatbubble.packets.HistoryPayload;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -149,14 +150,16 @@ public class ChatServerListener {
             ChatServerConfig.TEMPLATE_DEBUG.get());
     }
 
-    // 三 payload 组合（use_tpa + templates + media cap）：broadcast 与 onPlayerLogin 共用。
-    // media 是独立能力 type——旧客户端安全丢未知 payload，mediaEnabled 不会在混版本时 desync。
+    // 四 payload 组合（use_tpa + templates + media cap + easybot）：broadcast 与 onPlayerLogin 共用。
+    // media/easybot 是独立能力 type——旧客户端安全丢未知 payload，混版本不会 desync。
     private static void sendServerConfigTripleTo(ServerPlayer player) {
         PacketDistributor.sendToPlayer(player,
             new ConfigSyncPayload(ChatServerConfig.USE_TPA.get()));
         PacketDistributor.sendToPlayer(player, buildConfigV2());
         PacketDistributor.sendToPlayer(player,
             new com.niuqu.chatbubble.packets.MediaCapPayload(ChatServerConfig.MEDIA_ENABLED.get()));
+        PacketDistributor.sendToPlayer(player,
+            new EasyBotConfigPayload(ChatServerConfig.EASY_BOT_COMPAT.get()));
     }
 
     /** Broadcast the full server config (templates included) to every player. */

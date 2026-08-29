@@ -5,6 +5,7 @@ import com.niuqu.chatbubble.packets.ChatMetaPayload;
 import com.niuqu.chatbubble.packets.ClientServerConfigGui;
 import com.niuqu.chatbubble.packets.ConfigSyncPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncV2Payload;
+import com.niuqu.chatbubble.packets.EasyBotConfigPayload;
 import com.niuqu.chatbubble.packets.HistoryPayload;
 import com.niuqu.chatbubble.packets.MediaCapPayload;
 import com.niuqu.chatbubble.packets.MediaRequestPayload;
@@ -29,6 +30,7 @@ public class NetworkHandler {
         registrar.playToClient(HistoryPayload.TYPE, HistoryPayload.STREAM_CODEC, HistoryPayload::handleClient);
         registrar.playToClient(ConfigSyncPayload.TYPE, ConfigSyncPayload.STREAM_CODEC, ConfigSyncPayload::handleClient);
         registrar.playToClient(ConfigSyncV2Payload.TYPE, ConfigSyncV2Payload.STREAM_CODEC, ConfigSyncV2Payload::handleClient);
+        registrar.playToClient(EasyBotConfigPayload.TYPE, EasyBotConfigPayload.STREAM_CODEC, EasyBotConfigPayload::handleClient);
         // Lambda (not a method reference): a method reference resolves its target
         // class eagerly at registration, which would load the client-only GUI class
         // on a dedicated server and trip FML's RuntimeDistCleaner. The lambda body

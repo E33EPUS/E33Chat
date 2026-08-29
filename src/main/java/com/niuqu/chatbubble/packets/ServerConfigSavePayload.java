@@ -22,7 +22,7 @@ import java.util.List;
  * every template, persists to the toml, and rebroadcasts to all players.
  */
 public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
-                                      boolean mediaEnabled, boolean mediaAutoClean,
+                                      boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
                                       List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPacketPayload {
 
@@ -34,13 +34,15 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
         public ServerConfigSavePayload decode(ByteBuf buf) {
             ServerConfigDto d = ServerConfigDto.decode(buf);
             return new ServerConfigSavePayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-                d.mediaEnabled(), d.mediaAutoClean(), d.chatTemplates(), d.whisperTemplates());
+                d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(),
+                d.chatTemplates(), d.whisperTemplates());
         }
 
         @Override
         public void encode(ByteBuf buf, ServerConfigSavePayload payload) {
             ServerConfigDto.encode(new ServerConfigDto(payload.useTpa(), payload.historyEnabled(),
                 payload.templateDebug(), payload.mediaEnabled(), payload.mediaAutoClean(),
+                payload.easyBotCompat(),
                 payload.chatTemplates(), payload.whisperTemplates()), buf);
         }
     };
@@ -78,6 +80,8 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
             ChatServerConfig.MEDIA_ENABLED.clearCache();
             ChatServerConfig.MEDIA_AUTO_CLEAN.set(payload.mediaAutoClean());
             ChatServerConfig.MEDIA_AUTO_CLEAN.clearCache();
+            ChatServerConfig.EASY_BOT_COMPAT.set(payload.easyBotCompat());
+            ChatServerConfig.EASY_BOT_COMPAT.clearCache();
             ChatBubbleMod.saveServerConfig();
             ChatServerListener.broadcastServerConfig();
             player.sendSystemMessage(Component.translatable("e33chat.server.saved"));

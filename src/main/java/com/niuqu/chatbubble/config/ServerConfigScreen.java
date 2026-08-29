@@ -67,6 +67,7 @@ public class ServerConfigScreen extends Screen {
         "{display_name} >> {content}",
         "-{display_name}- {content}",
         "【{display_name}】{content}",
+        "[{prefix}] <{external}> {content}",                // EasyBot 默认群消息格式
     };
     private static final String[] WHISPER_PRESETS = {
         "{sender}悄悄地对你说{sep}{content}",
@@ -86,8 +87,8 @@ public class ServerConfigScreen extends Screen {
     };
 
     // 打开时的快照（用于变更检测）+ 可编辑的本地副本（发送前不生效）
-    private final boolean initUseTpa, initHistory, initDebug, initMedia, initAutoClean;
-    private boolean useTpaV, historyV, debugV, mediaV, autoCleanV;
+    private final boolean initUseTpa, initHistory, initDebug, initMedia, initAutoClean, initEasyBot;
+    private boolean useTpaV, historyV, debugV, mediaV, autoCleanV, easyBotV;
     private final List<String> initChat, initWhisper;
     private final List<String> chatV = new ArrayList<>();
     private final List<String> whisperV = new ArrayList<>();
@@ -116,7 +117,7 @@ public class ServerConfigScreen extends Screen {
     private Button doneBtn, exitBtn, saveBtn;
 
     public ServerConfigScreen(Screen lastScreen, boolean useTpa, boolean history, boolean debug,
-                              boolean mediaEnabled, boolean mediaAutoClean,
+                              boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
                               List<String> chat, List<String> whisper) {
         super(Component.translatable("e33chat.server.title"));
         this.lastScreen = lastScreen;
@@ -125,6 +126,7 @@ public class ServerConfigScreen extends Screen {
         initDebug = debug;
         initMedia = mediaEnabled;
         initAutoClean = mediaAutoClean;
+        initEasyBot = easyBotCompat;
         initChat = new ArrayList<>(chat);
         initWhisper = new ArrayList<>(whisper);
         useTpaV = useTpa;
@@ -132,6 +134,7 @@ public class ServerConfigScreen extends Screen {
         debugV = debug;
         mediaV = mediaEnabled;
         autoCleanV = mediaAutoClean;
+        easyBotV = easyBotCompat;
         chatV.addAll(chat);
         whisperV.addAll(whisper);
     }
@@ -192,6 +195,8 @@ public class ServerConfigScreen extends Screen {
                     List.of(mkToggle(() -> mediaV, nv -> mediaV = nv)), null, "e33chat.server.media_enabled"));
                 rows.add(row(Component.translatable("e33chat.server.media_auto_clean"),
                     List.of(mkToggle(() -> autoCleanV, nv -> autoCleanV = nv)), null, "e33chat.server.media_auto_clean"));
+                rows.add(row(Component.translatable("e33chat.server.easybot_compat"),
+                    List.of(mkToggle(() -> easyBotV, nv -> easyBotV = nv)), null, "e33chat.server.easybot_compat"));
             }
             case 1 -> buildTemplateRows(chatV, true);
             case 2 -> buildTemplateRows(whisperV, false);
@@ -382,7 +387,7 @@ public class ServerConfigScreen extends Screen {
 
     private boolean changed() {
         return useTpaV != initUseTpa || historyV != initHistory || debugV != initDebug
-            || mediaV != initMedia || autoCleanV != initAutoClean
+            || mediaV != initMedia || autoCleanV != initAutoClean || easyBotV != initEasyBot
             || !Objects.equals(chatV, initChat) || !Objects.equals(whisperV, initWhisper);
     }
 
@@ -395,7 +400,8 @@ public class ServerConfigScreen extends Screen {
         }
         net.neoforged.neoforge.network.PacketDistributor.sendToServer(
             new com.niuqu.chatbubble.packets.ServerConfigSavePayload(
-                useTpaV, historyV, debugV, mediaV, autoCleanV, new ArrayList<>(chatV), new ArrayList<>(whisperV)));
+                useTpaV, historyV, debugV, mediaV, autoCleanV, easyBotV,
+                new ArrayList<>(chatV), new ArrayList<>(whisperV)));
         doClose();
     }
 
@@ -435,6 +441,7 @@ public class ServerConfigScreen extends Screen {
         if (debugV != initDebug) n++;
         if (mediaV != initMedia) n++;
         if (autoCleanV != initAutoClean) n++;
+        if (easyBotV != initEasyBot) n++;
         if (!Objects.equals(chatV, initChat)) n++;
         if (!Objects.equals(whisperV, initWhisper)) n++;
         return n;

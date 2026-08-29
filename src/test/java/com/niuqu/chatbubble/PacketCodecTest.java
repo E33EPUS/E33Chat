@@ -3,6 +3,7 @@ package com.niuqu.chatbubble;
 import com.niuqu.chatbubble.packets.ChatMetaPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncV2Payload;
+import com.niuqu.chatbubble.packets.EasyBotConfigPayload;
 import com.niuqu.chatbubble.packets.HistoryPayload;
 import com.niuqu.chatbubble.packets.MediaCapPayload;
 import com.niuqu.chatbubble.packets.MediaRequestPayload;
@@ -87,6 +88,11 @@ class PacketCodecTest {
             MediaCapPayload.STREAM_CODEC);
     }
 
+    @Test void easyBotConfigStable() {
+        assertStable(new EasyBotConfigPayload(true),
+            EasyBotConfigPayload.STREAM_CODEC);
+    }
+
     @Test void mediaRequestStable() {
         assertStable(new MediaRequestPayload("0123456789abcdef0123456789abcdef"),
             MediaRequestPayload.STREAM_CODEC);
@@ -113,13 +119,13 @@ class PacketCodecTest {
     }
 
     @Test void serverConfigScreenStable() {
-        assertStable(new ServerConfigScreenPayload(true, false, true, true, true,
+        assertStable(new ServerConfigScreenPayload(true, false, true, true, true, true,
                 List.of("chat tpl"), List.of("whisper tpl")),
             ServerConfigScreenPayload.STREAM_CODEC);
     }
 
     @Test void serverConfigSaveStable() {
-        assertStable(new ServerConfigSavePayload(false, true, false, false, true,
+        assertStable(new ServerConfigSavePayload(false, true, false, false, true, true,
                 List.of(), List.of("w")),
             ServerConfigSavePayload.STREAM_CODEC);
     }

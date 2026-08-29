@@ -21,7 +21,7 @@ public class TemplateMatcher {
 
     public record CompiledTemplate(String raw, Pattern pattern, boolean whisper,
                                    boolean hasPrefix, boolean hasDisp, boolean hasSender, boolean hasTarget,
-                                   List<String> unknownFields) {}
+                                   boolean external, List<String> unknownFields) {}
 
     public record CompileResult(CompiledTemplate template, String error) {
         public static CompileResult ok(CompiledTemplate t) { return new CompileResult(t, null); }
@@ -36,11 +36,12 @@ public class TemplateMatcher {
     private static final String PREFIX = "prefix";
     private static final String DISP = "display_name";
     private static final String NAME = "name";
+    private static final String EXTERNAL = "external";
     private static final String CONTENT = "content";
     private static final String SENDER = "sender";
     private static final String TARGET = "target";
     private static final String SEP = "sep";
-    private static final Set<String> FIELDS = Set.of(PREFIX, DISP, NAME, CONTENT, SENDER, TARGET, SEP);
+    private static final Set<String> FIELDS = Set.of(PREFIX, DISP, NAME, EXTERNAL, CONTENT, SENDER, TARGET, SEP);
 
     private record Token(String literal, String field) {}
 
@@ -60,6 +61,10 @@ public class TemplateMatcher {
         // 2.2.7: {content} 可在任意位置（后缀式格式如 "{display_name}: {content} [聊天]"）
         if (fields.contains(DISP) && fields.contains(NAME))
             return CompileResult.fail("不能同时使用 {display_name} 和 {name}，请二选一");
+        // 2.4.3: {external} 是“外部/QQ 发送者”显示名，不要求名字能解析到已知玩家；
+        // 与 {display_name}/{name} 互斥，也不用于私聊模板。
+        if (fields.contains(EXTERNAL) && (fields.contains(DISP) || fields.contains(NAME)))
+            return CompileResult.fail("{external} 不能与 {display_name}/{name} 同时使用");
         // 2.2.7: 其余字段重复会生成同名命名组 → PatternSyntaxException；显式拒绝
         for (String f : fields) {
             if (f.equals(CONTENT) || f.equals(SEP)) continue;
@@ -67,11 +72,13 @@ public class TemplateMatcher {
                 return CompileResult.fail("字段 {" + f + "} 只能出现一次");
         }
         boolean whisper = fields.contains(SENDER) || fields.contains(TARGET);
-        if (!whisper && !fields.contains(DISP) && !fields.contains(NAME))
-            return CompileResult.fail("聊天模板必须包含 {display_name} 或 {name}");
+        if (whisper && fields.contains(EXTERNAL))
+            return CompileResult.fail("私聊模板不能使用 {external}");
+        if (!whisper && !fields.contains(DISP) && !fields.contains(NAME) && !fields.contains(EXTERNAL))
+            return CompileResult.fail("聊天模板必须包含 {display_name}、{name} 或 {external}");
 
         StringBuilder regex = new StringBuilder();
-        boolean hasPrefix = false, hasDisp = false, hasSender = false, hasTarget = false;
+        boolean hasPrefix = false, hasDisp = false, hasSender = false, hasTarget = false, external = false;
         for (Token t : tokens) {
             if (t.field == null) { regex.append(Pattern.quote(t.literal)); continue; }
             switch (t.field) {
@@ -81,14 +88,14 @@ public class TemplateMatcher {
                 // 非捕获组（不产出值、可重复出现，无命名组冲突）
                 case SEP -> regex.append("(?:\\s*>>\\s*|\\s*[:：»>]\\s*|\\s+)");
                 case PREFIX -> { regex.append("(?s:(?<prefix>.*?))"); hasPrefix = true; }
-                case DISP, NAME -> { regex.append("(?<disp>.+?)"); hasDisp = true; }
+                case DISP, NAME, EXTERNAL -> { regex.append("(?<disp>.+?)"); hasDisp = true; external |= t.field.equals(EXTERNAL); }
                 case SENDER -> { regex.append("(?<sender>.+?)"); hasSender = true; }
                 case TARGET -> { regex.append("(?<target>.+?)"); hasTarget = true; }
             }
         }
         try {
             return CompileResult.ok(new CompiledTemplate(raw, Pattern.compile(regex.toString()), whisper,
-                hasPrefix, hasDisp, hasSender, hasTarget, unknown));
+                hasPrefix, hasDisp, hasSender, hasTarget, external, unknown));
         } catch (java.util.regex.PatternSyntaxException e) {
             // 2.2.7: 兜底——编译失败返回错误而非崩溃（穿透命令/GUI/同步/保存）
             return CompileResult.fail("模板正则编译失败: " + e.getMessage());
@@ -129,7 +136,11 @@ public class TemplateMatcher {
         for (CompiledTemplate t : chatTpls) {
             TemplateResult r = tryMatch(text, t);
             if (r == null) continue;
-            if (r.displayName() != null && resolver.isKnown(r.displayName()))
+            if (r.displayName() == null) continue;
+            // {external} templates trust the declared format and accept unknown
+            // senders (EasyBot QQ relays); normal templates still require the
+            // name to resolve to a known player.
+            if (t.external() || resolver.isKnown(r.displayName()))
                 return Optional.of(withVerified(r, r.displayName()));
         }
         return Optional.empty();

@@ -19,7 +19,7 @@ import java.util.List;
  * register them) never verifies a reference to the client-only Screen class.
  */
 public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
-                                        boolean mediaEnabled, boolean mediaAutoClean,
+                                        boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
                                         List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPacketPayload {
 
@@ -31,13 +31,15 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
         public ServerConfigScreenPayload decode(ByteBuf buf) {
             ServerConfigDto d = ServerConfigDto.decode(buf);
             return new ServerConfigScreenPayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-                d.mediaEnabled(), d.mediaAutoClean(), d.chatTemplates(), d.whisperTemplates());
+                d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(),
+                d.chatTemplates(), d.whisperTemplates());
         }
 
         @Override
         public void encode(ByteBuf buf, ServerConfigScreenPayload payload) {
             ServerConfigDto.encode(new ServerConfigDto(payload.useTpa(), payload.historyEnabled(),
                 payload.templateDebug(), payload.mediaEnabled(), payload.mediaAutoClean(),
+                payload.easyBotCompat(),
                 payload.chatTemplates(), payload.whisperTemplates()), buf);
         }
     };

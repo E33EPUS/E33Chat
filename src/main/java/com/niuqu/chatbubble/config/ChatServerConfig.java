@@ -13,6 +13,7 @@ public class ChatServerConfig {
     public static final ModConfigSpec.BooleanValue TEMPLATE_DEBUG;
     public static final ModConfigSpec.BooleanValue MEDIA_ENABLED;
     public static final ModConfigSpec.BooleanValue MEDIA_AUTO_CLEAN;
+    public static final ModConfigSpec.BooleanValue EASY_BOT_COMPAT;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -43,6 +44,12 @@ public class ChatServerConfig {
             .comment("Auto-delete server-hosted media files older than 7 days (checked on server start, then at most every 6h after uploads)",
                 "When false, uploaded images are kept forever")
             .define("media_auto_clean", true);
+        EASY_BOT_COMPAT = builder
+            .comment("Parse EasyBot QQ group messages relayed to the game as player messages.",
+                "Recognizes the default EasyBot format like \"[群名] <昵称(QQ号)> 内容\".",
+                "Enabled by default; set to false to keep EasyBot messages in the system-message channel.",
+                "Also enables receiving EasyBot/ChatImage CICode images in bubbles.")
+            .define("easybot_compat", true);
         SERVER_CONFIG = builder.build();
     }
 }
