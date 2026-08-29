@@ -535,7 +535,7 @@ public class ChatBubbleScreen extends ChatScreen {
         AnimationStyle style = ChatBubbleConfig.POPUP_ANIM_STYLE.get();
         float alpha;
         boolean animating;
-        if (closeStartMs > 0) {
+        if (closeStartMs > 0 && closeStartMs > openStartMs) {
             float tc = Mth.clamp((float) (net.minecraft.Util.getMillis() - closeStartMs) / UiTokens.POPUP_CLOSE_MS, 0f, 1f);
             alpha = Animation.styleCurve(style, 1f - tc);
             animating = tc < 1f;
