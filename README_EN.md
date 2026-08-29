@@ -60,7 +60,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 ## Quick start
 
 1. Open chat and the E33Chat panel appears; click the **gear** at the bottom-left → Menu → Settings
-2. In *Chat Screen* adjust panel width, bubble color, corner radius, message gap and avatar size (panel blur is off by default — enable manually if wanted)
+2. In *Chat Screen* adjust panel width (400–1600 physical pixels — resizing the window never changes the real width; enable *Fullscreen Panel* to fill the whole screen), bubble color, corner radius, message gap and avatar size (panel blur is off by default — enable manually if wanted)
 3. In *Notifications* configure the @ sound, banner, whisper sound and master volume; banner position is adjustable (`banner_offset_x/y`) to avoid other HUD elements
 4. Send images: the **upload button** / **Ctrl+V paste** / **drag & drop** — they upload and send automatically
 
@@ -198,6 +198,7 @@ Server config: `saves/<world>/serverconfig/e33chat-server.toml` (Fabric: `.json`
 
 **How do I enable background blur?** `blur_enabled` is off by default since 2.3.16 (lowest value-per-cost; 2.3.5 taught a frame-drop lesson). Enable it in settings.
 
+**Panel width and fullscreen?** `panel_width` (default 1000) counts physical screen pixels: set 800 and the panel stays a stable 800 physical pixels wide at any window size / GUI scale — it never widens or misaligns when the window is resized (it clamps to the window width when the window is narrower). Range 400–1600. To fill the whole screen instead, enable `panel_fullscreen` (off by default); it ignores `panel_width` and keeps the sidebar usable.
 
 **Where do my images go?** With server hosting on (default) → the server, permanent. Otherwise → a third-party host (uguu.se, ~3h expiry). Both configurable.
 

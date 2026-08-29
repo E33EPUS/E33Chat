@@ -252,8 +252,7 @@ public class ChatBubbleScreen extends ChatScreen {
         firstRender = true;
 
         int physicalW = ChatBubbleClientSetup.config().panelWidth();
-        int guiScale = (int) Math.round(client.getWindow().getScaleFactor());
-        panelW = Math.max(100, Math.min(physicalW / Math.max(1, guiScale), width));
+        double guiScale = client.getWindow().getScaleFactor();
         if (sidebarOpen) {
             panelX = SIDEBAR_W;
             sidebarAnimating = false; // sidebar is already in place; the panel's
@@ -264,7 +263,7 @@ public class ChatBubbleScreen extends ChatScreen {
             sidebarAnimating = false;
             sidebarTargetOpen = false;
         }
-        if (panelX + panelW > width) panelW = width - panelX;
+        panelW = computePanelWidth(physicalW, guiScale, width, panelX, ChatBubbleClientSetup.config().panelFullscreen());
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;
@@ -341,11 +340,29 @@ public class ChatBubbleScreen extends ChatScreen {
         });
     }
 
+    /**
+     * Panel width in logical GUI pixels.
+     *
+     * <p>{@code panel_width} is a PHYSICAL-pixel size (see config comment): to get
+     * the logical width we divide by the exact — possibly fractional — GUI scale.
+     * Rounding the scale to an int was the 2.4.3 bug that made the panel's real
+     * width drift with the window and misalign on resize. Fullscreen mode ignores
+     * {@code panel_width} and fills the remaining width instead. The result is
+     * clamped to the remaining width and to a 100px safety floor.
+     */
+    static int computePanelWidth(int physicalW, double guiScale, int width, int panelX, boolean fullscreen) {
+        if (fullscreen) {
+            return Math.max(100, width - panelX);
+        }
+        double s = guiScale > 0.01 ? guiScale : 1.0;
+        int w = (int) Math.round(physicalW / s);
+        return Math.max(100, Math.min(w, width - panelX));
+    }
+
     private void rebuildLayout() {
         int physicalW = ChatBubbleClientSetup.config().panelWidth();
-        int guiScale = (int) Math.round(client.getWindow().getScaleFactor());
-        panelW = Math.max(100, Math.min(physicalW / Math.max(1, guiScale), width));
-        if (panelX + panelW > width) panelW = width - panelX;
+        double guiScale = client.getWindow().getScaleFactor();
+        panelW = computePanelWidth(physicalW, guiScale, width, panelX, ChatBubbleClientSetup.config().panelFullscreen());
         titleY = 0;
         msgTop = titleY + TITLE_H + 1;
         barTop = height - BAR_H;

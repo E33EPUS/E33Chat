@@ -24,7 +24,7 @@ class ConfigManagerTest {
         // Build a config with explicit zero values via the full constructor.
         c = new ChatBubbleConfig(
             true, "dark", true, false, true, false, true,
-            false, 0, 5, 1000, 4,
+            false, 0, 5, 1000, false, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
             false, false, true, false, true, false,
             java.util.List.of(), java.util.List.of(), java.util.List.of(),

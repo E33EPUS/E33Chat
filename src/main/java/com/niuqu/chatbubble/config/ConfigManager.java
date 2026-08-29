@@ -45,7 +45,7 @@ public final class ConfigManager {
             c.systemChatAsBubble(),
             c.antiSpam(), c.chatHistoryEnabled(),
             c.historyRetentionDays(), c.timeSeparatorMinutes(),
-            c.panelWidth(), c.bubbleCornerRadius(),
+            c.panelWidth(), c.panelFullscreen(), c.bubbleCornerRadius(),
             c.ownBubbleColor() != null ? c.ownBubbleColor() : d.ownBubbleColor(),
             c.otherBubbleColor() != null ? c.otherBubbleColor() : d.otherBubbleColor(),
             c.ownTextColor() != null ? c.ownTextColor() : d.ownTextColor(),

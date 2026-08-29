@@ -67,6 +67,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean blurEnabled, ownMentionNotify, ownQuoteNotify, ownWhisperNotify;
     private int mentionBannerDuration, timeSeparatorMinutes;
     private int panelWidth, bubbleCornerRadius, panelOpacity, soundVolume, bannerCornerRadius, bannerOpacity;
+    private boolean panelFullscreen;
     private int bannerOffsetX, bannerOffsetY, bannerMaxStack;
     private String panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle;
     private int historyRetentionDays;
@@ -169,7 +170,7 @@ public class ChatBubbleConfigScreen extends Screen {
             enabled, theme.name().toLowerCase(), redDotEnabled, hideChatIcon, animationEnabled,
             systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
-            panelWidth, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
+            panelWidth, panelFullscreen, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
             soundPublic, soundSystem, soundWhisper, debugLog, preserveInput, colorCodes,
             sidebarHidePatterns,
             blockedPlayers,
@@ -219,6 +220,7 @@ public class ChatBubbleConfigScreen extends Screen {
         popupAnimStyle = cfg.popupAnimStyle(); messageAnimStyle = cfg.messageAnimStyle();
         historyRetentionDays = cfg.historyRetentionDays();
         timeSeparatorMinutes = cfg.timeSeparatorMinutes(); panelWidth = cfg.panelWidth();
+        panelFullscreen = cfg.panelFullscreen();
         bubbleCornerRadius = cfg.bubbleCornerRadius();
         ownBubbleColor = cfg.ownBubbleColor(); otherBubbleColor = cfg.otherBubbleColor();
         ownTextColor = cfg.ownTextColor(); otherTextColor = cfg.otherTextColor();
@@ -389,7 +391,8 @@ public class ChatBubbleConfigScreen extends Screen {
     private final List<SectionDef> CHAT_SECTIONS = List.of(
         SectionDef.of("e33chat.config.section.panel",
             OptionDef.themeCycle("e33chat.config.theme", new Ref<>(() -> theme, v -> theme = v)),
-            OptionDef.intBox("e33chat.config.panel_width", Ref.i(() -> panelWidth, v -> panelWidth = v), 800, 1600, 4),
+            OptionDef.intBox("e33chat.config.panel_width", Ref.i(() -> panelWidth, v -> panelWidth = v), 400, 1600, 4),
+            OptionDef.bool("e33chat.config.panel_fullscreen", Ref.b(() -> panelFullscreen, v -> panelFullscreen = v)),
             OptionDef.bool("e33chat.config.blur_enabled", Ref.b(() -> blurEnabled, v -> blurEnabled = v)),
             OptionDef.intBox("e33chat.config.panel_opacity", Ref.i(() -> panelOpacity, v -> panelOpacity = v), 0, 100, 3),
             OptionDef.bool("e33chat.config.animation", Ref.b(() -> animationEnabled, v -> animationEnabled = v)),
