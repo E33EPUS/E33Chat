@@ -683,42 +683,31 @@ public class ChatBubbleScreen extends ChatScreen {
     // renders itself with the given alpha (per-element fade); ZOOM additionally
     // scales it in around the screen center with overshoot.
     // Popup open/close animation (D07-6: closing is no longer instant).
-    // Open: 200ms style curve (ease-out); close: 150ms ease-in fade + style displacement.
+    // Popup open/close animation (D07-6: closing is no longer instant; 2.4.5:
+    // close replays the open curve in reverse). Open 200ms, close 150ms.
     private void renderPopupWithAnim(DrawContext g, long openStartMs, long closeStartMs,
                                      java.util.function.Function<Float, Runnable> renderer) {
         AnimationStyle style = AnimationStyle.parse(ChatBubbleClientSetup.config().popupAnimStyle());
-        float alpha = 1f;
-        float t = 1f;
+        float alpha;
+        boolean animating;
         if (closeStartMs > 0) {
-            // Closing: ease-in fade-out (07 §2.6: exit 150ms ease-in)
             float tc = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - closeStartMs) / UiTokens.POPUP_CLOSE_MS, 0f, 1f);
-            float a = (1f - tc) * (1f - tc);
-            Runnable render = renderer.apply(a);
-            if (style == AnimationStyle.ZOOM) {
-                g.getMatrices().push();
-                float s = 0.85f + 0.15f * a;
-                g.getMatrices().translate(width / 2f, height / 2f, 0);
-                g.getMatrices().scale(s, s, 1f);
-                g.getMatrices().translate(-width / 2f, -height / 2f, 0);
-                render.run();
-                g.getMatrices().pop();
-            } else if (style == AnimationStyle.SLIDE) {
-                // 与打开同向位移：打开从下往上滑入，关闭向下滑出
-                g.getMatrices().push();
-                g.getMatrices().translate(0, (1f - a) * 10f, 0);
-                render.run();
-                g.getMatrices().pop();
-            } else {
-                render.run();
-            }
-            return;
-        }
-        if (ChatBubbleClientSetup.config().animationEnabled() && style != AnimationStyle.NONE) {
-            t = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - openStartMs) / UiTokens.POPUP_OPEN_MS, 0f, 1f);
+            alpha = Animation.styleCurve(style, 1f - tc);
+            animating = tc < 1f;
+        } else if (ChatBubbleClientSetup.config().animationEnabled() && style != AnimationStyle.NONE) {
+            float t = MathHelper.clamp((float) (Util.getMeasuringTimeMs() - openStartMs) / UiTokens.POPUP_OPEN_MS, 0f, 1f);
             alpha = Animation.styleCurve(style, t);
+            animating = t < 1f;
+        } else {
+            alpha = 1f;
+            animating = false;
         }
+        // Vanilla Font.adjustColor snaps any color with alpha <= 3 back to fully
+        // opaque — below this threshold text/emoji flashed back on the last fade
+        // frame while the panel (SDF shader, float alpha) faded correctly.
+        if (alpha <= 0.02f) return;
         Runnable render = renderer.apply(alpha);
-        if (t >= 1f || style == AnimationStyle.NONE) { render.run(); return; }
+        if (!animating) { render.run(); return; }
         if (style == AnimationStyle.ZOOM) {
             g.getMatrices().push();
             float s = 0.85f + 0.15f * Animation.easeOutBack(alpha);
@@ -728,7 +717,7 @@ public class ChatBubbleScreen extends ChatScreen {
             render.run();
             g.getMatrices().pop();
         } else if (style == AnimationStyle.SLIDE) {
-            // SLIDE: rise up from below while fading in
+            // SLIDE: rise up from below while fading in; close sinks back down
             g.getMatrices().push();
             g.getMatrices().translate(0, (1f - alpha) * 10f, 0);
             render.run();
