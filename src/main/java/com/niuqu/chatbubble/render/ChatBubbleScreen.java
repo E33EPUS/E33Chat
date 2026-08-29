@@ -529,43 +529,31 @@ public class ChatBubbleScreen extends ChatScreen {
         return t;
     }
 
-    // Popup open/close animation (D07-6: closing is no longer instant).
-    // Open: 200ms style curve (ease-out); close: 150ms ease-in fade + style displacement.
+    // Popup open/close animation (D07-6: closing is no longer instant; 2.4.5:
+    // close replays the open curve in reverse). Open 200ms, close 150ms.
     private void renderPopupWithAnim(GuiGraphics g, long openStartMs, long closeStartMs,
                                      java.util.function.Function<Float, Runnable> renderer) {
         AnimationStyle style = ChatBubbleConfig.POPUP_ANIM_STYLE.get();
-        float alpha = 1f;
-        float t = 1f;
+        float alpha;
+        boolean animating;
         if (closeStartMs > 0) {
-            // Closing: ease-in fade-out (07 §2.6: exit 150ms ease-in)
             float tc = Mth.clamp((float) (net.minecraft.Util.getMillis() - closeStartMs) / UiTokens.POPUP_CLOSE_MS, 0f, 1f);
-            float a = (1f - tc) * (1f - tc);
-            Runnable render = renderer.apply(a);
-            if (style == AnimationStyle.ZOOM) {
-                g.pose().pushPose();
-                float s = 0.85f + 0.15f * a;
-                g.pose().translate(width / 2f, height / 2f, 0);
-                g.pose().scale(s, s, 1f);
-                g.pose().translate(-width / 2f, -height / 2f, 0);
-                render.run();
-                g.pose().popPose();
-            } else if (style == AnimationStyle.SLIDE) {
-                // 与打开同向位移：打开从下往上滑入，关闭向下滑出
-                g.pose().pushPose();
-                g.pose().translate(0, (1f - a) * 10f, 0);
-                render.run();
-                g.pose().popPose();
-            } else {
-                render.run();
-            }
-            return;
-        }
-        if (ChatBubbleConfig.ANIMATION_ENABLED.get() && style != AnimationStyle.NONE) {
-            t = Mth.clamp((float) (net.minecraft.Util.getMillis() - openStartMs) / UiTokens.POPUP_OPEN_MS, 0f, 1f);
+            alpha = Animation.styleCurve(style, 1f - tc);
+            animating = tc < 1f;
+        } else if (ChatBubbleConfig.ANIMATION_ENABLED.get() && style != AnimationStyle.NONE) {
+            float t = Mth.clamp((float) (net.minecraft.Util.getMillis() - openStartMs) / UiTokens.POPUP_OPEN_MS, 0f, 1f);
             alpha = Animation.styleCurve(style, t);
+            animating = t < 1f;
+        } else {
+            alpha = 1f;
+            animating = false;
         }
+        // Vanilla Font.adjustColor snaps any color with alpha <= 3 back to fully
+        // opaque — below this threshold text/emoji flashed back on the last fade
+        // frame while the panel (SDF shader, float alpha) faded correctly.
+        if (alpha <= 0.02f) return;
         Runnable render = renderer.apply(alpha);
-        if (t >= 1f || style == AnimationStyle.NONE) { render.run(); return; }
+        if (!animating) { render.run(); return; }
         if (style == AnimationStyle.ZOOM) {
             g.pose().pushPose();
             float s = 0.85f + 0.15f * Animation.easeOutBack(alpha);
@@ -575,7 +563,7 @@ public class ChatBubbleScreen extends ChatScreen {
             render.run();
             g.pose().popPose();
         } else if (style == AnimationStyle.SLIDE) {
-            // SLIDE: rise up from below while fading in
+            // SLIDE: rise up from below while fading in; close sinks back down
             g.pose().pushPose();
             g.pose().translate(0, (1f - alpha) * 10f, 0);
             render.run();
@@ -593,12 +581,16 @@ public class ChatBubbleScreen extends ChatScreen {
             hide.run();
             return;
         }
-        setCloseStart.accept(System.currentTimeMillis());
+        // Same clock as renderPopupWithAnim reads (Util.getMillis()): stamping
+        // with System.currentTimeMillis() broke the close progress math — the
+        // two epochs differ by ~1.7e12 ms, so tc never left 0 and the close
+        // animation never played (frozen full-alpha, then an abrupt hide).
+        setCloseStart.accept(net.minecraft.Util.getMillis());
     }
 
     /** tick 调用：关闭动画到期后真正隐藏（D07-6）。 */
     private void finishPopupClose(long closeStart, Runnable hide) {
-        if (closeStart > 0 && System.currentTimeMillis() - closeStart >= UiTokens.POPUP_CLOSE_MS) {
+        if (closeStart > 0 && net.minecraft.Util.getMillis() - closeStart >= UiTokens.POPUP_CLOSE_MS) {
             hide.run();
         }
     }

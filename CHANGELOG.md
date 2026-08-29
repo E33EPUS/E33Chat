@@ -7,12 +7,16 @@
 - 上限按窗口宽度比例计算，与 GUI 缩放无关；`panel_fullscreen` 铺满模式不受此上限约束
 - 布局单测从 12 例扩到 17 例（窗口占比上限 / 缩放无关性 / 全屏豁免 / 下限优先级）
 - 文字选区高亮改为固定"选中蓝"（#2D6FD6，近不透明，文字反白）：原白/黑半透明选区在深色气泡上呈中灰糊块，与灰色系统消息重色、不明显；新选区与灰字色相天然区分，深浅背景都可读
+- 修复弹层关闭动画（设置/表情/常用语/搜索）：关闭改为**倒放打开曲线**，与打开方向完全对称（原关闭用另一套缓动、无 ZOOM 回弹，观感像另一种动画且错位）；alpha 低于 0.02 时整层跳绘——修复淡出最后一帧文本/表情突然恢复不透明的闪烁（vanilla `Font.adjustColor` 会把 alpha≤3 的颜色强制为全不透明，面板背景走 SDF 着色器不受影响）
+- Forge/NeoForge 同步修复关闭动画时钟错配：关闭时间戳原来用 `System.currentTimeMillis()` 而进度计算用 `Util.getMillis()`（两个纪元相差约 1.7 万亿 ms，关闭进度恒为 0），导致关闭动画从未真正播放——满透明度冻结 150ms 后瞬间消失；现对齐 Fabric 全链路同钟
 
 **Windowed-mode panel width cap (all three loaders: Fabric / Forge / NeoForge)**
 - In windowed mode the chat panel no longer exceeds 40% of the window width: the panel previously rendered at a fixed physical pixel width (e.g. 1000px), dominating smaller windows (measured 66% of a 2184px window at GUI scale 5); it now shrinks automatically to 40%, while a 1000px panel on a 2560px fullscreen display (39%) is unaffected
 - The cap is proportional to the window width and independent of GUI scale; the `panel_fullscreen` fill mode is exempt from the cap
 - Layout unit tests expanded from 12 to 17 cases (window cap / scale invariance / fullscreen exemption / floor precedence)
 - Text selection highlight changed to a fixed "selection blue" (#2D6FD6, near-opaque, white text): the old white/black translucent overlays rendered as mid-grey patches on dark bubbles that blended with grey system messages; the new hue-distinct blue reads clearly on any background
+- Fixed popup close animations (settings/emoji/quick-chat/search): closing now **replays the open curve in reverse**, fully symmetric with opening (the old close used a different ease-in curve without the ZOOM overshoot, reading as a different, misaligned animation); the whole layer is skipped below alpha 0.02 — fixing text/emoji snapping back to opaque on the last fade frame (vanilla `Font.adjustColor` forces colors with alpha <= 3 to fully opaque, while the panel background goes through the SDF shader and faded correctly)
+- Forge/NeoForge also fix a clock mismatch that disabled their close animations entirely: the close timestamp used `System.currentTimeMillis()` while progress math used `Util.getMillis()` (~1.7e12 ms epoch difference, progress stuck at 0), leaving popups frozen at full alpha for 150ms before vanishing; both now use one clock end-to-end, matching Fabric
 
 ## v2.4.4
 
