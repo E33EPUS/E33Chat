@@ -114,6 +114,18 @@ public final class ChatMessageRenderer {
         return NAME_H + (int) (contentH * s);
     }
 
+    /** Vertical gap between grouped (compact) messages: tight (gap/3), never below 2px. */
+    public static int groupedGap(int messageGap) {
+        return Math.max(2, messageGap / 3);
+    }
+
+    /** Grouped (compact) variant: the name row is not rendered, so its height goes.
+     * System messages are never grouped (isSameGroup returns false for them). */
+    public static int msgHeight(ChatMessageStore.ChatMessage msg, Font font, int bubbleMaxW, int panelW, boolean grouped) {
+        int h = msgHeight(msg, font, bubbleMaxW, panelW);
+        return grouped && !msg.isSystem() ? h - NAME_H : h;
+    }
+
     /** Bubble-side parse: bracket codes stripped (or placeholder when receiving is off). */
     public static BracketCodec.ParseResult parseImages(Component c) {
         if (!ChatBubbleConfig.RECEIVE_IMAGES.get()) {
@@ -171,7 +183,7 @@ public final class ChatMessageRenderer {
             List<TextSpan> textSpans, ChatTextSelection selection, boolean showAvatar) {
         int avatarX = own ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() : panelX + ChatLayout.PAD;
 
-        if (!msg.senderName().getString().isEmpty()) {
+        if (showAvatar && !msg.senderName().getString().isEmpty()) {
             int maxNameW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 20;
             FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
             int nameW = font.width(nameSeq);
@@ -188,7 +200,7 @@ public final class ChatMessageRenderer {
         for (var line : lines) maxTextW = Math.max(maxTextW, font.width(line));
         int textX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - maxTextW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
 
-        int y = baseY + NAME_H;
+        int y = baseY + (showAvatar ? NAME_H : 0);
         if (!lines.isEmpty()) {
             int fg = own
                 ? ChatBubbleConfig.parseHexColor(ChatBubbleConfig.OWN_TEXT_COLOR.get(), 0xFFFFFFFF)
@@ -277,7 +289,7 @@ public final class ChatMessageRenderer {
         BracketCodec.ImageRef ref = parsed.images().get(0);
 
         int avatarX = own ? panelX + panelW - ChatLayout.PAD - Appearance.avatarSize() : panelX + ChatLayout.PAD;
-        if (!msg.senderName().getString().isEmpty()) {
+        if (showAvatar && !msg.senderName().getString().isEmpty()) {
             int maxNameW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 20;
             FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
             int nameW = font.width(nameSeq);
@@ -289,7 +301,7 @@ public final class ChatMessageRenderer {
 
         if (showAvatar) drawAvatar(g, skin, avatarX, baseY, alpha);
 
-        int emoteY = baseY + NAME_H + 2;
+        int emoteY = baseY + (showAvatar ? NAME_H + 2 : 2);
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16));
         int w = maxE, h = maxE;
         ImageEntry entry = ImageLoader.getOrLoad(ref.url());
@@ -607,7 +619,9 @@ public final class ChatMessageRenderer {
 
         int nameY = baseY;
 
-        if (!msg.senderName().getString().isEmpty()) {
+        // Grouped (compact) message: showAvatar=false means the name row and the
+        // avatar are omitted and the bubble starts at the row top (2.4.6).
+        if (showAvatar && !msg.senderName().getString().isEmpty()) {
             int maxNameW = panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 20;
             FormattedCharSequence nameSeq = nameSequence(font, msg.senderName(), maxNameW);
             int nameW = font.width(nameSeq);
@@ -617,7 +631,7 @@ public final class ChatMessageRenderer {
                 index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection);
         }
 
-        int bubbleY = baseY + NAME_H;
+        int bubbleY = baseY + (showAvatar ? NAME_H : 0);
         int avatarY = baseY;
 
         int bg = own ? ownBubbleColor : otherBubbleColor;

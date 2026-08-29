@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.4.6
+
+**消息紧凑分组（三端同步：Fabric / Forge / NeoForge）**
+- 配置“隐藏连续消息头像”升级为**消息紧凑分组**，默认值 true → false：开启后同一人 5 分钟内的连续消息只在首条显示头像和名字，后续只留气泡（类 Discord/Telegram）；此前只隐藏头像，名字和间距都不变
+- 紧凑分组时组内后续消息：不再绘制名字行（每条省出名字行高度）、气泡顶对齐行顶、横向保持原气泡列对齐、与上一条间距收紧为 max(2, message_gap/3)（默认 6→2px）
+- 表情消息、图片消息同样适用紧凑分组；分组仍被系统消息和时间分隔线打断；头像的 @提及左键与右键菜单命中区随头像一起隐藏
+- 三处布局循环（总高/渲染/跳转）同步更新，滚动与“跳到下一条”定位一致；新增 groupedGap 纯函数单测
+
+**Compact message groups (all three loaders: Fabric / Forge / NeoForge)**
+- The "hide repeated avatars" toggle is upgraded to **compact message groups**, default flipped true → false: when on, only the first message of a same-sender run (within 5 min) shows avatar and name; the rest render as bubbles only (Discord/Telegram-style). Previously only the avatar was hidden while names and spacing stayed
+- For grouped follow-up messages: the name row is not drawn (saving its height per message), the bubble starts at the row top, horizontal bubble columns stay aligned, and the gap to the previous message tightens to max(2, message_gap/3) (6 → 2px at defaults)
+- Emote and image messages follow the same compact treatment; groups are still broken by system messages and time separators; the avatar's @-mention left-click and right-click context-menu hit regions hide together with the avatar
+- All three layout loops (total height / render / jump) updated in sync so scrolling and jump-to-message stay aligned; added groupedGap pure-function unit tests
+
 ## v2.4.5
 
 **窗口模式面板宽度上限（三端同步：Fabric / Forge / NeoForge）**
