@@ -11,41 +11,35 @@
   <img alt="Loader" src="https://img.shields.io/badge/Loader-Forge%20%7C%20NeoForge%20%7C%20Fabric-orange">
   <img alt="Side" src="https://img.shields.io/badge/Side-Client%20required,%20server%20optional-blue">
   <img alt="Java" src="https://img.shields.io/badge/Java-17%2B%20%7C%2021%2B-yellow">
-  <img alt="Version" src="https://img.shields.io/badge/Version-2.3.7-informational">
+  <img alt="Version" src="https://img.shields.io/badge/Version-2.3.16-informational">
+  <img alt="Downloads" src="https://img.shields.io/github/downloads/E33EPUS/E33Chat/total">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-brightgreen">
 </p>
 
-E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-app style: bubbles with heads, @ mentions, a whisper sidebar, search, emoji & quick phrases, quote reply, notification banners, local chat history, and a fully reworked settings screen.
+E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-app style: bubbles with heads, @ mentions, a whisper sidebar, search, emoji & quick phrases, image messages, quote reply, notification banners, local chat history, and a fully reworked settings screen.
 
 ---
 
 ## Contents
 
-- [Installation requirements](#installation-requirements)
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Features](#features)
-- [Chat bubbles & message display](#chat-bubbles--message-display)
-- [Whisper sidebar](#whisper-sidebar)
-- [Mentions & notifications](#mentions--notifications)
-- [Search, emoji & quick phrases](#search-emoji--quick-phrases)
-- [Themes & settings](#themes--settings)
-- [UI texture customization (resource-pack overridable)](#ui-texture-customization-resource-pack-overridable)
+- [Usage](#usage)
 - [Server-side bonus](#server-side-bonus)
-- [Message recognition](#message-recognition)
 - [Compatibility](#compatibility)
-- [Server message-format templates](#server-message-format-templates)
 - [Known limitations](#known-limitations)
 - [Privacy & data](#privacy--data)
 - [FAQ](#faq)
 - [Troubleshooting](#troubleshooting)
 - [Building from source](#building-from-source)
+- [Changelog](#changelog)
 - [Reporting issues](#reporting-issues)
 - [License](#license)
 
 ---
 
-## Installation requirements
+## Installation
 
 | Dependency | Type | Notes |
 |---|---|---|
@@ -57,10 +51,6 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 | Fabric API | Per platform | Any compatible version (1.21.1) |
 | CustomSkinLoader | Optional | Shows offline players' heads |
 
----
-
-## Installation
-
 1. Download the JAR for your platform from [Releases](https://github.com/E33EPUS/E33Chat/releases)
 2. Drop it into `.minecraft/mods/` (match your loader — do not mix platform JARs)
 3. Launch the game
@@ -69,108 +59,65 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 
 ## Quick start
 
-1. Open chat and the E33Chat panel appears
-2. Click the **gear** at the bottom-left → Menu → Settings
-3. In the *Chat Screen* category adjust panel width, bubble color, corner radius, background blur
-4. In the *Notifications* category configure the @ sound, banner, system-message banner, whisper sound and master volume
+1. Open chat and the E33Chat panel appears; click the **gear** at the bottom-left → Menu → Settings
+2. In *Chat Screen* adjust panel width, bubble color, corner radius, message gap and avatar size (panel blur is off by default — enable manually if wanted)
+3. In *Notifications* configure the @ sound, banner, whisper sound and master volume; banner position is adjustable (`banner_offset_x/y`) to avoid other HUD elements
+4. Send images: the **upload button** / **Ctrl+V paste** / **drag & drop** — they upload and send automatically
 
 ---
 
 ## Features
 
-- 💬 **Chat bubbles** — Messages with player heads and names; custom bubble color, text color and corner radius; dark / light themes; panel background blur with adjustable opacity
-- 🛠️ **Settings screen** — Five UI-element tabs (Chat Screen / HUD / Notifications / Sidebar / Advanced) with a collapsible sub-category tree, inline color palette, a live bubble preview that follows the corner radius, snapshot-based save / exit, and always-on scrollbars with eased smooth scrolling
-- 💾 **Chat history** — Saved per world / server and restored on rejoin; plain-text log format (readable in any text editor); WeChat-style time separators with date across days; auto-saved every 30 s
-- ✅ **Anti-spam** — Consecutive duplicate messages merged with a counter (on by default)
-- @ **Mention autocomplete** — Type `@` for a popup player list, or left-click a head to @ them; a sound + banner fires when you are @'d or quoted
-- 👥 **Whisper sidebar** — Online player list, click a name to whisper; bouncing unread dot; separate whisper banner + sound; public / whisper split view
-- 🔍 **Chat search** — Real-time matching of message content and sender name, jump with up / down, Chinese supported
-- 😊 **Emoji & kaomoji** — Emoji panel + kaomoji picker, inserted at the cursor
-- 📌 **Quick phrases** — Save common phrases and fill them with one click
-- 📋 **Copy & quote reply** — Right-click a message to copy or quote-reply
-- 👤 **Head actions** — Right-click a head to whisper / teleport / block, left-click to @
-- 🚫 **Block players** — A blocked player's messages vanish completely (vanilla chat / bubbles / banners / sounds); blocking takes effect instantly and purges their history, never restored on rejoin; manage the list in Settings → Chat → Blocked List (exact names, comma-separated)
-- 🔔 **Notification banner** — Slide-in popup at the top covering @ / quote / whisper / system (system banner on by default); master volume slider with per-type toggles
-- 🗨️ **Vanilla chat box** — No custom HUD preview anymore; the vanilla chat renders as usual (shifted up clear of the HUD icon), so ChatHeads / ChatAnimation-style mods work out of the box
-- 🌈 **Colored messages** — Supports `&` color / format codes, rendered locally without changing what is sent
-- 📝 **Input preserved** — Typed text is kept when the chat closes
-- 🧩 **Message-format templates** — The server declares its chat format so the mod can parse plugin/NCR-rewritten lines (configured via `/e33chat gui`)
+- 💬 **Chat bubbles** — Heads and names; colors / text color / corner radius / theme adjustable; avatars top-aligned, shown on the first message of a same-sender run only (QQ-style); message gap 4px in-group, 12px between groups
+- 🖼️ **Image messages** — `[[CICode]]` / `[[ChatUpgrade]]` render natively in bubbles (ChatImage interop), click opens the original; anti-flood rate limiting + receive toggle
+- ☁️ **Server-side media hosting** — With E33Chat on the server, images are stored there permanently; otherwise the mod falls back to a third-party host automatically
+- 😀 **Custom emote pack** — Drop images into `config/e33chat/emotes/` (up to 10), or Ctrl+V a clipboard image; click to send
+- @ **Mention autocomplete** — Type `@` for a player list, left-click a head to @ them; sound + banner when you are @'d or quoted
+- 👥 **Whisper sidebar** — Online player list, unread dots, public / whisper split view, NPC hide list
+- 🔍 **Search & emoji & quick phrases** — Real-time search (Chinese supported), emoji / kaomoji panel, one-click phrases
+- 📋 **Copy & quote reply** — Right-click a message to copy / quote; right-click a head to whisper / teleport / block
+- 🚫 **Block players** — Messages vanish completely (vanilla chat / bubbles / banners / sounds), instant, never restored on rejoin
+- 🔔 **Notification banner** — Covers @ / quote / whisper / system; master volume slider + per-type toggles + position offset
+- 🎬 **Animation styles** — Panel / banner / popup / message configured independently (SLIDE / FADE / ZOOM / NONE), popups animate on open and close
+- 🗨️ **Vanilla chat box kept** — Renders as usual (shifted up clear of the HUD icon); ChatHeads / ChatAnimation work out of the box
+- 💾 **Chat history** — Saved per world / server, JSONL preserves colors and click events (off by default); auto-saved every 30 s
+- 🛠️ **Settings screen** — 5 tabs + collapsible categories + live preview + snapshot save / exit; every option is GUI-adjustable
+- ✅ Anti-spam merge · 📝 input preserved · 🌈 local `&` color rendering · 🧩 server message-format templates
 
 ---
 
-## Chat bubbles & message display
+## Usage
 
-- Every message renders as a bubble with a head and player name
-- Your bubbles sit on the right, others on the left, each color configurable
-- Bubble corner radius 0–10 (0 = square)
-- Whispers show as `<name>[PM] content` and quote replies as `<name>[Quote] content` (yellow tag); names keep server prefix decorations and team colors
-- The vanilla chat box renders on the HUD as usual (shifted up 8 px clear of the E33Chat icon)
+### Chat display
 
----
+- Your bubbles sit right, others left, colors configurable; bubble corner radius 0–10 (default 4)
+- Whispers show as `<name>[PM] content`, quotes as `<name>[Quote] content` (yellow tag); server prefix decorations and team colors are kept
+- Message gap: consecutive same-sender messages within 5 minutes use `message_gap` × 2/3 (default 4px); sender change / timeout / system / time separator use ×2 (default 12px)
 
-## Whisper sidebar
+### Images & media
 
-- Online player list; click to start a whisper
-- Unread whispers show the same bouncing dot as the sidebar
-- Search box to filter players
-- Public / whisper split view; the public tab shows the latest line
-- Hide list: wildcard patterns to drop NPCs / bots from the list
+- **Send**: upload button / Ctrl+V / drag & drop; scaled to ≤2048px and re-encoded; uploads queue serially (up to 8), one Enter is enough, failures restore the input
+- **Hosts**: default uguu.se (~3h expiry); with server hosting on, images go to the server (`e33chat://media/<id>`, permanent); custom hosts via `upload_url` and friends (multipart POST; response URL from the body, or `json:<field path>`)
+- **Receive**: image codes render natively, legacy history images reload automatically; anti-abuse = sliding-window rate limit + 64-entry LRU texture cache + pre-decode scaling; "Receive images" off renders plain `[Image]` text and never downloads
 
----
+### Sidebar & notifications
 
-## Mentions & notifications
+- Sidebar: click a name to whisper, bouncing unread dots, search filter, split view, wildcard hide list (e.g. `*[NPC]*`)
+- Banners: @ / quote / whisper / system, system on by default; "jump to mention" button; position offset ±1000px to avoid HUD overlap
+- Optional "require @ prefix"; self-notification toggles (off by default, testing aid); master volume slider
 
-- Type `@` for an online-player autocomplete list
-- Left-click a player head to insert `@name`
-- On @ or quote: a notification banner (slide-in, rounded, shadowed) + sound
-- Separate banner and sound for whispers
-- System-message banner is on by default (toggle in the notification settings)
-- The banner has a "jump to mention" button
-- Optional "require @ prefix"
-- Advanced: self-@ / self-quote / self-whisper notification toggles (off by default, for testing)
-- A master volume slider controls every notification sound
+### Animation & appearance
 
----
+- Four animation groups, each SLIDE / FADE / ZOOM / NONE: panel (SLIDE), banner (SLIDE), popup (FADE), message (FADE); `animation=false` disables all
+- Popups: 200ms fade-in, 150ms eased close (ESC / icon toggle / outside click all animate); banner: 250ms in, 150ms out
+- The popup family (settings / emoji / quick-chat / search / @ popup / context menu) uses SDF corners + shadow + 1px border; quote-block radius 8
+- Panel blur `blur_enabled` is off by default (lowest value-per-cost)
 
-## Search, emoji & quick phrases
+### Settings & textures
 
-- Chat search: matches message content + sender name, real-time highlight, jump with up / down
-- Emoji panel: emoji + kaomoji, inserted at the cursor
-- Quick-phrase panel: save / manage phrases, click to fill
-
----
-
-## Themes & settings
-
-- Dark / light themes
-- Custom bubble color, text color, corner radius, panel opacity, background blur
-- Settings grouped into five UI-element tabs (Chat Screen / HUD / Notifications / Sidebar / Advanced) with a collapsible sub-category tree per tab
-- Color rows have an inline preset palette + hex input; the *Bubbles & Text* page has a bubble preview that follows the corner radius live
-- Snapshot on open, live preview, Save / Exit with a changed-count at the bottom, ESC prompts to confirm discard
-- Always-on scrollbars on the tabs and the option list, eased smooth scrolling, draggable thumb / click-to-page on the track
-- Numeric options accept typed input; sound volume uses a slider
-
----
-
-## UI texture customization (resource-pack overridable)
-
-UI structural elements, icons and state highlights all render from textures; the defaults are 16×16 solid-color PNGs baked into the JAR (SimpleTexture, lazy-loaded). Drop a PNG at the same path into a resource pack and the element is overridden — colors, patterns and gradients all come from the image. F3+T hot-reloads, no restart needed.
-
-**Path convention**: `assets/e33chat/textures/gui/{dark|light}/<element>.png`. Default textures are 16×16 solid-color stretch; hover/selected/close state highlights are texture-driven too (overridable since v2.2.8).
-
-| Element | File | Rendering notes |
-|---|---|---|
-| Panel bg / title bar / bottom bar / sidebar / divider / input | `panel_bg.png` etc. | stretch |
-| Context menu / popup / whisper bar / config bg / content bg | `context_menu_bg.png` etc. | stretch |
-| Scrollbar track / thumb | `scrollbar_track.png` `scrollbar_thumb.png` | stretch, dynamic alpha channel |
-| Time separator | `time_sep_bg.png` | stretch, base color overridable |
-| "Copied" toast | `toast_bg.png` | stretch × dynamic alpha |
-| Quick-chat scrollbar | `quick_scrollbar_track.png` `quick_scrollbar_thumb.png` | white × tint (theme color / hover state) |
-| Strong-hint bar | `strong_hint_bg.png` | stretch, base color overridable |
-| State highlights (hover/selected/close) | `hover_bg.png` `sidebar_selected.png` `sidebar_hover.png` `context_hover.png` `close_bg.png` `close_hover.png` | stretch |
-| Icons (30) | `settings.png` `copy.png` etc. | 16×16 original size, overridable |
-
-> ⚠️ **Chat bubbles / quote blocks / @-mention banner** are SDF-rounded (shader math) — smooth at any corner-radius config, but **not resource-pack overridable**, since they are not texture-driven. (2.2.8+ tried 9-slice texturing; sampling mismatch/upscaling issues, reverted to SDF.)
+- Dark / light themes; 5 tabs (Chat Screen / HUD / Notifications / Sidebar / Advanced), snapshot save / exit with ESC confirm
+- **Resource-pack override**: UI elements and icons render from textures at `assets/e33chat/textures/gui/{dark|light}/<element>.png`, F3+T hot-reloads
+- ⚠️ **Popup backgrounds stopped being texture-driven in 2.3.16** (SDF-rounded, semantic theme colors instead); chat bubbles / quote blocks / @ banner are SDF-rendered by design — neither is resource-pack overridable
 
 ---
 
@@ -178,27 +125,28 @@ UI structural elements, icons and state highlights all render from textures; the
 
 The server mod is optional. Installing it additionally enables:
 
-- Server-side quote pending & sync
-- Cross-client @ mention sync (Chinese names included)
-- New players receive recent chat history on join
-- `use_tpa`: head teleport uses `/tpa` instead
-- Message-format templates: the server declares its chat format and syncs it to every client (see below)
+- Quote sync and cross-client @ mention sync (Chinese names included)
+- New players receive recent chat history on join (`history_enabled`, off by default)
+- Head teleport via `/tpa` (`use_tpa`, off by default)
+- **Server-side media hosting** (`media_enabled`, on by default): images stored permanently (8MB/file, 512MB total quota, random UUID IDs, per-player throttling)
+- **Message-format templates**: the server declares its chat format and syncs it to every client, so plugin/NCR-rewritten lines parse correctly (`/e33chat gui`; "Generate from message…" or one-click presets; placeholders `{display_name}` `{prefix}` `{external}` `{content}` `{sender}` `{target}` `{sep}`)
+- **EasyBot group-message compatibility** (`easybot_compat`, on by default): parses QQ group messages relayed by EasyBot into player bubbles and renders EasyBot/ChatImage CICode images inside bubbles. The default format `[Group] <Nick(QQ#)> content` is auto-detected; if the EasyBot template is customized, override it with an `{external}` chat template (the server-config presets include the EasyBot format, see [EasyBot template guide](#easybot-template-guide))
 
-> History distribution and the `/tpa` switch must be enabled manually in the server config file; templates are configured via `/e33chat gui` or commands (or by editing the server config file directly).
+Server config: `saves/<world>/serverconfig/e33chat-server.toml` (Fabric: `.json`) ｜ OP commands: `/e33chat template list|set|remove|clear|test` ｜ `/e33chat gui` for the graphical config
 
----
+### EasyBot template guide
 
-## Message recognition
+- E33Chat has built-in recognition for EasyBot's default format `[Group] <Nick(QQ#)> content`; `easybot_compat` is on by default, so it works out of the box
+- If you changed the "sync template (to server)" in EasyBot, add an `{external}` chat template in `/e33chat gui` → Chat Templates to override
+- Common examples:
 
-E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell player messages apart from system / broadcast ones. System-channel messages are judged in this order (first hit wins):
+| EasyBot sync-template output | E33Chat chat template |
+|---|---|
+| `[Group] <Nick(QQ#)> content` | `[{prefix}] <{external}> {content}` |
+| `[Group] Nick: content` | `[{prefix}] {external}{sep}{content}` |
+| `Nick >> content` | `{external}{sep}{content}` |
 
-1. **Classifier** — known translation keys (whisper / public chat / broadcast) route deterministically
-2. **Echo suppression** — your own messages are not shown again as grey lines
-3. **Template layer** (2.2.6+) — when the server configured templates, parse exactly per the declaration; see [Server message-format templates](#server-message-format-templates)
-4. **Whisper keywords** — whispers embedded in system lines (`whisper` / `whispers` / `msg` / `pm` / `tell`, before the first colon)
-5. **Click events** — when the message carries a "click to whisper" structure, attribute by the real name in the command (nickname-server antenna)
-6. **Decorated player line** — name anchor + separator structure (`Steve: hi`, `<Steve> hi`, `Steve >> hi`, suffix titles, legacy `§` codes, bare Chinese short names)
-7. **Grey fallback** — when none confirms, conservatively show as a grey system line, never misattribute
+- Or add it by command: `/e33chat template set chat "[{prefix}] <{external}> {content}"`
 
 ---
 
@@ -208,154 +156,70 @@ E33Chat rebuilds the "who said this" layer of the chat HUD, aiming to tell playe
 |---|---|
 | No Chat Reports and similar no-report plugins | Auto-compatible since 2.1.0, no config needed |
 | CustomSkinLoader | Shows offline players' heads once installed |
-| ModernUI | Bounds-safe underlines / click regions on clickable text |
-| Quark and similar item sharing | Item icons in system messages render correctly |
-| ChatHeads, ChatAnimation | Work by default (the vanilla chat box keeps rendering, just shifted up clear of the HUD icon) |
+| ChatImage / ChatUpgrade (image protocols) | Native interop |
+| EasyBot (QQ group-server bridge) | `easybot_compat` is on by default; group messages become player bubbles automatically; CICode images render in bubbles |
+| IMBlocker | Auto-adapted (command input switches to English) |
+| ModernUI | Bounds-safe underlines / click regions |
+| Quark and similar item sharing | Item icons render correctly |
+| ChatHeads, ChatAnimation | Work by default |
 | Nickname plugins | Partially supported, see [FAQ](#faq) |
-| Chat-format plugins (EssentialsChat / CMI / DeluxeChat, ...) | Adaptable via server-configured templates (with common presets), see [Server message-format templates](#server-message-format-templates) |
-
----
-
-## Server message-format templates
-
-Plugins (or No Chat Reports-style no-report mods) often rewrite chat lines: title prefixes, arrows instead of colons, colored names. E33Chat's built-in guards can only tell "a player is speaking" — they cannot read the exact name and body out of an unfamiliar format. **A template declares the format to the client**: where the display name, the body (and for whispers, the sender/receiver) sit. A template hit parses exactly and skips the guard chain.
-
-### Enabling
-
-Install E33Chat on the server → after players join, an OP runs `/e33chat gui` to open the **server-config screen**, adds templates in the Chat Templates / Whisper Templates categories, and saves. Templates sync automatically to every client (including players who join later).
-
-### Quick start
-
-1. **Generate from a message** — click "Generate from message…", paste a real line with a name (e.g. `[VIP]Steve: hello`), and the template is inferred automatically
-2. **One-click presets** — the preset section lists common plugin defaults (EssentialsX / DeluxeChat / CMI, ...); click `+` to add
-3. **Preview** — type any message in the preview box to see the parsed name and body instantly
-4. **Type manually** — copy the shape you see in chat; separators go in verbatim
-
-### Field placeholders
-
-| Placeholder | Meaning |
-|---|---|
-| `{display_name}` | Player display name (full decorated name with titles) |
-| `{name}` | Player name (equivalent to `{display_name}`; use one of the two) |
-| `{prefix}` | Prefix decoration (titles, ...) |
-| `{content}` | Message body (exactly one; may sit anywhere — suffix styles work too) |
-| `{sender}` / `{target}` | Whisper sender / receiver (marking the template as whisper) |
-| `{sep}` | Auto-matches `>>` / `:` / `：` / `»` / `>` or plain spaces — one template covers many separator styles |
-
-### Commands (OP)
-
-```
-/e33chat template list                      # list templates
-/e33chat template set chat <template>       # add a chat template
-/e33chat template set whisper <template>    # add a whisper template
-/e33chat template remove chat <index>       # remove
-/e33chat template clear chat                # clear (fall back to guards)
-/e33chat template test chat <index> <text>  # dry-run parse
-```
-
-An empty template list disables templates and falls back to the guards — everything works as before.
+| Chat-format plugins (EssentialsChat / CMI / DeluxeChat, ...) | Adaptable via server templates (common presets included) |
 
 ---
 
 ## Known limitations
 
 1. Only Forge 1.20.1, NeoForge 1.21.1 and Fabric 1.21.1 are supported
-2. When a nickname shares nothing with the real name and the plugin attaches neither a "click to whisper" event nor a tab-list rename, the message shows as a grey system line (templates cannot help either — the name gate shares the same resolution source as the guards)
-3. When the server rewrites player messages into a broadcast format isomorphic to chat (e.g. `Server>>Steve: xxx`), the client cannot reliably detect it
-4. Chat formats with only whitespace (no separator) between name and content cannot be parsed
-5. Same-name players colliding with system prefixes on cracked servers cannot be told apart in the extreme case
-6. NCR-encrypted chat (very niche) is shown as ciphertext
-7. Custom fonts may affect bubble width, wrapping and click regions
-8. The whisper command format is up to the server; `/msg`, `/tell`, `/w` are not all guaranteed
-9. Unicode arrow separators (`→`, `⇒`) are not auto-recognized — loosening this would misclassify comma broadcasts
-10. Templates only act on **system-channel** messages (the channel NCR / legacy plugins / hybrid servers downgrade player chat to); decorative-format plugins that keep the signed channel stay reliable on their own. Template edge cases:
-    - A decoration containing a separator (e.g. a colon in a title) may truncate the name — change the separator or reorder the template
-    - A completely unknown new player (never seen online) whispering cannot resolve the name and falls back to the guards
-    - `{prefix}` adjacent to `{display_name}` without an anchor is absorbed into the display name (same behavior as the guard path)
+2. A nickname sharing nothing with the real name, with neither a "click to whisper" event nor a tab-list rename, shows as a grey system line (templates cannot help either)
+3. Formats with only whitespace between name and content cannot be parsed; NCR-encrypted chat shows as ciphertext
+4. The default host expires files after ~3h (server hosting is permanent but has a 512MB quota — keep an eye on it)
+5. Popup background texture overrides stopped working in 2.3.16 (see [Usage](#usage)); the scrollbar stays solid fill
 
 ---
 
 ## Privacy & data
 
 > [!WARNING]
-> Chat history is stored in plain text under `.minecraft/e33chat/history/` on your machine. **Do not use it on public or untrusted computers**, to avoid leaking sensitive information.
+> Chat history is stored in plain text under `.minecraft/e33chat/history/` (JSONL) on your machine. **Do not use it on public or untrusted computers.**
 
-- Chat history stays on your machine only — it is never uploaded or sent to the author or any third party
-- The server mod only relays messages (@ sync / quote sync / history sync); it collects no client data
-- Sensitive commands carrying credentials (`/login`, `/register`, ...) are skipped and never written to the history file
-- Whether to save history and whether to enable sync can both be turned off in config
+- Chat history stays on your machine only, is off by default and is never uploaded; sensitive commands (`/login`, `/register`, ...) are skipped
+- **Images**: images you send go to a third-party host (default uguu.se, ~3h expiry) or — with server hosting on — to the server's storage; the client never uploads anything on its own
+- The server mod only relays (@ / quote / history / media) and collects no client data; saving, sync and hosting can all be turned off in config
 
 ---
 
 ## FAQ
 
-### Is the server mod required?
+**Is the server mod required?** No. Installing it unlocks quote sync, @ sync, history sync, `/tpa` teleport and media hosting.
 
-No. Installing it additionally unlocks quote sync, @ mention sync, chat-history sync for new players, and head teleport via `/tpa`.
+**How do I open settings?** Bottom-left gear → Menu → Settings. Client config: `config/e33chat/e33chat-client.toml` (Fabric: `.json`) — every option is GUI-adjustable.
 
-### How do I open settings?
+**Is chat history saved by default?** No (`chat_history = false`). Enable it in Settings → Chat → Chat History; saved every 30 s and on clean exits, a crash loses at most the last 30 s.
 
-Bottom-left gear → Menu → Settings.
+**How do I enable background blur?** `blur_enabled` is off by default since 2.3.16 (lowest value-per-cost; 2.3.5 taught a frame-drop lesson). Enable it in settings.
 
-Client config: `config/e33chat/e33chat-client.toml` (Fabric: `config/e33chat/e33chat-client.json`) ｜ Server config: `saves/<world>/serverconfig/e33chat-server.toml` (Fabric: `.json`)
 
-### Where is chat history stored?
+**Where do my images go?** With server hosting on (default) → the server, permanent. Otherwise → a third-party host (uguu.se, ~3h expiry). Both configurable.
 
-`.minecraft/e33chat/history/`, split per world / server. Plain-text format, one line per message (`time\tsender\tcontent`), readable in any text editor; time separators gain a date across days.
+**Why is a message shown as grey?** When the client is not sure a line was said by a player, it conservatively shows it as grey (see [Known limitations](#known-limitations)); nickname plugins and unusual broadcast formats are common causes.
 
-### How often is the history saved?
+**Are nickname plugins supported?** Partially: attribution works when the nickname carries a "click to whisper" event or the tab list is renamed; otherwise grey.
 
-Every 30 seconds, plus on clean exits (world change / leaving the server). A crash or force-close loses at most the last 30 s; legacy JSON files are migrated automatically.
+**The server changed the chat format and messages don't line up?** Use message-format templates: as an OP run `/e33chat gui`, paste a real chat line via "Generate from message…" or add a preset, save — it syncs to the whole server; an empty template list falls back to the guards.
 
-### How do I disable chat-history sync?
+**How do I restore the vanilla chat?** Settings → Chat Screen → turn off "Enable E33Chat" (`enabled = false`); removing the mod restores everything.
 
-Set `history_enabled = false` in the server config and restart the server.
-
-### How do I turn off background blur?
-
-Settings → Chat Screen → Background blur, off.
-
-### Why is a message shown as a grey line?
-
-When the client is not sure a line was said by a player, it conservatively shows it as grey (see [Known limitations](#known-limitations)). Nickname plugins and unusual broadcast formats are common causes.
-
-### What about `&` and `§` color codes?
-
-The mod parses `&` into color locally (a server color plugin is needed for others to see the color). Outgoing text always sends the raw `&` and never `§`, so you are never kicked for color codes.
-
-### Are nickname plugins supported?
-
-Partially. A message is attributed correctly when either holds:
-
-- The plugin attaches a "click to whisper" event to the nickname
-- The plugin updates the tab-list name
-
-When the nickname shares nothing with the real name and neither channel exists, the message shows as a grey system line.
-
-### The server changed the chat format (plugins/NCR) and messages don't line up?
-
-Use **message-format templates** (2.2.6+): as an OP run `/e33chat gui`, paste a real chat line in the Chat Templates tab via "Generate from message…", or add a common format from the presets, then save — it syncs to the whole server. An empty template list falls back to the guards.
-
-### The template still doesn't match?
-
-Templates require the name to resolve to a player (online / seen / yourself). A decoration containing a separator may truncate the name (change the separator); a nickname sharing nothing with the real name, while offline, is beyond both templates and guards and shows as grey — a known boundary.
-
-### Can I include it in a modpack?
-
-Yes, no extra permission needed.
+**Can I include it in a modpack?** Yes, no extra permission needed.
 
 ---
 
 ## Troubleshooting
 
-1. Confirm the Minecraft version matches the mod version
-2. Confirm the mod loader is installed correctly
-3. Confirm you have not mixed platform JARs (e.g. Forge and Fabric at once)
-4. Back up `config/e33chat/e33chat-client.toml`, then delete it to test for config corruption
-5. Keep only E33Chat to isolate mod conflicts
-6. Check for custom fonts or resource packs
-7. Look for `[e33chat]` errors in `.minecraft/logs/latest.log`
-8. When reporting, include versions, mod list, `latest.log`, screenshots and reproduction steps
+1. Confirm the MC version, loader and JAR platform match; do not mix platform JARs
+2. Back up and delete `config/e33chat/e33chat-client.toml` to test for corruption; keep only E33Chat to isolate conflicts
+3. Image uploads failing: check `upload_url` and your network; the default host uguu.se is unreachable on some networks — switch hosts or enable server hosting
+4. Look for `[e33chat]` errors in `.minecraft/logs/latest.log`
+5. When reporting, include versions, mod list, `latest.log`, screenshots and reproduction steps
 
 ---
 
@@ -377,21 +241,21 @@ git checkout Fabric-1.21.1
 ./gradlew build
 ```
 
-- Forge 1.20.1: Java 17+, supports `--offline`
-- NeoForge 1.21.1 / Fabric 1.21.1: Java 21+
-- Run tests: `./gradlew cleanTest test --offline -PrunTests`
+- Forge 1.20.1: Java 17+, supports `--offline`; NeoForge / Fabric: Java 21+
+- Run tests: `./gradlew cleanTest test --offline -PrunTests` (Forge / NeoForge need `-PrunTests`; Fabric does not)
+- The three branches are isomorphic — keep changes in sync across all three (the README is the same text in all three repos too)
+
+---
+
+## Changelog
+
+The full bilingual changelog lives in [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
 ## Reporting issues
 
-Open an [Issue](https://github.com/E33EPUS/E33Chat/issues) and, where possible, include:
-
-- E33Chat version + Minecraft version + mod-loader version
-- List of other chat-related mods
-- GUI Scale + custom fonts / resource packs
-- `.minecraft/logs/latest.log`
-- Screenshots or video + stable reproduction steps
+Open an [Issue](https://github.com/E33EPUS/E33Chat/issues) and include versions, loader, mod list, `latest.log`, screenshots or video, and reproduction steps.
 
 ---
 

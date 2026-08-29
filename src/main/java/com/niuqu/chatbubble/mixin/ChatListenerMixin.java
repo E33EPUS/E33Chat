@@ -319,6 +319,18 @@ public class ChatListenerMixin {
             if (tpl != null) { ChatMessageStore.setPendingMeta(tpl); return; }
         }
 
+        // EasyBot compatibility (server opt-in): parse QQ group relays as player
+        // messages before the generic whisper/name heuristics can steal them.
+        if (ChatMessageStore.isEasyBotCompat()) {
+            SenderMeta eb = com.niuqu.chatbubble.chat.capture.EasyBotParser.tryParse(message, text);
+            if (eb != null) {
+                ChatMessageStore.debugLog(() -> "[e33chat] System(EasyBot) | name='" + eb.senderName().getString()
+                    + "' | content='" + eb.rawContent().getString() + "'");
+                ChatMessageStore.setPendingMeta(eb);
+                return;
+            }
+        }
+
         // Layer 1: whisper detection FIRST — before name matching can steal it as public chat
         SenderMeta wm = detectWhisperInSystemMessage(text, "whisper");
         if (wm != null) { ChatMessageStore.setPendingMeta(wm); return; }

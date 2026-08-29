@@ -77,6 +77,7 @@ public class E33ChatCommands {
             new ServerConfigScreenPacket(ChatServerConfig.USE_TPA.get(),
                 ChatServerConfig.HISTORY_ENABLED.get(), ChatServerConfig.TEMPLATE_DEBUG.get(),
                 ChatServerConfig.MEDIA_ENABLED.get(), ChatServerConfig.MEDIA_AUTO_CLEAN.get(),
+                ChatServerConfig.EASY_BOT_COMPAT.get(),
                 new ArrayList<>(ChatServerConfig.CHAT_TEMPLATES.get()),
                 new ArrayList<>(ChatServerConfig.WHISPER_TEMPLATES.get())));
         return 1;

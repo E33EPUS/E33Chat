@@ -95,5 +95,11 @@ public class NetworkHandler {
             .decoder(com.niuqu.chatbubble.packets.MediaResponsePacket::decode)
             .consumerMainThread(com.niuqu.chatbubble.packets.MediaResponsePacket::handle)
             .add();
+
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.EasyBotConfigPacket.class, 12)
+            .encoder(com.niuqu.chatbubble.packets.EasyBotConfigPacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.EasyBotConfigPacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.EasyBotConfigPacket::handle)
+            .add();
     }
 }

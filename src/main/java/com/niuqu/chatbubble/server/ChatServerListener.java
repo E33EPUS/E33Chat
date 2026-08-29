@@ -5,6 +5,7 @@ import com.niuqu.chatbubble.network.NetworkHandler;
 import com.niuqu.chatbubble.packets.ChatMetaPacket;
 import com.niuqu.chatbubble.packets.ConfigSyncPacket;
 import com.niuqu.chatbubble.packets.ConfigSyncV2Packet;
+import com.niuqu.chatbubble.packets.EasyBotConfigPacket;
 import com.niuqu.chatbubble.packets.HistoryPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.CommandEvent;
@@ -139,8 +140,9 @@ public class ChatServerListener {
         }
     }
 
-    // id3(use_tpa) + id4(templates) + id9(media) 三包组合：broadcast 与 onPlayerLogin 共用。
-    // media 是独立能力 id——旧客户端安全丢未知 id，mediaEnabled 不会在混版本时 desync。
+    // id3(use_tpa) + id4(templates) + id9(media) + id12(easybot) 四包组合：
+    // broadcast 与 onPlayerLogin 共用。media/easybot 是独立能力 id——旧客户端安全
+    // 丢未知 id，混版本不会 desync。
     private static void sendServerConfigTriple(PacketDistributor.PacketTarget target) {
         NetworkHandler.CHANNEL.send(target,
             new ConfigSyncPacket(ChatServerConfig.USE_TPA.get()));
@@ -151,6 +153,8 @@ public class ChatServerListener {
                 ChatServerConfig.TEMPLATE_DEBUG.get()));
         NetworkHandler.CHANNEL.send(target,
             new com.niuqu.chatbubble.packets.MediaCapPacket(ChatServerConfig.MEDIA_ENABLED.get()));
+        NetworkHandler.CHANNEL.send(target,
+            new EasyBotConfigPacket(ChatServerConfig.EASY_BOT_COMPAT.get()));
     }
 
     @SubscribeEvent

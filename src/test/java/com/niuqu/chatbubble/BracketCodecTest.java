@@ -7,6 +7,7 @@ import com.niuqu.chatbubble.image.ImageLoader;
 import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
 import org.junit.jupiter.api.Test;
 
@@ -102,6 +103,19 @@ class BracketCodecTest {
         ParseResult r = BracketCodec.parseOrExtract(input);
         assertTrue(r.images().isEmpty());
         assertSame(input, r.textWithoutImages());
+    }
+
+    @Test
+    void parseOrExtractReadsEasyBotShowTextHover() {
+        // EasyBot relays images as a visible summary run whose SHOW_TEXT hover
+        // contains the [[CICode,...]] bracket (ChatImage-compatible).
+        Component input = Component.literal("[图片]").withStyle(s -> s.withHoverEvent(
+            new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                Component.literal("[[CICode,url=https://a.com/x.png]]"))));
+        ParseResult r = BracketCodec.parseOrExtract(input);
+        assertEquals(1, r.images().size());
+        assertEquals("https://a.com/x.png", r.images().get(0).url());
+        assertEquals("", r.textWithoutImages().getString());
     }
 
     @Test

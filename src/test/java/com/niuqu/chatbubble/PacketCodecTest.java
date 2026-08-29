@@ -3,6 +3,7 @@ package com.niuqu.chatbubble;
 import com.niuqu.chatbubble.packets.ChatMetaPacket;
 import com.niuqu.chatbubble.packets.ConfigSyncPacket;
 import com.niuqu.chatbubble.packets.ConfigSyncV2Packet;
+import com.niuqu.chatbubble.packets.EasyBotConfigPacket;
 import com.niuqu.chatbubble.packets.HistoryPacket;
 import com.niuqu.chatbubble.packets.MediaCapPacket;
 import com.niuqu.chatbubble.packets.MediaRequestPacket;
@@ -93,6 +94,11 @@ class PacketCodecTest {
             (p, buf) -> ((MediaCapPacket) p).encode(buf), b -> MediaCapPacket.decode(b));
     }
 
+    @Test void easyBotConfigStable() {
+        assertStable(new EasyBotConfigPacket(true),
+            (p, buf) -> EasyBotConfigPacket.encode((EasyBotConfigPacket) p, buf), b -> EasyBotConfigPacket.decode(b));
+    }
+
     @Test void mediaRequestStable() {
         assertStable(new MediaRequestPacket("0123456789abcdef0123456789abcdef"),
             (p, buf) -> ((MediaRequestPacket) p).encode(buf), b -> MediaRequestPacket.decode(b));
@@ -119,13 +125,13 @@ class PacketCodecTest {
     }
 
     @Test void serverConfigScreenStable() {
-        assertStable(new ServerConfigScreenPacket(true, false, true, true, true,
+        assertStable(new ServerConfigScreenPacket(true, false, true, true, true, true,
                 List.of("chat tpl"), List.of("whisper tpl")),
             (p, buf) -> ServerConfigScreenPacket.encode((ServerConfigScreenPacket) p, buf), b -> ServerConfigScreenPacket.decode(b));
     }
 
     @Test void serverConfigSaveStable() {
-        assertStable(new ServerConfigSavePacket(false, true, false, false, true,
+        assertStable(new ServerConfigSavePacket(false, true, false, false, true, true,
                 List.of(), List.of("w")),
             (p, buf) -> ServerConfigSavePacket.encode((ServerConfigSavePacket) p, buf), b -> ServerConfigSavePacket.decode(b));
     }
