@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.4.6
+
+**官方 2.4.1–2.4.6 内容同步到大佬 1.21.11 fabric 移植版**
+- **窗口模式面板宽度上限（2.4.5）**：`panel_width` 语义为物理像素，窗口模式下面板不超过窗口宽 40%（2560 全屏下 1000px 面板不变）；面板宽度范围 800–1600 → **400–1600**；换算改用精确小数 GUI 缩放（修复面板宽度随窗口漂移）；背景模糊区域同步精确换算
+- **面板铺满模式（2.4.4）**：新增 `panel_fullscreen`（默认关）——铺满整屏宽度、忽略面板宽度，侧边栏仍可用
+- **弹层关闭动画（2.3.16 D07-6 + 2.4.5 终态）**：设置/表情/常用语/搜索面板获得 150ms 关闭动画——**倒放打开曲线**，与打开方向完全对称（含 ZOOM 回弹倒放）；alpha ≤ 0.02 整层跳绘，规避 vanilla `Font.adjustColor` 把 alpha≤3 强制为不透明导致的末帧文字闪烁；重开弹层时关闭动画自动让位（中央守卫）
+- **文字拖选复制（2.4.2）**：聊天文字可拖选（选中蓝高亮 + 白字），Ctrl+C 复制并弹“已复制”提示；名字、引用块同样可选；点击与拖选互不干扰（点击文本延迟到松开判定）
+- **消息紧凑分组（2.4.6）**：`hide_repeated_avatars` 升级为完整紧凑分组且默认改为**关**（与官方一致；本移植版 fix1 已先行改关）——开启后同人 5 分钟内连续消息只首条显示头像+名字，后续只留气泡并收紧间距（gap/3，不低于 2px）；头像的 @ 与右键菜单命中区随头像隐藏
+- **ModernUI emoji 短码（2.4.1）**：输入 `:pig2:` 等短码随输入实时转换（ModernUI 安装且开启短码选项时）；默认表情面板补猪 🐷🐖
+- **引用同步门控（2.4.1）**：服务器未接 `e33chat:quote_sync` 通道时不再发送引用包
+
+**Official 2.4.1–2.4.6 ported to the 1.21.11 fabric build**
+- **Windowed-mode panel width cap (2.4.5)**: `panel_width` is physical pixels; in windowed mode the panel never exceeds 40% of the window width (a 1000px panel is untouched on a 2560 fullscreen display); panel width range 800–1600 → **400–1600**; conversion now uses the exact fractional GUI scale (fixes width drifting with the window); the blur region follows the same fix
+- **Fullscreen panel mode (2.4.4)**: new `panel_fullscreen` (off by default) fills the whole screen width, ignoring panel_width; sidebar stays usable
+- **Popup close animations (D07-6 + 2.4.5 final)**: settings/emoji/quick-chat/search panels close with a 150ms animation that **replays the open curve in reverse** — fully symmetric with opening (ZOOM overshoot included); layers skip below alpha 0.02 to avoid vanilla `Font.adjustColor` snapping text back to opaque on the last frame; reopening during a close wins via a central guard
+- **Text drag-selection (2.4.2)**: chat text is drag-selectable (selection blue + white text), Ctrl+C copies with a "Copied" toast; names and reply quotes are selectable too; clicks and drags don't interfere (text clicks are deferred to mouse release)
+- **Compact message groups (2.4.6)**: `hide_repeated_avatars` upgraded to full compact grouping, default **off** (matching official; this build's fix1 already flipped it) — when on, only the first message of a same-sender run (5 min) shows avatar and name; the rest are bubbles with tighter spacing (gap/3, min 2px); the avatar's @-mention and context-menu hit regions hide with it
+- **ModernUI emoji shortcodes (2.4.1)**: typing `:pig2:` etc. converts live when ModernUI is installed with shortcodes enabled; pig emojis added to the default panel
+- **Quote-sync gating (2.4.1)**: the quote packet is no longer sent when the server doesn't receive the channel
 
 ## v2.4.0
 

@@ -52,3 +52,4 @@ tmp-jar-extract/
 *.patch
 # old source backup
 .old-src/
+settings.json.full/
