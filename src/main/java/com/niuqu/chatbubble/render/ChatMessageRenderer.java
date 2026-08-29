@@ -426,8 +426,8 @@ public final class ChatMessageRenderer {
         int selFg = 0;
         if (textSpans != null && messageIndex >= 0) {
             int w = font.width(line);
-            selBg = ChatTextSelection.selectionBgFor(backgroundRgb);
-            selFg = ChatTextSelection.selectionFgFor(backgroundRgb);
+            selBg = ChatTextSelection.selectionBg();
+            selFg = ChatTextSelection.selectionFg();
             textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
                 x, y, w, font.lineHeight, text, scale, line));
             if (selection != null) {

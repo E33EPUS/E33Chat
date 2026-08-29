@@ -96,29 +96,15 @@ class ChatTextSelectionTest {
         assertArrayEquals(new int[]{1, 2}, sel.rangeFor(emoji));
         assertEquals("\uD83D\uDE00", sel.copyText(List.of(emoji)));
     }
+    // ---- 2.4.5: fixed selection blue, hue-distinct from grey text ----
+
     @Test
-    void selectionBgFor_darkBackgroundReturnsWhiteOverlay() {
-        assertEquals(0x80FFFFFF, ChatTextSelection.selectionBgFor(0xFF000000));
-        assertEquals(0x80FFFFFF, ChatTextSelection.selectionBgFor(0xFF444444));
-        assertEquals(0x80FFFFFF, ChatTextSelection.selectionBgFor(0xFF1E90FF));
+    void selectionBg_constantSelectionBlue() {
+        assertEquals(0xE02D6FD6, ChatTextSelection.selectionBg());
     }
 
     @Test
-    void selectionBgFor_lightBackgroundReturnsBlackOverlay() {
-        assertEquals(0x66000000, ChatTextSelection.selectionBgFor(0xFFFFFFFF));
-        assertEquals(0x66000000, ChatTextSelection.selectionBgFor(0xFFCCCCCC));
-    }
-
-    @Test
-    void selectionFgFor_darkBackgroundReturnsBlack() {
-        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFF000000));
-        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFF444444));
-        assertEquals(0xFF000000, ChatTextSelection.selectionFgFor(0xFF1E90FF));
-    }
-
-    @Test
-    void selectionFgFor_lightBackgroundReturnsWhite() {
-        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFFFFFFFF));
-        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFgFor(0xFFCCCCCC));
+    void selectionFg_alwaysWhite() {
+        assertEquals(0xFFFFFFFF, ChatTextSelection.selectionFg());
     }
 }
