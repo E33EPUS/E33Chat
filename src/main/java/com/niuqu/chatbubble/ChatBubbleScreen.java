@@ -2412,8 +2412,8 @@ public class ChatBubbleScreen extends ChatScreen {
         int selFg = 0;
         if (textSpans != null && messageIndex >= 0) {
             int w = textRenderer.getWidth(line);
-            selBg = ChatTextSelection.selectionBgFor(backgroundRgb);
-            selFg = ChatTextSelection.selectionFgFor(backgroundRgb);
+            selBg = ChatTextSelection.selectionBg();
+            selFg = ChatTextSelection.selectionFg();
             textSpans.add(new TextSpan(messageIndex, lineIndex, kind,
                 x, y, w, textRenderer.fontHeight, text, scale, line));
             if (selection != null) {

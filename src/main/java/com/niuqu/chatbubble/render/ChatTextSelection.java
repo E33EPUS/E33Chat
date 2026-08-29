@@ -4,20 +4,22 @@ import java.util.List;
 
 public final class ChatTextSelection {
 
-    public static int selectionBgFor(int backgroundRgb) {
-        int r = (backgroundRgb >> 16) & 0xFF;
-        int g = (backgroundRgb >> 8) & 0xFF;
-        int b = backgroundRgb & 0xFF;
-        double lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
-        return lum >= 0.5 ? 0x66000000 : 0x80FFFFFF;
+    /**
+     * Selection highlight: a saturated "selection blue" (Windows/QQ-style).
+     * Deliberately hue-distinct from grey system text and bubble greys — the
+     * old luminance-based white/black overlays read as mid-grey patches that
+     * blended into grey text — and near-opaque so it stays a solid block on
+     * any bubble/panel background.
+     */
+    private static final int SELECTION_BG = 0xE02D6FD6;
+    private static final int SELECTION_FG = 0xFFFFFFFF;
+
+    public static int selectionBg() {
+        return SELECTION_BG;
     }
 
-    public static int selectionFgFor(int backgroundRgb) {
-        int r = (backgroundRgb >> 16) & 0xFF;
-        int g = (backgroundRgb >> 8) & 0xFF;
-        int b = backgroundRgb & 0xFF;
-        double lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
-        return lum >= 0.5 ? 0xFFFFFFFF : 0xFF000000;
+    public static int selectionFg() {
+        return SELECTION_FG;
     }
 
     private int anchorMsg = -1, anchorLine = -1, anchorKind = -1, anchorChar = -1;
