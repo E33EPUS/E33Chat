@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.4.4
+
+**面板限制与像素修复（NeoForge 先行）**
+- 面板宽度范围 800–1600 → **400–1600**（默认仍 1000），小窗口也可用细面板
+- 新增客户端配置 `panel_fullscreen`（默认关）：开启后聊天面板铺满整个屏幕宽度、忽略 `panel_width`，侧边栏保留可点
+- 修复面板像素宽不真实的问题：宽度换算改用精确（可能为小数的）GUI 缩放值，不再四舍五入到整数——面板物理宽度现在与窗口 / 缩放无关，改动窗口大小不再漂移或错位（窗口比面板窄时仍夹紧到窗宽）
+- 修复背景模糊（`blur_enabled`）在分数缩放下的错位：模糊区域改用精确缩放换算，与面板矩形严格对齐
+- 新增 `computePanelWidth` 布局单测 12 例（分数缩放精确性 / 全屏铺满 / 小窗口夹紧 / 下限保护）
+
+**Panel limits & pixel fix (NeoForge first)**
+- Panel width range widened from 800–1600 to **400–1600** (default stays 1000), so small windows can use a narrower panel
+- New client config `panel_fullscreen` (off by default): fills the whole screen width with the chat panel, ignoring `panel_width`, while keeping the sidebar usable
+- Fixed the panel's real width not matching its setting: the width is now converted with the exact (possibly fractional) GUI scale instead of a rounded int — the physical width no longer drifts or misaligns when the window is resized (it still clamps to the window width when the window is narrower)
+- Fixed the background blur (`blur_enabled`) misaligning at fractional scales: the blur region now uses exact scaling and matches the panel rectangle
+- Added 12 `computePanelWidth` layout unit tests (fractional-scale exactness / fullscreen fill / small-window clamp / floor guard)
+
 ## v2.4.3-beta
 
 **EasyBot 群消息兼容（NeoForge 先行）**

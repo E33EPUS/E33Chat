@@ -95,8 +95,14 @@ public class BlurRenderer {
         GL30.glGetIntegerv(GL30.GL_VIEWPORT, vp);
         boolean scissor = GL30.glIsEnabled(GL30.GL_SCISSOR_TEST);
 
-        int s = (int) mc.getWindow().getGuiScale();
-        x *= s; y *= s; w *= s; h *= s;
+        // Exact (possibly fractional) GUI scale: truncating to int made the blur
+        // region drift off the panel rectangle on fractional scales (2.4.4 fix,
+        // same root cause as the panel-width pixel bug).
+        double s = mc.getWindow().getGuiScale();
+        x = (int) Math.round(x * s);
+        y = (int) Math.round(y * s);
+        w = (int) Math.round(w * s);
+        h = (int) Math.round(h * s);
 
         // 面板贴顶时逻辑高度换算会超出 framebuffer 1-2px（1602 > fbH 1600），
         // 超界源矩形 blit 是实现相关行为——clamp 到 framebuffer 内

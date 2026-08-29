@@ -38,6 +38,7 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.ConfigValue<String> OTHER_TEXT_COLOR;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> QUICK_CHAT_PHRASES;
     public static final ForgeConfigSpec.IntValue PANEL_WIDTH;
+    public static final ForgeConfigSpec.BooleanValue PANEL_FULLSCREEN;
     public static final ForgeConfigSpec.BooleanValue BLUR_ENABLED;
     public static final ForgeConfigSpec.IntValue PANEL_OPACITY;
     public static final ForgeConfigSpec.BooleanValue DEBUG_LOG;
@@ -107,9 +108,14 @@ public class ChatBubbleConfig {
             .define("debug_log", false);
 
         PANEL_WIDTH = builder
-            .comment("Chat panel width in physical screen pixels (800-1600, independent of GUI scale and aspect ratio)")
+            .comment("Chat panel width in physical screen pixels (400-1600, independent of GUI scale and aspect ratio)")
             .translation("e33chat.config.panel_width")
-            .defineInRange("panel_width", 1000, 800, 1600);
+            .defineInRange("panel_width", 1000, 400, 1600);
+
+        PANEL_FULLSCREEN = builder
+            .comment("Fill the whole screen width with the chat panel (ignores panel_width). Default off")
+            .translation("e33chat.config.panel_fullscreen")
+            .define("panel_fullscreen", false);
 
         BLUR_ENABLED = builder
             .comment("Enable gaussian blur effect behind the chat panel background. Panel-wide blur is the most expensive effect per visual gain (2.3.5 frame-drop lesson, 07 report: keep blur for popups only) - off by default since 2.3.16")
