@@ -3099,6 +3099,12 @@ public class ChatBubbleScreen extends ChatScreen {
             } else {
                 if (historyPos == size) historyBuffer = chatField.getText();
                 chatField.setText(client.inGameHud.getChatHud().getMessageHistory().get(newPos));
+                // Vanilla parity: filling from history must not auto-open the
+                // command suggestion window (it would swallow the next Up/Down
+                // presses and block further history navigation). Suggestions
+                // return as soon as the user edits the text, or via Tab.
+                if (commandSuggestions != null) commandSuggestions.setWindowActive(false);
+                showMentions = false;
                 historyPos = newPos;
             }
         }

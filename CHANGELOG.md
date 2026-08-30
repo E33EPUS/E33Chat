@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.4.7
+
+**修复：上键翻阅历史被指令补全抢占（四端同步）**
+- 上键从历史记录翻回一条指令（如 `/time set 1`）后，补全窗口会自动弹出，下一次按上键被补全列表吃掉，无法继续向上翻历史；原版聊天框只在按 Tab 时才进入补全
+- 现在与原版一致：从历史填入文本时关闭补全自动弹出（原版 `setAllowSuggestions(false)` 同款），重新编辑文本或按 Tab 时补全照常恢复
+- 同修：从历史翻回含 `@` 的消息时，@提及候选列表也不再自动弹出抢占上下键
+
+**Fixed: Up-arrow history navigation no longer hijacked by command completion (all four builds)**
+- Pressing Up to recall a command from history (e.g. `/time set 1`) auto-opened the suggestion window, and the next Up press cycled the suggestion list instead of going further back in history; vanilla chat only enters completion on Tab
+- Now matches vanilla: text filled from history disables the auto-suggestion popup (vanilla's own `setAllowSuggestions(false)` behaviour); suggestions return as soon as you edit the text again, or on Tab
+- Also fixed: recalling a history entry containing `@` no longer auto-opens the @mention candidate list (same Up/Down hijack)
+
 ## v2.4.6
 
 **消息紧凑分组（三端同步：Fabric / Forge / NeoForge）**
