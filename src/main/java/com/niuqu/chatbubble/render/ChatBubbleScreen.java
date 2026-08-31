@@ -204,6 +204,8 @@ public class ChatBubbleScreen extends ChatScreen {
 
     // Copy toast
     private int copyToastTicks;
+    /** Translation key of the currently shown info toast (e.g. copied / history cleared). */
+    private String toastText;
     private int uploadToastTicks = 0;
     /** Upload-in-progress hint; set while a job is running, cleared on completion. */
     private int uploadBusyTicks = 0;
@@ -330,6 +332,8 @@ public class ChatBubbleScreen extends ChatScreen {
         // D07-6: 弹层关闭动画钩子——visible 延迟置 false，先播 150ms 关闭动画
         settingsMenu.closeRequest = () -> beginPopupClose(s -> settingsCloseStart = s,
             () -> settingsMenu.visible = false);
+        // 清空聊天历史的空态判断：菜单项第一击时询问 store
+        settingsMenu.hasHistory = ChatMessageStore::hasHistoryToClear;
         emojiPanel.closeRequest = () -> beginPopupClose(s -> emojiCloseStart = s,
             () -> emojiPanel.visible = false);
         quickChatPanel.closeRequest = () -> beginPopupClose(s -> quickCloseStart = s, () -> {
@@ -489,6 +493,8 @@ public class ChatBubbleScreen extends ChatScreen {
     @Override
     public void tick() {
         if (copyToastTicks > 0) copyToastTicks--;
+        if (copyToastTicks <= 0) toastText = null;
+        settingsMenu.maybeExpire(net.minecraft.Util.getMillis());
         input.tick();
         if (searchPanel.visible) searchInput.tick();
         finishPopupClose(settingsCloseStart, () -> { settingsCloseStart = 0; settingsMenu.visible = false; });
@@ -644,7 +650,7 @@ public class ChatBubbleScreen extends ChatScreen {
             String copied = textSelection.copyText(textSpans);
             if (!copied.isEmpty()) {
                 minecraft.keyboardHandler.setClipboard(copied);
-                copyToastTicks = 30;
+                showToast("e33chat.toast.copied");
             }
             return true;
         }
@@ -664,6 +670,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         // Settings menu / emoji panel gets ESC first
         if (settingsMenu.visible && keyCode == 256) {
+            settingsMenu.resetClearArmed();
             beginPopupClose(s -> settingsCloseStart = s, () -> settingsMenu.visible = false);
             return true;
         }
@@ -1015,7 +1022,11 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             if (settingsMenu.visible) {
                 int action = settingsMenu.handleClick((int) mouseX, (int) mouseY, panelX, panelW, barTop, ICON_S);
-                if (action >= 0) executeMenuAction(action);
+                if (action == ChatSettingsMenu.ACTION_CLEAR_EMPTY) {
+                    showToast("e33chat.toast.history_empty");
+                } else if (action >= 0) {
+                    executeMenuAction(action);
+                }
                 return true;
             }
             if (emojiPanel.visible) {
@@ -1378,7 +1389,7 @@ public class ChatBubbleScreen extends ChatScreen {
             ChatMessageStore.ChatMessage msg = ChatMessageStore.getMessageAt(contextMsgIndex);
             if (msg != null) {
                 minecraft.keyboardHandler.setClipboard(msg.content().getString());
-                copyToastTicks = 30;
+                showToast("e33chat.toast.copied");
             }
         } else if (ChatContextMenus.isOverItem(mx, my, menuX,
             menuY + ChatContextMenus.CTX_ITEM_H + 1, ChatContextMenus.CTX_ITEM_H)) {
@@ -2116,7 +2127,7 @@ public class ChatBubbleScreen extends ChatScreen {
         }
         int alpha = Animation.fadeInOut(copyToastTicks, 5, 20, 5);
         int color = (alpha << 24) | (c().toastText() & 0x00FFFFFF);
-        String text = Component.translatable("e33chat.toast.copied").getString();
+        String text = Component.translatable(toastText != null ? toastText : "e33chat.toast.copied").getString();
         int tw = font.width(text);
         int tx = UiLayout.centerX(panelX, panelW, tw);
         int ty = msgBottom - 24;
@@ -2126,6 +2137,43 @@ public class ChatBubbleScreen extends ChatScreen {
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.TOAST_BG),
             tx - 6, ty - 2, tw + 12, font.lineHeight + 4, (alpha / 2) / 255f);
         g.drawString(font, Component.literal(text), tx, ty, color, false);
+    }
+
+    /** Shows the info toast for 30 ticks (shared with the "copied" toast). */
+    private void showToast(String key) {
+        toastText = key;
+        copyToastTicks = 30;
+    }
+
+    /** Resets per-screen chat state after the history is cleared. */
+    private void resetChatStateAfterClear() {
+        scrollOffset = 0;
+        maxScroll = 0;
+        messageTotalH = 0;
+        scrollToBottom = true;
+        scrollAnimActive = false;
+        scrollbarDragging = false;
+        newMessageCount = 0;
+        hasNewMentionOrQuote = false;
+        latestMentionIndex = -1;
+        lastSeenMessageCount = 0;
+        notifMentionLeft = -1;
+        notifMentionRight = -1;
+        searchMatches.clear();
+        searchMatchIdx = -1;
+        searchHighlightIndex = -1;
+        replyTargetIndex = -1;
+        contextMsgIndex = -1;
+        contextAvatarIndex = -1;
+        showMentions = false;
+        mentionCandidates.clear();
+        mentionIdx = 0;
+        mentionFilter = "";
+        textSelection.clear();
+        sidebarScrollOffset = 0;
+        sidebarMaxScroll = 0;
+        // msgHeightCache / bubbleRects / clickableSpans / textSpans are cleared
+        // every render pass, so they need no explicit reset here.
     }
 
     private void executeMenuAction(int action) {
@@ -2174,6 +2222,11 @@ public class ChatBubbleScreen extends ChatScreen {
             }
             case 3: // 设置
                 minecraft.setScreen(new ChatBubbleConfigScreen(this));
+                break;
+            case 4: // 清空聊天历史（两击确认的第二击）
+                ChatMessageStore.clearCurrentWorldHistory();
+                resetChatStateAfterClear();
+                showToast("e33chat.toast.history_cleared");
                 break;
         }
     }
