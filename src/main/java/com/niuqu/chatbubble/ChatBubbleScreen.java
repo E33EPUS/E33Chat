@@ -606,6 +606,12 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
         if (commandSuggestions != null) {
+            // Vanilla onChatFieldUpdate parity: re-activate the suggestion
+            // window on every text change. Without this, the 2.4.7 history
+            // fix (setWindowActive(false) when filling from history) would
+            // leave the window disabled forever and completion would never
+            // pop up again (nor would command text lose its red error tail).
+            commandSuggestions.setWindowActive(!text.equals(initialText));
             commandSuggestions.refresh();
         }
         // IMBlocker listens to vanilla ChatScreen.onChatFieldUpdate, which we
