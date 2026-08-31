@@ -1,10 +1,14 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+# Build the fork's target version (1.21.11-fabric) for every push and PR.
+# NOTE: do NOT switch back to a full `clean build` across all versions in
+# settings.json -- the cross-version matrix (1.16.5..26.2) has never been
+# green on CI (old Loom / MC classpath and 26.x API issues), and this fork's
+# deliverable is the 1.21.11 JAR only.
 
 name: build
 on: [pull_request, push]
+
+env:
+  TARGET_VERSION: 1.21.11-fabric
 
 jobs:
   build:
@@ -28,7 +32,7 @@ jobs:
       - name: build
         shell: bash
         run: |
-          ./gradlew clean build --stacktrace --no-daemon 2>&1 | tee gradle-build.log
+          ./gradlew :${TARGET_VERSION}:clean :${TARGET_VERSION}:build --stacktrace --no-daemon 2>&1 | tee gradle-build.log
           exit ${PIPESTATUS[0]}
       - name: summarize gradle failure
         if: failure()
@@ -67,4 +71,4 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: Artifacts
-          path: versions/*/build/libs/*.jar
+          path: versions/${{ env.TARGET_VERSION }}/build/libs/*.jar
