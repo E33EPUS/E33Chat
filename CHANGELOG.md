@@ -12,6 +12,21 @@
 - Now matches vanilla: text filled from history disables the auto-suggestion popup (vanilla's own `setAllowSuggestions(false)` behaviour); suggestions return as soon as you edit the text again, or on Tab
 - Also fixed: recalling a history entry containing `@` no longer auto-opens the @mention candidate list (same Up/Down hijack)
 
+**新增：清空聊天历史按钮（设置菜单）**
+- 齿轮设置菜单新增“清空聊天历史”（垃圾桶图标）：清空当前世界的内存消息 + 本地历史文件（含 legacy 文件），不影响其他世界
+- 两击确认防误触：第一次点击后该行变红“确认清空？”，1 秒内再点同一行才执行；点别处 / ESC / 超时 / 点其他菜单项都会取消
+- 空历史时第一次点击直接提示“没有可清空的历史”，不进入确认状态
+- 清空成功后复用现有 toast 提示“已清空聊天历史”
+- 异步保存防复活：清空时递增 generation，旧快照不再把已删除的历史文件写回
+
+**Added: Clear chat history button (settings menu)**
+- New “Clear Chat History” item in the gear settings menu (trash icon): clears the current world’s in-memory messages and local history file (including legacy files); other worlds are untouched
+- Two-click confirm to prevent accidents: the first click turns the row red (“Confirm clear?”), and a second click within 1 second executes; clicking elsewhere / ESC / timeout / choosing another item cancels
+- On empty history the first click directly shows “No history to clear” and does not arm the confirm state
+- Reuses the existing toast for “Chat history cleared”
+- Async-save resurrection guard: clearing bumps a generation counter so stale snapshots cannot rewrite the deleted history file
+
+
 ## v2.4.6
 
 **官方 2.4.1–2.4.6 内容同步到大佬 1.21.11 fabric 移植版**

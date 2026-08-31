@@ -806,4 +806,124 @@ class ChatMessageStoreTest {
         assertEquals("妈妈", messages.get(0).replyContent(),
             "UUID match alone must still apply the quote meta");
     }
+
+    // ---- 2.4.7: 清空聊天历史 ----
+
+    private static void setCurrentWorldKey(String key) throws Exception {
+        var f = ChatMessageStore.class.getDeclaredField("currentWorldKey");
+        f.setAccessible(true);
+        f.set(null, key);
+    }
+
+    private static void addRawMessage(long time) throws Exception {
+        var field = ChatMessageStore.class.getDeclaredField("messages");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var messages = (List<ChatMessageStore.ChatMessage>) field.get(null);
+        messages.add(new ChatMessageStore.ChatMessage(
+            java.util.UUID.randomUUID(),
+            net.minecraft.text.Text.literal("Steve"),
+            net.minecraft.text.Text.literal("hello " + time),
+            time, false, false, null, null, "", 1, "Steve", false, null));
+    }
+
+    private static java.io.File historyFile(String worldKey) throws Exception {
+        var m = ChatMessageStore.class.getDeclaredMethod("getHistoryFile", String.class);
+        m.setAccessible(true);
+        return (java.io.File) m.invoke(null, worldKey);
+    }
+
+    private static java.io.File legacyHistoryFile(String worldKey) throws Exception {
+        var m = ChatMessageStore.class.getDeclaredMethod("getLegacyHistoryFile", String.class);
+        m.setAccessible(true);
+        return (java.io.File) m.invoke(null, worldKey);
+    }
+
+    private static void awaitGone(java.io.File f) throws Exception {
+        long deadline = System.currentTimeMillis() + 3000;
+        while (f.exists() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(20);
+        }
+        assertFalse(f.exists(), "file should be deleted: " + f);
+    }
+
+    @Test void clearHistory_clearsMemoryAndFiles() throws Exception {
+        clearMessagesAndMetas();
+        var root = java.nio.file.Files.createTempDirectory("e33chat-history-test").toFile();
+        ChatMessageStore.gameDirSupplier = () -> root;
+        try {
+            setCurrentWorldKey("MP:test");
+            addRawMessage(1000L);
+            addRawMessage(2000L);
+            ChatMessageStore.markWhisperUnread("Bob");
+            var unreadField = ChatMessageStore.class.getDeclaredField("unreadCount");
+            unreadField.setAccessible(true);
+            unreadField.setInt(null, 3);
+            var mentionField = ChatMessageStore.class.getDeclaredField("hasUnreadMentionFlag");
+            mentionField.setAccessible(true);
+            mentionField.setBoolean(null, true);
+
+            var cur = historyFile("MP:test");
+            var legacy = legacyHistoryFile("MP:test");
+            cur.getParentFile().mkdirs();
+            java.nio.file.Files.write(cur.toPath(), "line\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            java.nio.file.Files.write(legacy.toPath(), "old\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            assertTrue(cur.exists());
+            assertTrue(legacy.exists());
+            assertTrue(ChatMessageStore.hasHistoryToClear());
+
+            ChatMessageStore.clearCurrentWorldHistory();
+
+            var messagesField = ChatMessageStore.class.getDeclaredField("messages");
+            messagesField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            var messages = (List<ChatMessageStore.ChatMessage>) messagesField.get(null);
+            assertTrue(messages.isEmpty(), "messages must be cleared");
+            assertEquals(0, unreadField.getInt(null), "unread count must reset");
+            assertFalse(mentionField.getBoolean(null), "mention flag must reset");
+            assertFalse(ChatMessageStore.hasUnreadWhisper("Bob"), "unread whisper must reset");
+            assertFalse(ChatMessageStore.hasHistoryToClear(), "nothing left to clear");
+            awaitGone(cur);
+            awaitGone(legacy);
+        } finally {
+            ChatMessageStore.gameDirSupplier = null;
+        }
+    }
+
+    @Test void clearHistory_noFilesIsNoop() throws Exception {
+        clearMessagesAndMetas();
+        var root = java.nio.file.Files.createTempDirectory("e33chat-history-empty").toFile();
+        ChatMessageStore.gameDirSupplier = () -> root;
+        try {
+            setCurrentWorldKey("MP:empty");
+            assertFalse(ChatMessageStore.hasHistoryToClear());
+            ChatMessageStore.clearCurrentWorldHistory(); // must not throw
+            assertFalse(ChatMessageStore.hasHistoryToClear());
+        } finally {
+            ChatMessageStore.gameDirSupplier = null;
+        }
+    }
+
+    @Test void clearHistory_pendingSaveDoesNotResurrectFile() throws Exception {
+        clearMessagesAndMetas();
+        var root = java.nio.file.Files.createTempDirectory("e33chat-history-race").toFile();
+        ChatMessageStore.gameDirSupplier = () -> root;
+        try {
+            setCurrentWorldKey("MP:race");
+            addRawMessage(1L);
+            addRawMessage(2L);
+            var cur = historyFile("MP:race");
+            // Queue a save snapshot (old generation), then clear before it flushes.
+            var save = ChatMessageStore.class.getDeclaredMethod("saveMessages", String.class);
+            save.setAccessible(true);
+            save.invoke(null, "MP:race");
+            ChatMessageStore.clearCurrentWorldHistory();
+            awaitGone(cur);
+            // Even after the executor drains, the stale snapshot must not rewrite it.
+            Thread.sleep(200);
+            assertFalse(cur.exists(), "stale save must not resurrect the history file");
+        } finally {
+            ChatMessageStore.gameDirSupplier = null;
+        }
+    }
 }
