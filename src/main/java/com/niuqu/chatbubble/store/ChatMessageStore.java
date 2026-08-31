@@ -922,8 +922,13 @@ public class ChatMessageStore {
     private static void saveMessages(String worldKey) {
         if (messages.isEmpty()) return;
         List<ChatMessage> snapshot = new ArrayList<>(messages);
+        long gen = historyGeneration;
         File f = getHistoryFile(worldKey);
         SAVE_EXECUTOR.execute(() -> {
+            // The history was cleared (generation bumped) after this snapshot was
+            // taken — the clear's delete task is queued after us on the same
+            // single-thread executor, so skip the write entirely.
+            if (gen != historyGeneration) return;
             f.getParentFile().mkdirs();
             // Atomic replace: write the tmp file fully, then move it over — a crash
             // mid-write leaves the previous file intact instead of a truncated one
@@ -938,6 +943,12 @@ public class ChatMessageStore {
                 w.flush();
             } catch (Exception e) {
                 com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e);
+                return;
+            }
+            // Re-check after the write: the history may have been cleared while we
+            // were serializing. Drop the tmp instead of resurrecting stale data.
+            if (gen != historyGeneration) {
+                tmp.delete();
                 return;
             }
             try {
@@ -955,6 +966,52 @@ public class ChatMessageStore {
         });
     }
 
+    /** True when clearing would actually delete something (messages or files). */
+    public static boolean hasHistoryToClear() {
+        if (!messages.isEmpty()) return true;
+        if (currentWorldKey == null) return false;
+        return getHistoryFile(currentWorldKey).exists()
+            || getLegacyHistoryFile(currentWorldKey).exists();
+    }
+
+    /**
+     * Permanently clears the current world's chat history: the in-memory list and
+     * the saved JSONL file (plus any legacy file for the same world).
+     *
+     * <p>Race handling: a save snapshot taken before this call may still be queued
+     * or in-flight on {@link #SAVE_EXECUTOR}. We bump {@link #historyGeneration} so
+     * stale writes abort, and we also enqueue an ordered delete on the same
+     * single-thread executor — since all file writes and this delete share the
+     * executor, the delete always runs after any already-queued stale write, so the
+     * file cannot be resurrected. The immediate synchronous delete keeps the on-disk
+     * state truthful right away (and covers an exit before the queued task runs).
+     */
+    public static void clearCurrentWorldHistory() {
+        messages.clear();
+        unreadCount = 0;
+        hasUnreadMentionFlag = false;
+        unreadWhisperPartners.clear();
+        historyDirty = false;
+        historyGeneration++;
+
+        if (currentWorldKey == null) return;
+        File f = getHistoryFile(currentWorldKey);
+        File legacy = getLegacyHistoryFile(currentWorldKey);
+        if (f.exists()) f.delete();
+        if (legacy.exists()) legacy.delete();
+
+        // Ordered safety-net delete (see javadoc). File handles are captured on the
+        // client thread — Minecraft.getInstance() must not be touched off-thread.
+        final long gen = historyGeneration;
+        final File cur = f;
+        final File leg = legacy;
+        SAVE_EXECUTOR.execute(() -> {
+            if (gen != historyGeneration) return;
+            if (cur.exists()) cur.delete();
+            if (leg.exists()) leg.delete();
+        });
+    }
+
     // Periodic autosave: a crash only loses messages newer than the last flush.
     // Called from the client tick; the world switch path in setCurrentWorld still
     // saves on world change / quit. historyDirty skips re-scheduling when nothing
@@ -963,6 +1020,11 @@ public class ChatMessageStore {
     private static final long AUTO_SAVE_MS = 30_000;
     private static long lastAutoSave;
     private static boolean historyDirty;
+
+    // Bumped whenever the history is cleared: any save snapshot taken before the
+    // clear becomes stale and must not write the file back (see saveMessages).
+    // Volatile because the save executor reads it off-thread.
+    private static volatile long historyGeneration;
 
     // Retention cleanup: files older than the configured days are dropped on
     // world join (0 = keep forever, the default)

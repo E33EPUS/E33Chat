@@ -35,12 +35,21 @@ public final class HistoryStore {
 
     private static final Gson GSON = new Gson();
 
+    /** Test seam: headless unit tests stub this to a temp dir so path helpers
+     *  never touch Minecraft.getInstance() (which is null in the test JVM). */
+    public static java.util.function.Supplier<java.io.File> gameDirSupplier = null;
+
+    private static java.io.File gameDir() {
+        if (gameDirSupplier != null) return gameDirSupplier.get();
+        return Minecraft.getInstance().gameDirectory;
+    }
+
     public static File getHistoryFile(String worldKey) {
         // Keep Unicode (Chinese world names stay readable); only strip characters
         // that break file systems / path parsing. The SHA-256 short hash disambiguates
         // worlds whose sanitized names collide.
         String safe = worldKey.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_");
-        return new File(Minecraft.getInstance().gameDirectory,
+        return new File(gameDir(),
             "e33chat/history/" + safe + "_" + sha256Short(worldKey) + ".json");
     }
 
@@ -49,7 +58,7 @@ public final class HistoryStore {
     public static File getLegacyHistoryFile(String worldKey) {
         String safe = worldKey.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
         String hash = Integer.toHexString(worldKey.hashCode());
-        return new File(Minecraft.getInstance().gameDirectory,
+        return new File(gameDir(),
             "e33chat/history/" + safe + "_" + hash + ".json");
     }
 
