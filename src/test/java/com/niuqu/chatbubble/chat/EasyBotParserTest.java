@@ -65,4 +65,53 @@ class EasyBotParserTest {
             || meta.rawContent().getStyle().getColor() != null
             || meta.rawContent().getString().contains("[图片]"));
     }
+
+    // ---- Issue #15: the relay line is assembled bot-side, so neither the
+    // ---- [群名] label nor a QQ number is guaranteed.
+
+    @Test void parsesRelayWithoutGroupLabel() {
+        Text line = Text.literal("<QW_SunnyDaze> [图片]");
+        ChatMessageStore.SenderMeta meta = EasyBotParser.tryParse(line, line.getString());
+        assertNotNull(meta);
+        assertEquals("QW_SunnyDaze", meta.senderName().getString());
+        assertEquals("[图片]", meta.rawContent().getString());
+        assertFalse(meta.isSystem());
+    }
+
+    @Test void parsesGroupCardSuffix() {
+        Text line = Text.literal("<黑（群妈妈）> [动画表情]");
+        ChatMessageStore.SenderMeta meta = EasyBotParser.tryParse(line, line.getString());
+        assertNotNull(meta);
+        assertEquals("黑（群妈妈）", meta.senderName().getString());
+        assertEquals("[动画表情]", meta.rawContent().getString());
+    }
+
+    @Test void parsesFullWidthQqParens() {
+        Text line = Text.literal("[闲聊群] <小明（123456789）> 你好");
+        ChatMessageStore.SenderMeta meta = EasyBotParser.tryParse(line, line.getString());
+        assertNotNull(meta);
+        assertEquals("小明", meta.senderName().getString());
+        assertEquals("123456789", meta.rawPlayerName());
+        assertEquals("你好", meta.rawContent().getString());
+    }
+
+    @Test void rejectsBlankContent() {
+        Text line = Text.literal("<QW_SunnyDaze>    ");
+        assertNull(EasyBotParser.tryParse(line, line.getString()));
+    }
+
+    @Test void rejectsBroadcastNameWithoutQqId() {
+        Text line = Text.literal("<系统> 服务器五分钟后重启");
+        assertNull(EasyBotParser.tryParse(line, line.getString()));
+    }
+
+    @Test void rejectsAngleBracketsBehindAPrefix() {
+        Text line = Text.literal("前缀 <小明> 你好");
+        assertNull(EasyBotParser.tryParse(line, line.getString()));
+    }
+
+    @Test void rejectsOverlongName() {
+        Text line = Text.literal("<" + "x".repeat(33) + "> 你好");
+        assertNull(EasyBotParser.tryParse(line, line.getString()));
+    }
 }

@@ -11,24 +11,32 @@ import net.minecraft.text.Text;
  * Built-in parser for EasyBot QQ group messages relayed into the game as
  * system broadcasts.
  *
- * EasyBot's default relay template looks like:
- *   [群名] <昵称(QQ号)> 内容
- * The angle-bracket form is a strong structural signal, and the optional QQ
- * number makes false positives unlikely. This parser only runs when the server
- * enables {@code easybot_compat}; server templates ({@code {external}}) remain
- * available as an override when a server owner customizes the EasyBot template.
+ * EasyBot's Minecraft-side mod is only a renderer: the "[群名]" / "<昵称>" part
+ * of a line is assembled bot-side, so the exact shape depends on the server's
+ * template. Shapes seen in the wild:
+ *   [群名] <昵称(QQ号)> 内容      (EasyBot's default template)
+ *   [群名] <昵称> 内容
+ *   <昵称> 内容                   (group label removed from the template)
+ *   <昵称（群名片）> 内容
+ * The leading [label] is therefore optional — the angle-bracket name followed
+ * by the content is the structural signal. Server templates ({@code {external}})
+ * remain available as an explicit override when a server owner customizes the
+ * EasyBot template beyond these shapes.
  */
 public final class EasyBotParser {
     private EasyBotParser() {}
 
-    // [prefix] <name(123456)> content  — prefix must be a short bracket label.
-    // (?s) lets content contain newlines, matching TemplateMatcher behaviour.
-    private static final Pattern DEFAULT_FORMAT = Pattern.compile(
-        "^\\[([^\\]]+)\\]\\s*<([^>]*)>\\s*(?s:(.*))$");
+    // (?:[label])? <name> content  — (?s) lets content span newlines,
+    // matching TemplateMatcher behaviour.
+    private static final Pattern RELAY_FORMAT = Pattern.compile(
+        "^(?:\\[([^\\]]*)\\]\\s*)?<([^>]*)>\\s*(?s:(.*))$");
 
-    // QQ numbers are 5-12 digits, optionally wrapped in parentheses at the end
-    // of the angle-bracket name area: "昵称(123456)" or just "123456".
-    private static final Pattern QQ_AT_END = Pattern.compile("\\(?(\\d{5,12})\\)?$");
+    // QQ numbers are 5-12 digits, optionally wrapped in parentheses (half- or
+    // full-width) at the end of the angle-bracket name area: "昵称(123456)".
+    private static final Pattern QQ_AT_END = Pattern.compile("[（(]?(\\d{5,12})[)）]?$");
+
+    // Longest plausible sender name — beyond this the line is not a relay.
+    private static final int MAX_NAME = 32;
 
     private static final Set<String> BROADCAST_LABELS = Set.of(
         "系统", "公告", "服务器", "广播", "提示", "通知",
@@ -36,12 +44,14 @@ public final class EasyBotParser {
 
     public static ChatMessageStore.SenderMeta tryParse(Text message, String text) {
         if (text == null || text.isEmpty()) return null;
-        Matcher m = DEFAULT_FORMAT.matcher(text);
+        Matcher m = RELAY_FORMAT.matcher(text);
         if (!m.matches()) return null;
 
-        String groupName = m.group(1).trim();
-        String nameArea = m.group(2).trim();
-        if (groupName.isEmpty() || nameArea.isEmpty()) return null;
+        String groupName = m.group(1) == null ? "" : m.group(1).trim();
+        String nameArea = m.group(2) == null ? "" : m.group(2).trim();
+        String content = m.group(3);
+        if (nameArea.isEmpty() || content == null || content.isBlank()) return null;
+        if (nameArea.length() > MAX_NAME || nameArea.indexOf('\n') >= 0) return null;
 
         String nick = null;
         String qq = null;
@@ -51,6 +61,7 @@ public final class EasyBotParser {
             String before = nameArea.substring(0, qm.start()).trim();
             // Keep only the part before the opening parenthesis, if any.
             int paren = before.lastIndexOf('(');
+            if (paren < 0) paren = before.lastIndexOf('（');
             if (paren >= 0) before = before.substring(0, paren).trim();
             if (!before.isEmpty()) nick = before;
         } else if (nameArea.matches("\\d{5,12}")) {
@@ -59,21 +70,48 @@ public final class EasyBotParser {
             nick = nameArea;
         }
 
-        // Without a QQ number, require the bracket label not to be a generic
-        // broadcast label so ordinary "[公告] <Server> ..." lines stay system.
-        if (qq == null && isBroadcastLabel(groupName)) return null;
-
         String displayName = (nick != null && !nick.isEmpty()) ? nick : qq;
         if (displayName == null || displayName.isEmpty()) return null;
+
+        // Without a QQ number the line carries no strong EasyBot signal, so
+        // generic broadcast labels ("[公告] <Server> ...", "<系统> ...") stay
+        // system messages.
+        if (qq == null && (isBroadcastLabel(groupName) || isBroadcastLabel(displayName))) return null;
+
+        // A locally known player relayed through a system packet keeps its
+        // profile UUID (and therefore its skin) only on the player path —
+        // step aside so ChatPipeline can claim the line instead.
+        if (isKnownPlayer(displayName)) return null;
+
         String rawPlayerName = qq != null ? qq : displayName;
 
-        int contentStart = m.start(3);
-        int contentEnd = m.end(3);
-        Text contentComp = ChatMessageStore.sliceStyled(message, contentStart, contentEnd);
+        Text contentComp = ChatMessageStore.sliceStyled(message, m.start(3), m.end(3));
         Text nameComp = Text.literal(displayName);
         return new ChatMessageStore.SenderMeta(
             new UUID(0, 0), nameComp, contentComp, false,
             rawPlayerName, false, null);
+    }
+
+    /**
+     * Exact-match only: {@link ChatClassifier#resolveOnlinePlayer} also does a
+     * substring fallback, which would hand every QQ nickname containing a
+     * player name back to the player path (and then drop it entirely).
+     */
+    private static boolean isKnownPlayer(String displayName) {
+        try {
+            if (ChatMessageStore.knownNameVariants().contains(displayName)) return true;
+            net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+            if (mc == null || mc.player == null || mc.player.networkHandler == null) return false;
+            for (net.minecraft.client.network.PlayerListEntry info : mc.player.networkHandler.getPlayerList()) {
+                for (String cand : ChatClassifier.nameCandidates(info)) {
+                    if (cand.equalsIgnoreCase(displayName)) return true;
+                }
+            }
+        } catch (Throwable t) {
+            // Headless (unit tests) or a broken world — treat as "not a player".
+            return false;
+        }
+        return false;
     }
 
     private static boolean isBroadcastLabel(String s) {
@@ -82,7 +120,8 @@ public final class EasyBotParser {
             char open = zone.charAt(0);
             char close = zone.charAt(zone.length() - 1);
             if ((open == '[' && close == ']') || (open == '【' && close == '】')
-                || (open == '<' && close == '>') || (open == '(' && close == ')')) {
+                || (open == '<' && close == '>') || (open == '(' && close == ')')
+                || (open == '（' && close == '）')) {
                 zone = zone.substring(1, zone.length() - 1).trim();
             } else {
                 break;

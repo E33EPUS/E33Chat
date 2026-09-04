@@ -75,8 +75,10 @@ public class ChatMessageStore {
     private static volatile List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> serverChatTemplates = List.of();
     private static volatile List<com.niuqu.chatbubble.chat.TemplateMatcher.CompiledTemplate> serverWhisperTemplates = List.of();
     private static volatile boolean serverTemplateDebug = false;
-    // Server-synced setting: EasyBot QQ relay compatibility (default off)
-    private static volatile boolean easyBotCompat = false;
+    // EasyBot QQ relay compatibility. The server may override it (payload absent
+    // = server runs no/old e33chat, so the client default applies); the server
+    // toggle stays authoritative for servers that do sync it.
+    private static volatile boolean easyBotCompat = true;
 
     public static void setEasyBotCompat(boolean v) { easyBotCompat = v; }
     public static boolean isEasyBotCompat() { return easyBotCompat; }

@@ -240,7 +240,7 @@
   "e33chat.server.media_auto_clean": "自动清理存储图片",
   "e33chat.server.media_auto_clean.desc": "自动删除服务器上超过 7 天的聊天图片（开服时检查，上传后每 6 小时最多查一次）。关闭 = 永久保留。",
   "e33chat.server.easybot_compat": "EasyBot 群消息兼容",
-  "e33chat.server.easybot_compat.desc": "默认开启：把 EasyBot 转发进游戏的 QQ 群消息解析成玩家气泡（默认格式：[群名] <昵称(QQ号)> 内容），并支持在气泡内显示 EasyBot/ChatImage 的 CICode 图片。关闭 = 保持系统消息样式。",
+  "e33chat.server.easybot_compat.desc": "默认开启：把 EasyBot 转发进游戏的 QQ 群消息解析成玩家气泡（群名前缀可选，[群名] <昵称(QQ号)> 内容 / <昵称> 内容 / <昵称（群名片）> 内容 都能识别），并支持在气泡内显示 EasyBot/ChatImage 的 CICode 图片。关闭 = 保持系统消息样式。",
   "e33chat.server.template_debug.desc": "把所有未匹配任何模板的系统聊天行记录到客户端日志（前缀: System(template miss)）。调模板时有用。",
   "e33chat.server.template_n.desc": "模板格式：{prefix} 前缀装饰、{display_name} 玩家名（可含装饰）、{external} 外部/QQ 发送者（不要求是已知玩家）、{content} 消息正文（必须放在最后）、{sender}/{target} 私聊发送者/接收者。列表留空 = 关闭模板，守卫接管。",
   "e33chat.server.actions.desc": "「添加」新建一个空模板行；下方预设区提供常见格式，点一下即可添加。",
