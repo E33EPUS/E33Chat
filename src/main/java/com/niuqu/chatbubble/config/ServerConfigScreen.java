@@ -68,6 +68,7 @@ public class ServerConfigScreen extends Screen {
         "-{display_name}- {content}",
         "【{display_name}】{content}",
         "[{prefix}] <{external}> {content}",                // EasyBot 默认群消息格式
+        "<{external}> {content}",                           // EasyBot 去掉群名前缀
     };
     private static final String[] WHISPER_PRESETS = {
         "{sender}悄悄地对你说{sep}{content}",

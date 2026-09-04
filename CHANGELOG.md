@@ -26,6 +26,22 @@
 - Reuses the existing toast for “Chat history cleared”
 - Async-save resurrection guard: clearing bumps a generation counter so stale snapshots cannot rewrite the deleted history file
 
+**修复：EasyBot 群消息没被解析成玩家气泡（三端同步）**
+- 转发行是机器人侧拼装的，`[群名]` 前缀并不固定：实测服的模板就是 `<昵称> 内容`（既没有群名前缀，也没有 QQ 号）。旧解析器强制要求开头有 `[标签]`，这类行全部落回灰色系统消息（issue #15）
+- 现在 `[群名]` 前缀改为可选，只要 `<名字> 内容` 结构成立就按玩家气泡解析；`<昵称（群名片）>` 这类后缀保留在显示名里，全角括号 `（123456789）` 也识别为 QQ 号
+- 兼容开关改为默认开启：服务端装了 e33chat 时仍以服务端开关为准（可显式关闭）；服务端没装 / 版本旧到不会同步该开关时，客户端按开启处理，不再因为等不到服务端指令而什么都不做
+- 防误判不变：正文为空、名字超过 32 字、以及 `<系统>` / `[公告] <Server>` 这类通用广播标签仍保持系统消息；名字能精确匹配到在线玩家时让位给玩家解析路径，保留真实 UUID 与皮肤
+- 调试日志新增 `System(EasyBot miss)`：开 debug 后，形状像转发但没被采纳的行会单独打一条，方便直接判断模板是否匹配
+- 新增 7 例 EasyBotParser 单测（无群名前缀 / 群名片后缀 / 全角括号 QQ / 空正文 / 广播名 / 尖括号不在行首 / 超长名）
+
+**Fixed: EasyBot group relays were not parsed as player bubbles (all three builds)**
+- The relay line is assembled bot-side, so the `[群名]` prefix is not guaranteed — the reporting server's template is simply `<nick> content` (no group label, no QQ number). The old parser required a leading `[label]`, so those lines fell back to grey system messages (issue #15)
+- The `[群名]` prefix is now optional: any `<name> content` line parses as a player bubble. A `<nick（group card）>` suffix stays part of the display name, and full-width `（123456789）` parentheses are recognised as the QQ number too
+- Compatibility is now on by default: servers running e33chat still decide (the server toggle can explicitly disable it); when the server runs no (or an older) e33chat and never syncs the flag, the client treats it as enabled instead of silently doing nothing
+- False-positive guards unchanged: blank content, names longer than 32 chars, and generic broadcast labels (`<系统>`, `[公告] <Server> ...`) stay system messages; a name that exactly matches an online player is handed back to the player path so its real UUID and skin are preserved
+- New `System(EasyBot miss)` debug line: relay-shaped lines the parser declined are logged individually, so a template mismatch is diagnosable from the log alone
+- Added 7 EasyBotParser unit tests (no group label / group-card suffix / full-width QQ parens / blank content / broadcast name / angle brackets not at line start / over-long name)
+
 
 ## v2.4.6
 
