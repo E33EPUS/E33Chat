@@ -231,8 +231,12 @@ public final class BracketCodec {
 
     private static boolean isChatImageHover(net.minecraft.text.HoverEvent hover) {
         try {
-            String actionId = String.valueOf(hover.getAction());
-            return actionId.toLowerCase().contains("chatimage");
+            if (String.valueOf(hover.getAction()).toLowerCase(java.util.Locale.ROOT).contains("chatimage")) return true;
+            // Some ChatImage builds ship an Action whose toString() is not the
+            // action id — fall back to the payload's class name.
+            Object value = hover.getValue(hover.getAction());
+            return value != null
+                && value.getClass().getName().toLowerCase(java.util.Locale.ROOT).contains("chatimage");
         } catch (Throwable t) {
             return false;
         }
@@ -241,21 +245,46 @@ public final class BracketCodec {
     private static String readUrlFromHover(net.minecraft.text.HoverEvent hover) {
         try {
             Object value = hover.getValue(hover.getAction());
-            // Custom actions carry whatever their codec decoded — ChatImage's
-            // show_chatimage payload is a JSON object {"url":...,"name":...}.
+            // Custom actions carry whatever their codec decoded. ChatImage's
+            // show_chatimage payload has been, across versions, a JSON object
+            // {"url":...}, a plain code string, or (0.13+) a ChatImageCode
+            // object whose toString() is the original "[[CICode,url=...]]".
             if (value instanceof com.google.gson.JsonElement je) {
                 if (je.isJsonObject() && je.getAsJsonObject().has("url")
                         && je.getAsJsonObject().get("url").isJsonPrimitive()) {
-                    return je.getAsJsonObject().get("url").getAsString();
+                    return normalizeUrl(je.getAsJsonObject().get("url").getAsString());
                 }
                 if (je.isJsonPrimitive() && je.getAsJsonPrimitive().isString()) {
-                    return je.getAsString();
+                    return normalizeUrl(je.getAsString());
                 }
             } else if (value instanceof String s) {
-                return s;
+                return normalizeUrl(s);
+            } else if (value != null) {
+                return normalizeUrl(String.valueOf(value));
             }
         } catch (Throwable t) {
             return null;
+        }
+        return null;
+    }
+
+    /** Accepts a bare http(s) URL, a "[[CICode,...]]" code, or a wrapper around either. */
+    static String normalizeUrl(String s) {
+        if (s == null || s.isBlank()) return null;
+        String fromCode = urlFromCodeText(s);
+        if (fromCode != null) return fromCode;
+        String trimmed = s.trim();
+        String lower = trimmed.toLowerCase(java.util.Locale.ROOT);
+        return (lower.startsWith("http://") || lower.startsWith("https://")) ? trimmed : null;
+    }
+
+    /** Pulls the first image URL back out of a "[[CICode,...]]" code string. */
+    static String urlFromCodeText(String s) {
+        if (s == null || s.isEmpty()) return null;
+        Matcher m = BRACKET.matcher(s);
+        while (m.find()) {
+            ImageRef ref = parseAttrs(m.group(2), m.group(1));
+            if (ref != null) return ref.url();
         }
         return null;
     }

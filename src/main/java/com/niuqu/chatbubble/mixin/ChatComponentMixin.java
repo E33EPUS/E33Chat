@@ -197,6 +197,13 @@ public class ChatComponentMixin {
         Text content;
         if (finalStr.contains(rawStr)) {
             content = meta.rawContent();
+        } else if (!rawStr.isBlank()
+                && !BracketCodec.parseOrExtract(meta.rawContent()).images().isEmpty()) {
+            // ChatImage (or a similar mod) rewrote the component before we
+            // captured it: the [[CICode,...]] bracket is gone from the line.
+            // Keep the pristine server-sent content so the bubble still renders
+            // the image and does not repeat the sender name.
+            content = meta.rawContent();
         } else {
             content = finalComponent;
         }
