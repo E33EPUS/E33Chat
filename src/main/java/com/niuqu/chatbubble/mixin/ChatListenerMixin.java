@@ -319,8 +319,9 @@ public class ChatListenerMixin {
             if (tpl != null) { ChatMessageStore.setPendingMeta(tpl); return; }
         }
 
-        // EasyBot compatibility (server opt-in): parse QQ group relays as player
-        // messages before the generic whisper/name heuristics can steal them.
+        // EasyBot compatibility (on by default; the server toggle overrides it):
+        // parse QQ group relays as player messages before the generic
+        // whisper/name heuristics can steal them.
         if (ChatMessageStore.isEasyBotCompat()) {
             SenderMeta eb = com.niuqu.chatbubble.chat.capture.EasyBotParser.tryParse(message, text);
             if (eb != null) {
@@ -328,6 +329,13 @@ public class ChatListenerMixin {
                     + "' | content='" + eb.rawContent().getString() + "'");
                 ChatMessageStore.setPendingMeta(eb);
                 return;
+            }
+            // Relay-shaped line the parser declined (blank content, a generic
+            // broadcast label, or a name owned by a real player) — one debug
+            // line so a template mismatch is diagnosable from the log alone.
+            int open = text.indexOf('<');
+            if (open >= 0 && text.indexOf('>', open) > open) {
+                ChatMessageStore.debugLog(() -> "[e33chat] System(EasyBot miss) | text='" + text + "'");
             }
         }
 
