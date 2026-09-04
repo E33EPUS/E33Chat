@@ -130,13 +130,13 @@ The server mod is optional. Installing it additionally enables:
 - Head teleport via `/tpa` (`use_tpa`, off by default)
 - **Server-side media hosting** (`media_enabled`, on by default): images stored permanently (8MB/file, 512MB total quota, random UUID IDs, per-player throttling)
 - **Message-format templates**: the server declares its chat format and syncs it to every client, so plugin/NCR-rewritten lines parse correctly (`/e33chat gui`; "Generate from message…" or one-click presets; placeholders `{display_name}` `{prefix}` `{external}` `{content}` `{sender}` `{target}` `{sep}`)
-- **EasyBot group-message compatibility** (`easybot_compat`, on by default): parses QQ group messages relayed by EasyBot into player bubbles and renders EasyBot/ChatImage CICode images inside bubbles. The default format `[Group] <Nick(QQ#)> content` is auto-detected; if the EasyBot template is customized, override it with an `{external}` chat template (the server-config presets include the EasyBot format, see [EasyBot template guide](#easybot-template-guide))
+- **EasyBot group-message compatibility** (`easybot_compat`, on by default): parses QQ group messages relayed by EasyBot into player bubbles and renders EasyBot/ChatImage CICode images inside bubbles. Common shapes are auto-detected (since 2.4.8 neither the group label nor the QQ number is required); if the EasyBot template is customized, override it with an `{external}` chat template (the server-config presets include the EasyBot format, see [EasyBot template guide](#easybot-template-guide))
 
 Server config: `saves/<world>/serverconfig/e33chat-server.toml` (Fabric: `.json`) ｜ OP commands: `/e33chat template list|set|remove|clear|test` ｜ `/e33chat gui` for the graphical config
 
 ### EasyBot template guide
 
-- E33Chat has built-in recognition for EasyBot's default format `[Group] <Nick(QQ#)> content`; `easybot_compat` is on by default, so it works out of the box
+- E33Chat has built-in recognition for the common EasyBot shapes: `[Group] <Nick(QQ#)> content`, `[Group] <Nick> content`, `<Nick> content` and `<Nick（group card）> content` (since 2.4.8 neither the group label nor the QQ number is required); `easybot_compat` is on by default, so it works out of the box
 - If you changed the "sync template (to server)" in EasyBot, add an `{external}` chat template in `/e33chat gui` → Chat Templates to override
 - Common examples:
 
@@ -145,6 +145,7 @@ Server config: `saves/<world>/serverconfig/e33chat-server.toml` (Fabric: `.json`
 | `[Group] <Nick(QQ#)> content` | `[{prefix}] <{external}> {content}` |
 | `[Group] Nick: content` | `[{prefix}] {external}{sep}{content}` |
 | `Nick >> content` | `{external}{sep}{content}` |
+| `<Nick> content` | `<{external}> {content}` |
 
 - Or add it by command: `/e33chat template set chat "[{prefix}] <{external}> {content}"`
 
