@@ -130,13 +130,13 @@ E33Chat 是一款聊天增强模组，把原版聊天 HUD 重做成聊天 APP �
 - 头像传送改用 `/tpa`（`use_tpa`，默认关）
 - **服务端图片托管**（`media_enabled`，默认开）：图片存服务器永久（8MB/文件、512MB 总配额、随机 UUID 防遍历、每玩家限速）
 - **消息格式模板**：服务端声明聊天格式并同步全服——插件 / NCR 改过格式的消息也能正确解析（`/e33chat gui` 配置，「从消息生成」或预设一键加，占位符 `{display_name}` `{prefix}` `{external}` `{content}` `{sender}` `{target}` `{sep}`）
-- **EasyBot 群消息兼容**（`easybot_compat`，默认开）：把 EasyBot 转发进游戏的 QQ 群消息解析成玩家气泡，并支持气泡内显示 EasyBot/ChatImage 的 CICode 图片。默认格式 `[群名] <昵称(QQ号)> 内容` 自动识别；EasyBot 模板被改过时，可用 `{external}` 聊天模板覆盖（服务端配置预设已带 EasyBot 格式，详见 [EasyBot 模板说明](#easybot-模板说明)）
+- **EasyBot 群消息兼容**（`easybot_compat`，默认开）：把 EasyBot 转发进游戏的 QQ 群消息解析成玩家气泡，并支持气泡内显示 EasyBot/ChatImage 的 CICode 图片。常见格式自动识别（2.4.8 起群名前缀与 QQ 号均可省略）；EasyBot 模板被改过时，可用 `{external}` 聊天模板覆盖（服务端配置预设已带 EasyBot 格式，详见 [EasyBot 模板说明](#easybot-模板说明)）
 
 服务端配置：`saves/<世界名>/serverconfig/e33chat-server.toml`（Fabric 为 `.json`）｜ OP 命令：`/e33chat template list|set|remove|clear|test`｜ `/e33chat gui` 图形化配置
 
 ### EasyBot 模板说明
 
-- E33Chat 内置识别 EasyBot 默认格式 `[群名] <昵称(QQ号)> 内容`，`easybot_compat` 默认开启即可直接用
+- E33Chat 内置识别常见 EasyBot 格式：`[群名] <昵称(QQ号)> 内容`、`[群名] <昵称> 内容`、`<昵称> 内容`、`<昵称（群名片）> 内容`（2.4.8 起群名前缀与 QQ 号均非必需），`easybot_compat` 默认开启即可直接用
 - 如果你在 EasyBot 主程序里改过「同步模板(到服务器)」，请到 `/e33chat gui` → 聊天模板，加一条 `{external}` 模板覆盖
 - 常用示例：
 
@@ -145,6 +145,7 @@ E33Chat 是一款聊天增强模组，把原版聊天 HUD 重做成聊天 APP �
 | `[群名] <昵称(QQ号)> 内容` | `[{prefix}] <{external}> {content}` |
 | `[群名] 昵称: 内容` | `[{prefix}] {external}{sep}{content}` |
 | `昵称 >> 内容` | `{external}{sep}{content}` |
+| `<昵称> 内容` | `<{external}> {content}` |
 
 - 也可以直接命令添加：`/e33chat template set chat "[{prefix}] <{external}> {content}"`
 
