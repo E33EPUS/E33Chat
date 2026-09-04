@@ -42,6 +42,22 @@
 - New `System(EasyBot miss)` debug line: relay-shaped lines the parser declined are logged individually, so a template mismatch is diagnosable from the log alone
 - Added 7 EasyBotParser unit tests (no group label / group-card suffix / full-width QQ parens / blank content / broadcast name / angle brackets not at line start / over-long name)
 
+**修复：装了 ChatImage 后，聊天里的图片在气泡中不显示（三端同步）**
+- ChatImage 用 `@ModifyVariable` 直接改写 `ChatHud.addMessage` 的组件参数：消息里的 `[[CICode,url=...]]` 被替换成它自己的组件（文本变占位、URL 藏进自定义 `show_chatimage` hover，value 是 `ChatImageCode` 对象）。e33chat 捕获时括号码已经没了，而 `BracketCodec` 的 hover 取值只认 JSON / String 两种，`ChatImageCode` 对象取不出 URL → 气泡里没有图
+- 现在 hover value 不是 JSON/String 时，会按 `ChatImageCode.toString()`（就是原始的 `[[CICode,url=...]]`）把 URL 解析回来；零反射、不依赖 ChatImage 的类
+- hover action 识别加兜底：`toString()` 不是 action id 时，改看 value 的类名是否含 `chatimage`
+- 捕获路径补一刀：行文本已不含原始内容、但原始内容里能解析出图片时，保留服务端原始内容，避免气泡重复显示发送者名
+- 原版聊天栏不受影响：装了 ChatImage 就由 ChatImage 自己画图，没装则沿用 `[图片]` 占位
+- 新增 3 例 BracketCodecUrlTest（ChatImageCode 字符串还原 / 裸 URL 透传 / 非 URL 拒绝）
+
+**Fixed: images no longer render in bubbles when ChatImage is installed (all three builds)**
+- ChatImage rewrites the `ChatHud.addMessage` component argument via `@ModifyVariable`: the `[[CICode,url=...]]` in a message is replaced by its own component (placeholder text, the URL hidden inside a custom `show_chatimage` hover whose value is a `ChatImageCode` object). By the time e33chat captured the line the bracket was gone, and `BracketCodec` only understood JSON / String hover values — so the URL was unreachable and the bubble showed no image
+- When the hover value is neither JSON nor a String, the URL is now parsed back out of `ChatImageCode.toString()` (which is the original `[[CICode,url=...]]`); no reflection, no dependency on ChatImage classes
+- Hover-action detection gained a fallback: when `toString()` is not the action id, the payload's class name is checked for `chatimage`
+- Capture path hardened: when the final line no longer contains the raw content but an image can still be parsed out of it, the pristine server-sent content is kept so the bubble does not repeat the sender name
+- The vanilla surface is untouched: with ChatImage installed ChatImage still draws its own image, without it the `[图片]` placeholder remains
+- Added 3 BracketCodecUrlTest cases (ChatImageCode string recovery / bare URL passthrough / non-URL rejection)
+
 
 ## v2.4.6
 
