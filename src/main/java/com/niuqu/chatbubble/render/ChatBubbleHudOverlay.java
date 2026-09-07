@@ -36,6 +36,10 @@ public class ChatBubbleHudOverlay {
     public static void render(GuiGraphics g) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options == null) return;
+        // F1 hides through vanilla hideGui (Gui.render is skipped entirely).
+        // F3 does not toggle hideGui, so mirror the same "no E33Chat HUD while
+        // the debug screen is open" behavior here.
+        if (mc.options.renderDebug) return;
 
         g.pose().pushPose();
         g.pose().translate(0, 0, 300);
@@ -51,8 +55,8 @@ public class ChatBubbleHudOverlay {
 
         String keyName = mc.options.keyChat.getTranslatedKeyMessage().getString();
         int screenH = mc.getWindow().getGuiScaledHeight();
-        int x = 3;
-        int iconY = screenH - ICON_S - 20;
+        int x = ChatBubbleConfig.HUD_ICON_X.get();
+        int iconY = screenH - ICON_S - ChatBubbleConfig.HUD_ICON_Y.get();
         int textY = iconY + ICON_S + 1;
 
         // Chat bubble icon (hidden if hide_chat_icon enabled)
@@ -81,8 +85,8 @@ public class ChatBubbleHudOverlay {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen != null) return false;
         int screenH = mc.getWindow().getGuiScaledHeight();
-        int iconY = screenH - ICON_S - 20;
-        return mx >= 3 && mx <= 3 + ICON_S && my >= iconY && my <= iconY + ICON_S + mc.font.lineHeight + 2;
+        int iconY = screenH - ICON_S - ChatBubbleConfig.HUD_ICON_Y.get();
+        return mx >= ChatBubbleConfig.HUD_ICON_X.get() && mx <= ChatBubbleConfig.HUD_ICON_X.get() + ICON_S && my >= iconY && my <= iconY + ICON_S + mc.font.lineHeight + 2;
     }
 
     private static void drawIcon(GuiGraphics g, int x, int y) {

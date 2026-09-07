@@ -25,6 +25,8 @@ import net.minecraftforge.common.ForgeConfigSpec;
 
 public class ChatBubbleConfigScreen extends Screen {
     private final Screen lastScreen;
+    /** Original hideGui state, restored when this translucent screen is closed. */
+    private final boolean prevHideGui;
 
     private ChatBubbleTheme.Colors c() {
         return ChatBubbleTheme.DARK.colors();
@@ -188,7 +190,9 @@ public class ChatBubbleConfigScreen extends Screen {
     private static final List<SectionDef> HUD_SECTIONS = List.of(
         SectionDef.of("e33chat.config.section.icon",
             OptionDef.bool("e33chat.config.red_dot", ChatBubbleConfig.RED_DOT_ENABLED),
-            OptionDef.bool("e33chat.config.hide_chat_icon", ChatBubbleConfig.HIDE_CHAT_ICON))
+            OptionDef.bool("e33chat.config.hide_chat_icon", ChatBubbleConfig.HIDE_CHAT_ICON),
+            OptionDef.intBox("e33chat.config.hud_icon_x", ChatBubbleConfig.HUD_ICON_X, 0, 400, 3),
+            OptionDef.intBox("e33chat.config.hud_icon_y", ChatBubbleConfig.HUD_ICON_Y, 0, 400, 3))
     );
 
     private static final List<SectionDef> NOTIFY_SECTIONS = List.of(
@@ -325,6 +329,7 @@ public class ChatBubbleConfigScreen extends Screen {
     public ChatBubbleConfigScreen(Screen lastScreen) {
         super(Component.translatable("e33chat.config.title"));
         this.lastScreen = lastScreen;
+        this.prevHideGui = minecraft.options.hideGui;
         snapshotAll();
     }
 
@@ -339,6 +344,10 @@ public class ChatBubbleConfigScreen extends Screen {
 
     @Override
     protected void init() {
+        // This screen's background is translucent (world visible through it), but
+        // vanilla still renders the HUD (hotbar/effects/chat) behind an open screen
+        // in 1.20.1. Hide the HUD while this screen is open; restore in removed().
+        minecraft.options.hideGui = true;
         buildCats();
         scrollWidgets.clear();
 
@@ -929,6 +938,12 @@ public class ChatBubbleConfigScreen extends Screen {
     private void doExit() {
         revertAll();
         minecraft.setScreen(lastScreen);
+    }
+
+    @Override
+    public void removed() {
+        minecraft.options.hideGui = prevHideGui;
+        super.removed();
     }
 
     @Override
