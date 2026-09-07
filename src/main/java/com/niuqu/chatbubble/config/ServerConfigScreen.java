@@ -41,6 +41,8 @@ import java.util.Objects;
  */
 public class ServerConfigScreen extends Screen {
     private final Screen lastScreen;
+    /** Original hideGui state, restored when this translucent screen is closed. */
+    private final boolean prevHideGui;
 
     // 几何常量：与 ChatBubbleConfigScreen 完全一致
     private static final int ROW_H = 32;
@@ -122,6 +124,7 @@ public class ServerConfigScreen extends Screen {
                               List<String> chat, List<String> whisper) {
         super(Component.translatable("e33chat.server.title"));
         this.lastScreen = lastScreen;
+        this.prevHideGui = minecraft.options.hideGui;
         initUseTpa = useTpa;
         initHistory = history;
         initDebug = debug;
@@ -422,6 +425,12 @@ public class ServerConfigScreen extends Screen {
     }
 
     @Override
+    public void removed() {
+        minecraft.options.hideGui = prevHideGui;
+        super.removed();
+    }
+
+    @Override
     public void onClose() {
         if (changed()) {
             minecraft.setScreen(new ConfirmScreen(confirmed -> {
@@ -450,6 +459,7 @@ public class ServerConfigScreen extends Screen {
 
     @Override
     protected void init() {
+        minecraft.options.hideGui = true;
         buildRows();
         rightPane.setOffset(Mth.clamp(rightPane.offset(), 0, calcMaxScroll()));
         treePane.setOffset(Mth.clamp(treePane.offset(), 0, calcTreeMaxScroll()));

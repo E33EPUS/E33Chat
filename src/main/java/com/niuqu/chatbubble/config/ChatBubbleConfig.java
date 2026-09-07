@@ -17,6 +17,8 @@ public class ChatBubbleConfig {
     public static final ModConfigSpec.BooleanValue ENABLED;
     public static final ModConfigSpec.BooleanValue RED_DOT_ENABLED;
     public static final ModConfigSpec.BooleanValue HIDE_CHAT_ICON;
+    public static final ModConfigSpec.IntValue HUD_ICON_X;
+    public static final ModConfigSpec.IntValue HUD_ICON_Y;
     public static final ModConfigSpec.BooleanValue ANIMATION_ENABLED;
     public static final ModConfigSpec.BooleanValue SYSTEM_CHAT_AS_BUBBLE;
     public static final ModConfigSpec.BooleanValue ANTI_SPAM;
@@ -97,6 +99,16 @@ public class ChatBubbleConfig {
             .comment("Hide the HUD chat icon (including the red dot)")
             .translation("e33chat.config.hide_chat_icon")
             .define("hide_chat_icon", false);
+
+        HUD_ICON_X = builder
+            .comment("HUD chat icon horizontal offset from the left edge in px")
+            .translation("e33chat.config.hud_icon_x")
+            .defineInRange("hud_icon_x", 3, 0, 400);
+
+        HUD_ICON_Y = builder
+            .comment("HUD chat icon distance from the bottom edge in px")
+            .translation("e33chat.config.hud_icon_y")
+            .defineInRange("hud_icon_y", 20, 0, 400);
 
         ANIMATION_ENABLED = builder
             .comment("Chat screen open/close animation")

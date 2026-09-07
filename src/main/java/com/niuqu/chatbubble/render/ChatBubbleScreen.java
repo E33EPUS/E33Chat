@@ -113,6 +113,8 @@ public class ChatBubbleScreen extends ChatScreen {
     // Caches resolved head skins per player uuid so the SkinManager isn't hit every frame
     private CommandSuggestions suggestions;
     private final String initialText;
+    /** Original hideGui state, restored when this translucent screen is closed. */
+    private final boolean prevHideGui;
     private String historyBuffer = "";
     private int historyPos = -1;
     private int scrollOffset;
@@ -249,10 +251,15 @@ public class ChatBubbleScreen extends ChatScreen {
     public ChatBubbleScreen(String initialText) {
         super("");
         this.initialText = initialText;
+        this.prevHideGui = minecraft.options.hideGui;
     }
 
     @Override
     protected void init() {
+        // Translucent panel: hide the vanilla HUD (hotbar/effects/chat and
+        // HUD-drawn third-party tooltips such as Jade) behind it while open.
+        // Restored in removed() once the close animation has finished.
+        minecraft.options.hideGui = true;
         ChatMessageStore.setScreenOpen(true);
         historyPos = minecraft.gui.getChat().getRecentChat().size();
         animStart = net.minecraft.Util.getMillis();
@@ -2535,6 +2542,7 @@ public class ChatBubbleScreen extends ChatScreen {
     public void removed() {
         if (ChatBubbleConfig.PRESERVE_INPUT.get()) savedInput = input.getValue();
         ChatMessageStore.setScreenOpen(false);
+        minecraft.options.hideGui = prevHideGui;
         minecraft.gui.getChat().resetChatScroll();
     }
 
