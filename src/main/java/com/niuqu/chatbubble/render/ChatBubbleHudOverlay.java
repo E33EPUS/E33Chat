@@ -40,6 +40,10 @@ public class ChatBubbleHudOverlay {
     public static void render(DrawContext g) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.options == null) return;
+        // F1 hides through vanilla hudHidden (InGameHud is skipped entirely).
+        // F3 does not toggle hudHidden, so mirror the same "no E33Chat HUD while
+        // the debug screen is open" behavior here.
+        if (mc.inGameHud.getDebugHud().shouldShowDebugHud()) return;
 
         g.getMatrices().push();
         g.getMatrices().translate(0, 0, 300);
@@ -55,8 +59,8 @@ public class ChatBubbleHudOverlay {
 
         String keyName = mc.options.chatKey.getBoundKeyLocalizedText().getString();
         int screenH = mc.getWindow().getScaledHeight();
-        int x = 3;
-        int iconY = screenH - ICON_S - 20;
+        int x = cfg().hudIconX();
+        int iconY = screenH - ICON_S - cfg().hudIconY();
         int textY = iconY + ICON_S + 1;
 
         if (!cfg().hideChatIcon()) {
@@ -83,6 +87,7 @@ public class ChatBubbleHudOverlay {
     public static void renderBannerForScreen(DrawContext g) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.options == null) return;
+        if (mc.inGameHud.getDebugHud().shouldShowDebugHud()) return;
         if (mc.currentScreen instanceof ChatBubbleScreen) {
             MentionNotificationBanner.INSTANCE.render(g,
                 mc.getWindow().getScaledWidth(),
@@ -95,8 +100,8 @@ public class ChatBubbleHudOverlay {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.currentScreen != null) return false;
         int screenH = mc.getWindow().getScaledHeight();
-        int iconY = screenH - ICON_S - 20;
-        return mx >= 3 && mx <= 3 + ICON_S && my >= iconY && my <= iconY + ICON_S + mc.textRenderer.fontHeight + 2;
+        int iconY = screenH - ICON_S - cfg().hudIconY();
+        return mx >= cfg().hudIconX() && mx <= cfg().hudIconX() + ICON_S && my >= iconY && my <= iconY + ICON_S + mc.textRenderer.fontHeight + 2;
     }
 
 

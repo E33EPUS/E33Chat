@@ -35,6 +35,9 @@ import java.util.Objects;
  */
 public class ServerConfigScreen extends Screen {
     private final Screen lastScreen;
+    /** Original hudHidden state, restored when this translucent screen is closed. */
+    private boolean prevHudHidden;
+    private boolean prevHudHiddenCaptured;
 
     // 几何常量：与客户端配置界面完全一致
     private static final int ROW_H = 32;
@@ -420,6 +423,12 @@ public class ServerConfigScreen extends Screen {
     }
 
     @Override
+    public void removed() {
+        client.options.hudHidden = prevHudHidden;
+        super.removed();
+    }
+
+    @Override
     public void close() {
         if (changed()) {
             client.setScreen(new ConfirmScreen(confirmed -> {
@@ -448,6 +457,11 @@ public class ServerConfigScreen extends Screen {
 
     @Override
     protected void init() {
+        if (!prevHudHiddenCaptured) {
+            prevHudHidden = client.options.hudHidden;
+            prevHudHiddenCaptured = true;
+        }
+        client.options.hudHidden = true;
         buildRows();
         rightPane.setOffset(MathHelper.clamp(rightPane.offset(), 0, calcMaxScroll()));
         treePane.setOffset(MathHelper.clamp(treePane.offset(), 0, calcTreeMaxScroll()));

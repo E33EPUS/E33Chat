@@ -115,6 +115,9 @@ public class ChatBubbleScreen extends ChatScreen {
     public static int getInputX() { return inputX; }
     public static int getInputY() { return inputY; }
     private final String initialText;
+    /** Original hudHidden state, restored when this translucent screen is closed. */
+    private boolean prevHudHidden;
+    private boolean prevHudHiddenCaptured;
     private String historyBuffer = "";
     private int historyPos = -1;
     private int scrollOffset;
@@ -253,6 +256,14 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     protected void init() {
+        // Translucent panel: hide the vanilla HUD (hotbar/effects/chat and
+        // HUD-drawn third-party tooltips such as Jade) behind it while open.
+        // Restored in removed() once the close animation has finished.
+        if (!prevHudHiddenCaptured) {
+            prevHudHidden = client.options.hudHidden;
+            prevHudHiddenCaptured = true;
+        }
+        client.options.hudHidden = true;
         historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
         ChatMessageStore.setScreenOpen(true);
         historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
@@ -3181,6 +3192,7 @@ public class ChatBubbleScreen extends ChatScreen {
     public void removed() {
         if (ChatBubbleClientSetup.config().preserveInput()) savedInput = chatField.getText();
         ChatMessageStore.setScreenOpen(false);
+        client.options.hudHidden = prevHudHidden;
         client.inGameHud.getChatHud().reset();
     }
 

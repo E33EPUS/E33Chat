@@ -26,6 +26,9 @@ import net.minecraft.util.math.MathHelper;
 
 public class ChatBubbleConfigScreen extends Screen {
     private final Screen lastScreen;
+    /** Original hudHidden state, restored when this translucent screen is closed. */
+    private boolean prevHudHidden;
+    private boolean prevHudHiddenCaptured;
 
     private ChatBubbleTheme.Colors c() {
         return ChatBubbleTheme.DARK.colors();
@@ -57,6 +60,7 @@ public class ChatBubbleConfigScreen extends Screen {
     // ---- mutable copies (loadFromConfig → widget edits → saveToConfig) ----
     private ChatBubbleTheme theme;
     private boolean enabled, redDotEnabled, hideChatIcon, animationEnabled;
+    private int hudIconX, hudIconY;
     private boolean systemChatAsBubble;
     private boolean antiSpam, chatHistoryEnabled;
     private boolean receiveImages;
@@ -167,7 +171,7 @@ public class ChatBubbleConfigScreen extends Screen {
 
     private void saveAll() {
         ChatBubbleClientSetup.saveConfig(new ChatBubbleConfig(
-            enabled, theme.name().toLowerCase(), redDotEnabled, hideChatIcon, animationEnabled,
+            enabled, theme.name().toLowerCase(), redDotEnabled, hideChatIcon, hudIconX, hudIconY, animationEnabled,
             systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, panelFullscreen, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
@@ -191,7 +195,9 @@ public class ChatBubbleConfigScreen extends Screen {
         var cfg = ChatBubbleClientSetup.config();
         try { theme = ChatBubbleTheme.valueOf(cfg.theme().toUpperCase()); } catch (Exception e) { theme = ChatBubbleTheme.DARK; }
         enabled = cfg.enabled(); redDotEnabled = cfg.redDotEnabled();
-        hideChatIcon = cfg.hideChatIcon(); animationEnabled = cfg.animationEnabled();
+        hideChatIcon = cfg.hideChatIcon(); hudIconX = cfg.hudIconX() != null ? cfg.hudIconX() : 3;
+        hudIconY = cfg.hudIconY() != null ? cfg.hudIconY() : 20;
+        animationEnabled = cfg.animationEnabled();
         systemChatAsBubble = cfg.systemChatAsBubble(); antiSpam = cfg.antiSpam();
         receiveImages = cfg.receiveImages() != null && cfg.receiveImages();
         uploadUrl = cfg.uploadUrl() != null ? cfg.uploadUrl() : "";
@@ -421,7 +427,9 @@ public class ChatBubbleConfigScreen extends Screen {
     private final List<SectionDef> HUD_SECTIONS = List.of(
         SectionDef.of("e33chat.config.section.icon",
             OptionDef.bool("e33chat.config.red_dot", Ref.b(() -> redDotEnabled, v -> redDotEnabled = v)),
-            OptionDef.bool("e33chat.config.hide_chat_icon", Ref.b(() -> hideChatIcon, v -> hideChatIcon = v)))
+            OptionDef.bool("e33chat.config.hide_chat_icon", Ref.b(() -> hideChatIcon, v -> hideChatIcon = v)),
+            OptionDef.intBox("e33chat.config.hud_icon_x", Ref.i(() -> hudIconX, v -> hudIconX = v), 0, 400, 3),
+            OptionDef.intBox("e33chat.config.hud_icon_y", Ref.i(() -> hudIconY, v -> hudIconY = v), 0, 400, 3))
     );
 
     private final List<SectionDef> NOTIFY_SECTIONS = List.of(
@@ -577,6 +585,13 @@ public class ChatBubbleConfigScreen extends Screen {
 
     @Override
     protected void init() {
+        // Translucent background: vanilla still renders the HUD behind an open
+        // screen, so hide it while this config screen is open; restore later.
+        if (!prevHudHiddenCaptured) {
+            prevHudHidden = client.options.hudHidden;
+            prevHudHiddenCaptured = true;
+        }
+        client.options.hudHidden = true;
         buildCats();
         scrollWidgets.clear();
 
@@ -1059,6 +1074,12 @@ public class ChatBubbleConfigScreen extends Screen {
     private void doExit() {
         revertAll();
         client.setScreen(lastScreen);
+    }
+
+    @Override
+    public void removed() {
+        client.options.hudHidden = prevHudHidden;
+        super.removed();
     }
 
     @Override

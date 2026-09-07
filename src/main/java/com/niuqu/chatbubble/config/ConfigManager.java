@@ -41,7 +41,10 @@ public final class ConfigManager {
         ChatBubbleConfig d = ChatBubbleConfig.defaults();
         return new ChatBubbleConfig(
             c.enabled(), c.theme() != null ? c.theme() : d.theme(),
-            c.redDotEnabled(), c.hideChatIcon(), c.animationEnabled(),
+            c.redDotEnabled(), c.hideChatIcon(),
+            c.hudIconX() != null ? c.hudIconX() : d.hudIconX(),
+            c.hudIconY() != null ? c.hudIconY() : d.hudIconY(),
+            c.animationEnabled(),
             c.systemChatAsBubble(),
             c.antiSpam(), c.chatHistoryEnabled(),
             c.historyRetentionDays(), c.timeSeparatorMinutes(),

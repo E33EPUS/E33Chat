@@ -23,7 +23,7 @@ class ConfigManagerTest {
             .withTheme("dark"); // use a with-method to mutate through the record
         // Build a config with explicit zero values via the full constructor.
         c = new ChatBubbleConfig(
-            true, "dark", true, false, true, false, true,
+            true, "dark", true, false, 0, 0, true, false, true,
             false, 0, 5, 1000, false, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
             false, false, true, false, true, false,
@@ -42,6 +42,8 @@ class ConfigManagerTest {
         assertEquals(0, loaded.bannerCornerRadius(), "bannerCornerRadius 0 (square) must survive");
         assertEquals(0, loaded.mentionBannerDuration(), "mentionBannerDuration 0 must survive");
         assertEquals(0, loaded.bannerOpacity(), "bannerOpacity 0 (invisible) must survive");
+        assertEquals(0, loaded.hudIconX(), "hudIconX 0 must survive");
+        assertEquals(0, loaded.hudIconY(), "hudIconY 0 must survive");
     }
 
     @Test
@@ -58,6 +60,8 @@ class ConfigManagerTest {
         assertEquals(4, loaded.bannerCornerRadius(), "missing corner radius falls back to default");
         assertEquals(4, loaded.mentionBannerDuration(), "missing duration falls back to default");
         assertFalse(loaded.closeChatOnSend(), "missing close_chat_on_send falls back to default (off)");
+        assertEquals(3, loaded.hudIconX(), "missing hud_icon_x falls back to default");
+        assertEquals(20, loaded.hudIconY(), "missing hud_icon_y falls back to default");
         assertEquals(100, loaded.bannerOpacity(), "missing banner opacity falls back to default 100");
         assertEquals(3, loaded.bannerMaxStack(), "missing banner max stack falls back to default 3");
     }

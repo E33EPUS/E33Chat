@@ -8,6 +8,8 @@ public record ChatBubbleConfig(
     String theme,
     boolean redDotEnabled,
     boolean hideChatIcon,
+    @SerializedName("hud_icon_x") Integer hudIconX,
+    @SerializedName("hud_icon_y") Integer hudIconY,
     boolean animationEnabled,
     boolean systemChatAsBubble,
     boolean antiSpam,
@@ -67,7 +69,7 @@ public record ChatBubbleConfig(
 ) {
     public static ChatBubbleConfig defaults() {
         return new ChatBubbleConfig(
-            true, "dark", true, false, true,
+            true, "dark", true, false, 3, 20, true,
             false, true,
             false, 0, 5, 1000, false, 4,
             "#1E90FF", "#4A4A4A", "#FFFFFF", "#FFFFFF",
@@ -94,7 +96,7 @@ public record ChatBubbleConfig(
     }
 
     public ChatBubbleConfig withTheme(String theme) {
-        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
+        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, hudIconX, hudIconY, animationEnabled,
             systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, panelFullscreen, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
@@ -106,7 +108,7 @@ public record ChatBubbleConfig(
     }
 
     public ChatBubbleConfig withQuickChatPhrases(List<String> phrases) {
-        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
+        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, hudIconX, hudIconY, animationEnabled,
             systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, panelFullscreen, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
@@ -118,7 +120,7 @@ public record ChatBubbleConfig(
     }
 
     public ChatBubbleConfig withSidebarHidePatterns(List<String> patterns) {
-        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
+        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, hudIconX, hudIconY, animationEnabled,
             systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, panelFullscreen, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,
@@ -130,7 +132,7 @@ public record ChatBubbleConfig(
     }
 
     public ChatBubbleConfig withBlockedPlayers(List<String> blocked) {
-        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, animationEnabled,
+        return new ChatBubbleConfig(enabled, theme, redDotEnabled, hideChatIcon, hudIconX, hudIconY, animationEnabled,
             systemChatAsBubble, antiSpam,
             chatHistoryEnabled, historyRetentionDays, timeSeparatorMinutes,
             panelWidth, panelFullscreen, bubbleCornerRadius, ownBubbleColor, otherBubbleColor, ownTextColor, otherTextColor,

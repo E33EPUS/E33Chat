@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.4.9
+
+**修复：F3 调试屏开启时聊天图标 / 横幅不再残留（三端同步，issue #16）**
+- F1 隐藏走的是原版 hideGui：整个 HUD 渲染被跳过，所以 E33Chat 图标会跟着消失；F3 并不会设置 hideGui，此前左下角聊天图标、`[T]` 键位提示和通知横幅仍会盖在调试信息上
+- 现在 F3 调试屏开启时，E33Chat 的 HUD 元素（聊天图标 / 红点 / 键位文字 / 通知横幅）整组隐藏，与 F1 行为一致
+
+**Fixed: the chat icon / banner no longer linger when the F3 debug screen is open (all three loaders, issue #16)**
+- F1 hiding is vanilla hideGui: the whole HUD render pass is skipped, so the E33Chat icon already disappeared. F3 does not toggle hideGui, so the bottom-left chat icon, the `[T]` key hint and the notification banner used to remain on top of the debug text
+- When the F3 debug screen is open, all E33Chat HUD elements (chat icon / red dot / key text / notification banner) are now hidden together, matching F1
+
+**改进：E33Chat 半透明界面打开时隐藏原版 HUD（三端同步，issue #16）**
+- 1.20.1 原版在有 Screen 打开时仍会渲染 HUD（快捷栏、药水效果、原版聊天等），而 E33Chat 的设置界面 / 服务端设置 / 聊天面板背景是半透明的，这些 HUD 元素会透过半透明层显示出来
+- 现在打开 E33Chat 配置屏、服务端配置屏或聊天窗口时，会临时隐藏原版 HUD（含 HUD 层第三方提示框，如 Jade），关闭后自动还原；半透明“能看到世界”的设计保持不变
+- 效果：设置界面底部不再残留快捷栏、右上角不再残留药水“效果”；聊天面板打开时不再与 Jade 等 HUD 提示框重叠。若指代的是 Jade 的 3D 方块描边（世界空间），HUD 标志管不到它，请把面板透明度调高或改不透明
+
+**Improved: hide the vanilla HUD while E33Chat translucent screens are open (all three loaders, issue #16)**
+- Vanilla 1.20.1 still renders the HUD (hotbar, status effects, vanilla chat, etc.) while a Screen is open, and E33Chat's config / server-config / chat-panel backgrounds are translucent — so those HUD elements showed through
+- While an E33Chat config screen, server config screen, or chat window is open, the vanilla HUD (including HUD-layer third-party tooltips such as Jade) is now hidden temporarily and restored on close; the translucent “world visible through the panel” look is preserved
+- Result: the config screen no longer keeps the hotbar at the bottom or the potion-effect icons at the top right, and the chat panel no longer overlaps HUD-drawn tooltips such as Jade. If “Jade highlight” means its 3D block outline (world-space), the HUD flag cannot remove it; raise the panel opacity / make it opaque instead
+
+**新增：HUD 聊天图标可自定义位置（三端同步，issue #16）**
+- 新增 `hud_icon_x`（默认 3px，距屏幕左边缘）与 `hud_icon_y`（默认 20px，距屏幕底边缘）两项配置
+- HUD 配置页“聊天图标”分区新增对应输入行；图标、红点、键位文字与“点图标开聊天”的命中区域全部跟随新位置
+- 旧配置文件缺少这两个键时自动按默认值补齐
+
+**Added: customisable HUD chat icon position (all three loaders, issue #16)**
+- New `hud_icon_x` (default 3px, from the left edge) and `hud_icon_y` (default 20px, from the bottom edge) settings
+- The HUD config screen's “Chat Icon” section gained matching input rows; the icon, red dot, key text and the click-to-open-chat hit region all follow the new position
+- Old config files without these keys automatically fall back to the defaults
+
 ## v2.4.8
 
 
