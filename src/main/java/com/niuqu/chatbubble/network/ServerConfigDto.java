@@ -6,12 +6,14 @@ import java.util.List;
 
 /**
  * 共享 DTO：ServerConfigScreenPayload 与 ServerConfigSavePayload 的
- * 8 字段载荷（6 boolean + 2 List&lt;String&gt;）。
+ * 9 字段载荷（7 boolean + 2 List&lt;String&gt;）。
  *
- * 字段顺序即网络字节序契约（写序 = 读序），不得改动；payload ID 不变。
+ * 字段顺序即网络字节序契约（写序 = 读序），不得改动既有字段位置；2.4.10 在
+ * easyBotCompat 之后追加 groupsEnabled。payload ID 不变。
  */
 public record ServerConfigDto(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                               boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
+                              boolean groupsEnabled,
                               List<String> chatTemplates, List<String> whisperTemplates) {
     public static void encode(ServerConfigDto dto, PacketByteBuf buf) {
         buf.writeBoolean(dto.useTpa);
@@ -20,6 +22,7 @@ public record ServerConfigDto(boolean useTpa, boolean historyEnabled, boolean te
         buf.writeBoolean(dto.mediaEnabled);
         buf.writeBoolean(dto.mediaAutoClean);
         buf.writeBoolean(dto.easyBotCompat);
+        buf.writeBoolean(dto.groupsEnabled);
         ConfigSyncV2Payload.writeList(buf, dto.chatTemplates);
         ConfigSyncV2Payload.writeList(buf, dto.whisperTemplates);
     }
@@ -31,8 +34,9 @@ public record ServerConfigDto(boolean useTpa, boolean historyEnabled, boolean te
         boolean media = buf.readBoolean();
         boolean autoClean = buf.readBoolean();
         boolean easyBot = buf.readBoolean();
+        boolean groups = buf.readBoolean();
         List<String> chat = ConfigSyncV2Payload.readList(buf);
         List<String> whisper = ConfigSyncV2Payload.readList(buf);
-        return new ServerConfigDto(useTpa, history, debug, media, autoClean, easyBot, chat, whisper);
+        return new ServerConfigDto(useTpa, history, debug, media, autoClean, easyBot, groups, chat, whisper);
     }
 }

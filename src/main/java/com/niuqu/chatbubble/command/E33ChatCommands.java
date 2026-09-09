@@ -72,8 +72,98 @@ public class E33ChatCommands {
                 .then(net.minecraft.server.command.CommandManager.literal("gui")
                     .requires(s -> s.hasPermissionLevel(2))
                     .executes(ctx -> openServerGui(ctx.getSource())))
-                .then(tpl));
+                .then(tpl)
+                .then(groupCommands()));
         });
+    }
+
+    /** Player-facing group management + the client's silent say entry (2.4.10). */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> groupCommands() {
+        var cm = net.minecraft.server.command.CommandManager.literal("group");
+        cm.then(net.minecraft.server.command.CommandManager.literal("list")
+            .executes(ctx -> groupList(ctx.getSource())));
+        cm.then(net.minecraft.server.command.CommandManager.literal("create")
+            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
+                .executes(ctx -> groupCreate(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
+        cm.then(net.minecraft.server.command.CommandManager.literal("join")
+            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
+                .executes(ctx -> groupJoin(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
+        cm.then(net.minecraft.server.command.CommandManager.literal("leave")
+            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
+                .executes(ctx -> groupLeave(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
+        cm.then(net.minecraft.server.command.CommandManager.literal("delete")
+            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
+                .executes(ctx -> groupDelete(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
+        cm.then(net.minecraft.server.command.CommandManager.literal("msg")
+            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
+                .then(net.minecraft.server.command.CommandManager.argument("text", StringArgumentType.greedyString())
+                    .executes(ctx -> groupSay(ctx.getSource(),
+                        StringArgumentType.getString(ctx, "name"),
+                        StringArgumentType.getString(ctx, "text"))))));
+        return cm;
+    }
+
+    private static net.minecraft.server.network.ServerPlayerEntity playerOrNull(ServerCommandSource src) {
+        return src.getPlayer();
+    }
+
+    private static int groupList(ServerCommandSource src) {
+        var p = src.getPlayer();
+        if (p == null) {
+            src.sendError(Text.translatable("e33chat.server.console_only"));
+            return 0;
+        }
+        var groups = com.niuqu.chatbubble.server.GroupManager.snapshot();
+        if (groups.isEmpty()) {
+            src.sendFeedback(() -> Text.translatable("e33chat.group.list_empty"), false);
+            return 1;
+        }
+        final int size = groups.size();
+        src.sendFeedback(() -> Text.translatable("e33chat.group.list_header", size), false);
+        for (var e : groups.entrySet()) {
+            String gname = e.getKey();
+            boolean member = com.niuqu.chatbubble.server.GroupManager.isMember(gname, p.getUuid());
+            int count = e.getValue().members.size();
+            src.sendFeedback(() -> Text.translatable(member
+                ? "e33chat.group.list_entry_joined" : "e33chat.group.list_entry",
+                gname, count), false);
+        }
+        return 1;
+    }
+
+    private static int groupCreate(ServerCommandSource src, String name) {
+        var p = playerOrNull(src);
+        if (p == null) { src.sendError(Text.translatable("e33chat.server.console_only")); return 0; }
+        com.niuqu.chatbubble.server.GroupManager.create(p, name);
+        return 1;
+    }
+
+    private static int groupJoin(ServerCommandSource src, String name) {
+        var p = playerOrNull(src);
+        if (p == null) { src.sendError(Text.translatable("e33chat.server.console_only")); return 0; }
+        com.niuqu.chatbubble.server.GroupManager.join(p, name);
+        return 1;
+    }
+
+    private static int groupLeave(ServerCommandSource src, String name) {
+        var p = playerOrNull(src);
+        if (p == null) { src.sendError(Text.translatable("e33chat.server.console_only")); return 0; }
+        com.niuqu.chatbubble.server.GroupManager.leave(p, name);
+        return 1;
+    }
+
+    private static int groupDelete(ServerCommandSource src, String name) {
+        var p = playerOrNull(src);
+        if (p == null) { src.sendError(Text.translatable("e33chat.server.console_only")); return 0; }
+        com.niuqu.chatbubble.server.GroupManager.delete(p, name);
+        return 1;
+    }
+
+    private static int groupSay(ServerCommandSource src, String name, String text) {
+        var p = playerOrNull(src);
+        if (p == null) { src.sendError(Text.translatable("e33chat.server.console_only")); return 0; }
+        com.niuqu.chatbubble.server.GroupManager.say(p, name, text);
+        return 1;
     }
 
     // Opens the server-config GUI on the executing player's client (S2C snapshot)
@@ -86,7 +176,7 @@ public class E33ChatCommands {
         ServerPlayNetworking.send(player,
             new ServerConfigScreenPayload(ChatBubbleMod.useTpa(), ChatBubbleMod.historyEnabled(),
                 ChatBubbleMod.templateDebug(), ChatBubbleMod.mediaEnabled(), ChatBubbleMod.mediaAutoClean(),
-                ChatBubbleMod.easyBotCompat(),
+                ChatBubbleMod.easyBotCompat(), ChatBubbleMod.groupsEnabled(),
                 new ArrayList<>(ChatBubbleMod.chatTemplates()),
                 new ArrayList<>(ChatBubbleMod.whisperTemplates())));
         return 1;

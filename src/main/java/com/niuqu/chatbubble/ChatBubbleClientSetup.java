@@ -17,6 +17,7 @@ import com.niuqu.chatbubble.network.MediaCapPayload;
 import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -120,10 +121,26 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
                 MinecraftClient.getInstance().currentScreen,
                 payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
                 payload.mediaEnabled(), payload.mediaAutoClean(), payload.easyBotCompat(),
+                payload.groupsEnabled(),
                 payload.chatTemplates(), payload.whisperTemplates())));
         });
 
         com.niuqu.chatbubble.image.MediaClient.registerReceivers();
+
+        // 2.4.10 group chat: announce the mod on join (server routes group chat
+        // as payloads + pushes the group directory); reset state on disconnect.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            com.niuqu.chatbubble.chat.GroupChannelState.reset();
+            com.niuqu.chatbubble.network.ClientHelloPayload.send();
+        });
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+            com.niuqu.chatbubble.chat.GroupChannelState.reset());
+        ClientPlayNetworking.registerGlobalReceiver(com.niuqu.chatbubble.network.GroupChatPayload.ID, (payload, context) -> {
+            context.client().execute(() -> com.niuqu.chatbubble.network.GroupChatPayload.handleClient(payload));
+        });
+        ClientPlayNetworking.registerGlobalReceiver(com.niuqu.chatbubble.network.GroupListPayload.ID, (payload, context) -> {
+            context.client().execute(() -> com.niuqu.chatbubble.network.GroupListPayload.handleClient(payload));
+        });
         ClientPlayNetworking.registerGlobalReceiver(MediaCapPayload.ID, (payload, context) -> {
             context.client().execute(() -> MediaCapPayload.handle(payload));
         });
@@ -138,6 +155,7 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ImageLoader.tick();
+            com.niuqu.chatbubble.image.AnimatedImageLoader.tick();
             // 纹理全部走 drawTexture(Identifier) 懒加载（getTexture 自动 new ResourceTexture），F3+T 重载后自动重读资源包新 PNG
             if (!config.enabled()) return;
 

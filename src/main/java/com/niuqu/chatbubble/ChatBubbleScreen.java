@@ -131,6 +131,8 @@ public class ChatBubbleScreen extends ChatScreen {
     final ChatEmojiPanel emojiPanel = new ChatEmojiPanel();
     final ChatSettingsMenu settingsMenu = new ChatSettingsMenu();
     final ChatSearchPanel searchPanel = new ChatSearchPanel();
+    final com.niuqu.chatbubble.ui.GroupBrowserPanel groupBrowser = new com.niuqu.chatbubble.ui.GroupBrowserPanel();
+    TextFieldWidget groupCreateInput;
     private TextFieldWidget searchInput;
     private final List<Integer> searchMatches = new ArrayList<>();
     private int searchMatchIdx;
@@ -141,9 +143,9 @@ public class ChatBubbleScreen extends ChatScreen {
     private static boolean sidebarOpen;
 
     // Popup open animation timestamps (opening only; closing stays instant)
-    private long settingsAnimStart, emojiAnimStart, quickAnimStart, searchAnimStart;
+    private long settingsAnimStart, emojiAnimStart, quickAnimStart, searchAnimStart, groupAnimStart;
     // Popup close animation timestamps (0 = not closing; D07-6)
-    private long settingsCloseStart, emojiCloseStart, quickCloseStart, searchCloseStart;
+    private long settingsCloseStart, emojiCloseStart, quickCloseStart, searchCloseStart, groupCloseStart;
     private String whisperPartner;
     private int sidebarScrollOffset;
     private int sidebarMaxScroll;
@@ -342,6 +344,15 @@ public class ChatBubbleScreen extends ChatScreen {
         searchInput.setChangedListener(this::onSearchEdited);
         searchInput.setFocusUnlocked(true);
         addDrawableChild(searchInput);
+
+        groupCreateInput = new TextFieldWidget(textRenderer, 0, 0, 120, 12, Text.translatable("e33chat.group.create_placeholder"));
+        groupCreateInput.setMaxLength(12);
+        groupCreateInput.setDrawsBackground(false);
+        groupCreateInput.setEditableColor(editColor);
+        groupCreateInput.setUneditableColor(c().textMuted());
+        groupCreateInput.setVisible(false);
+        groupCreateInput.setFocusUnlocked(true);
+        addDrawableChild(groupCreateInput);
 
         setFocused(chatField);
         // The chat field's initial text is set before setChangedListener binds,
@@ -811,6 +822,7 @@ public class ChatBubbleScreen extends ChatScreen {
             return true;
         }
         if (searchPanel.visible && keyCode == 256) { closeSearchPanel(); return true; }
+        if (groupBrowser.visible && keyCode == 256) { closeGroupBrowser(); return true; }
 
         if (searchPanel.visible && !searchMatches.isEmpty()) {
             if (keyCode == 265) {
@@ -847,6 +859,15 @@ public class ChatBubbleScreen extends ChatScreen {
         if (commandSuggestions != null && commandSuggestions.keyPressed(keyCode, scanCode, modifiers))
             return true;
         if (keyCode == 256) { onClose(); return true; }
+        if (groupCreateInput != null && groupCreateInput.isFocused() && (keyCode == 257 || keyCode == 335)) {
+            String name = groupCreateInput.getText().trim();
+            if (!name.isEmpty()) {
+                groupCreateInput.setText("");
+                com.niuqu.chatbubble.network.GroupActionPayload.send(
+                    com.niuqu.chatbubble.network.GroupActionPayload.CREATE, name);
+            }
+            return true;
+        }
         if (quickChatInput.isFocused() && (keyCode == 257 || keyCode == 335)) {
             String text = quickChatInput.getText().trim();
             if (!text.isEmpty()) {
@@ -1128,6 +1149,25 @@ public class ChatBubbleScreen extends ChatScreen {
                 }
                 closeSearchPanel(); return true;
             }
+            if (groupBrowser.visible) {
+                if (groupBrowser.isClickOnPanel(mouseX, mouseY)) {
+                    int act = groupBrowser.handleClick(mouseX, mouseY, textRenderer, panelX, panelW, barTop, groupCreateInput);
+                    if (act == com.niuqu.chatbubble.ui.GroupBrowserPanel.ACT_JOIN) {
+                        com.niuqu.chatbubble.network.GroupActionPayload.send(
+                            com.niuqu.chatbubble.network.GroupActionPayload.JOIN, groupBrowser.actionGroup);
+                        com.niuqu.chatbubble.chat.GroupChannelState.setActive(groupBrowser.actionGroup);
+                        closeGroupBrowser();
+                    } else if (act == com.niuqu.chatbubble.ui.GroupBrowserPanel.ACT_LEAVE) {
+                        com.niuqu.chatbubble.network.GroupActionPayload.send(
+                            com.niuqu.chatbubble.network.GroupActionPayload.LEAVE, groupBrowser.actionGroup);
+                    } else if (act == com.niuqu.chatbubble.ui.GroupBrowserPanel.ACT_CREATE) {
+                        com.niuqu.chatbubble.network.GroupActionPayload.send(
+                            com.niuqu.chatbubble.network.GroupActionPayload.CREATE, groupBrowser.actionGroup);
+                    }
+                    return true;
+                }
+                closeGroupBrowser(); return true;
+            }
             if (mouseY >= barTop) {
                 if (handleIconClick((int) mouseX, (int) mouseY)) return true;
             }
@@ -1174,6 +1214,25 @@ public class ChatBubbleScreen extends ChatScreen {
                     return true;
                 }
                 handleTextClick(style); return true;
+            }
+        }
+
+        // 2.4.10: 群组页签点击（弹层打开时不吃页签点击）
+        if (button == 0 && !groupBrowser.visible) {
+            String hitTab = hitTestTabStrip(mouseX, mouseY);
+            if (hitTab != null) {
+                if (hitTab.equals("+")) {
+                    if (settingsMenu.visible) beginPopupClose(s -> settingsCloseStart = s, () -> settingsMenu.visible = false);
+                    if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
+                    if (searchPanel.visible) closeSearchPanel();
+                    groupBrowser.visible = true;
+                    groupAnimStart = Util.getMeasuringTimeMs();
+                    groupCreateInput.setText("");
+                    setFocused(groupCreateInput);
+                } else {
+                    com.niuqu.chatbubble.chat.GroupChannelState.setActive(hitTab);
+                }
+                return true;
             }
         }
 
@@ -1430,7 +1489,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void handleAvatarContextClick(int mx, int my) {
-        int menuH = CTX_ITEM_H * 3 + 4;
+        int menuH = CTX_ITEM_H * 4 + 6;
         int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
         int menuY = contextAvatarY - menuH;
         if (menuY < msgTop) menuY = contextAvatarY + 4;
@@ -1445,8 +1504,11 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatMessageStore.clearUnreadWhisper(name);
                 if (sidebarSearchBox != null) sidebarSearchBox.setText("");
                 setFocused(chatField); scrollToBottom = true;
-            } else if (my >= menuY + CTX_ITEM_H * 2 + 4 && my <= menuY + menuH) {
+            } else if (my >= menuY + CTX_ITEM_H * 2 + 4 && my <= menuY + CTX_ITEM_H * 3 + 4) {
                 toggleBlockedPlayer();
+            } else if (my >= menuY + CTX_ITEM_H * 3 + 6 && my <= menuY + menuH) {
+                // 2.4.10 玩家资料卡：菜单收起后叠加打开（parent 回聊天界面）
+                client.setScreen(new com.niuqu.chatbubble.ui.PlayerProfileScreen(this, name));
             }
         }
         contextAvatarIndex = -1;
@@ -1507,8 +1569,16 @@ public class ChatBubbleScreen extends ChatScreen {
             g.draw();
             BlurRenderer.blurPanel(panelOffset + fillLeft, 0, panelX + panelW - fillLeft, height);
         }
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
-            fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
+        // 2.4.10: 自定义背景图可用时替代默认 PANEL_BG 纹理（不透明度与面板不透明度相乘）
+        com.niuqu.chatbubble.render.PanelBackground.ensureLoaded();
+        if (com.niuqu.chatbubble.render.PanelBackground.available()) {
+            com.niuqu.chatbubble.render.PanelBackground.draw(g, fillLeft, 0,
+                panelX + panelW - fillLeft, height,
+                panelOpacity * ChatBubbleClientSetup.config().panelBgOpacity() / 100f);
+        } else {
+            ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
+                fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
+        }
 
         // 上下栏背景只跟开合动画（fade 终点 1.0 不透明），不乘 PANEL_OPACITY（2.3.7 起永久半透明回归）
         renderTitleBar(g, mouseX, mouseY, getBarAlpha());
@@ -1534,11 +1604,13 @@ public class ChatBubbleScreen extends ChatScreen {
         renderPopupWithAnim(g, emojiAnimStart, emojiCloseStart, a -> () -> emojiPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, ICON_S, PAD, a));
         renderPopupWithAnim(g, quickAnimStart, quickCloseStart, a -> () -> quickChatPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, quickChatInput, a));
         renderPopupWithAnim(g, searchAnimStart, searchCloseStart, a -> () -> searchPanel.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx, a));
+        renderPopupWithAnim(g, groupAnimStart, groupCloseStart, a -> () -> groupBrowser.render(g, mouseX, mouseY, textRenderer, c(), panelX, panelW, barTop, groupCreateInput, a));
         // 输入框 widget 在 z=50 的 children 循环渲染，会被这里 z=100 的不透明面板背景盖住
         // （5bb740e 弹层 z 提升引入）——面板打开时在同 z 重画一次，文字/光标才可见。
         // widget 无背景（drawsBackground=false），只画文字/光标，不遮挡面板内容
         if (quickChatPanel.visible && quickChatInput != null) quickChatInput.render(g, mouseX, mouseY, delta);
         if (searchPanel.visible && searchInput != null) searchInput.render(g, mouseX, mouseY, delta);
+        if (groupBrowser.visible && groupCreateInput != null) groupCreateInput.render(g, mouseX, mouseY, delta);
         g.getMatrices().pop();
 
         g.getMatrices().pop();
@@ -1624,6 +1696,81 @@ public class ChatBubbleScreen extends ChatScreen {
         return mx >= menuX && mx <= menuX + ICON_S && my >= menuY && my <= menuY + ICON_S;
     }
 
+    // ==== 群组页签条（2.4.10）====
+
+    private static final int TAB_H = 16;
+
+    /** 页签显示条件：非私聊视图 + 服务器群组功能在线（GroupListPayload 已到达）+ 非单人。 */
+    private boolean tabsVisible() {
+        return whisperPartner == null
+            && com.niuqu.chatbubble.chat.GroupChannelState.supported()
+            && client.getServer() == null;
+    }
+
+    /** 页签布局：全部 / 世界 / 系统 / 我的群组们 / [+]。返回 {x, w, 标签} 三元组列表。 */
+    private java.util.List<Object[]> tabLayout() {
+        java.util.List<Object[]> tabs = new java.util.ArrayList<>();
+        int[] cx = {panelX + 4};
+        java.util.function.BiConsumer<String, String> add = (label, tab) -> {
+            int w = textRenderer.getWidth(label) + 12;
+            tabs.add(new Object[]{cx[0], w, tab, label});
+            cx[0] += w + 4;
+        };
+        add.accept(Text.translatable("e33chat.group.tab_all").getString(),
+            com.niuqu.chatbubble.chat.GroupChannelState.TAB_ALL);
+        add.accept(Text.translatable("e33chat.group.tab_world").getString(),
+            com.niuqu.chatbubble.chat.GroupChannelState.TAB_WORLD);
+        add.accept(Text.translatable("e33chat.group.tab_system").getString(),
+            com.niuqu.chatbubble.chat.GroupChannelState.TAB_SYSTEM);
+        for (String g : com.niuqu.chatbubble.chat.GroupChannelState.myGroups) add.accept(g, g);
+        tabs.add(new Object[]{cx[0], TAB_H - 2, "+", "+"});
+        return tabs;
+    }
+
+    private void renderTabStrip(DrawContext g, int mouseX, int mouseY, int tabY) {
+        String active = com.niuqu.chatbubble.chat.GroupChannelState.active();
+        float alpha = getAnimProgress();
+        for (Object[] t : tabLayout()) {
+            int tx = (Integer) t[0], tw = (Integer) t[1];
+            String tab = (String) t[2], label = (String) t[3];
+            boolean sel = label.equals("+") ? groupBrowser.visible : tab.equals(active);
+            boolean hov = mouseX >= tx && mouseX <= tx + tw && mouseY >= tabY && mouseY <= tabY + TAB_H;
+            int bg = sel ? c().sidebarItemSelected()
+                : hov ? c().sidebarItemHover() : c().popupBg();
+            g.fill(tx, tabY, tx + tw, tabY + TAB_H,
+                ChatBubbleTheme.alphaBlend(bg, (int) (255 * alpha)));
+            int textY = tabY + (TAB_H - textRenderer.fontHeight) / 2 + 1;
+            int color = ChatBubbleTheme.alphaBlend(
+                sel ? c().textPrimary() : c().textSecondary(), (int) (255 * alpha));
+            if (label.equals("+")) {
+                int cx2 = tx + tw / 2 - textRenderer.getWidth("+") / 2;
+                g.drawText(textRenderer, "+", cx2, textY, color, false);
+            } else {
+                g.drawText(textRenderer, label, tx + 6, textY, color, false);
+            }
+        }
+    }
+
+    /** 命中页签：返回 tab id（TAB_ALL / TAB_* / 群名）或 "+"；未命中返回 null。 */
+    private String hitTestTabStrip(double mouseX, double mouseY) {
+        if (!tabsVisible()) return null;
+        int tabY = msgTop;
+        if (mouseY < tabY || mouseY > tabY + TAB_H) return null;
+        for (Object[] t : tabLayout()) {
+            int tx = (Integer) t[0], tw = (Integer) t[1];
+            if (mouseX >= tx && mouseX <= tx + tw) return (String) t[2];
+        }
+        return null;
+    }
+
+    private void closeGroupBrowser() {
+        beginPopupClose(s -> groupCloseStart = s, () -> {
+            groupBrowser.visible = false;
+            if (groupCreateInput != null) groupCreateInput.setVisible(false);
+        });
+        setFocused(chatField);
+    }
+
     private void renderMessages(DrawContext g, int mouseX, int mouseY) {
         msgHeightCache.clear();
         int imgVersion = ImageLoader.version();
@@ -1638,7 +1785,17 @@ public class ChatBubbleScreen extends ChatScreen {
         if (whisperPartner != null) {
             messages = ChatMessageStore.getWhisperMessages(whisperPartner);
         } else {
-            messages = ChatMessageStore.getPublicMessages();
+            // 2.4.10: 群组页签过滤（页签不可用时 active() 恒为 TAB_ALL → 原样返回）
+            messages = com.niuqu.chatbubble.chat.GroupChannelState.filterMessages(
+                ChatMessageStore.getPublicMessages(),
+                com.niuqu.chatbubble.chat.GroupChannelState.active());
+        }
+
+        // 2.4.10: 群组页签条（占位后移消息视口；无消息也要画，画完再退出）
+        int tabStripH = 0;
+        if (tabsVisible()) {
+            tabStripH = TAB_H + 2;
+            renderTabStrip(g, mouseX, mouseY, msgTop);
         }
         if (messages.isEmpty()) return;
 
@@ -1652,7 +1809,7 @@ public class ChatBubbleScreen extends ChatScreen {
             g.drawText(textRenderer, modeText, panelX + (panelW - modeTW) / 2, indY + 2, c().textPrimary(), false);
         }
 
-        int effectiveMsgTop = msgTop + indicatorH;
+        int effectiveMsgTop = msgTop + indicatorH + tabStripH;
         int effectiveMsgBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
         int areaH = effectiveMsgBottom - effectiveMsgTop;
 
@@ -2051,10 +2208,43 @@ public class ChatBubbleScreen extends ChatScreen {
         return cached;
     }
 
+    /** Animated entry for a URL: extension-gated; content-probe only for the
+     *  extension-less server media transport (e33chat://media/<id>). */
+    private com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url) {
+        var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, null);
+        if (entry != null) return entry;
+        return url != null && url.startsWith("e33chat://media/")
+            ? com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, null)
+            : null;
+    }
+
+    /** Still decoding: the static ImageLoader must not win the race yet, or the
+     *  GIF would freeze on its first frame forever. */
+    private static boolean animatedPending(
+            com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animated) {
+        return animated != null && !animated.ready() && !animated.failed() && !animated.staticImage();
+    }
+
+    /** Current animated texture + logical size, or null to fall back to the static path. */
+    private static com.niuqu.chatbubble.image.AnimatedImageLoader.FrameTex animatedTex(
+            com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animated) {
+        if (animated == null || !animated.ready()) return null;
+        var tex = animated.texture();
+        return tex == null ? null
+            : new com.niuqu.chatbubble.image.AnimatedImageLoader.FrameTex(tex, animated.width(), animated.height());
+    }
+
     /** Height in px for one bubble-less image (state-dependent, panel-clamped, never upscaled). */
     private int imageEdgeHeight(String url) {
         int maxW = Math.max(80, panelW - Appearance.avatarSize() - PAD * 2 - 16);
-        ImageEntry entry = ImageLoader.getOrLoad(url);
+        var animated = animatedEntry(url);
+        if (animated != null && animated.ready() && animated.width() > 0 && animated.height() > 0) {
+            float ratio = Math.min((float) maxW / animated.width(),
+                (float) maxW / animated.height());
+            ratio = Math.min(1f, ratio);
+            return Math.max(1, (int) (animated.height() * ratio));
+        }
+        ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED
                 && entry.width() > 0 && entry.height() > 0) {
             float ratio = Math.min((float) maxW / entry.width(),
@@ -2301,29 +2491,45 @@ public class ChatBubbleScreen extends ChatScreen {
 
         for (var ref : parsed.images()) {
             int w = maxImgW, h = maxImgW;
-            ImageEntry entry = ImageLoader.getOrLoad(ref.url());
-            if (entry != null && entry.state() == ImageEntry.State.LOADED
-                    && entry.width() > 0 && entry.height() > 0) {
-                float ratio = Math.min((float) maxImgW / entry.width(),
-                    (float) maxImgW / entry.height());
-                ratio = Math.min(1f, ratio); // never upscale
-                w = Math.max(1, (int) (entry.width() * ratio));
-                h = Math.max(1, (int) (entry.height() * ratio));
+            var animated = animatedEntry(ref.url());
+            var animatedFrame = animatedTex(animated);
+            if (animatedFrame != null && animatedFrame.width() > 0 && animatedFrame.height() > 0) {
+                float ratio = Math.min((float) maxImgW / animatedFrame.width(),
+                    (float) maxImgW / animatedFrame.height());
+                ratio = Math.min(1f, ratio);
+                w = Math.max(1, (int) (animatedFrame.width() * ratio));
+                h = Math.max(1, (int) (animatedFrame.height() * ratio));
+            } else {
+                ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(ref.url());
+                if (entry != null && entry.state() == ImageEntry.State.LOADED
+                        && entry.width() > 0 && entry.height() > 0) {
+                    float ratio = Math.min((float) maxImgW / entry.width(),
+                        (float) maxImgW / entry.height());
+                    ratio = Math.min(1f, ratio); // never upscale
+                    w = Math.max(1, (int) (entry.width() * ratio));
+                    h = Math.max(1, (int) (entry.height() * ratio));
+                }
             }
             int imgX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - w) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
-            if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
-                g.drawTexture(entry.textureId(), imgX, y, w, h,
-                    0, 0, entry.width(), entry.height(), entry.width(), entry.height());
+            if (animatedFrame != null) {
+                g.drawTexture(animatedFrame.texture(), imgX, y, w, h,
+                    0, 0, animatedFrame.width(), animatedFrame.height(), animatedFrame.width(), animatedFrame.height());
             } else {
-                boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
-                    && entry.failure() != null && entry.failure().contains("rate limited");
-                String txt = limited
-                    ? Text.translatable("e33chat.image.ratelimited").getString()
-                    : entry != null && entry.state() == ImageEntry.State.FAILED
-                        ? Text.translatable("e33chat.image.failed").getString()
-                        : Text.translatable("e33chat.image.loading").getString();
-                g.drawText(textRenderer, txt, imgX, y,
-                    ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c().textSecondary(), (int) (255 * alpha)), false);
+                ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(ref.url());
+                if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
+                    g.drawTexture(entry.textureId(), imgX, y, w, h,
+                        0, 0, entry.width(), entry.height(), entry.width(), entry.height());
+                } else {
+                    boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
+                        && entry.failure() != null && entry.failure().contains("rate limited");
+                    String txt = limited
+                        ? Text.translatable("e33chat.image.ratelimited").getString()
+                        : entry != null && entry.state() == ImageEntry.State.FAILED
+                            ? Text.translatable("e33chat.image.failed").getString()
+                            : Text.translatable("e33chat.image.loading").getString();
+                    g.drawText(textRenderer, txt, imgX, y,
+                        ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c().textSecondary(), (int) (255 * alpha)), false);
+                }
             }
             // Open the URL in the system browser on click; hover shows the URL
             Style st = Style.EMPTY
@@ -2393,29 +2599,44 @@ public class ChatBubbleScreen extends ChatScreen {
         int emoteY = baseY + (showAvatar ? NAME_H + 2 : 2);
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - PAD * 2 - 16));
         int w = maxE, h = maxE;
-        ImageEntry entry = ImageLoader.getOrLoad(ref.url());
-        if (entry != null && entry.state() == ImageEntry.State.LOADED
-                && entry.width() > 0 && entry.height() > 0) {
-            float ratio = Math.min((float) maxE / entry.width(),
-                (float) maxE / entry.height());
+        var animated = animatedEntry(ref.url());
+        var animatedFrame = animatedTex(animated);
+        if (animatedFrame != null && animatedFrame.width() > 0 && animatedFrame.height() > 0) {
+            float ratio = Math.min((float) maxE / animatedFrame.width(), (float) maxE / animatedFrame.height());
             ratio = Math.min(1f, ratio); // never upscale
-            w = Math.max(1, (int) (entry.width() * ratio));
-            h = Math.max(1, (int) (entry.height() * ratio));
+            w = Math.max(1, (int) (animatedFrame.width() * ratio));
+            h = Math.max(1, (int) (animatedFrame.height() * ratio));
+        } else {
+            ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(ref.url());
+            if (entry != null && entry.state() == ImageEntry.State.LOADED
+                    && entry.width() > 0 && entry.height() > 0) {
+                float ratio = Math.min((float) maxE / entry.width(),
+                    (float) maxE / entry.height());
+                ratio = Math.min(1f, ratio); // never upscale
+                w = Math.max(1, (int) (entry.width() * ratio));
+                h = Math.max(1, (int) (entry.height() * ratio));
+            }
         }
         int emoteX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - w) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
-        if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
-            g.drawTexture(entry.textureId(), emoteX, emoteY, w, h,
-                0, 0, entry.width(), entry.height(), entry.width(), entry.height());
+        if (animatedFrame != null) {
+            g.drawTexture(animatedFrame.texture(), emoteX, emoteY, w, h,
+                0, 0, animatedFrame.width(), animatedFrame.height(), animatedFrame.width(), animatedFrame.height());
         } else {
-            boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
-                && entry.failure() != null && entry.failure().contains("rate limited");
-            String txt = limited
-                ? Text.translatable("e33chat.image.ratelimited").getString()
-                : entry != null && entry.state() == ImageEntry.State.FAILED
-                    ? Text.translatable("e33chat.image.failed").getString()
-                    : Text.translatable("e33chat.image.loading").getString();
-            g.drawText(textRenderer, txt, emoteX, emoteY,
-                ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c().textSecondary(), (int) (255 * alpha)), false);
+            ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(ref.url());
+            if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
+                g.drawTexture(entry.textureId(), emoteX, emoteY, w, h,
+                    0, 0, entry.width(), entry.height(), entry.width(), entry.height());
+            } else {
+                boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
+                    && entry.failure() != null && entry.failure().contains("rate limited");
+                String txt = limited
+                    ? Text.translatable("e33chat.image.ratelimited").getString()
+                    : entry != null && entry.state() == ImageEntry.State.FAILED
+                        ? Text.translatable("e33chat.image.failed").getString()
+                        : Text.translatable("e33chat.image.loading").getString();
+                g.drawText(textRenderer, txt, emoteX, emoteY,
+                    ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c().textSecondary(), (int) (255 * alpha)), false);
+            }
         }
     }
 
@@ -2607,7 +2828,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
     private void renderAvatarContextMenu(DrawContext g, int mouseX, int mouseY) {
         if (contextAvatarIndex < 0) return;
-        int menuH = CTX_ITEM_H * 3 + 4;
+        int menuH = CTX_ITEM_H * 4 + 6;
         int menuX = Math.min(contextAvatarX, panelX + panelW - CTX_W - 2);
         int menuY = contextAvatarY - menuH;
         if (menuY < msgTop) menuY = contextAvatarY + 4;
@@ -2638,7 +2859,7 @@ public class ChatBubbleScreen extends ChatScreen {
         g.fill(menuX + 4, menuY + CTX_ITEM_H * 2 + 3, menuX + CTX_W - 4, menuY + CTX_ITEM_H * 2 + 4, c().closeHoverBg());
 
         boolean hoverBlock = mouseX >= menuX && mouseX <= menuX + CTX_W
-            && mouseY >= menuY + CTX_ITEM_H * 2 + 4 && mouseY <= menuY + menuH;
+            && mouseY >= menuY + CTX_ITEM_H * 2 + 4 && mouseY <= menuY + CTX_ITEM_H * 3 + 4;
         ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverBlock ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
             menuX + 1, menuY + CTX_ITEM_H * 2 + 4, CTX_W - 2, CTX_ITEM_H, alpha);
         drawTextureIconAlpha(g, iconTex("block"), menuX + 5, menuY + CTX_ITEM_H * 2 + 6, 12, alpha);
@@ -2648,6 +2869,16 @@ public class ChatBubbleScreen extends ChatScreen {
                 ChatBubbleClientSetup.config().blockedPlayers());
         g.drawText(textRenderer, Text.translatable(isBlocked ? "e33chat.context.unblock" : "e33chat.context.block").getString(),
             menuX + 22, menuY + CTX_ITEM_H * 2 + 8, c().textPrimary(), false);
+
+        g.fill(menuX + 4, menuY + CTX_ITEM_H * 3 + 5, menuX + CTX_W - 4, menuY + CTX_ITEM_H * 3 + 6, c().closeHoverBg());
+
+        boolean hoverProfile = mouseX >= menuX && mouseX <= menuX + CTX_W
+            && mouseY >= menuY + CTX_ITEM_H * 3 + 6 && mouseY <= menuY + menuH;
+        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverProfile ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            menuX + 1, menuY + CTX_ITEM_H * 3 + 6, CTX_W - 2, CTX_ITEM_H, alpha);
+        drawTextureIconAlpha(g, iconTex("profile"), menuX + 5, menuY + CTX_ITEM_H * 3 + 8, 12, alpha);
+        g.drawText(textRenderer, Text.translatable("e33chat.context.profile").getString(),
+            menuX + 22, menuY + CTX_ITEM_H * 3 + 10, c().textPrimary(), false);
     }
 
     private static final int REPLY_BAR_H = 18;
@@ -3067,6 +3298,24 @@ public class ChatBubbleScreen extends ChatScreen {
             text = "/msg " + whisperPartner + " " + text;
         }
 
+        // 2.4.10 群组路由：激活群组页签时发言改走 /e33chat group msg 由内置服务端
+        // 路由（成员收到 GroupChatPayload 包含发送者自己，替代本地气泡）；世界/全部
+        // 页签走原版聊天；系统页签只读。
+        String groupTarget = null;
+        if (whisperPartner == null && !text.startsWith("/") && com.niuqu.chatbubble.chat.GroupChannelState.supported()) {
+            String tab = com.niuqu.chatbubble.chat.GroupChannelState.active();
+            if (com.niuqu.chatbubble.chat.GroupChannelState.TAB_SYSTEM.equals(tab)) {
+                client.player.sendMessage(Text.translatable("e33chat.group.system_readonly"), false);
+                return;
+            }
+            if (tab != null
+                    && !com.niuqu.chatbubble.chat.GroupChannelState.TAB_ALL.equals(tab)
+                    && !com.niuqu.chatbubble.chat.GroupChannelState.TAB_WORLD.equals(tab)) {
+                groupTarget = tab;
+                text = "/e33chat group msg " + groupTarget + " " + text;
+            }
+        }
+
         String whisperTarget = null;
         String displayText = text;
         if (text.startsWith("/msg ") || text.startsWith("/tell ") || text.startsWith("/w ")) {
@@ -3077,13 +3326,15 @@ public class ChatBubbleScreen extends ChatScreen {
         boolean localBubble = !text.startsWith("/") || whisperTarget != null;
 
         if (replyTargetIndex >= 0) {
-            if (localBubble) {
+            // 群组发送（localBubble=false）也要把引用同步给服务端——服务端在
+            // group msg 处理器里消费 pendingQuotes 并写进 GroupChatPayload
+            if (localBubble || groupTarget != null) {
                 ChatMessageStore.ChatMessage target = ChatMessageStore.getMessageAt(replyTargetIndex);
                 if (target != null) {
                     String quoteSender = (target.rawPlayerName() != null && !target.rawPlayerName().isEmpty())
                         ? target.rawPlayerName() : target.senderName().getString();
                     String quoted = ChatMessageStore.singleLine(target.content().getString());
-                    ChatMessageStore.setPendingReply(quoted, quoteSender);
+                    if (localBubble) ChatMessageStore.setPendingReply(quoted, quoteSender);
                     // Optional payload: only send when the server registered e33chat:quote_sync.
                     // Without this guard, right-click quote on servers without the E33Chat
                     // server mod still works locally but can fail on the network layer.

@@ -33,7 +33,8 @@ class ConfigManagerTest {
             "slide", "slide", "fade", "fade",
             true, true,
             null, null, null, null,
-            6, 20, true, false, 0, 100);
+            6, 20, true, false, 0, 100,
+            "", 100);
         ConfigManager.save(p, c);
 
         ChatBubbleConfig loaded = ConfigManager.load(p);

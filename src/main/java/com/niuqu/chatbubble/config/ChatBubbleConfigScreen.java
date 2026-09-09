@@ -65,6 +65,8 @@ public class ChatBubbleConfigScreen extends Screen {
     private boolean antiSpam, chatHistoryEnabled;
     private boolean receiveImages;
     private String uploadUrl = "";
+    private String panelBgImage = "";
+    private int panelBgOpacity = 100;
     private boolean soundPublic, soundSystem, soundWhisper;
     private boolean debugLog, preserveInput, colorCodes, closeChatOnSend;
     private boolean mentionBannerEnabled, systemBannerEnabled, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner;
@@ -188,7 +190,8 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().uploadField(),
             ChatBubbleClientSetup.config().uploadExtra(),
             ChatBubbleClientSetup.config().uploadResponse(),
-            messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity, bubbleSize));
+            messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity, bubbleSize,
+            panelBgImage, panelBgOpacity));
     }
 
     private void loadFromConfig() {
@@ -235,6 +238,8 @@ public class ChatBubbleConfigScreen extends Screen {
         messageGap = cfg.messageGap() != null ? cfg.messageGap() : 6;
         avatarSize = cfg.avatarSize() != null ? cfg.avatarSize() : 20;
         bubbleSize = cfg.bubbleSize() != null ? cfg.bubbleSize() : 9;
+        panelBgImage = cfg.panelBgImage() != null ? cfg.panelBgImage() : "";
+        panelBgOpacity = cfg.panelBgOpacity() != null ? cfg.panelBgOpacity() : 100;
         hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null && cfg.hideRepeatedAvatars();
     }
 
@@ -401,6 +406,8 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.bool("e33chat.config.panel_fullscreen", Ref.b(() -> panelFullscreen, v -> panelFullscreen = v)),
             OptionDef.bool("e33chat.config.blur_enabled", Ref.b(() -> blurEnabled, v -> blurEnabled = v)),
             OptionDef.intBox("e33chat.config.panel_opacity", Ref.i(() -> panelOpacity, v -> panelOpacity = v), 0, 100, 3),
+            OptionDef.text("e33chat.config.panel_bg_image", Ref.s(() -> panelBgImage, v -> panelBgImage = v)),
+            OptionDef.intBox("e33chat.config.panel_bg_opacity", Ref.i(() -> panelBgOpacity, v -> panelBgOpacity = v), 0, 100, 3),
             OptionDef.bool("e33chat.config.animation", Ref.b(() -> animationEnabled, v -> animationEnabled = v)),
             OptionDef.enumCycle("e33chat.config.panel_anim_style", Ref.s(() -> panelAnimStyle, v -> panelAnimStyle = v)),
             OptionDef.enumCycle("e33chat.config.popup_anim_style", Ref.s(() -> popupAnimStyle, v -> popupAnimStyle = v)),
@@ -494,10 +501,27 @@ public class ChatBubbleConfigScreen extends Screen {
             for (SectionDef s : CAT_SECTIONS.get(i)) {
                 opts.add(Opt.header(s.key()));
                 for (OptionDef d : s.opts()) opts.add(optOf(d));
+                if (i == 0 && "e33chat.config.section.panel".equals(s.key())) buildBgImageRows(opts);
             }
             if (i == 0) buildBlockedRows(opts);
             cats.add(new Cat(CAT_KEYS[i], opts));
         }
+    }
+
+    // 自定义面板背景图：[浏览…]（系统文件对话框）+ [清除]。只改本地字段，
+    // 走统一的 保存/ESC回滚 流程（与其他注册表行一致）。
+    private void buildBgImageRows(List<Opt> opts) {
+        opts.add(Opt.multi("e33chat.config.panel_bg_actions", y -> {
+            ButtonWidget browse = ButtonWidget.builder(Text.translatable("e33chat.config.panel_bg_browse"), b ->
+                com.niuqu.chatbubble.compat.NativeFileDialog.pickImage(f -> {
+                    if (f == null || !f.isFile()) return;
+                    panelBgImage = f.getAbsolutePath();
+                })).dimensions(inputX, y, 72, 20).build();
+            ButtonWidget clear = ButtonWidget.builder(Text.translatable("e33chat.config.panel_bg_clear"), b -> {
+                panelBgImage = "";
+            }).dimensions(inputX + 76, y, 72, 20).build();
+            return List.of(browse, clear);
+        }, 1));
     }
 
     // 屏蔽列表：动态行数，注册表外（每行 [编辑框][✕]，下方 [添加玩家]）

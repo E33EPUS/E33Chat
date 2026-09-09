@@ -61,8 +61,8 @@ class PacketCodecTest {
 
     @Test void historyStable() {
         assertStable(new HistoryPayload(List.of(
-                new HistoryPayload.HistoryEntry(new UUID(1, 1), "Steve", "hi there", 1700000000000L, false, "reply", "sender"),
-                new HistoryPayload.HistoryEntry(new UUID(2, 2), "Alex", "system msg", 1700000001000L, true, "", ""))),
+                new HistoryPayload.HistoryEntry(new UUID(1, 1), "Steve", "hi there", 1700000000000L, false, "reply", "sender", null),
+                new HistoryPayload.HistoryEntry(new UUID(2, 2), "Alex", "system msg", 1700000001000L, true, "", "", "Guild"))),
             HistoryPayload.CODEC);
     }
 
@@ -118,13 +118,13 @@ class PacketCodecTest {
     }
 
     @Test void serverConfigScreenStable() {
-        assertStable(new ServerConfigScreenPayload(true, false, true, true, true, true,
+        assertStable(new ServerConfigScreenPayload(true, false, true, true, true, true, true,
                 List.of("chat tpl"), List.of("whisper tpl")),
             ServerConfigScreenPayload.CODEC);
     }
 
     @Test void serverConfigSaveStable() {
-        assertStable(new ServerConfigSavePayload(false, true, false, false, true, true,
+        assertStable(new ServerConfigSavePayload(false, true, false, false, true, true, false,
                 List.of(), List.of("w")),
             ServerConfigSavePayload.CODEC);
     }

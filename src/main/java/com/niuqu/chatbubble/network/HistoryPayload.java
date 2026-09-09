@@ -22,7 +22,8 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
         long time,
         boolean isSystem,
         String replyContent,
-        String replySender
+        String replySender,
+        String group
     ) {}
 
     public static final PacketCodec<PacketByteBuf, HistoryPayload> CODEC = PacketCodec.of(
@@ -34,6 +35,7 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
             b.writeBoolean(e.isSystem());
             b.writeString(e.replyContent() != null ? e.replyContent() : "");
             b.writeString(e.replySender() != null ? e.replySender() : "");
+            b.writeString(e.group() != null ? e.group() : "");
         }),
         buf -> new HistoryPayload(buf.readList(b -> new HistoryEntry(
             UUID.fromString(b.readString()),
@@ -41,6 +43,7 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
             b.readString(),
             b.readLong(),
             b.readBoolean(),
+            nullOrEmpty(b.readString()),
             nullOrEmpty(b.readString()),
             nullOrEmpty(b.readString())
         )))

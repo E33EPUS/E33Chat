@@ -20,6 +20,7 @@ import java.util.List;
  */
 public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                                       boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
+                                      boolean groupsEnabled,
                                       List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPayload {
 
@@ -29,11 +30,11 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
     public static final PacketCodec<PacketByteBuf, ServerConfigSavePayload> CODEC = PacketCodec.of(
         (value, buf) -> ServerConfigDto.encode(new ServerConfigDto(
             value.useTpa, value.historyEnabled, value.templateDebug, value.mediaEnabled,
-            value.mediaAutoClean, value.easyBotCompat, value.chatTemplates, value.whisperTemplates), buf),
+            value.mediaAutoClean, value.easyBotCompat, value.groupsEnabled, value.chatTemplates, value.whisperTemplates), buf),
         buf -> {
             ServerConfigDto d = ServerConfigDto.decode(buf);
             return new ServerConfigSavePayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-                d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(),
+                d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(), d.groupsEnabled(),
                 d.chatTemplates(), d.whisperTemplates());
         }
     );
@@ -58,6 +59,7 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
         cfg.media_enabled = payload.mediaEnabled();
         cfg.media_auto_clean = payload.mediaAutoClean();
         cfg.easy_bot_compat = payload.easyBotCompat();
+        cfg.groups_enabled = payload.groupsEnabled();
         cfg.chat_templates = new ArrayList<>(payload.chatTemplates());
         cfg.whisper_templates = new ArrayList<>(payload.whisperTemplates());
         applyAndSave.accept(cfg);

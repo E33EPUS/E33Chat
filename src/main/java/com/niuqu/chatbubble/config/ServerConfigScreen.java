@@ -86,8 +86,8 @@ public class ServerConfigScreen extends Screen {
     };
 
     // 打开时的快照（用于变更检测）+ 可编辑的本地副本（发送前不生效）
-    private final boolean initUseTpa, initHistory, initDebug, initMedia, initAutoClean, initEasyBot;
-    private boolean useTpaV, historyV, debugV, mediaV, autoCleanV, easyBotV;
+    private final boolean initUseTpa, initHistory, initDebug, initMedia, initAutoClean, initEasyBot, initGroups;
+    private boolean useTpaV, historyV, debugV, mediaV, autoCleanV, easyBotV, groupsV;
     private final List<String> initChat, initWhisper;
     private final List<String> chatV = new ArrayList<>();
     private final List<String> whisperV = new ArrayList<>();
@@ -117,6 +117,7 @@ public class ServerConfigScreen extends Screen {
 
     public ServerConfigScreen(Screen lastScreen, boolean useTpa, boolean history, boolean debug,
                               boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
+                              boolean groupsEnabled,
                               List<String> chat, List<String> whisper) {
         super(Text.translatable("e33chat.server.title"));
         this.lastScreen = lastScreen;
@@ -126,6 +127,7 @@ public class ServerConfigScreen extends Screen {
         initMedia = mediaEnabled;
         initAutoClean = mediaAutoClean;
         initEasyBot = easyBotCompat;
+        initGroups = groupsEnabled;
         initChat = new ArrayList<>(chat);
         initWhisper = new ArrayList<>(whisper);
         useTpaV = useTpa;
@@ -134,6 +136,7 @@ public class ServerConfigScreen extends Screen {
         mediaV = mediaEnabled;
         autoCleanV = mediaAutoClean;
         easyBotV = easyBotCompat;
+        groupsV = groupsEnabled;
         chatV.addAll(chat);
         whisperV.addAll(whisper);
     }
@@ -202,6 +205,8 @@ public class ServerConfigScreen extends Screen {
                     List.of(mkToggle(() -> autoCleanV, nv -> autoCleanV = nv)), null, "e33chat.server.media_auto_clean"));
                 rows.add(row(Text.translatable("e33chat.server.easybot_compat"),
                     List.of(mkToggle(() -> easyBotV, nv -> easyBotV = nv)), null, "e33chat.server.easybot_compat"));
+                rows.add(row(Text.translatable("e33chat.server.groups_enabled"),
+                    List.of(mkToggle(() -> groupsV, nv -> groupsV = nv)), null, "e33chat.server.groups_enabled"));
             }
             case 1 -> buildTemplateRows(chatV, true);
             case 2 -> buildTemplateRows(whisperV, false);
@@ -391,6 +396,7 @@ public class ServerConfigScreen extends Screen {
     private boolean changed() {
         return useTpaV != initUseTpa || historyV != initHistory || debugV != initDebug
             || mediaV != initMedia || autoCleanV != initAutoClean || easyBotV != initEasyBot
+            || groupsV != initGroups
             || !Objects.equals(chatV, initChat) || !Objects.equals(whisperV, initWhisper);
     }
 
@@ -402,7 +408,7 @@ public class ServerConfigScreen extends Screen {
             return;
         }
         ClientPlayNetworking.send(new ServerConfigSavePayload(
-            useTpaV, historyV, debugV, mediaV, autoCleanV, easyBotV,
+            useTpaV, historyV, debugV, mediaV, autoCleanV, easyBotV, groupsV,
             new ArrayList<>(chatV), new ArrayList<>(whisperV)));
         doClose();
     }
@@ -450,6 +456,7 @@ public class ServerConfigScreen extends Screen {
         if (mediaV != initMedia) n++;
         if (autoCleanV != initAutoClean) n++;
         if (easyBotV != initEasyBot) n++;
+        if (groupsV != initGroups) n++;
         if (!Objects.equals(chatV, initChat)) n++;
         if (!Objects.equals(whisperV, initWhisper)) n++;
         return n;

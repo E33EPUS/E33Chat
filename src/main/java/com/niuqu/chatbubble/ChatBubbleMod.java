@@ -5,7 +5,11 @@ import com.niuqu.chatbubble.config.ServerConfigManager;
 import com.niuqu.chatbubble.network.ChatMetaPayload;
 import com.niuqu.chatbubble.network.ConfigSyncPayload;
 import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
+import com.niuqu.chatbubble.network.ClientHelloPayload;
 import com.niuqu.chatbubble.network.EasyBotConfigPayload;
+import com.niuqu.chatbubble.network.GroupActionPayload;
+import com.niuqu.chatbubble.network.GroupChatPayload;
+import com.niuqu.chatbubble.network.GroupListPayload;
 import com.niuqu.chatbubble.network.HistoryPayload;
 import com.niuqu.chatbubble.network.MediaRequestPayload;
 import com.niuqu.chatbubble.network.MediaResponsePayload;
@@ -51,6 +55,10 @@ public class ChatBubbleMod implements ModInitializer {
     private static boolean mediaEnabled;
     private static boolean mediaAutoClean = true;
     private static boolean easyBotCompat = true;
+    private static boolean groupsEnabled = true;
+    private static int groupMaxCount = 20;
+    private static int groupMaxMembers = 50;
+    private static boolean groupCreateOpOnly = false;
     private static List<String> chatTemplates = List.of();
     private static List<String> whisperTemplates = List.of();
     private static boolean configLoaded;
@@ -73,7 +81,8 @@ public class ChatBubbleMod implements ModInitializer {
         return s;
     }
 
-    private record QuotePending(String quotedSenderName, String quotedContent, String messageHash, long time) {}
+    // GroupManager.say consumes quotes for group messages
+    public record QuotePending(String quotedSenderName, String quotedContent, String messageHash, long time) {}
 
     // A quote that never made it into a sent message (e.g. an anti-spam plugin blocked
     // it) must not tag a later unrelated message — expire after 10s (parity with Forge)
@@ -81,6 +90,16 @@ public class ChatBubbleMod implements ModInitializer {
         QuotePending quote = pendingQuotes.remove(playerUUID);
         if (quote != null && System.currentTimeMillis() - quote.time() > 10_000) return null;
         return quote;
+    }
+
+    /** Group chat path (2.4.10): consume the pending quote attached by QuoteSyncPayload. */
+    public static QuotePending consumeQuote(UUID playerUUID) {
+        return takeQuote(playerUUID);
+    }
+
+    /** Group chat path: append an already-built entry (carries the group tag). */
+    public static void addHistoryEntry(HistoryPayload.HistoryEntry entry) {
+        addToHistory(entry);
     }
 
     @Override
@@ -98,6 +117,13 @@ public class ChatBubbleMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(MediaResponsePayload.ID, MediaResponsePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MediaCapPayload.ID, MediaCapPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(EasyBotConfigPayload.ID, EasyBotConfigPayload.CODEC);
+        // 2.4.10 group chat: handshake / say / directory / manage. Old clients
+        // drop unknown payloads harmlessly; a new client against an old server
+        // just never receives group_list, so the tab strip stays hidden.
+        PayloadTypeRegistry.playC2S().register(ClientHelloPayload.ID, ClientHelloPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(GroupChatPayload.ID, GroupChatPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(GroupListPayload.ID, GroupListPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(GroupActionPayload.ID, GroupActionPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(MediaUploadPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -121,6 +147,17 @@ public class ChatBubbleMod implements ModInitializer {
                     new QuotePending(payload.quotedSenderName(), payload.quotedContent(), messageHash,
                         System.currentTimeMillis()));
             });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(ClientHelloPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> ClientHelloPayload.handleServer(payload, player));
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(GroupActionPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() ->
+                com.niuqu.chatbubble.server.GroupManager.handleAction(player, payload.action(), payload.groupName()));
         });
 
         // Server-config GUI save: validate, persist to JSON, rebroadcast
@@ -166,7 +203,8 @@ public class ChatBubbleMod implements ModInitializer {
                 sender.getUuid(), sender.getName().getString(), rawText,
                 System.currentTimeMillis(), false,
                 quote != null ? quote.quotedContent() : null,
-                quote != null ? quote.quotedSenderName() : null));
+                quote != null ? quote.quotedSenderName() : null,
+                null));
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -183,6 +221,7 @@ public class ChatBubbleMod implements ModInitializer {
 
             // Always sync server-side settings so the client head menu matches the server
             sendServerConfigTripleTo(handler.player);
+            com.niuqu.chatbubble.server.GroupManager.sendGroupList(handler.player);
 
             if (!historyEnabled) return;
             if (historyBuffer.isEmpty()) return;
@@ -200,12 +239,14 @@ public class ChatBubbleMod implements ModInitializer {
             DiskMediaStore s = mediaStore;
             if (s != null) s.discardAllUploads();
             mediaStore = null;
+            com.niuqu.chatbubble.server.GroupManager.onServerStopping(server);
         });
 
         // Discard a leaving player's in-flight upload session (and temp file).
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             DiskMediaStore s = mediaStore;
             if (s != null) s.discardUploadsFor(handler.player.getName().getString());
+            com.niuqu.chatbubble.server.GroupManager.onPlayerLoggedOut(handler.player.getUuid());
         });
     }
 
@@ -238,6 +279,10 @@ public class ChatBubbleMod implements ModInitializer {
         mediaEnabled = config.media_enabled;
         mediaAutoClean = config.media_auto_clean == null || config.media_auto_clean;
         easyBotCompat = config.easy_bot_compat == null || config.easy_bot_compat;
+        groupsEnabled = config.groups_enabled == null || config.groups_enabled;
+        groupMaxCount = config.group_max_count != null ? config.group_max_count : 20;
+        groupMaxMembers = config.group_max_members != null ? config.group_max_members : 50;
+        groupCreateOpOnly = config.group_create_op_only != null && config.group_create_op_only;
         chatTemplates = config.chat_templates != null ? config.chat_templates : List.of();
         whisperTemplates = config.whisper_templates != null ? config.whisper_templates : List.of();
     }
@@ -272,6 +317,10 @@ public class ChatBubbleMod implements ModInitializer {
     public static boolean mediaEnabled() { return mediaEnabled; }
     public static boolean mediaAutoClean() { return mediaAutoClean; }
     public static boolean easyBotCompat() { return easyBotCompat; }
+    public static boolean groupsEnabled() { return groupsEnabled; }
+    public static int groupMaxCount() { return groupMaxCount; }
+    public static int groupMaxMembers() { return groupMaxMembers; }
+    public static boolean groupCreateOpOnly() { return groupCreateOpOnly; }
     public static List<String> chatTemplates() { return chatTemplates; }
     public static List<String> whisperTemplates() { return whisperTemplates; }
     public static void setTemplates(List<String> chat, List<String> whisper, boolean debug) {
