@@ -2,6 +2,28 @@
 
 ## v2.4.11
 
+**修复：群组菜单点击任意位置都会闪一下（2.4.10 回归）**
+- 现象：`[+]` 打开群组弹层后创建群组，之后点击任意区域或按任意键，菜单都会重播一次关闭动画（弹一下立刻消失）
+- 根因：弹层的关闭动画到期后没人把 `visible` 置为 false（设置/表情/快捷/搜索四个弹层都在 `tick()` 里收尾，唯独群组弹层漏了），于是它一直处于"可见但完全透明"的状态；后续每次点击都判定"点击在面板外"，再次触发 `closeGroupBrowser()`
+- 修复：`tick()` 补上群组弹层的关闭收尾（新增 `hideGroupBrowser()`），打开时清掉上一次的关闭时间戳；顺带让"创建"与"加入"行为一致——创建后自动切到新群页签并收起弹层（点击 `[创建]` 和输入框回车两条路径都改了）
+- 顺带：群组弹层标题右侧加了「点击群名即可加入」提示——群组没有邀请流程，加入就是点一下别人的群名
+
+**Fixed: the group menu flickered on every click (2.4.10 regression)**
+- Symptom: after opening the `[+]` group popup and creating a group, any later click or keypress replayed the popup's close animation (it flashed and vanished)
+- Root cause: nothing set `visible = false` when the popup's close animation finished — the settings/emoji/quick-chat/search popups all finish in `tick()`, but the group popup was missing from that list, so it stayed "visible at zero alpha"; every subsequent click was then treated as an outside click and called `closeGroupBrowser()` again
+- Fix: `tick()` now finishes the group popup's close (new `hideGroupBrowser()`), and opening it clears the previous close timestamp. Create now behaves like join: after creating, the panel switches to the new group's tab and closes (both the `[Create]` button and the Enter-in-input path)
+- Also: the group popup title now carries a "Click a name to join" hint — there is no invite flow; joining is just clicking another player's group name
+
+**修复：群组消息发送报错"参数后应有空格分隔"（中文群名）**
+- 现象：群名叫「妈妈」时，在群组页签发消息会在聊天栏出现 `参数后应有空格分隔，但发现了紧邻的数据`，消息发不出去
+- 根因：客户端把群组发言改写为 `/e33chat group msg 妈妈 ？？`，但命令用的是 Brigadier 的 `StringArgumentType.string()`（QUOTABLE_PHRASE），未加引号时只接受 `[0-9A-Za-z_.-]`——中文名被解析成"空参数 + 剩余数据"而报错（英文名恰好能用，所以测试时没暴露）
+- 修复：`group` 子命令的名称/文本参数全部改用 `greedyString()`；`msg` 改为单个 rest 参数，由服务端 `GroupManager.splitSay()` 在第一个空格处切分（群名本身不允许空格，切分无歧义）
+
+**Fixed: sending a group message failed with "Expected whitespace to end one argument" for CJK group names**
+- Symptom: with a group named 妈妈, sending from the group tab printed `参数后应有空格分隔，但发现了紧邻的数据` in chat and the message never went out
+- Root cause: the client rewrites group sends to `/e33chat group msg 妈妈 ？？`, but the command used Brigadier's `StringArgumentType.string()` (QUOTABLE_PHRASE), which unquoted only accepts `[0-9A-Za-z_.-]` — the CJK name parsed as an empty argument plus trailing data and was rejected (ASCII names happened to work, which is why testing missed it)
+- Fix: all `group` name/text arguments now use `greedyString()`; `msg` takes a single rest argument that the server splits at the first space via `GroupManager.splitSay()` (group names cannot contain whitespace, so the split is unambiguous)
+
 **修复：打开聊天面板时物品栏 HUD 与第一人称手消失（2.4.9 回归）**
 - 现象：打开聊天窗口后，底部物品栏、准星、血条等原版 HUD 消失，第一人称的手和手持物品也不见了
 - 根因：2.4.9 用 `options.hideGui` 隐藏半透明屏幕背后的 HUD，但这个字段就是 **F1 的开关**——原版 `GameRenderer` 渲染第一人称手/手持物品时也检查它，所以一并被关掉了
@@ -21,6 +43,7 @@
 - Symptom: after sending several server-hosted images (`e33chat://media/...`) in a row, the 4th onwards showed "image load failed" while the earlier ones were fine
 - Root cause: the 2.4.10 animated-image probe (GIF/WebP content detection) and the static image loader each requested the same image from the server, and the server rate-limits transfers to 4 per player per 10 seconds — two requests per image burnt the quota, so the 4th image was throttled
 - Fix: `MediaClient.fetch` now merges concurrent requests for the same mediaId into one in-flight request (later callers reuse the same Future instead of sending their own packet), so each image costs one slot again
+
 
 ## v2.4.10
 

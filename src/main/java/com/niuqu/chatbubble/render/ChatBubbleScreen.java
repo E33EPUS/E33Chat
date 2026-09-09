@@ -531,6 +531,9 @@ public class ChatBubbleScreen extends ChatScreen {
             searchPanel.visible = false;
             searchInput.setVisible(false);
         });
+        // 群组弹层也要在关闭动画到期后真正隐藏：漏掉这一步 visible 永远为 true，
+        // 之后每次点击都会重播一次关闭动画（弹一下又消失）。
+        finishPopupClose(groupCloseStart, this::hideGroupBrowser);
         if (closing && net.minecraft.Util.getMillis() - animStart >= ANIM_MS)
             minecraft.setScreen(null);
     }
@@ -785,6 +788,9 @@ public class ChatBubbleScreen extends ChatScreen {
                 groupCreateInput.setValue("");
                 com.niuqu.chatbubble.packets.GroupActionPacket.send(
                     com.niuqu.chatbubble.packets.GroupActionPacket.CREATE, name);
+                // 与点击[创建]一致：切到新群页签并收起弹层
+                com.niuqu.chatbubble.chat.GroupChannelState.setActive(name);
+                closeGroupBrowser();
             }
             return true;
         }
@@ -1143,6 +1149,9 @@ public class ChatBubbleScreen extends ChatScreen {
                     } else if (act == com.niuqu.chatbubble.ui.GroupBrowserPanel.ACT_CREATE) {
                         com.niuqu.chatbubble.packets.GroupActionPacket.send(
                             com.niuqu.chatbubble.packets.GroupActionPacket.CREATE, groupBrowser.actionGroup);
+                        // 与加入一致：创建者直接切到新群页签并收起弹层，省一次手动点击
+                        com.niuqu.chatbubble.chat.GroupChannelState.setActive(groupBrowser.actionGroup);
+                        closeGroupBrowser();
                     }
                     return true;
                 }
@@ -1202,6 +1211,9 @@ public class ChatBubbleScreen extends ChatScreen {
                     if (settingsMenu.visible) beginPopupClose(s -> settingsCloseStart = s, () -> settingsMenu.visible = false);
                     if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
                     if (searchPanel.visible) closeSearchPanel();
+                    // 上一次关闭动画的时间戳必须清掉，否则 renderPopupWithAnim 会
+                    // 认为「closeStart > openStart」而继续走关闭曲线。
+                    groupCloseStart = 0;
                     groupBrowser.visible = true;
                     groupAnimStart = net.minecraft.Util.getMillis();
                     groupCreateInput.setValue("");
@@ -1737,11 +1749,15 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void closeGroupBrowser() {
-        beginPopupClose(s -> groupCloseStart = s, () -> {
-            groupBrowser.visible = false;
-            if (groupCreateInput != null) groupCreateInput.setVisible(false);
-        });
+        beginPopupClose(s -> groupCloseStart = s, this::hideGroupBrowser);
         setFocused(input);
+    }
+
+    /** 群组弹层真正隐藏：关闭动画到期后由 tick 调用，动画关闭时立即调用。 */
+    private void hideGroupBrowser() {
+        groupCloseStart = 0;
+        groupBrowser.visible = false;
+        if (groupCreateInput != null) groupCreateInput.setVisible(false);
     }
 
     private void renderMessages(GuiGraphics g, int mouseX, int mouseY) {
