@@ -77,30 +77,45 @@ public class E33ChatCommands {
         });
     }
 
-    /** Player-facing group management + the client's silent say entry (2.4.10). */
+    /** Player-facing group management + the client's silent say entry (2.4.10).
+     *
+     * <p>All name/text arguments are {@code greedyString}: Brigadier's
+     * {@code string()} (QUOTABLE_PHRASE) only accepts {@code [0-9A-Za-z_.-]}
+     * unquoted, so a CJK group name like 妈妈 parsed as an empty word plus
+     * trailing data and the command was rejected with "Expected whitespace to
+     * end one argument". Greedy reads the whole remainder instead; group names
+     * can never contain whitespace (server validation), so {@code msg} takes a
+     * single rest argument and splits it at the first space.
+     */
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> groupCommands() {
         var cm = net.minecraft.server.command.CommandManager.literal("group");
         cm.then(net.minecraft.server.command.CommandManager.literal("list")
             .executes(ctx -> groupList(ctx.getSource())));
         cm.then(net.minecraft.server.command.CommandManager.literal("create")
-            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
-                .executes(ctx -> groupCreate(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
+            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.greedyString())
+                .executes(ctx -> groupCreate(ctx.getSource(), greedyName(ctx, "name")))));
         cm.then(net.minecraft.server.command.CommandManager.literal("join")
-            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
-                .executes(ctx -> groupJoin(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
+            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.greedyString())
+                .executes(ctx -> groupJoin(ctx.getSource(), greedyName(ctx, "name")))));
         cm.then(net.minecraft.server.command.CommandManager.literal("leave")
-            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
-                .executes(ctx -> groupLeave(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
+            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.greedyString())
+                .executes(ctx -> groupLeave(ctx.getSource(), greedyName(ctx, "name")))));
         cm.then(net.minecraft.server.command.CommandManager.literal("delete")
-            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
-                .executes(ctx -> groupDelete(ctx.getSource(), StringArgumentType.getString(ctx, "name")))));
+            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.greedyString())
+                .executes(ctx -> groupDelete(ctx.getSource(), greedyName(ctx, "name")))));
         cm.then(net.minecraft.server.command.CommandManager.literal("msg")
-            .then(net.minecraft.server.command.CommandManager.argument("name", StringArgumentType.string())
-                .then(net.minecraft.server.command.CommandManager.argument("text", StringArgumentType.greedyString())
-                    .executes(ctx -> groupSay(ctx.getSource(),
-                        StringArgumentType.getString(ctx, "name"),
-                        StringArgumentType.getString(ctx, "text"))))));
+            .then(net.minecraft.server.command.CommandManager.argument("rest", StringArgumentType.greedyString())
+                .executes(ctx -> {
+                    String[] parts = com.niuqu.chatbubble.server.GroupManager.splitSay(
+                        StringArgumentType.getString(ctx, "rest"));
+                    return groupSay(ctx.getSource(), parts[0], parts[1]);
+                })));
         return cm;
+    }
+
+    /** Trim the greedy name argument; names with inner whitespace fail validation. */
+    private static String greedyName(com.mojang.brigadier.context.CommandContext<ServerCommandSource> ctx, String key) {
+        return StringArgumentType.getString(ctx, key).trim();
     }
 
     private static net.minecraft.server.network.ServerPlayerEntity playerOrNull(ServerCommandSource src) {

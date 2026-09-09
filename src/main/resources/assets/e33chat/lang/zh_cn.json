@@ -271,6 +271,7 @@
   "e33chat.group.tab_world": "世界",
   "e33chat.group.tab_system": "系统",
   "e33chat.group.browser_title": "群组",
+  "e33chat.group.browser_hint": "点击群名即可加入",
   "e33chat.group.create_placeholder": "输入名称创建群组…",
   "e33chat.group.create_btn": "创建",
   "e33chat.group.leave_btn": "退出",

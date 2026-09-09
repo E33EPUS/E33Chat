@@ -77,6 +77,20 @@ public final class GroupManager {
         return true;
     }
 
+    /** Split the {@code /e33chat group msg <name> <text>} rest argument.
+     *  Group names never contain whitespace, so the first space separates them
+     *  from the text. Returns {@code {name, text}}; a missing space yields an
+     *  empty text so the caller reports the usual "message must not be empty". */
+    public static String[] splitSay(String rest) {
+        String s = rest == null ? "" : rest.trim();
+        for (int i = 0; i < s.length(); i++) {
+            if (Character.isWhitespace(s.charAt(i))) {
+                return new String[]{s.substring(0, i), s.substring(i + 1).trim()};
+            }
+        }
+        return new String[]{s, ""};
+    }
+
     public static boolean exists(String name) {
         return name != null && groups.containsKey(name);
     }

@@ -72,6 +72,11 @@ public class GroupBrowserPanel {
         int y = py + 3;
         g.drawText(font, Text.translatable("e33chat.group.browser_title").getString(),
             px + 6, y, ChatBubbleTheme.alphaBlend(c.textPrimary(), a255), false);
+        // 加入是"点群名即可"，没有邀请流程——把这句话写在标题右侧，省得玩家
+        // 以为要先邀请/被邀请（2.4.11 用户反馈）。
+        String hint = Text.translatable("e33chat.group.browser_hint").getString();
+        g.drawText(font, hint, px + w - 6 - font.getWidth(hint), y,
+            ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
         y += TITLE_H;
 
         rowRects.clear();
