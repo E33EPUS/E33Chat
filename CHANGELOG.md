@@ -2,6 +2,17 @@
 
 ## v2.4.10
 
+**修复：打开聊天面板崩溃（NPE，2.4.9 回归）**
+- 现象：从 2.4.8 或更早升级到 2.4.9/2.4.10 后，按 T 打开聊天界面直接崩溃（`NullPointerException: Cannot read field "f_91066_" because "this.f_96541_" is null`）
+- 根因：2.4.9 为隐藏半透明屏幕下的原版 HUD，在 `ChatBubbleScreen` **构造器**里读取 `minecraft.options.hideGui`；而 `Screen.minecraft` 要等 `setScreen()` 调用 `init()` 时才赋值，构造发生在 `ScreenEvent.Opening` 事件内部——此时该字段仍是 null。Forge/Neo 三个半透明界面（聊天面板/客户端配置/服务端配置）同款写法，本次一并修正
+- 修复：改为在 `init()` 内用一次性守卫保存原 `hideGui` 状态（与 Fabric 端既有做法一致），构造器不再触碰 `minecraft`
+
+**Fixed: crash when opening the chat panel (NPE, 2.4.9 regression)**
+- Symptom: after upgrading from 2.4.8 or earlier to 2.4.9/2.4.10, pressing T to open the chat screen crashed the game (`NullPointerException: Cannot read field "f_91066_" because "this.f_96541_" is null`)
+- Root cause: to hide the vanilla HUD behind translucent screens, 2.4.9 read `minecraft.options.hideGui` inside the `ChatBubbleScreen` **constructor**; `Screen.minecraft` is only assigned when `setScreen()` runs `init()`, and construction happens inside the `ScreenEvent.Opening` event — so the field was still null. All three Forge/Neo translucent screens (chat panel / client config / server config) shared the pattern and are fixed together
+- Fix: capture the original `hideGui` state in `init()` behind a one-shot guard (matching the existing Fabric implementation); the constructors no longer touch `minecraft`
+
+
 **新增：聊天群组（三端同步，服务器需同步升级到 2.4.10）**
 - 服务器内置群组系统，无需任何外置插件：服主装 E33Chat 即用，群组持久化在 `serverconfig/e33chat-groups.json`
 - 聊天面板顶部新增页签条：全部 / 世界 / 系统 / 已加入的群组；`[+]` 打开群组浏览弹层（点击加入、退出、输入名称创建）
