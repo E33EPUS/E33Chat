@@ -346,7 +346,7 @@ public class ChatBubbleConfigScreen extends Screen {
     // / 色板点击全部由注册表派生，杜绝手写清单漂移。
     // Fabric 无 ModConfigSpec：Ref 是字段的 getter/setter 对（Screen 的 mutable copies）。
     // 注册表引实例字段，故非 static；lambda 惰性求值，loadFromConfig 前只建引用。
-    private enum Kind { BOOL, INT, SLIDER, HEX, TEXT, PATTERN, ENUM_CYCLE, THEME_CYCLE, TIME_SEP }
+    private enum Kind { BOOL, INT, SLIDER, HEX, TEXT, PATTERN, ENUM_CYCLE, THEME_CYCLE, TIME_SEP, BG_IMAGE }
 
     private record Ref<T>(java.util.function.Supplier<T> getter, java.util.function.Consumer<T> setter) {
         static Ref<Boolean> b(java.util.function.BooleanSupplier g, java.util.function.Consumer<Boolean> s) {
@@ -392,6 +392,10 @@ public class ChatBubbleConfigScreen extends Screen {
         static OptionDef timeSep(String key, Ref<Integer> r) {
             return new OptionDef(key, Kind.TIME_SEP, r, 0, 0, 0, null);
         }
+        /** Single-button row: "Browse…" when empty, "Clear" once a path is set. */
+        static OptionDef bgImage(String key, Ref<String> r) {
+            return new OptionDef(key, Kind.BG_IMAGE, r, 0, 0, 0, null);
+        }
     }
 
     private record SectionDef(String key, List<OptionDef> opts) {
@@ -405,7 +409,7 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.bool("e33chat.config.panel_fullscreen", Ref.b(() -> panelFullscreen, v -> panelFullscreen = v)),
             OptionDef.bool("e33chat.config.blur_enabled", Ref.b(() -> blurEnabled, v -> blurEnabled = v)),
             OptionDef.intBox("e33chat.config.panel_opacity", Ref.i(() -> panelOpacity, v -> panelOpacity = v), 0, 100, 3),
-            OptionDef.text("e33chat.config.panel_bg_image", Ref.s(() -> panelBgImage, v -> panelBgImage = v)),
+            OptionDef.bgImage("e33chat.config.panel_bg_image", Ref.s(() -> panelBgImage, v -> panelBgImage = v)),
             OptionDef.intBox("e33chat.config.panel_bg_opacity", Ref.i(() -> panelBgOpacity, v -> panelBgOpacity = v), 0, 100, 3),
             OptionDef.bool("e33chat.config.animation", Ref.b(() -> animationEnabled, v -> animationEnabled = v)),
             OptionDef.enumCycle("e33chat.config.panel_anim_style", Ref.s(() -> panelAnimStyle, v -> panelAnimStyle = v)),
@@ -500,27 +504,10 @@ public class ChatBubbleConfigScreen extends Screen {
             for (SectionDef s : CAT_SECTIONS.get(i)) {
                 opts.add(Opt.header(s.key()));
                 for (OptionDef d : s.opts()) opts.add(optOf(d));
-                if (i == 0 && "e33chat.config.section.panel".equals(s.key())) buildBgImageRows(opts);
             }
             if (i == 0) buildBlockedRows(opts);
             cats.add(new Cat(CAT_KEYS[i], opts));
         }
-    }
-
-    // 自定义面板背景图：[浏览…]（系统文件对话框）+ [清除]。只改本地字段，
-    // 走统一的 保存/ESC回滚 流程（与其他注册表行一致）。
-    private void buildBgImageRows(List<Opt> opts) {
-        opts.add(Opt.multi("e33chat.config.panel_bg_actions", y -> {
-            ButtonWidget browse = ButtonWidget.builder(Text.translatable("e33chat.config.panel_bg_browse"), b ->
-                com.niuqu.chatbubble.compat.NativeFileDialog.pickImage(f -> {
-                    if (f == null || !f.isFile()) return;
-                    panelBgImage = f.getAbsolutePath();
-                })).dimensions(inputX, y, 72, 20).build();
-            ButtonWidget clear = ButtonWidget.builder(Text.translatable("e33chat.config.panel_bg_clear"), b -> {
-                panelBgImage = "";
-            }).dimensions(inputX + 76, y, 72, 20).build();
-            return List.of(browse, clear);
-        }, 1));
     }
 
     // 屏蔽列表：动态行数，注册表外（每行 [编辑框][✕]，下方 [添加玩家]）
@@ -595,6 +582,8 @@ public class ChatBubbleConfigScreen extends Screen {
             }
             case THEME_CYCLE -> new Opt(d.key(), this::mkThemeButton, d.previewColor(), d.ref());
             case TIME_SEP -> new Opt(d.key(), this::mkTimeSepButton, d.previewColor(), d.ref());
+            case BG_IMAGE -> new Opt(d.key(), y -> mkBgImageButton(y, (Ref<String>) d.ref(), d.previewColor(), d.ref()),
+                d.previewColor(), d.ref());
         };
     }
 
@@ -783,6 +772,28 @@ public class ChatBubbleConfigScreen extends Screen {
                 : next + " " + Text.translatable("e33chat.config.time_separator.minute").getString();
             btn.setMessage(Text.literal(nl));
         }).position(inputX, y).size(INPUT_W, 20).build();
+    }
+
+    /** Single-button background-image row: label follows the configured state.
+     *  Empty = "Browse…" (opens the file dialog), set = "Clear" (resets it).
+     *  Rebuilds the row so the label flips immediately after the action. */
+    private ButtonWidget mkBgImageButton(int y, Ref<String> ref, Supplier<String> previewColor, Ref<?> value) {
+        String cur = ref.getter().get();
+        boolean hasImage = cur != null && !cur.isBlank();
+        String key = hasImage ? "e33chat.config.panel_bg_clear" : "e33chat.config.panel_bg_browse";
+        return ButtonWidget.builder(Text.translatable(key), b -> {
+            String now = ref.getter().get();
+            if (now != null && !now.isBlank()) {
+                ref.setter().accept("");
+                rebuild();
+            } else {
+                com.niuqu.chatbubble.compat.NativeFileDialog.pickImage(f -> {
+                    if (f == null || !f.isFile()) return;
+                    ref.setter().accept(f.getAbsolutePath());
+                    rebuild();
+                });
+            }
+        }).dimensions(inputX, y, INPUT_W, 20).build();
     }
 
     private TextFieldWidget mkHexBox(int y, String initial, java.util.function.Consumer<String> onChange) {

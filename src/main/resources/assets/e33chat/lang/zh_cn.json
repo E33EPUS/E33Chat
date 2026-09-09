@@ -298,7 +298,7 @@
   "e33chat.group.list_entry": "  [%s]（%s 人）",
   "e33chat.group.list_entry_joined": "  [%s]（%s 人，已加入）",
   "e33chat.config.panel_bg_image": "自定义面板背景图",
-  "e33chat.config.panel_bg_image.desc": "聊天面板背景图片路径（绝对路径，或相对游戏目录）。留空使用默认面板纹理；图片按比例居中裁剪铺满面板",
+  "e33chat.config.panel_bg_image.desc": "聊天面板背景图片：点「浏览…」选择图片，再次点击可清除。留空使用默认面板纹理；图片按比例居中裁剪铺满面板",
   "e33chat.config.panel_bg_opacity": "背景图不透明度",
   "e33chat.config.panel_bg_opacity.desc": "自定义背景图的不透明度（0-100），与面板不透明度叠加",
   "e33chat.config.panel_bg_browse": "浏览…",
