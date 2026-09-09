@@ -297,7 +297,7 @@
   "e33chat.group.list_entry": "  [%s] (%s members)",
   "e33chat.group.list_entry_joined": "  [%s] (%s members, joined)",
   "e33chat.config.panel_bg_image": "Custom panel background",
-  "e33chat.config.panel_bg_image.desc": "Path of a custom chat panel background image (absolute, or relative to the game directory). Blank = default panel texture; the picture is drawn aspect-preserving, center-cropped",
+  "e33chat.config.panel_bg_image.desc": "Chat panel background image: click Browse… to pick one, click again to clear. Blank = default panel texture; the picture is drawn aspect-preserving, center-cropped",
   "e33chat.config.panel_bg_opacity": "Background image opacity",
   "e33chat.config.panel_bg_opacity.desc": "Opacity (0-100) of the custom background image, multiplied with the panel opacity",
   "e33chat.config.panel_bg_browse": "Browse…",
