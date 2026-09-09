@@ -8,6 +8,26 @@
 - 修复：`tick()` 补上群组弹层的关闭收尾（新增 `hideGroupBrowser()`），打开时清掉上一次的关闭时间戳；顺带让"创建"与"加入"行为一致——创建后自动切到新群页签并收起弹层（点击 `[创建]` 和输入框回车两条路径都改了）
 - 顺带：群组弹层标题右侧加了「点击群名即可加入」提示——群组没有邀请流程，加入就是点一下别人的群名
 
+**修复：其他玩家的名字出现下划线且整段可点击（2.4.5 选区功能回归，commit c5104c40）**
+- 现象：气泡上方发送者名字带下划线，点击会触发服务端挂在名字上的 `/tell` 建议指令；此前版本从未如此
+- 根因：c5104c40 为做文本选择，把名字行从直接 `drawString` 改为走 `renderLineWithClicks`；该方法会给"样式带 ClickEvent 的字符"加下划线并登记点击区——而服务端给玩家名字挂的正是 `suggest_command: /tell <名>` 点击事件（持久化历史的 senderJson 可证）
+- 修复：`renderLineWithClicks` 增加 `clickable` 开关，名字行传 `false`——不再加下划线、不再注册点击目标；文本选择仍可用（名字走该方法的初衷）
+
+**Fixed: sender names showed an underline and were clickable (regression from the 2.4.5 selection feature, commit c5104c40)**
+- Symptom: the sender name above a bubble was underlined and clicking it triggered the `/tell` suggest-command event the server attaches to names; never like this before
+- Root cause: c5104c40 routed the name row through `renderLineWithClicks` (for text selection); that method underlines characters whose style carries a ClickEvent and registers them as click targets — and the server attaches exactly such an event (`suggest_command: /tell <name>`) to player names (visible in the persisted history's senderJson)
+- Fix: `renderLineWithClicks` gained a `clickable` flag; the name row passes `false` — no underline, no click target, while text selection keeps working (the reason names go through this method at all)
+
+**修复：群组消息出现在「全部」页签（改为群消息只在对应群页签显示）**
+- 现象：在「全部」页签能看到群组消息，与公共世界聊天混在一起，读感像"群消息泄露到世界频道"
+- 说明：排查了当轮双端持久化历史，群消息的 group 标记全部正确，"世界"页签的过滤不可能放入带群标记的消息；"泄露"实际发生在「全部」页签——它此前不过滤任何消息
+- 修复：「全部」语义改为 **世界 + 系统**，群组消息只出现在对应群页签；页签功能未启用时（未装服务端 mod）仍显示全部消息，行为不变
+
+**Fixed: group messages appeared in the "All" tab (they now show only in their own group tab)**
+- Symptom: the "All" tab mixed group messages into the public world feed, which read as "group messages leaking into the world channel"
+- Note: both clients' persisted histories from the reported session carry correct group tags, so the literal "World tab shows group messages" is not reachable in code; the mixing happened in "All", which previously never filtered
+- Fix: "All" now means **world + system**; group messages appear only in their group's tab. When the tab strip is unavailable (no server mod) nothing is filtered, as before
+
 **Fixed: the group menu flickered on every click (2.4.10 regression)**
 - Symptom: after opening the `[+]` group popup and creating a group, any later click or keypress replayed the popup's close animation (it flashed and vanished)
 - Root cause: nothing set `visible = false` when the popup's close animation finished — the settings/emoji/quick-chat/search popups all finish in `tick()`, but the group popup was missing from that list, so it stayed "visible at zero alpha"; every subsequent click was then treated as an outside click and called `closeGroupBrowser()` again
