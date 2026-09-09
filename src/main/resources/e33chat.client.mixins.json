@@ -11,6 +11,7 @@
     "MinecraftClientMixin",
     "MouseHandlerAccessor",
     "SuggestionWindowAccessor",
-    "AwtHeadlessHackMixin"
+    "AwtHeadlessHackMixin",
+    "InGameHudMixin"
   ]
 }

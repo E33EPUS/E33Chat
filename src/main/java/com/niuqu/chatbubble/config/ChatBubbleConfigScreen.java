@@ -26,9 +26,8 @@ import net.minecraft.util.math.MathHelper;
 
 public class ChatBubbleConfigScreen extends Screen {
     private final Screen lastScreen;
-    /** Original hudHidden state, restored when this translucent screen is closed. */
-    private boolean prevHudHidden;
-    private boolean prevHudHiddenCaptured;
+    /** True while this screen has pushed its HUD-hide request (see init/removed). */
+    private boolean hudHidden;
 
     private ChatBubbleTheme.Colors c() {
         return ChatBubbleTheme.DARK.colors();
@@ -611,11 +610,12 @@ public class ChatBubbleConfigScreen extends Screen {
     protected void init() {
         // Translucent background: vanilla still renders the HUD behind an open
         // screen, so hide it while this config screen is open; restore later.
-        if (!prevHudHiddenCaptured) {
-            prevHudHidden = client.options.hudHidden;
-            prevHudHiddenCaptured = true;
+        // Hide the HUD via HudVisibility (InGameHudMixin cancels the HUD render);
+        // options.hudHidden is the F1 flag and would also hide the hand.
+        if (!hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.push();
+            hudHidden = true;
         }
-        client.options.hudHidden = true;
         buildCats();
         scrollWidgets.clear();
 
@@ -1102,7 +1102,10 @@ public class ChatBubbleConfigScreen extends Screen {
 
     @Override
     public void removed() {
-        client.options.hudHidden = prevHudHidden;
+        if (hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.pop();
+            hudHidden = false;
+        }
         super.removed();
     }
 

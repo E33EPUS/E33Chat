@@ -35,9 +35,8 @@ import java.util.Objects;
  */
 public class ServerConfigScreen extends Screen {
     private final Screen lastScreen;
-    /** Original hudHidden state, restored when this translucent screen is closed. */
-    private boolean prevHudHidden;
-    private boolean prevHudHiddenCaptured;
+    /** True while this screen has pushed its HUD-hide request (see init/removed). */
+    private boolean hudHidden;
 
     // 几何常量：与客户端配置界面完全一致
     private static final int ROW_H = 32;
@@ -430,7 +429,10 @@ public class ServerConfigScreen extends Screen {
 
     @Override
     public void removed() {
-        client.options.hudHidden = prevHudHidden;
+        if (hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.pop();
+            hudHidden = false;
+        }
         super.removed();
     }
 
@@ -464,11 +466,12 @@ public class ServerConfigScreen extends Screen {
 
     @Override
     protected void init() {
-        if (!prevHudHiddenCaptured) {
-            prevHudHidden = client.options.hudHidden;
-            prevHudHiddenCaptured = true;
+        // Hide the HUD via HudVisibility (InGameHudMixin cancels the HUD render);
+        // options.hudHidden is the F1 flag and would also hide the hand.
+        if (!hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.push();
+            hudHidden = true;
         }
-        client.options.hudHidden = true;
         buildRows();
         rightPane.setOffset(MathHelper.clamp(rightPane.offset(), 0, calcMaxScroll()));
         treePane.setOffset(MathHelper.clamp(treePane.offset(), 0, calcTreeMaxScroll()));

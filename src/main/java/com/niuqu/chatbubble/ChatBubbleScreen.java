@@ -115,9 +115,8 @@ public class ChatBubbleScreen extends ChatScreen {
     public static int getInputX() { return inputX; }
     public static int getInputY() { return inputY; }
     private final String initialText;
-    /** Original hudHidden state, restored when this translucent screen is closed. */
-    private boolean prevHudHidden;
-    private boolean prevHudHiddenCaptured;
+    /** True while this screen has pushed its HUD-hide request (see init/removed). */
+    private boolean hudHidden;
     private String historyBuffer = "";
     private int historyPos = -1;
     private int scrollOffset;
@@ -261,11 +260,12 @@ public class ChatBubbleScreen extends ChatScreen {
         // Translucent panel: hide the vanilla HUD (hotbar/effects/chat and
         // HUD-drawn third-party tooltips such as Jade) behind it while open.
         // Restored in removed() once the close animation has finished.
-        if (!prevHudHiddenCaptured) {
-            prevHudHidden = client.options.hudHidden;
-            prevHudHiddenCaptured = true;
+        // Hide the HUD via HudVisibility (InGameHudMixin cancels the HUD render);
+        // options.hudHidden is the F1 flag and would also hide the hand.
+        if (!hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.push();
+            hudHidden = true;
         }
-        client.options.hudHidden = true;
         historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
         ChatMessageStore.setScreenOpen(true);
         historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
@@ -3443,7 +3443,10 @@ public class ChatBubbleScreen extends ChatScreen {
     public void removed() {
         if (ChatBubbleClientSetup.config().preserveInput()) savedInput = chatField.getText();
         ChatMessageStore.setScreenOpen(false);
-        client.options.hudHidden = prevHudHidden;
+        if (hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.pop();
+            hudHidden = false;
+        }
         client.inGameHud.getChatHud().reset();
     }
 

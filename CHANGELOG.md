@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.4.11
+
+**修复：打开聊天面板时物品栏 HUD 与第一人称手消失（2.4.9 回归）**
+- 现象：打开聊天窗口后，底部物品栏、准星、血条等原版 HUD 消失，第一人称的手和手持物品也不见了
+- 根因：2.4.9 用 `options.hideGui` 隐藏半透明屏幕背后的 HUD，但这个字段就是 **F1 的开关**——原版 `GameRenderer` 渲染第一人称手/手持物品时也检查它，所以一并被关掉了
+- 修复：改用只跳过 HUD 层的机制（Forge/Neo 取消 `RenderGuiEvent.Pre`，Fabric 注入 `InGameHud.render` 提前返回），并加引用计数（聊天面板 → 配置屏 → 服务端配置屏可嵌套，全部关闭后才恢复 HUD）。**预期行为现在是：只有按 F1 才隐藏全部 HUD，打开 E33Chat 界面仅隐藏 HUD 层、保留手与世界**
+
+**Fixed: the hotbar HUD and first-person hand disappeared while the chat panel was open (2.4.9 regression)**
+- Symptom: opening the chat window hid the vanilla HUD (hotbar, crosshair, health bar) and also removed the first-person hand and held item
+- Root cause: 2.4.9 hid the HUD behind translucent screens by setting `options.hideGui` — that is the **F1 toggle**, and vanilla `GameRenderer` also gates first-person hand/held-item rendering on it, so those disappeared too
+- Fix: skip only the HUD layer (Forge/Neo cancel `RenderGuiEvent.Pre`; Fabric injects `InGameHud.render` and returns early) with a reference count, because screens nest (chat panel → config → server config) and the HUD must return only when the last one closes. **Expected behaviour now: only F1 hides the whole HUD; opening an E33Chat screen hides the HUD layer while keeping the hand and the world**
+
+**修复：服务器托管图片偶发"图片加载失败"（2.4.10 回归）**
+- 现象：连续发送多张服务器托管图片（`e33chat://media/...`）后，第 4 张开始显示"图片加载失败"，此前几张正常
+- 根因：2.4.10 的动图探测（GIF/WebP 内容识别）和静态图片加载器会**各自**向服务器请求同一张图片，而服务端有"每玩家 10 秒 4 次"的传输限流——每张图占 2 次配额，第 4 张就被限流
+- 修复：`MediaClient.fetch` 对同一 mediaId 的并发请求合并为一个在途请求（后来的调用者复用同一个 Future，不再单独发包），配额消耗回到每张图 1 次
+
+**Fixed: server-hosted images intermittently failed to load (2.4.10 regression)**
+- Symptom: after sending several server-hosted images (`e33chat://media/...`) in a row, the 4th onwards showed "image load failed" while the earlier ones were fine
+- Root cause: the 2.4.10 animated-image probe (GIF/WebP content detection) and the static image loader each requested the same image from the server, and the server rate-limits transfers to 4 per player per 10 seconds — two requests per image burnt the quota, so the 4th image was throttled
+- Fix: `MediaClient.fetch` now merges concurrent requests for the same mediaId into one in-flight request (later callers reuse the same Future instead of sending their own packet), so each image costs one slot again
+
 ## v2.4.10
 
 **修复：打开聊天面板崩溃（NPE，2.4.9 回归）**
