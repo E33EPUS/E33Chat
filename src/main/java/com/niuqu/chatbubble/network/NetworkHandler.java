@@ -101,5 +101,32 @@ public class NetworkHandler {
             .decoder(com.niuqu.chatbubble.packets.EasyBotConfigPacket::decode)
             .consumerMainThread(com.niuqu.chatbubble.packets.EasyBotConfigPacket::handle)
             .add();
+
+        // 2.4.10 group chat: handshake / say / directory / manage (ids 13-16).
+        // Old clients safely drop unknown ids; a new client against an old
+        // server just never receives id 15, so the tab strip stays hidden.
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.ClientHelloPacket.class, 13)
+            .encoder(com.niuqu.chatbubble.packets.ClientHelloPacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.ClientHelloPacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.ClientHelloPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.GroupChatPacket.class, 14)
+            .encoder(com.niuqu.chatbubble.packets.GroupChatPacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.GroupChatPacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.GroupChatPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.GroupListPacket.class, 15)
+            .encoder(com.niuqu.chatbubble.packets.GroupListPacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.GroupListPacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.GroupListPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(com.niuqu.chatbubble.packets.GroupActionPacket.class, 16)
+            .encoder(com.niuqu.chatbubble.packets.GroupActionPacket::encode)
+            .decoder(com.niuqu.chatbubble.packets.GroupActionPacket::decode)
+            .consumerMainThread(com.niuqu.chatbubble.packets.GroupActionPacket::handle)
+            .add();
     }
 }

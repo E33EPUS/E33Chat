@@ -26,7 +26,8 @@ public class HistoryPacket {
         long time,
         boolean isSystem,
         String replyContent,
-        String replySender
+        String replySender,
+        String group
     ) {}
 
     public static void encode(HistoryPacket packet, FriendlyByteBuf buf) {
@@ -39,6 +40,7 @@ public class HistoryPacket {
             buf.writeBoolean(e.isSystem());
             buf.writeUtf(e.replyContent() != null ? e.replyContent() : "");
             buf.writeUtf(e.replySender() != null ? e.replySender() : "");
+            buf.writeUtf(e.group() != null ? e.group() : "");
         }
     }
 
@@ -54,6 +56,7 @@ public class HistoryPacket {
                 buf.readUtf(),
                 buf.readLong(),
                 buf.readBoolean(),
+                blankToNull(buf.readUtf()),
                 blankToNull(buf.readUtf()),
                 blankToNull(buf.readUtf())
             ));

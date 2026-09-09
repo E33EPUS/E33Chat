@@ -25,9 +25,10 @@ public class ServerConfigScreenPacket {
 
     public ServerConfigScreenPacket(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                                     boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
+                                    boolean groupsEnabled,
                                     List<String> chatTemplates, List<String> whisperTemplates) {
         this.dto = new ServerConfigDto(useTpa, historyEnabled, templateDebug, mediaEnabled,
-            mediaAutoClean, easyBotCompat, chatTemplates, whisperTemplates);
+            mediaAutoClean, easyBotCompat, groupsEnabled, chatTemplates, whisperTemplates);
     }
 
     public boolean useTpa() { return dto.useTpa(); }
@@ -36,6 +37,7 @@ public class ServerConfigScreenPacket {
     public boolean mediaEnabled() { return dto.mediaEnabled(); }
     public boolean mediaAutoClean() { return dto.mediaAutoClean(); }
     public boolean easyBotCompat() { return dto.easyBotCompat(); }
+    public boolean groupsEnabled() { return dto.groupsEnabled(); }
     public List<String> chatTemplates() { return dto.chatTemplates(); }
     public List<String> whisperTemplates() { return dto.whisperTemplates(); }
 
@@ -46,14 +48,15 @@ public class ServerConfigScreenPacket {
     public static ServerConfigScreenPacket decode(FriendlyByteBuf buf) {
         ServerConfigDto d = ServerConfigDto.decode(buf);
         return new ServerConfigScreenPacket(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-            d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(), d.chatTemplates(), d.whisperTemplates());
+            d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(), d.groupsEnabled(),
+            d.chatTemplates(), d.whisperTemplates());
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() ->
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
                 ClientServerConfigGui.open(dto.useTpa(), dto.historyEnabled(), dto.templateDebug(),
-                    dto.mediaEnabled(), dto.mediaAutoClean(), dto.easyBotCompat(),
+                    dto.mediaEnabled(), dto.mediaAutoClean(), dto.easyBotCompat(), dto.groupsEnabled(),
                     dto.chatTemplates(), dto.whisperTemplates())
             )
         );

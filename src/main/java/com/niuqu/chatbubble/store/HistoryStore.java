@@ -128,6 +128,7 @@ public final class HistoryStore {
         if (msg.rawPlayerName() != null) obj.put("rawPlayerName", msg.rawPlayerName());
         if (msg.whisper()) obj.put("whisper", true);
         if (msg.whisperPartner() != null) obj.put("whisperPartner", msg.whisperPartner());
+        if (msg.group() != null) obj.put("group", msg.group());
         return GSON.toJson(obj);
     }
 
@@ -160,7 +161,7 @@ public final class HistoryStore {
             flags.contains("M"),
             flags.contains("S"),
             replyContent, replySender, "", 1, null,
-            whisper, partner
+            whisper, partner, null
         );
     }
 
@@ -193,7 +194,8 @@ public final class HistoryStore {
             1,
             (String) obj.get("rawPlayerName"),
             Boolean.TRUE.equals(obj.get("whisper")),
-            (String) obj.get("whisperPartner")
+            (String) obj.get("whisperPartner"),
+            (String) obj.get("group")
         );
     }
 
@@ -308,7 +310,7 @@ public final class HistoryStore {
                     String whisperPartner = (String) obj.get("whisperPartner");
                     out.add(0, new ChatMessageStore.ChatMessage(uuid, senderName, content, millis,
                         isOwn, isSystem, replyContent, replySender, "", 1, rawPlayerName,
-                        whisper, whisperPartner));
+                        whisper, whisperPartner, null));
                 } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }
             }
         } catch (Exception e) { com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to read/write chat history", e); }

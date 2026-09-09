@@ -43,6 +43,8 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.BooleanValue PANEL_FULLSCREEN;
     public static final ForgeConfigSpec.BooleanValue BLUR_ENABLED;
     public static final ForgeConfigSpec.IntValue PANEL_OPACITY;
+    public static final ForgeConfigSpec.ConfigValue<String> PANEL_BG_IMAGE;
+    public static final ForgeConfigSpec.IntValue PANEL_BG_OPACITY;
     public static final ForgeConfigSpec.BooleanValue DEBUG_LOG;
     public static final ForgeConfigSpec.BooleanValue SOUND_SYSTEM;
     public static final ForgeConfigSpec.BooleanValue SOUND_WHISPER;
@@ -138,6 +140,17 @@ public class ChatBubbleConfig {
             .comment("Chat panel background opacity percentage (0-100). 0 = fully transparent, 100 = fully opaque")
             .translation("e33chat.config.panel_opacity")
             .defineInRange("panel_opacity", 80, 0, 100);
+
+        PANEL_BG_IMAGE = builder
+            .comment("Custom chat panel background image. Absolute path, or relative to the game directory. Blank = default panel texture",
+                "The picture is drawn stretched to cover the panel with its aspect ratio preserved (center-crop)")
+            .translation("e33chat.config.panel_bg_image")
+            .define("panel_bg_image", "");
+
+        PANEL_BG_OPACITY = builder
+            .comment("Custom panel background image opacity percentage (0-100); scales on top of the panel opacity")
+            .translation("e33chat.config.panel_bg_opacity")
+            .defineInRange("panel_bg_opacity", 100, 0, 100);
 
         SYSTEM_CHAT_AS_BUBBLE = builder
             .comment("Render system messages as chat bubbles")

@@ -23,9 +23,10 @@ public class ServerConfigSavePacket {
 
     public ServerConfigSavePacket(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                                   boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
+                                  boolean groupsEnabled,
                                   List<String> chatTemplates, List<String> whisperTemplates) {
         this.dto = new ServerConfigDto(useTpa, historyEnabled, templateDebug, mediaEnabled,
-            mediaAutoClean, easyBotCompat, chatTemplates, whisperTemplates);
+            mediaAutoClean, easyBotCompat, groupsEnabled, chatTemplates, whisperTemplates);
     }
 
     public static void encode(ServerConfigSavePacket packet, FriendlyByteBuf buf) {
@@ -35,7 +36,8 @@ public class ServerConfigSavePacket {
     public static ServerConfigSavePacket decode(FriendlyByteBuf buf) {
         ServerConfigDto d = ServerConfigDto.decode(buf);
         return new ServerConfigSavePacket(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-            d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(), d.chatTemplates(), d.whisperTemplates());
+            d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(), d.groupsEnabled(),
+            d.chatTemplates(), d.whisperTemplates());
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
@@ -70,8 +72,11 @@ public class ServerConfigSavePacket {
             ChatServerConfig.MEDIA_AUTO_CLEAN.clearCache();
             ChatServerConfig.EASY_BOT_COMPAT.set(dto.easyBotCompat());
             ChatServerConfig.EASY_BOT_COMPAT.clearCache();
+            ChatServerConfig.GROUPS_ENABLED.set(dto.groupsEnabled());
+            ChatServerConfig.GROUPS_ENABLED.clearCache();
             ChatBubbleMod.saveServerConfig();
             ChatServerListener.broadcastServerConfig();
+            com.niuqu.chatbubble.server.GroupManager.broadcastGroupList();
             player.sendSystemMessage(Component.translatable("e33chat.server.saved"));
         });
         ctx.get().setPacketHandled(true);

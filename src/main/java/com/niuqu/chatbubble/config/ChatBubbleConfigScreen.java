@@ -164,6 +164,8 @@ public class ChatBubbleConfigScreen extends Screen {
             OptionDef.bool("e33chat.config.panel_fullscreen", ChatBubbleConfig.PANEL_FULLSCREEN),
             OptionDef.bool("e33chat.config.blur_enabled", ChatBubbleConfig.BLUR_ENABLED),
             OptionDef.intBox("e33chat.config.panel_opacity", ChatBubbleConfig.PANEL_OPACITY, 0, 100, 3),
+            OptionDef.text("e33chat.config.panel_bg_image", ChatBubbleConfig.PANEL_BG_IMAGE),
+            OptionDef.intBox("e33chat.config.panel_bg_opacity", ChatBubbleConfig.PANEL_BG_OPACITY, 0, 100, 3),
             OptionDef.bool("e33chat.config.animation", ChatBubbleConfig.ANIMATION_ENABLED),
             OptionDef.enumCycle("e33chat.config.panel_anim_style", ChatBubbleConfig.PANEL_ANIM_STYLE),
             OptionDef.enumCycle("e33chat.config.popup_anim_style", ChatBubbleConfig.POPUP_ANIM_STYLE),
@@ -255,10 +257,29 @@ public class ChatBubbleConfigScreen extends Screen {
             for (SectionDef s : CAT_SECTIONS.get(i)) {
                 opts.add(Opt.header(s.key()));
                 for (OptionDef d : s.opts()) opts.add(optOf(d));
+                // 面板分区尾部插自定义背景图的 [浏览…][清除] 行（注册表外，同屏蔽列表模式）
+                if (i == 0 && "e33chat.config.section.panel".equals(s.key())) buildBgImageRows(opts);
             }
             if (i == 0) buildBlockedRows(opts);
             cats.add(new Cat(CAT_KEYS[i], opts));
         }
+    }
+
+    // 自定义面板背景图：[浏览…]（系统文件对话框）+ [清除]（注册表外动态行）
+    private void buildBgImageRows(List<Opt> opts) {
+        opts.add(Opt.multi("e33chat.config.panel_bg_actions", y -> {
+            Button browse = Button.builder(Component.translatable("e33chat.config.panel_bg_browse"), b ->
+                com.niuqu.chatbubble.compat.NativeFileDialog.pickImage(f -> {
+                    if (f == null || !f.isFile()) return;
+                    ChatBubbleConfig.PANEL_BG_IMAGE.set(f.getAbsolutePath());
+                    rebuild();
+                })).bounds(inputX, y, 72, 20).build();
+            Button clear = Button.builder(Component.translatable("e33chat.config.panel_bg_clear"), b -> {
+                ChatBubbleConfig.PANEL_BG_IMAGE.set("");
+                rebuild();
+            }).bounds(inputX + 76, y, 72, 20).build();
+            return List.of(browse, clear);
+        }, 1));
     }
 
     // 屏蔽列表：动态行数，注册表外（每行 [编辑框][✕]，下方 [添加玩家]）

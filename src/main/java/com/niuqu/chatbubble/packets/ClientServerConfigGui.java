@@ -21,10 +21,11 @@ public class ClientServerConfigGui {
 
     public static void open(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                             boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
+                            boolean groupsEnabled,
                             List<String> chatTemplates, List<String> whisperTemplates) {
         Minecraft.getInstance().setScreen(new ServerConfigScreen(
             Minecraft.getInstance().screen,
             useTpa, historyEnabled, templateDebug, mediaEnabled, mediaAutoClean, easyBotCompat,
-            chatTemplates, whisperTemplates));
+            groupsEnabled, chatTemplates, whisperTemplates));
     }
 }

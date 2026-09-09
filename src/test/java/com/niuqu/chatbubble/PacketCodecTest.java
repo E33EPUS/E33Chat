@@ -68,8 +68,8 @@ class PacketCodecTest {
 
     @Test void historyStable() {
         assertStable(new HistoryPacket(List.of(
-                new HistoryPacket.HistoryEntry(new UUID(1, 1), "Steve", "hi there", 1700000000000L, false, "reply", "sender"),
-                new HistoryPacket.HistoryEntry(new UUID(2, 2), "Alex", "system msg", 1700000001000L, true, "", ""))),
+                new HistoryPacket.HistoryEntry(new UUID(1, 1), "Steve", "hi there", 1700000000000L, false, "reply", "sender", null),
+                new HistoryPacket.HistoryEntry(new UUID(2, 2), "Alex", "system msg", 1700000001000L, true, "", "", "公会"))),
             (p, buf) -> HistoryPacket.encode((HistoryPacket) p, buf), b -> HistoryPacket.decode(b));
     }
 
@@ -125,13 +125,13 @@ class PacketCodecTest {
     }
 
     @Test void serverConfigScreenStable() {
-        assertStable(new ServerConfigScreenPacket(true, false, true, true, true, true,
+        assertStable(new ServerConfigScreenPacket(true, false, true, true, true, true, true,
                 List.of("chat tpl"), List.of("whisper tpl")),
             (p, buf) -> ServerConfigScreenPacket.encode((ServerConfigScreenPacket) p, buf), b -> ServerConfigScreenPacket.decode(b));
     }
 
     @Test void serverConfigSaveStable() {
-        assertStable(new ServerConfigSavePacket(false, true, false, false, true, true,
+        assertStable(new ServerConfigSavePacket(false, true, false, false, true, true, false,
                 List.of(), List.of("w")),
             (p, buf) -> ServerConfigSavePacket.encode((ServerConfigSavePacket) p, buf), b -> ServerConfigSavePacket.decode(b));
     }

@@ -306,7 +306,7 @@ class ChatMessageStoreTest {
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("今天去打龙吗"),
             1782900000000L,
-            own, system, null, null, "", 1, null, false, null);
+            own, system, null, null, "", 1, null, false, null, null);
     }
 
     @Test void tsv_roundTripPreservesCore() {
@@ -337,7 +337,7 @@ class ChatMessageStoreTest {
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("hi"),
             1782900000000L,
-            true, false, null, null, "", 1, null, true, null);
+            true, false, null, null, "", 1, null, true, null, null);
         var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertTrue(back.isOwn());
@@ -355,7 +355,7 @@ class ChatMessageStoreTest {
             java.util.UUID.randomUUID(),
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("a\tb\nc\\d\r\nx"),
-            1782900000000L, false, false, null, null, "", 1, null, false, null);
+            1782900000000L, false, false, null, null, "", 1, null, false, null, null);
         var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertEquals("a\tb\nc\\d\r\nx", back.content().getString());
@@ -367,7 +367,7 @@ class ChatMessageStoreTest {
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("hi"),
             1782900000000L,
-            false, false, "引用的内容", "Alex", "", 1, "Steve", true, "Alex");
+            false, false, "引用的内容", "Alex", "", 1, "Steve", true, "Alex", null);
         var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertTrue(back.whisper());
@@ -382,7 +382,7 @@ class ChatMessageStoreTest {
             java.util.UUID.nameUUIDFromBytes("steve".getBytes()),
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("hi"),
-            1782900000000L, false, false, null, null, "", 1, null, false, null);
+            1782900000000L, false, false, null, null, "", 1, null, false, null, null);
         var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertEquals(msg.senderUUID(), back.senderUUID());
@@ -400,7 +400,7 @@ class ChatMessageStoreTest {
         var msg = new ChatMessageStore.ChatMessage(
             java.util.UUID.randomUUID(), styled,
             net.minecraft.network.chat.Component.literal("hi"),
-            1782900000000L, false, false, null, null, "", 1, null, false, null);
+            1782900000000L, false, false, null, null, "", 1, null, false, null, null);
         var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertEquals("Steve", back.senderName().getString());
@@ -421,7 +421,7 @@ class ChatMessageStoreTest {
             java.util.UUID.randomUUID(),
             net.minecraft.network.chat.Component.literal("Steve"),
             content,
-            1782900000000L, false, false, null, null, "", 1, null, false, null);
+            1782900000000L, false, false, null, null, "", 1, null, false, null, null);
         var back = ChatMessageStore.fromLine(ChatMessageStore.toLine(msg));
         assertNotNull(back);
         assertEquals(click, back.content().getStyle().getClickEvent());
@@ -439,7 +439,7 @@ class ChatMessageStoreTest {
             java.util.UUID.randomUUID(),
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("   "),
-            1782900000000L, false, false, null, null, "", 1, null, false, null);
+            1782900000000L, false, false, null, null, "", 1, null, false, null, null);
         assertNull(ChatMessageStore.fromLine(ChatMessageStore.toLine(msg)));
     }
 
@@ -524,7 +524,7 @@ class ChatMessageStoreTest {
             java.util.UUID.randomUUID(),
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("/login hunter2"),
-            1782900000000L, false, false, null, null, "", 1, null, false, null);
+            1782900000000L, false, false, null, null, "", 1, null, false, null, null);
         assertNull(ChatMessageStore.toLine(msg));
     }
 
@@ -604,17 +604,17 @@ class ChatMessageStoreTest {
             java.util.UUID.randomUUID(),
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("hello"),
-            1L, false, false, null, null, "", 1, "Steve", false, null);
+            1L, false, false, null, null, "", 1, "Steve", false, null, null);
         var ownMsg = new ChatMessageStore.ChatMessage(
             java.util.UUID.randomUUID(),
             net.minecraft.network.chat.Component.literal("Me"),
             net.minecraft.network.chat.Component.literal("hi"),
-            2L, true, false, null, null, "", 1, "Me", false, null);
+            2L, true, false, null, null, "", 1, "Me", false, null, null);
         var sysMsg = new ChatMessageStore.ChatMessage(
             java.util.UUID.randomUUID(),
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("joined the game"),
-            3L, false, true, null, null, "", 1, "Steve", false, null);
+            3L, false, true, null, null, "", 1, "Steve", false, null, null);
 
         var field = ChatMessageStore.class.getDeclaredField("messages");
         field.setAccessible(true);
@@ -851,7 +851,7 @@ class ChatMessageStoreTest {
             java.util.UUID.randomUUID(),
             net.minecraft.network.chat.Component.literal("Steve"),
             net.minecraft.network.chat.Component.literal("hello " + time),
-            time, false, false, null, null, "", 1, "Steve", false, null));
+            time, false, false, null, null, "", 1, "Steve", false, null, null));
     }
 
     private static void awaitGone(java.io.File f) throws Exception {

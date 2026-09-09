@@ -137,10 +137,43 @@ public final class ChatMessageRenderer {
         return BracketCodec.parseOrExtract(c);
     }
 
+    /** Animated entry for a URL: extension-gated; content-probe only for the
+     *  extension-less server media transport (e33chat://media/<id>). */
+    private static com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url) {
+        var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, null);
+        if (entry != null) return entry;
+        return url != null && url.startsWith("e33chat://media/")
+            ? com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, null)
+            : null;
+    }
+
+    /** Still decoding: the static ImageLoader must not win the race yet, or the
+     *  GIF would freeze on its first frame forever. */
+    private static boolean animatedPending(
+            com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animated) {
+        return animated != null && !animated.ready() && !animated.failed() && !animated.staticImage();
+    }
+
+    /** Current animated texture + logical size, or null to fall back to the static path. */
+    private static com.niuqu.chatbubble.image.AnimatedImageLoader.FrameTex animatedTex(
+            com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animated) {
+        if (animated == null || !animated.ready()) return null;
+        var tex = animated.texture();
+        return tex == null ? null
+            : new com.niuqu.chatbubble.image.AnimatedImageLoader.FrameTex(tex, animated.width(), animated.height());
+    }
+
     /** Height in px for one bubble-less image (state-dependent, panel-clamped, never upscaled). */
     public static int imageEdgeHeight(String url, int panelW) {
         int maxW = Math.max(80, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16);
-        ImageEntry entry = ImageLoader.getOrLoad(url);
+        var animated = animatedEntry(url);
+        if (animated != null && animated.ready() && animated.width() > 0 && animated.height() > 0) {
+            float ratio = Math.min((float) maxW / animated.width(),
+                (float) maxW / animated.height());
+            ratio = Math.min(1f, ratio);
+            return Math.max(1, (int) (animated.height() * ratio));
+        }
+        ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(url);
         if (entry != null && entry.state() == ImageEntry.State.LOADED
                 && entry.width() > 0 && entry.height() > 0) {
             float ratio = Math.min((float) maxW / entry.width(),
@@ -216,29 +249,45 @@ public final class ChatMessageRenderer {
         int maxImgW = Math.max(80, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16);
         for (var ref : parsed.images()) {
             int w = maxImgW, h = maxImgW;
-            ImageEntry entry = ImageLoader.getOrLoad(ref.url());
-            if (entry != null && entry.state() == ImageEntry.State.LOADED
-                    && entry.width() > 0 && entry.height() > 0) {
-                float ratio = Math.min((float) maxImgW / entry.width(),
-                    (float) maxImgW / entry.height());
-                ratio = Math.min(1f, ratio); // never upscale
-                w = Math.max(1, (int) (entry.width() * ratio));
-                h = Math.max(1, (int) (entry.height() * ratio));
+            var animated = animatedEntry(ref.url());
+            var animatedFrame = animatedTex(animated);
+            if (animatedFrame != null && animatedFrame.width() > 0 && animatedFrame.height() > 0) {
+                float ratio = Math.min((float) maxImgW / animatedFrame.width(),
+                    (float) maxImgW / animatedFrame.height());
+                ratio = Math.min(1f, ratio);
+                w = Math.max(1, (int) (animatedFrame.width() * ratio));
+                h = Math.max(1, (int) (animatedFrame.height() * ratio));
+            } else {
+                ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(ref.url());
+                if (entry != null && entry.state() == ImageEntry.State.LOADED
+                        && entry.width() > 0 && entry.height() > 0) {
+                    float ratio = Math.min((float) maxImgW / entry.width(),
+                        (float) maxImgW / entry.height());
+                    ratio = Math.min(1f, ratio); // never upscale
+                    w = Math.max(1, (int) (entry.width() * ratio));
+                    h = Math.max(1, (int) (entry.height() * ratio));
+                }
             }
             int imgX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - w) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
-            if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
-                g.blit(entry.textureId(), imgX, y, w, h, 0, 0,
-                    entry.width(), entry.height(), entry.width(), entry.height());
+            if (animatedFrame != null) {
+                g.blit(animatedFrame.texture(), imgX, y, w, h, 0, 0,
+                    animatedFrame.width(), animatedFrame.height(), animatedFrame.width(), animatedFrame.height());
             } else {
-                boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
-                    && entry.failure() != null && entry.failure().contains("rate limited");
-                String txt = limited
-                    ? Component.translatable("e33chat.image.ratelimited").getString()
-                    : entry != null && entry.state() == ImageEntry.State.FAILED
-                        ? Component.translatable("e33chat.image.failed").getString()
-                        : Component.translatable("e33chat.image.loading").getString();
-                g.drawString(font, Component.literal(txt), imgX, y,
-                    ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c.textSecondary(), (int)(255 * alpha)), false);
+                ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(ref.url());
+                if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
+                    g.blit(entry.textureId(), imgX, y, w, h, 0, 0,
+                        entry.width(), entry.height(), entry.width(), entry.height());
+                } else {
+                    boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
+                        && entry.failure() != null && entry.failure().contains("rate limited");
+                    String txt = limited
+                        ? Component.translatable("e33chat.image.ratelimited").getString()
+                        : entry != null && entry.state() == ImageEntry.State.FAILED
+                            ? Component.translatable("e33chat.image.failed").getString()
+                            : Component.translatable("e33chat.image.loading").getString();
+                    g.drawString(font, Component.literal(txt), imgX, y,
+                        ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c.textSecondary(), (int)(255 * alpha)), false);
+                }
             }
             // Open the URL in the system browser on click; hover shows the URL
             Style st = Style.EMPTY
@@ -304,28 +353,43 @@ public final class ChatMessageRenderer {
         int emoteY = baseY + (showAvatar ? NAME_H + 2 : 2);
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16));
         int w = maxE, h = maxE;
-        ImageEntry entry = ImageLoader.getOrLoad(ref.url());
-        if (entry != null && entry.state() == ImageEntry.State.LOADED
-                && entry.width() > 0 && entry.height() > 0) {
-            float ratio = Math.min((float) maxE / entry.width(), (float) maxE / entry.height());
+        var animated = animatedEntry(ref.url());
+        var animatedFrame = animatedTex(animated);
+        if (animatedFrame != null && animatedFrame.width() > 0 && animatedFrame.height() > 0) {
+            float ratio = Math.min((float) maxE / animatedFrame.width(), (float) maxE / animatedFrame.height());
             ratio = Math.min(1f, ratio); // never upscale
-            w = Math.max(1, (int) (entry.width() * ratio));
-            h = Math.max(1, (int) (entry.height() * ratio));
+            w = Math.max(1, (int) (animatedFrame.width() * ratio));
+            h = Math.max(1, (int) (animatedFrame.height() * ratio));
+        } else {
+            ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(ref.url());
+            if (entry != null && entry.state() == ImageEntry.State.LOADED
+                    && entry.width() > 0 && entry.height() > 0) {
+                float ratio = Math.min((float) maxE / entry.width(), (float) maxE / entry.height());
+                ratio = Math.min(1f, ratio); // never upscale
+                w = Math.max(1, (int) (entry.width() * ratio));
+                h = Math.max(1, (int) (entry.height() * ratio));
+            }
         }
         int emoteX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - w) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
-        if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
-            g.blit(entry.textureId(), emoteX, emoteY, w, h, 0, 0,
-                entry.width(), entry.height(), entry.width(), entry.height());
+        if (animatedFrame != null) {
+            g.blit(animatedFrame.texture(), emoteX, emoteY, w, h, 0, 0,
+                animatedFrame.width(), animatedFrame.height(), animatedFrame.width(), animatedFrame.height());
         } else {
-            boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
-                && entry.failure() != null && entry.failure().contains("rate limited");
-            String txt = limited
-                ? Component.translatable("e33chat.image.ratelimited").getString()
-                : entry != null && entry.state() == ImageEntry.State.FAILED
-                    ? Component.translatable("e33chat.image.failed").getString()
-                    : Component.translatable("e33chat.image.loading").getString();
-            g.drawString(font, Component.literal(txt), emoteX, emoteY,
-                ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c.textSecondary(), (int)(255 * alpha)), false);
+            ImageEntry entry = animatedPending(animated) ? null : ImageLoader.getOrLoad(ref.url());
+            if (entry != null && entry.state() == ImageEntry.State.LOADED && entry.textureId() != null) {
+                g.blit(entry.textureId(), emoteX, emoteY, w, h, 0, 0,
+                    entry.width(), entry.height(), entry.width(), entry.height());
+            } else {
+                boolean limited = entry != null && entry.state() == ImageEntry.State.FAILED
+                    && entry.failure() != null && entry.failure().contains("rate limited");
+                String txt = limited
+                    ? Component.translatable("e33chat.image.ratelimited").getString()
+                    : entry != null && entry.state() == ImageEntry.State.FAILED
+                        ? Component.translatable("e33chat.image.failed").getString()
+                        : Component.translatable("e33chat.image.loading").getString();
+                g.drawString(font, Component.literal(txt), emoteX, emoteY,
+                    ChatBubbleTheme.alphaBlend(limited ? 0xFFFF5555 : c.textSecondary(), (int)(255 * alpha)), false);
+            }
         }
         Style st = Style.EMPTY
             .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, ref.url()))

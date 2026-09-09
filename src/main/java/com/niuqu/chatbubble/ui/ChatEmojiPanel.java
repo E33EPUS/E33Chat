@@ -165,7 +165,11 @@ public class ChatEmojiPanel {
                     ex, ey, EMOTE_SLOT - 1, EMOTE_SLOT - 1, alpha);
             if (i < emotes.size()) {
                 java.io.File f = emotes.get(i);
-                net.minecraft.resources.ResourceLocation tex = EmoteStore.texture(f);
+                // 2.4.10: GIF/WebP 自定义表情走逐帧动画；静态图回退 EmoteStore 纹理
+                var anim = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadFile(f);
+                var animFrame = anim != null && anim.ready() ? anim.texture() : null;
+                net.minecraft.resources.ResourceLocation tex = animFrame != null
+                    ? animFrame : EmoteStore.texture(f);
                 if (tex != null)
                     com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex,
                         ex + 4, ey + 4, EMOTE_SLOT - 8, EMOTE_SLOT - 8, alpha);
