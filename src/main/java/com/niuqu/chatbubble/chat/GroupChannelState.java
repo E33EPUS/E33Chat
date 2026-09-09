@@ -10,9 +10,9 @@ import java.util.Set;
 /**
  * Client-side group channel state (2.4.10).
  *
- * Tab model: {@link #TAB_ALL} = "全部" (no filter), {@link #TAB_WORLD} = public
- * player messages, {@link #TAB_SYSTEM} = system messages, otherwise the group
- * name. All pseudo ids start with '#' and group names can never start with '#'
+ * Tab model: {@link #TAB_ALL} = "全部" (world + system, groups stay in their
+ * own tab), {@link #TAB_WORLD} = public player messages, {@link #TAB_SYSTEM} =
+ * system messages, otherwise the group name. All pseudo ids start with '#' and group names can never start with '#'
  * (server-side validation), so they can't collide with real groups.
  *
  * The tab strip is only shown once the server sent a GroupListPacket
@@ -88,9 +88,19 @@ public final class GroupChannelState {
         return TAB_WORLD;
     }
 
-    /** Tab filter over the public (non-whisper) message list. */
+    /** Tab filter over the public (non-whisper) message list.
+     *  「全部」= world + system only: group messages stay quarantined in their
+     *  own tab (user report 2026-09-09 — mixing private group chatter into the
+     *  default view read as "leaking into the world channel"). */
     public static List<ChatMessage> filterMessages(List<ChatMessage> publicMessages, String activeTab) {
-        if (activeTab == null || TAB_ALL.equals(activeTab)) return publicMessages;
+        if (activeTab == null) return publicMessages;
+        if (TAB_ALL.equals(activeTab)) {
+            List<ChatMessage> out = new ArrayList<>();
+            for (ChatMessage m : publicMessages) {
+                if (m.group() == null || m.group().isEmpty()) out.add(m);
+            }
+            return out;
+        }
         List<ChatMessage> out = new ArrayList<>();
         for (ChatMessage m : publicMessages) {
             if (activeTab.equals(channelOf(m))) out.add(m);

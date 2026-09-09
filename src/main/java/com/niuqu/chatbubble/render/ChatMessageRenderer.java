@@ -223,7 +223,7 @@ public final class ChatMessageRenderer {
             int startX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - nameW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
             renderLineWithClicks(g, font, nameSeq, startX, baseY,
                 ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), null,
-                index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection);
+                index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection, false);
         }
 
         // 头像顶与名字行顶对齐（2.3.16 曾改气泡顶对齐，实测回退老锚点）
@@ -345,7 +345,7 @@ public final class ChatMessageRenderer {
             int startX = own ? (avatarX - UiTokens.AVATAR_NAME_GAP - nameW) : (avatarX + Appearance.avatarSize() + UiTokens.AVATAR_GAP);
             renderLineWithClicks(g, font, nameSeq, startX, baseY,
                 ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), null,
-                index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection);
+                index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection, false);
         }
 
         if (showAvatar) drawAvatar(g, skin, avatarX, baseY, alpha);
@@ -488,6 +488,25 @@ public final class ChatMessageRenderer {
                                              List<ClickableSpan> clickableSpans,
                                              List<TextSpan> textSpans,
                                              ChatTextSelection selection) {
+        renderLineWithClicks(g, font, line, x, y, color, fallback, messageIndex, lineIndex, kind,
+            scale, backgroundRgb, clickableSpans, textSpans, selection, true);
+    }
+
+    /**
+     * @param clickable false for lines that must never underline or register click
+     *                  targets even when their styles carry a ClickEvent (the
+     *                  sender-name row: the server attaches /tell click events to
+     *                  names, and since c5104c40 routed names through this method
+     *                  they showed an underline nobody asked for). Text selection
+     *                  still works — that is the reason names go through here.
+     */
+    public static void renderLineWithClicks(GuiGraphics g, Font font, FormattedCharSequence line,
+                                             int x, int y, int color, Style fallback,
+                                             int messageIndex, int lineIndex, int kind, float scale,
+                                             int backgroundRgb,
+                                             List<ClickableSpan> clickableSpans,
+                                             List<TextSpan> textSpans,
+                                             ChatTextSelection selection, boolean clickable) {
         List<Style> styles = new ArrayList<>();
         StringBuilder textBuilder = new StringBuilder();
         line.accept((i, st, cp) -> {
@@ -516,22 +535,42 @@ public final class ChatMessageRenderer {
             }
         }
 
+        if (!clickable) {
+            // No underline, no click target: draw the line as-is except for the
+            // selection recolor, which is why the name row still comes through here.
+            if (range == null) {
+                g.drawString(font, line, x, y, color, false);
+                return;
+            }
+            int[] idxPlain = {0};
+            int[] plainRange = range;
+            final int plainFg = selFg;
+            FormattedCharSequence recolored = sink -> line.accept((i, st, cp) -> {
+                int pos = idxPlain[0]++;
+                Style out = pos >= plainRange[0] && pos < plainRange[1]
+                    ? st.withColor(net.minecraft.network.chat.TextColor.fromRgb(plainFg)) : st;
+                return sink.accept(i, out, cp);
+            });
+            g.drawString(font, recolored, x, y, color, false);
+            return;
+        }
+
         int beforeCount = clickableSpans.size();
         int runStart = -1;
         Style runStyle = null;
         List<int[]> clickableCharRanges = new ArrayList<>();
         for (int idx = 0; idx <= styles.size(); idx++) {
             Style st = idx < styles.size() ? styles.get(idx) : null;
-            boolean clickable = st != null && (st.getClickEvent() != null || st.getHoverEvent() != null);
+            boolean runClickable = st != null && (st.getClickEvent() != null || st.getHoverEvent() != null);
             if (runStyle == null) {
-                if (clickable) { runStart = idx; runStyle = st; }
-            } else if (!clickable || !st.equals(runStyle)) {
+                if (runClickable) { runStart = idx; runStyle = st; }
+            } else if (!runClickable || !st.equals(runStyle)) {
                 int x0 = prefixWidth(line, runStart, font);
                 int x1 = prefixWidth(line, idx, font);
                 clickableSpans.add(new ClickableSpan(x + x0, y, x1 - x0, font.lineHeight, runStyle));
                 clickableCharRanges.add(new int[]{runStart, idx});
-                runStart = clickable ? idx : -1;
-                runStyle = clickable ? st : null;
+                runStart = runClickable ? idx : -1;
+                runStyle = runClickable ? st : null;
             }
         }
 
@@ -692,7 +731,7 @@ public final class ChatMessageRenderer {
             int startX = own ? (bubbleX + bubbleW - nameW) : bubbleX;
             renderLineWithClicks(g, font, nameSeq, startX, nameY,
                 ChatBubbleTheme.alphaBlend(c.nameColor(), (int)(255 * alpha)), null,
-                index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection);
+                index, 0, TextSpan.KIND_NAME, 1f, c.panelBg(), clickableSpans, textSpans, selection, false);
         }
 
         int bubbleY = baseY + (showAvatar ? NAME_H : 0);
