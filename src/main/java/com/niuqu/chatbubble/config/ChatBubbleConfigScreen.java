@@ -25,10 +25,8 @@ import net.minecraftforge.common.ForgeConfigSpec;
 
 public class ChatBubbleConfigScreen extends Screen {
     private final Screen lastScreen;
-    /** Original hideGui state, restored when this translucent screen is closed.
-     *  Captured in init(): Screen.minecraft is null until setScreen() runs. */
-    private boolean prevHideGui;
-    private boolean prevHideGuiCaptured;
+    /** True while this screen has pushed its HUD-hide request (see init/removed). */
+    private boolean hudHidden;
 
     private ChatBubbleTheme.Colors c() {
         return ChatBubbleTheme.DARK.colors();
@@ -369,12 +367,12 @@ public class ChatBubbleConfigScreen extends Screen {
         // This screen's background is translucent (world visible through it), but
         // vanilla still renders the HUD (hotbar/effects/chat) behind an open screen
         // in 1.20.1. Hide the HUD while this screen is open; restore in removed().
-        // Capture here: Screen.minecraft is null until setScreen() -> init().
-        if (!prevHideGuiCaptured) {
-            prevHideGui = minecraft.options.hideGui;
-            prevHideGuiCaptured = true;
+        // Hide the HUD via HudVisibility (RenderGuiEvent.Pre cancellation);
+        // options.hideGui is the F1 flag and would also hide the hand.
+        if (!hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.push();
+            hudHidden = true;
         }
-        minecraft.options.hideGui = true;
         buildCats();
         scrollWidgets.clear();
 
@@ -969,7 +967,10 @@ public class ChatBubbleConfigScreen extends Screen {
 
     @Override
     public void removed() {
-        minecraft.options.hideGui = prevHideGui;
+        if (hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.pop();
+            hudHidden = false;
+        }
         super.removed();
     }
 

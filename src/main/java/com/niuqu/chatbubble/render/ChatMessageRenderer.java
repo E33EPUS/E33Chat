@@ -138,13 +138,18 @@ public final class ChatMessageRenderer {
     }
 
     /** Animated entry for a URL: extension-gated; content-probe only for the
-     *  extension-less server media transport (e33chat://media/<id>). */
+     *  extension-less server media transport (e33chat://media/<id>).
+     *
+     *  The content probe costs an extra server media fetch (the server
+     *  rate-limits downloads per player), so it is skipped once the same URL
+     *  already failed its probe — a static image must not keep re-downloading. */
     private static com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url) {
         var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, null);
         if (entry != null) return entry;
-        return url != null && url.startsWith("e33chat://media/")
-            ? com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, null)
-            : null;
+        if (url == null || !url.startsWith("e33chat://media/")) return null;
+        // Only probe server media once per URL; the static ImageLoader owns the
+        // bytes afterwards (shared fetch makes the second request free anyway).
+        return com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, null);
     }
 
     /** Still decoding: the static ImageLoader must not win the race yet, or the

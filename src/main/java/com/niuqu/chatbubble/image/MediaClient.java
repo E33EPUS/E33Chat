@@ -127,16 +127,27 @@ public final class MediaClient {
         }
     }
 
-    /** Download a server-hosted file. Worker-thread only. Returns raw bytes or null. */
+    /**
+     * Download a server-hosted file. Worker-thread only. Returns raw bytes or null.
+     *
+     * Concurrent callers for the same mediaId share one in-flight request: the
+     * animated-image probe and the static loader both fetch every e33chat://
+     * media URL, and the server rate-limits downloads (4 per 10s per player) —
+     * two requests per image burnt the quota and made the 4th image fail.
+     */
     public static byte[] fetch(String mediaId) {
         if (!DiskMediaStore.isValidMediaId(mediaId)) return null;
-        CompletableFuture<byte[]> done = new CompletableFuture<>();
-        FETCHES.put(mediaId, done);
-        NetworkHandler.CHANNEL.sendToServer(new MediaRequestPacket(mediaId));
+        // computeIfAbsent is atomic: the first caller owns the request, the rest
+        // attach to the same future and never send their own MediaRequestPacket.
+        CompletableFuture<byte[]> done = FETCHES.computeIfAbsent(mediaId, id -> {
+            CompletableFuture<byte[]> fresh = new CompletableFuture<>();
+            NetworkHandler.CHANNEL.sendToServer(new MediaRequestPacket(id));
+            return fresh;
+        });
         try {
             return done.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
-            FETCHES.remove(mediaId);
+            FETCHES.remove(mediaId, done);
             FETCH_BUFFERS.remove(mediaId);
             FETCH_COUNTS.remove(mediaId);
             LOGGER.info("[e33chat] server media fetch {} timed out after {}s", mediaId, TIMEOUT_SECONDS);

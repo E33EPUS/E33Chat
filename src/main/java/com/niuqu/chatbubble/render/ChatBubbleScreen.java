@@ -113,11 +113,8 @@ public class ChatBubbleScreen extends ChatScreen {
     // Caches resolved head skins per player uuid so the SkinManager isn't hit every frame
     private CommandSuggestions suggestions;
     private final String initialText;
-    /** Original hideGui state, restored when this translucent screen is closed.
-     *  Captured in init(): Screen.minecraft is null until setScreen() runs, and
-     *  ScreenEvent.Opening constructs this screen before that. */
-    private boolean prevHideGui;
-    private boolean prevHideGuiCaptured;
+    /** True while this screen has pushed its HUD-hide request (see init/removed). */
+    private boolean hudHidden;
     private String historyBuffer = "";
     private int historyPos = -1;
     private int scrollOffset;
@@ -262,15 +259,13 @@ public class ChatBubbleScreen extends ChatScreen {
     protected void init() {
         // Translucent panel: hide the vanilla HUD (hotbar/effects/chat and
         // HUD-drawn third-party tooltips such as Jade) behind it while open.
-        // Restored in removed() once the close animation has finished.
-        // Capture here (not in the constructor): Screen.minecraft is only
-        // assigned by setScreen() -> init(), while ScreenEvent.Opening creates
-        // this screen before that — reading it earlier NPEs.
-        if (!prevHideGuiCaptured) {
-            prevHideGui = minecraft.options.hideGui;
-            prevHideGuiCaptured = true;
+        // Uses HudVisibility + RenderGuiEvent.Pre cancellation rather than
+        // options.hideGui — that flag is F1 and also hides the first-person
+        // hand/held item (GameRenderer gates hands on it).
+        if (!hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.push();
+            hudHidden = true;
         }
-        minecraft.options.hideGui = true;
         ChatMessageStore.setScreenOpen(true);
         historyPos = minecraft.gui.getChat().getRecentChat().size();
         animStart = net.minecraft.Util.getMillis();
@@ -2732,7 +2727,10 @@ public class ChatBubbleScreen extends ChatScreen {
     public void removed() {
         if (ChatBubbleConfig.PRESERVE_INPUT.get()) savedInput = input.getValue();
         ChatMessageStore.setScreenOpen(false);
-        minecraft.options.hideGui = prevHideGui;
+        if (hudHidden) {
+            com.niuqu.chatbubble.render.HudVisibility.pop();
+            hudHidden = false;
+        }
         minecraft.gui.getChat().resetChatScroll();
     }
 
