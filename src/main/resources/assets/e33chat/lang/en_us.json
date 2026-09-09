@@ -270,6 +270,7 @@
   "e33chat.group.tab_world": "World",
   "e33chat.group.tab_system": "System",
   "e33chat.group.browser_title": "Groups",
+  "e33chat.group.browser_hint": "Click a name to join",
   "e33chat.group.create_placeholder": "Type a name to create…",
   "e33chat.group.create_btn": "Create",
   "e33chat.group.leave_btn": "Leave",

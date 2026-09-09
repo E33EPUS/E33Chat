@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,6 +35,22 @@ class GroupChannelStateTest {
         assertFalse(GroupManager.isValidGroupName("<x>"));
         assertFalse(GroupManager.isValidGroupName("#world"));         // reserved pseudo-tab prefix
         assertFalse(GroupManager.isValidGroupName("123456789012345")); // > 12 chars
+    }
+
+    // ==== GroupManager.splitSay ====
+
+    /** CJK names must survive the command path: Brigadier's string() rejects
+     *  them unquoted, so msg passes one greedy rest argument and splits here. */
+    @Test
+    void splitSayHandlesCjkNameAndText() {
+        assertArrayEquals(new String[]{"妈妈", "？？"}, GroupManager.splitSay("妈妈 ？？"));
+        assertArrayEquals(new String[]{"妈妈", "hello world"}, GroupManager.splitSay("妈妈 hello world"));
+        assertArrayEquals(new String[]{"mama", "hi"}, GroupManager.splitSay("mama hi"));
+        // trailing/leading whitespace is trimmed; no space means empty text
+        assertArrayEquals(new String[]{"妈妈", ""}, GroupManager.splitSay("  妈妈  "));
+        assertArrayEquals(new String[]{"妈妈", ""}, GroupManager.splitSay("妈妈"));
+        assertArrayEquals(new String[]{"", ""}, GroupManager.splitSay(null));
+        assertArrayEquals(new String[]{"", ""}, GroupManager.splitSay("   "));
     }
 
     // ==== GroupChannelState.channelOf ====
