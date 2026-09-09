@@ -85,6 +85,16 @@ public class ChatBubbleClientListener {
     }
 
     @SubscribeEvent
+    public void onRenderGuiPre(RenderGuiEvent.Pre event) {
+        // Translucent E33Chat screens hide the HUD by cancelling this event
+        // instead of setting options.hideGui (which is the F1 flag and would
+        // also hide the first-person hand/held item).
+        if (com.niuqu.chatbubble.render.HudVisibility.shouldHideHud()) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
     public void onRenderGui(RenderGuiEvent.Post event) {
         if (!ChatBubbleConfig.ENABLED.get()) return;
         ChatBubbleHudOverlay.render(event.getGuiGraphics());
@@ -107,6 +117,7 @@ public class ChatBubbleClientListener {
     @SubscribeEvent
     public void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
         com.niuqu.chatbubble.chat.GroupChannelState.reset();
+        com.niuqu.chatbubble.render.HudVisibility.reset();
     }
 
     @SubscribeEvent
