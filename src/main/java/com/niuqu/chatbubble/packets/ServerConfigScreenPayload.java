@@ -20,6 +20,7 @@ import java.util.List;
  */
 public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                                         boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
+                                        boolean groupsEnabled,
                                         List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPacketPayload {
 
@@ -31,7 +32,7 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
         public ServerConfigScreenPayload decode(ByteBuf buf) {
             ServerConfigDto d = ServerConfigDto.decode(buf);
             return new ServerConfigScreenPayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-                d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(),
+                d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(), d.groupsEnabled(),
                 d.chatTemplates(), d.whisperTemplates());
         }
 
@@ -39,7 +40,7 @@ public record ServerConfigScreenPayload(boolean useTpa, boolean historyEnabled, 
         public void encode(ByteBuf buf, ServerConfigScreenPayload payload) {
             ServerConfigDto.encode(new ServerConfigDto(payload.useTpa(), payload.historyEnabled(),
                 payload.templateDebug(), payload.mediaEnabled(), payload.mediaAutoClean(),
-                payload.easyBotCompat(),
+                payload.easyBotCompat(), payload.groupsEnabled(),
                 payload.chatTemplates(), payload.whisperTemplates()), buf);
         }
     };

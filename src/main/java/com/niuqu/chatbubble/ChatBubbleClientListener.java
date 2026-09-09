@@ -97,8 +97,22 @@ public class ChatBubbleClientListener {
     }
 
     @SubscribeEvent
+    public void onLoggingIn(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn event) {
+        // Fresh server = fresh group state; then announce the mod so the
+        // server routes group chat as packets and pushes the group directory.
+        com.niuqu.chatbubble.chat.GroupChannelState.reset();
+        com.niuqu.chatbubble.packets.ClientHelloPayload.send();
+    }
+
+    @SubscribeEvent
+    public void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        com.niuqu.chatbubble.chat.GroupChannelState.reset();
+    }
+
+    @SubscribeEvent
     public void onClientTick(ClientTickEvent.Post event) {
         com.niuqu.chatbubble.image.ImageLoader.tick();
+        com.niuqu.chatbubble.image.AnimatedImageLoader.tick();
         Minecraft mc = Minecraft.getInstance();
         String key;
         if (mc.level == null || mc.player == null) {

@@ -65,13 +65,14 @@ public final class ChatContextMenus {
 
     public static void renderAvatarMenu(GuiGraphics g, Font font, int mouseX, int mouseY,
                                          ChatBubbleTheme.Colors c, int panelX, int panelW,
-                                         int msgTop, ResourceLocation tpIcon,
+                                         int msgTop, ResourceLocation profileIcon,
+                                         ResourceLocation tpIcon,
                                          ResourceLocation whisperIcon,
                                          ResourceLocation blockIcon,
                                          boolean isBlocked,
                                          int contextAvatarX, int contextAvatarY,
                                          boolean useTpa, float alpha) {
-        int menuH = CTX_ITEM_H * 3 + 4;
+        int menuH = CTX_ITEM_H * 4 + 6;
         int mx = menuX(contextAvatarX, panelX, panelW);
         int my = menuY(contextAvatarY, menuH, msgTop, true);
 
@@ -105,6 +106,15 @@ public final class ChatContextMenus {
         drawIcon(g, blockIcon, mx + 5, my + CTX_ITEM_H * 2 + 6, 12, alpha);
         g.drawString(font, Component.translatable(isBlocked ? "e33chat.context.unblock" : "e33chat.context.block"),
             mx + 22, my + CTX_ITEM_H * 2 + 8, c.textPrimary(), false);
+
+        g.fill(mx + 4, my + CTX_ITEM_H * 3 + 5, mx + CTX_W - 4, my + CTX_ITEM_H * 3 + 6, c.closeHoverBg());
+
+        boolean hoverProfile = isOverItem(mouseX, mouseY, mx, my + CTX_ITEM_H * 3 + 6, CTX_ITEM_H);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(hoverProfile ? UiElement.CONTEXT_HOVER : UiElement.SIDEBAR_SELECTED),
+            mx + 1, my + CTX_ITEM_H * 3 + 6, CTX_W - 2, CTX_ITEM_H, alpha);
+        drawIcon(g, profileIcon, mx + 5, my + CTX_ITEM_H * 3 + 8, 12, alpha);
+        g.drawString(font, Component.translatable("e33chat.context.profile"),
+            mx + 22, my + CTX_ITEM_H * 3 + 10, c.textPrimary(), false);
     }
 
     private static void drawIcon(GuiGraphics g, ResourceLocation tex, int x, int y, int size, float alpha) {

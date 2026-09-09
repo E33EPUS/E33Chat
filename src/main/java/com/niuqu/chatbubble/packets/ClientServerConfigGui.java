@@ -23,6 +23,7 @@ public class ClientServerConfigGui {
             Minecraft.getInstance().screen,
             payload.useTpa(), payload.historyEnabled(), payload.templateDebug(),
             payload.mediaEnabled(), payload.mediaAutoClean(), payload.easyBotCompat(),
+            payload.groupsEnabled(),
             payload.chatTemplates(), payload.whisperTemplates())));
     }
 }

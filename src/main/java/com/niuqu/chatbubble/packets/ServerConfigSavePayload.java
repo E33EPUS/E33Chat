@@ -23,6 +23,7 @@ import java.util.List;
  */
 public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, boolean templateDebug,
                                       boolean mediaEnabled, boolean mediaAutoClean, boolean easyBotCompat,
+                                      boolean groupsEnabled,
                                       List<String> chatTemplates, List<String> whisperTemplates)
         implements CustomPacketPayload {
 
@@ -34,7 +35,7 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
         public ServerConfigSavePayload decode(ByteBuf buf) {
             ServerConfigDto d = ServerConfigDto.decode(buf);
             return new ServerConfigSavePayload(d.useTpa(), d.historyEnabled(), d.templateDebug(),
-                d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(),
+                d.mediaEnabled(), d.mediaAutoClean(), d.easyBotCompat(), d.groupsEnabled(),
                 d.chatTemplates(), d.whisperTemplates());
         }
 
@@ -42,7 +43,7 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
         public void encode(ByteBuf buf, ServerConfigSavePayload payload) {
             ServerConfigDto.encode(new ServerConfigDto(payload.useTpa(), payload.historyEnabled(),
                 payload.templateDebug(), payload.mediaEnabled(), payload.mediaAutoClean(),
-                payload.easyBotCompat(),
+                payload.easyBotCompat(), payload.groupsEnabled(),
                 payload.chatTemplates(), payload.whisperTemplates()), buf);
         }
     };
@@ -82,8 +83,11 @@ public record ServerConfigSavePayload(boolean useTpa, boolean historyEnabled, bo
             ChatServerConfig.MEDIA_AUTO_CLEAN.clearCache();
             ChatServerConfig.EASY_BOT_COMPAT.set(payload.easyBotCompat());
             ChatServerConfig.EASY_BOT_COMPAT.clearCache();
+            ChatServerConfig.GROUPS_ENABLED.set(payload.groupsEnabled());
+            ChatServerConfig.GROUPS_ENABLED.clearCache();
             ChatBubbleMod.saveServerConfig();
             ChatServerListener.broadcastServerConfig();
+            com.niuqu.chatbubble.server.GroupManager.broadcastGroupList();
             player.sendSystemMessage(Component.translatable("e33chat.server.saved"));
         });
     }

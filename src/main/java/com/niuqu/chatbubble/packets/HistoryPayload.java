@@ -24,7 +24,8 @@ public record HistoryPayload(List<HistoryEntry> entries) implements CustomPacket
         long time,
         boolean isSystem,
         String replyContent,
-        String replySender
+        String replySender,
+        String group
     ) {}
 
     public static final StreamCodec<ByteBuf, HistoryPayload> STREAM_CODEC = new StreamCodec<>() {
@@ -39,6 +40,7 @@ public record HistoryPayload(List<HistoryEntry> entries) implements CustomPacket
                     ByteBufCodecs.STRING_UTF8.decode(buf),
                     buf.readLong(),
                     buf.readBoolean(),
+                    blankToNull(ByteBufCodecs.STRING_UTF8.decode(buf)),
                     blankToNull(ByteBufCodecs.STRING_UTF8.decode(buf)),
                     blankToNull(ByteBufCodecs.STRING_UTF8.decode(buf))
                 ));
@@ -57,6 +59,7 @@ public record HistoryPayload(List<HistoryEntry> entries) implements CustomPacket
                 buf.writeBoolean(e.isSystem());
                 ByteBufCodecs.STRING_UTF8.encode(buf, e.replyContent() != null ? e.replyContent() : "");
                 ByteBufCodecs.STRING_UTF8.encode(buf, e.replySender() != null ? e.replySender() : "");
+                ByteBufCodecs.STRING_UTF8.encode(buf, e.group() != null ? e.group() : "");
             }
         }
     };

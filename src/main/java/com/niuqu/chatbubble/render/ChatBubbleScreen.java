@@ -128,6 +128,8 @@ public class ChatBubbleScreen extends ChatScreen {
     final ChatEmojiPanel emojiPanel = new ChatEmojiPanel();
     final ChatSettingsMenu settingsMenu = new ChatSettingsMenu();
     final ChatSearchPanel searchPanel = new ChatSearchPanel();
+    final com.niuqu.chatbubble.ui.GroupBrowserPanel groupBrowser = new com.niuqu.chatbubble.ui.GroupBrowserPanel();
+    EditBox groupCreateInput;
     private EditBox searchInput;
     private final List<Integer> searchMatches = new ArrayList<>();
     private int searchMatchIdx;
@@ -138,9 +140,9 @@ public class ChatBubbleScreen extends ChatScreen {
     private static String whisperPartner;
 
     // Popup open animation timestamps (opening only; closing stays instant)
-    private long settingsAnimStart, emojiAnimStart, quickAnimStart, searchAnimStart;
+    private long settingsAnimStart, emojiAnimStart, quickAnimStart, searchAnimStart, groupAnimStart;
     // Popup close animation timestamps (0 = not closing; D07-6)
-    private long settingsCloseStart, emojiCloseStart, quickCloseStart, searchCloseStart;
+    private long settingsCloseStart, emojiCloseStart, quickCloseStart, searchCloseStart, groupCloseStart;
 
     // Sidebar — animation state owned by ChatBubbleScreen, rendering delegated to ChatSidebar
     private static boolean sidebarOpen;
@@ -336,6 +338,15 @@ public class ChatBubbleScreen extends ChatScreen {
         searchInput.setCanLoseFocus(true);
         searchInput.setResponder(this::onSearchEdited);
         addRenderableWidget(searchInput);
+
+        groupCreateInput = new EditBox(font, 0, 0, 120, 12, Component.translatable("e33chat.group.create_placeholder"));
+        groupCreateInput.setMaxLength(12);
+        groupCreateInput.setBordered(false);
+        groupCreateInput.setTextColor(editColor);
+        groupCreateInput.setTextColorUneditable(c().textMuted());
+        groupCreateInput.setVisible(false);
+        groupCreateInput.setCanLoseFocus(true);
+        addRenderableWidget(groupCreateInput);
 
         // D07-6: 弹层关闭动画钩子——visible 延迟置 false，先播 150ms 关闭动画
         settingsMenu.closeRequest = () -> beginPopupClose(s -> settingsCloseStart = s,
@@ -703,6 +714,10 @@ public class ChatBubbleScreen extends ChatScreen {
             closeSearchPanel();
             return true;
         }
+        if (groupBrowser.visible && keyCode == 256) {
+            closeGroupBrowser();
+            return true;
+        }
 
         // Search navigation
         if (searchPanel.visible && !searchMatches.isEmpty()) {
@@ -766,6 +781,15 @@ public class ChatBubbleScreen extends ChatScreen {
         if (suggestions != null && suggestions.keyPressed(keyCode, scanCode, modifiers))
             return true;
         if (keyCode == 256) { onClose(); return true; }
+        if (groupCreateInput != null && groupCreateInput.isFocused() && (keyCode == 257 || keyCode == 335)) {
+            String name = groupCreateInput.getValue().trim();
+            if (!name.isEmpty()) {
+                groupCreateInput.setValue("");
+                com.niuqu.chatbubble.packets.GroupActionPayload.send(
+                    com.niuqu.chatbubble.packets.GroupActionPayload.CREATE, name);
+            }
+            return true;
+        }
         if (quickChatInput.isFocused() && (keyCode == 257 || keyCode == 335)) {
             String text = quickChatInput.getValue().trim();
             if (!text.isEmpty()) {
@@ -1106,6 +1130,26 @@ public class ChatBubbleScreen extends ChatScreen {
                 closeSearchPanel();
                 return true;
             }
+            if (groupBrowser.visible) {
+                if (groupBrowser.isClickOnPanel(mouseX, mouseY)) {
+                    int act = groupBrowser.handleClick(mouseX, mouseY, font, panelX, panelW, barTop, groupCreateInput);
+                    if (act == com.niuqu.chatbubble.ui.GroupBrowserPanel.ACT_JOIN) {
+                        com.niuqu.chatbubble.packets.GroupActionPayload.send(
+                            com.niuqu.chatbubble.packets.GroupActionPayload.JOIN, groupBrowser.actionGroup);
+                        com.niuqu.chatbubble.chat.GroupChannelState.setActive(groupBrowser.actionGroup);
+                        closeGroupBrowser();
+                    } else if (act == com.niuqu.chatbubble.ui.GroupBrowserPanel.ACT_LEAVE) {
+                        com.niuqu.chatbubble.packets.GroupActionPayload.send(
+                            com.niuqu.chatbubble.packets.GroupActionPayload.LEAVE, groupBrowser.actionGroup);
+                    } else if (act == com.niuqu.chatbubble.ui.GroupBrowserPanel.ACT_CREATE) {
+                        com.niuqu.chatbubble.packets.GroupActionPayload.send(
+                            com.niuqu.chatbubble.packets.GroupActionPayload.CREATE, groupBrowser.actionGroup);
+                    }
+                    return true;
+                }
+                closeGroupBrowser();
+                return true;
+            }
             if (mouseY >= barTop) {
                 if (handleIconClick((int) mouseX, (int) mouseY))
                     return true;
@@ -1148,6 +1192,24 @@ public class ChatBubbleScreen extends ChatScreen {
                     return true;
                 }
                 handleComponentClicked(style);
+                return true;
+            }
+        }
+
+        if (button == 0 && !groupBrowser.visible) {
+            String hitTab = hitTestTabStrip(mouseX, mouseY);
+            if (hitTab != null) {
+                if (hitTab.equals("+")) {
+                    if (settingsMenu.visible) beginPopupClose(s -> settingsCloseStart = s, () -> settingsMenu.visible = false);
+                    if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
+                    if (searchPanel.visible) closeSearchPanel();
+                    groupBrowser.visible = true;
+                    groupAnimStart = net.minecraft.Util.getMillis();
+                    groupCreateInput.setValue("");
+                    setFocused(groupCreateInput);
+                } else {
+                    com.niuqu.chatbubble.chat.GroupChannelState.setActive(hitTab);
+                }
                 return true;
             }
         }
@@ -1411,7 +1473,7 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     private void handleAvatarContextClick(int mx, int my) {
-        int menuH = ChatContextMenus.CTX_ITEM_H * 3 + 4;
+        int menuH = ChatContextMenus.CTX_ITEM_H * 4 + 6;
         int menuX = ChatContextMenus.menuX(contextAvatarX, panelX, panelW);
         int menuY = ChatContextMenus.menuY(contextAvatarY, menuH, msgTop, true);
 
@@ -1431,6 +1493,10 @@ public class ChatBubbleScreen extends ChatScreen {
         } else if (ChatContextMenus.isOverItem(mx, my, menuX,
             menuY + ChatContextMenus.CTX_ITEM_H * 2 + 4, ChatContextMenus.CTX_ITEM_H)) {
             toggleBlockedPlayer();
+        } else if (ChatContextMenus.isOverItem(mx, my, menuX,
+            menuY + ChatContextMenus.CTX_ITEM_H * 3 + 6, ChatContextMenus.CTX_ITEM_H)) {
+            // 2.4.10 玩家资料卡：关闭菜单后叠加打开（parent 回聊天界面）
+            minecraft.setScreen(new com.niuqu.chatbubble.ui.PlayerProfileScreen(this, name));
         }
         contextAvatarIndex = -1;
     }
@@ -1493,8 +1559,16 @@ public class ChatBubbleScreen extends ChatScreen {
             g.pose().translate(-cx, -height / 2f, 0);
         }
 
-        ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
-            fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
+        // 2.4.10: 自定义背景图可用时替代默认 PANEL_BG 纹理（不透明度与面板不透明度相乘）
+        com.niuqu.chatbubble.render.PanelBackground.ensureLoaded();
+        if (com.niuqu.chatbubble.render.PanelBackground.available()) {
+            com.niuqu.chatbubble.render.PanelBackground.draw(g, fillLeft, 0,
+                panelX + panelW - fillLeft, height,
+                panelOpacity * ChatBubbleConfig.PANEL_BG_OPACITY.get() / 100f);
+        } else {
+            ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.PANEL_BG),
+                fillLeft, 0, panelX + panelW - fillLeft, height, panelOpacity);
+        }
 
         renderTitleBar(g, mouseX, mouseY);
         renderMessages(g, mouseX, mouseY);
@@ -1518,11 +1592,13 @@ public class ChatBubbleScreen extends ChatScreen {
         renderPopupWithAnim(g, emojiAnimStart, emojiCloseStart, a -> () -> emojiPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, ICON_S, PAD, a));
         renderPopupWithAnim(g, quickAnimStart, quickCloseStart, a -> () -> quickChatPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, quickChatInput, a));
         renderPopupWithAnim(g, searchAnimStart, searchCloseStart, a -> () -> searchPanel.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, searchInput, searchMatches, searchMatchIdx, a));
+        renderPopupWithAnim(g, groupAnimStart, groupCloseStart, a -> () -> groupBrowser.render(g, mouseX, mouseY, font, c(), panelX, panelW, barTop, groupCreateInput, a));
         // 输入框 widget 在 z=50 的 renderables 循环渲染，会被这里 z=100 的不透明面板背景盖住
         // （5bb740e 弹层 z 提升引入）——面板打开时在同 z 重画一次，文字/光标才可见。
         // widget 无背景（setBordered(false)），只画文字/光标，不遮挡面板内容
         if (quickChatPanel.visible && quickChatInput != null) quickChatInput.render(g, mouseX, mouseY, partialTick);
         if (searchPanel.visible && searchInput != null) searchInput.render(g, mouseX, mouseY, partialTick);
+        if (groupBrowser.visible && groupCreateInput != null) groupCreateInput.render(g, mouseX, mouseY, partialTick);
         g.pose().popPose();
 
         g.pose().popPose();
@@ -1590,6 +1666,81 @@ public class ChatBubbleScreen extends ChatScreen {
         return mx >= menuX && mx <= menuX + ICON_S && my >= menuY && my <= menuY + ICON_S;
     }
 
+    // ==== 群组页签条（2.4.10）====
+
+    private static final int TAB_H = 16;
+
+    /** 页签显示条件：非私聊视图 + 服务器群组功能在线（GroupListPacket 已到达）+ 非单人。 */
+    private boolean tabsVisible() {
+        return whisperPartner == null
+            && com.niuqu.chatbubble.chat.GroupChannelState.supported()
+            && !minecraft.isSingleplayer();
+    }
+
+    /** 页签布局：全部 / 世界 / 系统 / 我的群组们 / [+]。返回 {x, w, 标签} 三元组列表。 */
+    private java.util.List<Object[]> tabLayout() {
+        java.util.List<Object[]> tabs = new java.util.ArrayList<>();
+        int[] cx = {panelX + 4};
+        java.util.function.BiConsumer<String, String> add = (label, tab) -> {
+            int w = font.width(label) + 12;
+            tabs.add(new Object[]{cx[0], w, tab, label});
+            cx[0] += w + 4;
+        };
+        add.accept(Component.translatable("e33chat.group.tab_all").getString(),
+            com.niuqu.chatbubble.chat.GroupChannelState.TAB_ALL);
+        add.accept(Component.translatable("e33chat.group.tab_world").getString(),
+            com.niuqu.chatbubble.chat.GroupChannelState.TAB_WORLD);
+        add.accept(Component.translatable("e33chat.group.tab_system").getString(),
+            com.niuqu.chatbubble.chat.GroupChannelState.TAB_SYSTEM);
+        for (String g : com.niuqu.chatbubble.chat.GroupChannelState.myGroups) add.accept(g, g);
+        tabs.add(new Object[]{cx[0], TAB_H - 2, "+", "+"});
+        return tabs;
+    }
+
+    private void renderTabStrip(GuiGraphics g, int mouseX, int mouseY, int tabY) {
+        String active = com.niuqu.chatbubble.chat.GroupChannelState.active();
+        float alpha = getAnimProgress();
+        for (Object[] t : tabLayout()) {
+            int tx = (Integer) t[0], tw = (Integer) t[1];
+            String tab = (String) t[2], label = (String) t[3];
+            boolean sel = label.equals("+") ? groupBrowser.visible : tab.equals(active);
+            boolean hov = mouseX >= tx && mouseX <= tx + tw && mouseY >= tabY && mouseY <= tabY + TAB_H;
+            int bg = sel ? c().sidebarItemSelected()
+                : hov ? c().sidebarItemHover() : c().popupBg();
+            g.fill(tx, tabY, tx + tw, tabY + TAB_H,
+                ChatBubbleTheme.alphaBlend(bg, (int) (255 * alpha)));
+            int textY = tabY + (TAB_H - font.lineHeight) / 2 + 1;
+            int color = ChatBubbleTheme.alphaBlend(
+                sel ? c().textPrimary() : c().textSecondary(), (int) (255 * alpha));
+            if (label.equals("+")) {
+                int cx2 = tx + tw / 2 - font.width("+") / 2;
+                g.drawString(font, "+", cx2, textY, color, false);
+            } else {
+                g.drawString(font, label, tx + 6, textY, color, false);
+            }
+        }
+    }
+
+    /** 命中页签：返回 tab id（TAB_ALL / TAB_* / 群名）或 "+"；未命中返回 null。 */
+    private String hitTestTabStrip(double mouseX, double mouseY) {
+        if (!tabsVisible()) return null;
+        int tabY = msgTop;
+        if (mouseY < tabY || mouseY > tabY + TAB_H) return null;
+        for (Object[] t : tabLayout()) {
+            int tx = (Integer) t[0], tw = (Integer) t[1];
+            if (mouseX >= tx && mouseX <= tx + tw) return (String) t[2];
+        }
+        return null;
+    }
+
+    private void closeGroupBrowser() {
+        beginPopupClose(s -> groupCloseStart = s, () -> {
+            groupBrowser.visible = false;
+            if (groupCreateInput != null) groupCreateInput.setVisible(false);
+        });
+        setFocused(input);
+    }
+
     private void renderMessages(GuiGraphics g, int mouseX, int mouseY) {
         msgHeightCache.clear();
         bubbleRects.clear();
@@ -1599,7 +1750,17 @@ public class ChatBubbleScreen extends ChatScreen {
         if (whisperPartner != null) {
             messages = ChatMessageStore.getWhisperMessages(whisperPartner);
         } else {
-            messages = ChatMessageStore.getPublicMessages();
+            // 2.4.10: 群组页签过滤（页签不可用时 active() 恒为 TAB_ALL → 原样返回）
+            messages = com.niuqu.chatbubble.chat.GroupChannelState.filterMessages(
+                ChatMessageStore.getPublicMessages(),
+                com.niuqu.chatbubble.chat.GroupChannelState.active());
+        }
+
+        // 2.4.10: 群组页签条（占位后移消息视口；无消息也要画，画完再退出）
+        int tabStripH = 0;
+        if (tabsVisible()) {
+            tabStripH = TAB_H + 2;
+            renderTabStrip(g, mouseX, mouseY, msgTop);
         }
         if (messages.isEmpty()) return;
 
@@ -1613,7 +1774,7 @@ public class ChatBubbleScreen extends ChatScreen {
             g.drawString(font, Component.literal(modeText), panelX + (panelW - modeTW) / 2, indY + 2, c().textPrimary(), false);
         }
 
-        int effectiveMsgTop = msgTop + indicatorH;
+        int effectiveMsgTop = msgTop + indicatorH + tabStripH;
         int effectiveMsgBottom = newMessageCount > 0 ? barTop - NOTIF_H - 1 : msgBottom;
         int areaH = effectiveMsgBottom - effectiveMsgTop;
 
@@ -2022,7 +2183,7 @@ public class ChatBubbleScreen extends ChatScreen {
             && BlockList.isPlayerBlocked(msg.rawPlayerName(), msg.senderName(),
                 ChatBubbleConfig.BLOCKED_PLAYERS.get());
         ChatContextMenus.renderAvatarMenu(g, font, mouseX, mouseY, c(), panelX, panelW,
-            msgTop, iconTex("tp"), iconTex("whisper"), iconTex("block"), isBlocked,
+            msgTop, iconTex("profile"), iconTex("tp"), iconTex("whisper"), iconTex("block"), isBlocked,
             contextAvatarX, contextAvatarY, ChatMessageStore.useTpa(), getAnimProgress());
     }
 
@@ -2425,6 +2586,25 @@ public class ChatBubbleScreen extends ChatScreen {
             displayText = raw;
         }
 
+        // 2.4.10 群组路由：激活群组页签时发言改走 /e33chat group msg 由内置服务端
+        // 路由（成员收到 GroupChatPayload 包含发送者自己，替代本地气泡）；世界/全部
+        // 页签走原版聊天；系统页签只读。
+        String groupTarget = null;
+        if (whisperPartner == null && !text.startsWith("/") && com.niuqu.chatbubble.chat.GroupChannelState.supported()) {
+            String tab = com.niuqu.chatbubble.chat.GroupChannelState.active();
+            if (com.niuqu.chatbubble.chat.GroupChannelState.TAB_SYSTEM.equals(tab)) {
+                minecraft.player.sendSystemMessage(
+                    Component.translatable("e33chat.group.system_readonly"));
+                return;
+            }
+            if (tab != null
+                    && !com.niuqu.chatbubble.chat.GroupChannelState.TAB_ALL.equals(tab)
+                    && !com.niuqu.chatbubble.chat.GroupChannelState.TAB_WORLD.equals(tab)) {
+                groupTarget = tab;
+                text = "/e33chat group msg " + groupTarget + " " + text;
+            }
+        }
+
         if (whisperTarget == null && (text.startsWith("/msg ") || text.startsWith("/tell ") || text.startsWith("/w ") || text.startsWith("/whisper "))) {
             String[] parts = text.split(" ", 3);
             if (parts.length >= 3) {
@@ -2437,13 +2617,15 @@ public class ChatBubbleScreen extends ChatScreen {
         boolean localBubble = !text.startsWith("/") || whisperTarget != null;
 
         if (replyTargetIndex >= 0) {
-            if (localBubble) {
+            // 群组发送（localBubble=false）也要把引用同步给服务端——服务端在
+            // group msg 处理器里消费 pendingQuotes 并写进 GroupChatPayload
+            if (localBubble || groupTarget != null) {
                 ChatMessageStore.ChatMessage target = ChatMessageStore.getMessageAt(replyTargetIndex);
                 if (target != null) {
                     String quoteSender = (target.rawPlayerName() != null && !target.rawPlayerName().isEmpty())
                         ? target.rawPlayerName() : target.senderName().getString();
                     String quoted = ChatMessageStore.singleLine(target.content().getString());
-                    ChatMessageStore.setPendingReply(quoted, quoteSender);
+                    if (localBubble) ChatMessageStore.setPendingReply(quoted, quoteSender);
                     // Optional payload: only send when the server negotiated e33chat:quote_sync.
                     // NeoForge's NetworkRegistry.checkPacket throws otherwise, which would
                     // abort the actual chat send on servers without the E33Chat server mod.

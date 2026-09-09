@@ -321,25 +321,26 @@ public class ChatMessageStore {
         int duplicateCount,
         String rawPlayerName,
         boolean whisper,
-        String whisperPartner
+        String whisperPartner,
+        String group
     ) {
-        // Wither helpers: field-level updates without rebuilding 13-arg constructors.
+        // Wither helpers: field-level updates without rebuilding 14-arg constructors.
         public ChatMessage withSenderName(Component newSenderName) {
             return new ChatMessage(senderUUID, newSenderName, content, time,
                 isOwn, isSystem, replyContent, replySender, messageHash, duplicateCount,
-                rawPlayerName, whisper, whisperPartner);
+                rawPlayerName, whisper, whisperPartner, group);
         }
 
         public ChatMessage withMerge(String newReplyContent, String newReplySender, long newTime, int newDupCount) {
             return new ChatMessage(senderUUID, senderName, content, newTime,
                 isOwn, isSystem, newReplyContent, newReplySender, messageHash, newDupCount,
-                rawPlayerName, whisper, whisperPartner);
+                rawPlayerName, whisper, whisperPartner, group);
         }
 
         public ChatMessage withReply(String newReplyContent, String newReplySender) {
             return new ChatMessage(senderUUID, senderName, content, time,
                 isOwn, isSystem, newReplyContent, newReplySender, messageHash, duplicateCount,
-                rawPlayerName, whisper, whisperPartner);
+                rawPlayerName, whisper, whisperPartner, group);
         }
     }
 
@@ -377,6 +378,24 @@ public class ChatMessageStore {
         () -> ChatBubbleConfig.MENTION_REQUIRE_AT.get();
 
     public static void addMessage(Component content, UUID senderUUID, Component senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner, boolean localSend) {
+        addMessage(content, senderUUID, senderName, isSystem, rawPlayerName, whisper, whisperPartner, localSend, null);
+    }
+
+    /** Group chat entry point (2.4.10): the packet handler passes the owning group. */
+    public static void addGroupMessage(Component content, UUID senderUUID, Component senderName,
+                                       String group, String quoteSender, String quoteContent) {
+        if (group != null && !group.isEmpty()) {
+            EchoTracker.putPendingMeta(
+                String.valueOf(content.getString().hashCode()),
+                senderUUID, quoteSender != null ? quoteSender : "",
+                quoteContent != null ? quoteContent : "",
+                java.util.List.of());
+        }
+        addMessage(content, senderUUID, senderName, false, senderName != null ? senderName.getString() : null,
+            false, null, false, group);
+    }
+
+    public static void addMessage(Component content, UUID senderUUID, Component senderName, boolean isSystem, String rawPlayerName, boolean whisper, String whisperPartner, boolean localSend, String group) {
         String messageHash = String.valueOf(content.getString().hashCode());
 
         // A message that is only whitespace/control chars — e.g. a server chat-clear
@@ -462,7 +481,8 @@ public class ChatMessageStore {
             1,
             rawPlayerName,
             whisper,
-            whisperPartner
+            whisperPartner,
+            group
         ));
 
         if (!isSystem && senderUUID != null && !senderUUID.equals(new UUID(0, 0)))
@@ -1133,7 +1153,8 @@ public class ChatMessageStore {
                 1,
                 e.senderName(),
                 false,
-                null
+                null,
+                e.group()
             ));
             if (!e.isSystem() && !e.senderUUID().equals(new UUID(0, 0)))
                 rememberPlayer(e.senderUUID(), e.senderName(), e.senderName());

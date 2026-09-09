@@ -3,7 +3,11 @@ import com.niuqu.chatbubble.ChatBubbleMod;
 
 import com.niuqu.chatbubble.packets.ChatMetaPayload;
 import com.niuqu.chatbubble.packets.ClientServerConfigGui;
+import com.niuqu.chatbubble.packets.ClientHelloPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncPayload;
+import com.niuqu.chatbubble.packets.GroupActionPayload;
+import com.niuqu.chatbubble.packets.GroupChatPayload;
+import com.niuqu.chatbubble.packets.GroupListPayload;
 import com.niuqu.chatbubble.packets.ConfigSyncV2Payload;
 import com.niuqu.chatbubble.packets.EasyBotConfigPayload;
 import com.niuqu.chatbubble.packets.HistoryPayload;
@@ -66,5 +70,12 @@ public class NetworkHandler {
                     MediaCapPayload.handleClient(payload, ctx);
                 }
             });
+        // 2.4.10 group chat: handshake / say / directory / manage. Old clients
+        // drop unknown payloads harmlessly; a new client against an old server
+        // just never receives group_list, so the tab strip stays hidden.
+        registrar.playToServer(ClientHelloPayload.TYPE, ClientHelloPayload.STREAM_CODEC, ClientHelloPayload::handleServer);
+        registrar.playToClient(GroupChatPayload.TYPE, GroupChatPayload.STREAM_CODEC, GroupChatPayload::handleClient);
+        registrar.playToClient(GroupListPayload.TYPE, GroupListPayload.STREAM_CODEC, GroupListPayload::handleClient);
+        registrar.playToServer(GroupActionPayload.TYPE, GroupActionPayload.STREAM_CODEC, GroupActionPayload::handleServer);
     }
 }

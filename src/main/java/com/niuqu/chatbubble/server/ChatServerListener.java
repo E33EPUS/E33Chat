@@ -27,7 +27,8 @@ public class ChatServerListener {
     private static final Map<UUID, QuotePending> pendingQuotes = new HashMap<>();
     private static final Deque<HistoryPayload.HistoryEntry> historyBuffer = new ArrayDeque<>();
 
-    private record QuotePending(String quotedSenderName, String quotedContent, String messageHash, long time) {}
+    // package-private: GroupManager.say consumes quotes for group messages
+    record QuotePending(String quotedSenderName, String quotedContent, String messageHash, long time) {}
 
     // A quote that never made it into a sent message (e.g. an anti-spam plugin
     // blocked it) must not tag a later unrelated message — expire after 10s
@@ -35,6 +36,16 @@ public class ChatServerListener {
         QuotePending quote = pendingQuotes.remove(playerUUID);
         if (quote != null && System.currentTimeMillis() - quote.time() > 10_000) return null;
         return quote;
+    }
+
+    /** Group chat path (2.4.10): consume the pending quote attached by QuoteSyncPacket. */
+    public static QuotePending consumeQuote(UUID playerUUID) {
+        return takeQuote(playerUUID);
+    }
+
+    /** Group chat path: append an already-built entry (carries the group tag). */
+    public static void addHistoryEntry(HistoryPayload.HistoryEntry entry) {
+        addToHistory(entry);
     }
 
     @SubscribeEvent
@@ -59,7 +70,8 @@ public class ChatServerListener {
             player.getUUID(), player.getName().getString(), rawText,
             System.currentTimeMillis(), false,
             quote != null ? quote.quotedContent() : null,
-            quote != null ? quote.quotedSenderName() : null));
+            quote != null ? quote.quotedSenderName() : null,
+            null));
     }
 
     @SubscribeEvent
@@ -127,6 +139,7 @@ public class ChatServerListener {
         com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
         if (s != null) s.discardAllUploads();
         mediaStore = null;
+        com.niuqu.chatbubble.server.GroupManager.onServerStopping();
     }
 
     @SubscribeEvent
@@ -140,6 +153,7 @@ public class ChatServerListener {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
         if (s != null) s.discardUploadsFor(player.getName().getString());
+        com.niuqu.chatbubble.server.GroupManager.onPlayerLoggedOut(player.getUUID());
     }
 
     private static ConfigSyncV2Payload buildConfigV2() {

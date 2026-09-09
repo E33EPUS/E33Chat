@@ -164,7 +164,7 @@ class ChatMessageRendererTest {
     private static ChatMessageStore.ChatMessage msg(String sender, String rawName, long time, boolean isSystem) {
         return new ChatMessageStore.ChatMessage(
             UUID.randomUUID(), Component.literal(sender), Component.literal("hi"), time,
-            false, isSystem, null, null, null, 0, rawName, false, null);
+            false, isSystem, null, null, null, 0, rawName, false, null, null);
     }
 
     @Test

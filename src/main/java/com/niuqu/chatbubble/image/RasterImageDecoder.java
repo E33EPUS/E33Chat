@@ -67,7 +67,7 @@ public final class RasterImageDecoder {
     }
 
     /** AWT BufferedImage → NativeImage (RGBA, ABGR pixel order). */
-    private static NativeImage fromBufferedImage(BufferedImage bi) {
+    public static NativeImage fromBufferedImage(BufferedImage bi) {
         int w = bi.getWidth();
         int h = bi.getHeight();
         NativeImage out = new NativeImage(NativeImage.Format.RGBA, w, h, false);

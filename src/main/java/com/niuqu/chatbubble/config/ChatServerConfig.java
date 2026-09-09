@@ -14,6 +14,10 @@ public class ChatServerConfig {
     public static final ModConfigSpec.BooleanValue MEDIA_ENABLED;
     public static final ModConfigSpec.BooleanValue MEDIA_AUTO_CLEAN;
     public static final ModConfigSpec.BooleanValue EASY_BOT_COMPAT;
+    public static final ModConfigSpec.BooleanValue GROUPS_ENABLED;
+    public static final ModConfigSpec.IntValue GROUP_MAX_COUNT;
+    public static final ModConfigSpec.IntValue GROUP_MAX_MEMBERS;
+    public static final ModConfigSpec.BooleanValue GROUP_CREATE_OP_ONLY;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -50,6 +54,19 @@ public class ChatServerConfig {
                 "Enabled by default; set to false to keep EasyBot messages in the system-message channel.",
                 "Also enables receiving EasyBot/ChatImage CICode images in bubbles.")
             .define("easybot_compat", true);
+        GROUPS_ENABLED = builder
+            .comment("Enable in-mod chat groups (client tab strip + member-only routing).",
+                "Groups are stored in serverconfig/e33chat-groups.json")
+            .define("groups_enabled", true);
+        GROUP_MAX_COUNT = builder
+            .comment("Maximum number of groups that can exist on the server")
+            .defineInRange("group_max_count", 20, 1, 500);
+        GROUP_MAX_MEMBERS = builder
+            .comment("Maximum members per group")
+            .defineInRange("group_max_members", 50, 2, 1000);
+        GROUP_CREATE_OP_ONLY = builder
+            .comment("When true, only operators (permission level 2+) can create groups")
+            .define("group_create_op_only", false);
         SERVER_CONFIG = builder.build();
     }
 }
