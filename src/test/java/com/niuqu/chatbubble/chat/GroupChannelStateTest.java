@@ -76,9 +76,18 @@ class GroupChannelStateTest {
     // ==== GroupChannelState.filterMessages ====
 
     @Test
-    void allTabReturnsEverything() {
+    void allTabExcludesGroupMessages() {
+        // 「全部」= 世界 + 系统：群消息隔离在自己的页签，不再混进默认视图
         List<ChatMessage> in = List.of(msg(false, null), msg(true, null), msg(false, "g"));
-        assertEquals(in, GroupChannelState.filterMessages(in, GroupChannelState.TAB_ALL));
+        List<ChatMessage> out = GroupChannelState.filterMessages(in, GroupChannelState.TAB_ALL);
+        assertEquals(2, out.size());
+        assertTrue(out.stream().noneMatch(m -> m.group() != null && !m.group().isEmpty()));
+    }
+
+    @Test
+    void unsupportedStateReturnsEverything() {
+        // 页签不可用（active=null，如未装服务端 mod）时不过滤，行为同旧版
+        List<ChatMessage> in = List.of(msg(false, null), msg(true, null), msg(false, "g"));
         assertEquals(in, GroupChannelState.filterMessages(in, null));
     }
 
