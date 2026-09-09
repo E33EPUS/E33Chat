@@ -25,8 +25,10 @@ import net.minecraftforge.common.ForgeConfigSpec;
 
 public class ChatBubbleConfigScreen extends Screen {
     private final Screen lastScreen;
-    /** Original hideGui state, restored when this translucent screen is closed. */
-    private final boolean prevHideGui;
+    /** Original hideGui state, restored when this translucent screen is closed.
+     *  Captured in init(): Screen.minecraft is null until setScreen() runs. */
+    private boolean prevHideGui;
+    private boolean prevHideGuiCaptured;
 
     private ChatBubbleTheme.Colors c() {
         return ChatBubbleTheme.DARK.colors();
@@ -350,7 +352,6 @@ public class ChatBubbleConfigScreen extends Screen {
     public ChatBubbleConfigScreen(Screen lastScreen) {
         super(Component.translatable("e33chat.config.title"));
         this.lastScreen = lastScreen;
-        this.prevHideGui = minecraft.options.hideGui;
         snapshotAll();
     }
 
@@ -368,6 +369,11 @@ public class ChatBubbleConfigScreen extends Screen {
         // This screen's background is translucent (world visible through it), but
         // vanilla still renders the HUD (hotbar/effects/chat) behind an open screen
         // in 1.20.1. Hide the HUD while this screen is open; restore in removed().
+        // Capture here: Screen.minecraft is null until setScreen() -> init().
+        if (!prevHideGuiCaptured) {
+            prevHideGui = minecraft.options.hideGui;
+            prevHideGuiCaptured = true;
+        }
         minecraft.options.hideGui = true;
         buildCats();
         scrollWidgets.clear();
