@@ -1,5 +1,56 @@
 # Changelog
 
+## v2.4.10
+
+**新增：聊天群组（三端同步，服务器需同步升级到 2.4.10）**
+- 服务器内置群组系统，无需任何外置插件：服主装 E33Chat 即用，群组持久化在 `serverconfig/e33chat-groups.json`
+- 聊天面板顶部新增页签条：全部 / 世界 / 系统 / 已加入的群组；`[+]` 打开群组浏览弹层（点击加入、退出、输入名称创建）
+- 激活群组页签后发言自动改走群组路由，仅群成员可见；世界/全部页签走原版公屏；系统页签为只读公告
+- 原版客户端（没装 mod 的玩家）在群组中以 `[群名] <名字> 消息` 纯文本收发，混合服务器兼容
+- 命令：`/e33chat group create|join|leave|delete|list|msg`；服务端配置：`groups_enabled`（默认开）、`group_max_count`（20）、`group_max_members`（50）、`group_create_op_only`（默认关）
+- 群消息支持引用与 @ 提醒；单人游戏与未启用的服务器自动隐藏页签，零打扰
+- **协议变更（对端需同版本）**：历史记录条目与消息元数据新增 group 字段；新增 4 个网络包（旧客户端安全丢弃，混版本时群组页签不显示、其余功能不受影响）
+
+**Added: chat groups (all three loaders, the server must also run 2.4.10)**
+- In-mod group system with zero external plugins: install E33Chat on the server and it works; groups persist in `serverconfig/e33chat-groups.json`
+- New tab strip on top of the chat panel: All / World / System / joined groups; `[+]` opens the group browser (click to join, leave, or type a name to create)
+- Speaking while a group tab is active routes the message to group members only; World/All tabs use public chat; the System tab is read-only announcements
+- Vanilla players (no mod) exchange plain `[group] <name> message` lines, so mixed servers stay compatible
+- Commands: `/e33chat group create|join|leave|delete|list|msg`; server config: `groups_enabled` (default on), `group_max_count` (20), `group_max_members` (50), `group_create_op_only` (default off)
+- Group messages support quotes and @ notifications; tabs hide automatically in singleplayer or when the server disables groups
+- **Protocol change (both ends need the same version)**: history entries and message metadata gain a group field; 4 new packets (old clients drop them safely — on mixed versions the tab strip simply stays hidden)
+
+**新增：自定义面板背景图（三端同步）**
+- 设置 → 聊天框 → 面板：`panel_bg_image`（图片路径，支持 [浏览…] 系统文件对话框选择）与 `panel_bg_opacity`（0-100，与面板不透明度叠加）
+- 图片按比例居中裁剪铺满面板（cover），加载失败自动回退默认面板纹理，不会导致聊天不可用
+- 路径支持绝对路径或相对游戏目录
+
+**Added: custom chat panel background image (all three loaders)**
+- Settings → Chat panel: `panel_bg_image` (path, with a Browse… native file dialog) and `panel_bg_opacity` (0-100, multiplied with the panel opacity)
+- The image is drawn aspect-preserving, center-cropped to cover the panel; a failed load falls back to the default panel texture, so chat can never break
+- Both absolute paths and paths relative to the game directory work
+
+**新增：GIF 动图消息与表情（三端同步）**
+- 聊天图片、行内表情、自定义表情面板中的 GIF/WebP/APNG 现在逐帧播放（最多 48 帧、512px 上限）
+- GIF 逐帧解码含 canvas 合成与 disposal 处理（增量帧动画不再花屏）；动画解码期间静态首帧不抢跑，解码失败自动回退静态图
+- 服务器直传（e33chat://media）与 http(s) 图床链接均支持动画
+
+**Added: animated GIF messages and emotes (all three loaders)**
+- Chat images, inline emotes and custom emoji-panel emotes in GIF/WebP/APNG format now play frame by frame (up to 48 frames, 512px cap)
+- GIF decoding composes frame deltas on the logical canvas and honors disposal methods; while an animation is still decoding the static first frame no longer wins the race, and failed decodes fall back to the static image
+- Both server-hosted media (e33chat://media) and http(s) image hosts animate
+
+**新增：玩家资料卡（三端同步）**
+- 右键头像菜单新增"查看资料"：展示头像（脸+帽层）、名称、自己/在线/离线徽标、UUID、延迟、游戏模式
+- 快捷操作：私聊（自动打开 /msg）、复制 UUID；Esc 或点击空白处返回聊天
+- 纯客户端功能，零服务器依赖
+
+**Added: player profile card (all three loaders)**
+- The avatar context menu gains "View Profile": skin (face + hat layer), name, You/Online/Offline badge, UUID, latency and game mode
+- Quick actions: whisper (opens /msg), copy UUID; Esc or clicking outside returns to chat
+- Purely client-side, no server dependency
+
+
 ## v2.4.9
 
 **修复：F3 调试屏开启时聊天图标 / 横幅不再残留（三端同步，issue #16）**
