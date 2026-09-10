@@ -12,10 +12,10 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Per-file data
+      - name: Raw JSON for the uploaded ids
         run: |
-          for id in 8848269 8848273; do
-            echo "== $id =="
-            curl -s --max-time 30 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" "https://www.curseforge.com/api/v1/mods/1599940/files/$id" -o /tmp/f.json -w "http=%{http_code}\n"
-            python3 -c "import json;d=json.load(open('/tmp/f.json')).get('data') or {};print(' displayName:',d.get('displayName'));print(' fileName:',d.get('fileName'));print(' status:',d.get('status'));print(' gameVersions:',d.get('gameVersions'))" 2>&1 | head -6
+          for id in 8848269 8848273 8847778; do
+            echo "===== $id ====="
+            curl -s --max-time 30 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" "https://www.curseforge.com/api/v1/mods/1599940/files/$id" -w "\nhttp=%{http_code}\n"
+            echo
           done
