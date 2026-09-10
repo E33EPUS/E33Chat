@@ -1,0 +1,36 @@
+name: cf-cleanup
+
+# Temporary: deletes the diagnostic test files left on CurseForge by the
+# upload investigation ("Forge-retest-1.20.1-2.4.11" and the Fabric-retry
+# probes). Removed once the store publish issue is resolved.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List then delete the probe files
+        run: |
+          curl -s --max-time 40 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" \
+            "https://www.curseforge.com/api/v1/mods/1599940/files?pageIndex=0&pageSize=25&sort=dateCreated" -o /tmp/l.json -w "list=%{http_code}\n"
+          python3 -c "
+import json
+d=json.load(open('/tmp/l.json'))
+for f in d.get('data',[]):
+    n=f.get('displayName') or ''
+    if 'retest' in n or 'retry' in n:
+        print(f.get('id'), '|', n)
+" | tee /tmp/targets.txt
+          while read -r line; do
+            id=$(echo "$line" | cut -d'|' -f1 | tr -d ' ')
+            [ -z "$id" ] && continue
+            echo "deleting $id"
+            curl -s -X DELETE --max-time 30 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" \
+              -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
+              "https://www.curseforge.com/api/v1/mods/1599940/files/$id" -w " delete=%{http_code}\n"
+          done < /tmp/targets.txt
