@@ -229,7 +229,9 @@ jobs:
             (matrix.loader == 'NeoForge' && github.event.inputs.loaders == 'neoforge') ||
             (matrix.loader == 'Fabric' && github.event.inputs.loaders == 'fabric')
           }}
-        run: ./gradlew build ${{ steps.store.outputs.task }} --no-daemon
+        # --no-configuration-cache: minotaur touches Task.project at execution
+        # time, which the configuration cache (enabled on the Neo branch) forbids.
+        run: ./gradlew build ${{ steps.store.outputs.task }} --no-daemon --no-configuration-cache
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
