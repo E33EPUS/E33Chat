@@ -5,8 +5,10 @@ name: Release
 # -> publish each loader to Modrinth and CurseForge. The Gradle publish tasks
 # skip themselves when MODRINTH_TOKEN / CURSEFORGE_TOKEN or the project IDs in
 # gradle.properties are unset, so a partially configured store still releases.
-# workflow_dispatch allows re-running publishing alone (e.g. after adding a
-# token) without re-tagging; the target input republishes selected loaders.
+# workflow_dispatch allows re-running publishing alone without re-tagging:
+# the stores input picks Modrinth / CurseForge (e.g. adding a token later —
+# re-uploading an existing version to Modrinth would hit its duplicate-file
+# guard), the loaders input narrows the matrix.
 
 on:
   push:
@@ -14,7 +16,16 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      target:
+      stores:
+        description: Stores to publish (manual dispatch only)
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - modrinth
+          - curseforge
+      loaders:
         description: Loaders to publish (manual dispatch only)
         required: false
         default: all
@@ -200,16 +211,25 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Resolve store task
+        id: store
+        run: |
+          case "${{ github.event.inputs.stores }}" in
+            modrinth)  echo "task=modrinth"   >> "$GITHUB_OUTPUT" ;;
+            curseforge) echo "task=curseforge" >> "$GITHUB_OUTPUT" ;;
+            *)          echo "task=publishMods" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Build and publish to Modrinth and CurseForge
         if: >-
           ${{
             github.event_name != 'workflow_dispatch' ||
-            github.event.inputs.target == 'all' ||
-            (matrix.loader == 'Forge' && github.event.inputs.target == 'forge') ||
-            (matrix.loader == 'NeoForge' && github.event.inputs.target == 'neoforge') ||
-            (matrix.loader == 'Fabric' && github.event.inputs.target == 'fabric')
+            github.event.inputs.loaders == 'all' ||
+            (matrix.loader == 'Forge' && github.event.inputs.loaders == 'forge') ||
+            (matrix.loader == 'NeoForge' && github.event.inputs.loaders == 'neoforge') ||
+            (matrix.loader == 'Fabric' && github.event.inputs.loaders == 'fabric')
           }}
-        run: ./gradlew build publishMods --no-daemon
+        run: ./gradlew build ${{ steps.store.outputs.task }} --no-daemon
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
