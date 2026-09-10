@@ -145,16 +145,17 @@ jobs:
           python3 - <<'PY'
           import os
           version = os.environ["VERSION"]
-          with open("CHANGELOG.md", encoding="utf-8") as f:
-              changelog = f.read()
-          start = changelog.find("## v" + version)
+          # Convention: the release body is the whole bilingual ([zh]+[en])
+          # section from RELEASE_NOTES.md — a short summary, not the CHANGELOG.
+          with open("RELEASE_NOTES.md", encoding="utf-8") as f:
+              notes = f.read()
+          start = notes.find("## v" + version)
           if start < 0:
-              # Hotfix tags (v2.4.11-hotfix) reuse the base version's section.
-              start = changelog.find("## v" + version.split("-")[0])
+              start = notes.find("## v" + version.split("-")[0])
           if start < 0:
-              raise SystemExit(f"ERROR: no '## v{version}' section in CHANGELOG.md — write it before tagging")
-          end = changelog.find("\n## ", start + 1)
-          section = (changelog[start:end] if end > start else changelog[start:]).strip()
+              raise SystemExit(f"ERROR: no '## v{version}' section in RELEASE_NOTES.md — write it before tagging")
+          end = notes.find("\n## ", start + 1)
+          section = (notes[start:end] if end > start else notes[start:]).strip()
           with open("release-notes.md", "w", encoding="utf-8") as f:
               f.write(section + "\n")
           PY
