@@ -185,15 +185,21 @@ jar.dependsOn copyRefmap
 
 def storeVersion = "Forge-${project.minecraft_version}-${project.mod_version}"
 
+// Store changelog convention: the [en] block of the version section in
+// RELEASE_NOTES.md (the bilingual full section is for the GitHub release body).
 def changelogFor(version) {
-    def text = rootProject.file('CHANGELOG.md').getText('UTF-8')
+    def text = rootProject.file('RELEASE_NOTES.md').getText('UTF-8')
     def start = text.indexOf("## v${version}")
     if (start < 0) {
         return "E33Chat ${version}"
     }
     def end = text.indexOf('\n## ', start + 1)
     def section = end > start ? text.substring(start, end) : text.substring(start)
-    return section.trim()
+    def en = section.indexOf('**English**')
+    if (en < 0) {
+        return section.trim()
+    }
+    return section.substring(en + '**English**'.length()).trim()
 }
 
 modrinth {
@@ -230,7 +236,7 @@ tasks.register('curseforge', net.darkhax.curseforgegradle.TaskPublishCurseForge)
         main.addJavaVersion 'Java 17'
         // CurseForge rejects uploads without an environment tag (error 1021).
         main.addEnvironment 'Client', 'Server'
-CF    }
+    }
 }
 
 tasks.register('publishMods') {
