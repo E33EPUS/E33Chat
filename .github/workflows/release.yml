@@ -145,8 +145,8 @@ jobs:
           python3 - <<'PY'
           import os
           version = os.environ["VERSION"]
-          # Convention: the release body is the whole bilingual ([zh]+[en])
-          # section from RELEASE_NOTES.md — a short summary, not the CHANGELOG.
+          # Convention: the release body is the whole version section from
+          # RELEASE_NOTES.md (Chinese summary first, English block last) — a short summary, not the CHANGELOG.
           with open("RELEASE_NOTES.md", encoding="utf-8") as f:
               notes = f.read()
           start = notes.find("## v" + version)
