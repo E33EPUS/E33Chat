@@ -1,9 +1,8 @@
 name: cf-probe
 
-# Temporary diagnostic workflow: the local network cannot reach
-# minecraft.curseforge.com (Cloudflare 403), so run the authoring-API calls
-# from a GitHub runner to learn whether the token works and what the project's
-# file state is. Deleted once the publish issue is understood.
+# Temporary diagnostic: local network is blocked by Cloudflare on
+# minecraft.curseforge.com, so drive the authoring API from a runner.
+# Reads game-version / loader ids and the token's project list.
 
 on:
   workflow_dispatch:
@@ -15,59 +14,39 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Auth check (game versions)
+      - name: Game version + loader ids
         run: |
-          echo "== game/versions http code =="
-          curl -s -o /tmp/gv.json -w "%{http_code}\n" \
-            -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
-            https://minecraft.curseforge.com/api/game/versions
-          echo "== body head =="
-          head -c 120 /tmp/gv.json; echo
+          curl -s -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
+            https://minecraft.curseforge.com/api/game/versions -o /tmp/gv.json
+          echo "bytes: $(wc -c < /tmp/gv.json)"
+          python3 - <<'PY'
+          import json
+          d = json.load(open('/tmp/gv.json'))
+          print('total entries:', len(d))
+          print('--- loader candidates ---')
+          for v in d:
+              if v.get('name') in ('Fabric', 'NeoForge', 'Forge'):
+                  print(v.get('id'), '|', v.get('name'), '|', v.get('gameVersionTypeID'))
+          print('--- mc version candidates ---')
+          for v in d:
+              if v.get('name') in ('1.21.1', '1.20.1'):
+                  print(v.get('id'), '|', v.get('name'), '|', v.get('gameVersionTypeID'))
+          PY
 
-      - name: Project metadata
+      - name: Project read via authoring API
         run: |
-          echo "== project http code =="
-          curl -s -o /tmp/proj.json -w "%{http_code}\n" \
+          curl -s -o /dev/null -w "single=%{http_code}\n" \
             -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
             https://minecraft.curseforge.com/api/projects/1599940
-          echo "== name/gameVersionIds/modLoaderIds =="
+          curl -s -o /tmp/list.json -w "list=%{http_code}\n" \
+            -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
+            https://minecraft.curseforge.com/api/projects
           python3 - <<'PY'
           import json
           try:
-              d = json.load(open('/tmp/proj.json'))
-              print('name:', d.get('name'))
-              print('gameVersionIds:', d.get('gameVersionIds'))
-              print('modLoaderIds:', d.get('modLoaderIds'))
-          except Exception as e:
-              print('parse failed:', e)
-          PY
-
-      - name: Projects owned by this token
-        run: |
-          echo "== GET /api/projects (list) =="
-          curl -s -o /tmp/mine.json -w "%{http_code}
-"             -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}"             https://minecraft.curseforge.com/api/projects
-          python3 - <<'PY'
-          import json
-          try:
-              d = json.load(open('/tmp/mine.json'))
+              d = json.load(open('/tmp/list.json'))
               for p in d:
-                  print(p.get('id'), '|', p.get('name'), '|', p.get('slug'))
+                  print('owned:', p.get('id'), '|', p.get('name'), '|', p.get('slug'))
           except Exception as e:
-              print('parse failed:', e)
-              print(open('/tmp/mine.json').read()[:200])
-          PY
-
-      - name: Public file list (cfwidget)
-        run: |
-          echo "== newest files visible to the public API =="
-          curl -s --max-time 40 "https://api.cfwidget.com/1599940?force=true" -o /tmp/cf.json -w "%{http_code}\n"
-          python3 - <<'PY'
-          import json
-          try:
-              d = json.load(open('/tmp/cf.json'))
-              for f in d.get('files', [])[:8]:
-                  print(f.get('id'), '|', f.get('name'), '|', f.get('uploaded_at'))
-          except Exception as e:
-              print('parse failed:', e)
+              print('list parse failed:', e, open('/tmp/list.json').read()[:120])
           PY
