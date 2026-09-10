@@ -12,15 +12,12 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve ids then upload with a minimal version set
+      - name: Re-upload the known-good Forge jar (with headers)
         run: |
-          curl -s -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" https://minecraft.curseforge.com/api/game/versions -o /tmp/gv.json
-          python3 -c "import json;d=json.load(open('/tmp/gv.json'));m={v['id']:v['name'] for v in d};[print(i,'->',m.get(i)) for i in (11779,10150,7498,7499,9638,9639,11135,9990,75125,68441,77784)]"
-          curl -sL -o /tmp/fab.jar "https://github.com/E33EPUS/E33Chat/releases/download/v2.4.11/e33chat-Fabric-1.21.1-2.4.11.jar"
-          echo "--- upload minimal set [11779,7499,9638,9639] ---"
-          RESP=$(curl -s -X POST "https://minecraft.curseforge.com/api/projects/1599940/upload-file" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" -F 'metadata={"displayName":"Fabric-min-1.21.1-2.4.11","releaseType":"release","gameVersions":[11779,7499,9638,9639],"changelogType":"markdown","changelog":"summary"};type=application/json' -F "file=@/tmp/fab.jar" -w " HTTP=%{http_code}")
-          echo "resp=$RESP"
-          ID=$(echo "$RESP" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
-          sleep 20
-          echo "--- GET after 20s ---"
-          curl -s --max-time 25 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" "https://www.curseforge.com/api/v1/mods/1599940/files/$ID" -w " http=%{http_code}\n"
+          curl -sL -o /tmp/forge.jar "https://github.com/E33EPUS/E33Chat/releases/download/v2.4.11/e33chat-Forge-1.20.1-2.4.11.jar"
+          echo "size=$(wc -c < /tmp/forge.jar)"
+          echo "--- POST (headers + body) ---"
+          curl -s -i -X POST "https://minecraft.curseforge.com/api/projects/1599940/upload-file" \
+            -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
+            -F 'metadata={"displayName":"Forge-retest-1.20.1-2.4.11","releaseType":"release","gameVersions":[9990,7498,9638,9639],"changelogType":"markdown","changelog":"retest"};type=application/json' \
+            -F "file=@/tmp/forge.jar" | head -30
