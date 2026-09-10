@@ -180,12 +180,15 @@ jobs:
           - loader: Forge
             branch: Forge-1.20.1
             java: "17"
+            store_prefix: Forge
           - loader: NeoForge
             branch: Neoforge-1.21.1
             java: "21"
+            store_prefix: NeoForge
           - loader: Fabric
             branch: Fabric-1.21.1
             java: "21"
+            store_prefix: Fabric
 
     steps:
       - name: Checkout
@@ -236,3 +239,66 @@ jobs:
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+
+      # A store task can report success while the file never lands (Modrinth
+      # skips a duplicate silently; the CurseForge upload endpoint once returned
+      # an id for a file that was never persisted). Verify against the public
+      # APIs so a non-upload fails the release instead of shipping green.
+      - name: Verify the store received this version
+        if: >-
+          ${{
+            github.event_name != 'workflow_dispatch' ||
+            github.event.inputs.loaders == 'all' ||
+            (matrix.loader == 'Forge' && github.event.inputs.loaders == 'forge') ||
+            (matrix.loader == 'NeoForge' && github.event.inputs.loaders == 'neoforge') ||
+            (matrix.loader == 'Fabric' && github.event.inputs.loaders == 'fabric')
+          }}
+        env:
+          PREFIX: ${{ matrix.store_prefix }}
+          STORES: ${{ steps.store.outputs.task }}
+        run: |
+          VER=$(grep '^mod_version=' gradle.properties | cut -d= -f2 | tr -d '\r')
+          MC=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2 | tr -d '\r')
+          MR=$(grep '^modrinth_project_id=' gradle.properties | cut -d= -f2 | tr -d '\r')
+          CF=$(grep '^curseforge_project_id=' gradle.properties | cut -d= -f2 | tr -d '\r')
+          EXPECTED="${PREFIX}-${MC}-${VER}"
+          echo "expecting store version: ${EXPECTED} (stores=${STORES})"
+          EXPECTED="$EXPECTED" STORES="$STORES" MR="$MR" CF="$CF" python3 - <<'PY'
+          import json, os, sys, urllib.request
+
+          expected, stores = os.environ["EXPECTED"], os.environ["STORES"]
+          failures = []
+
+          def get(url, headers=None):
+              req = urllib.request.Request(url, headers=headers or {
+                  "Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+              with urllib.request.urlopen(req, timeout=45) as r:
+                  return json.load(r)
+
+          if stores in ("modrinth", "publishMods") and os.environ.get("MR"):
+              try:
+                  versions = get("https://api.modrinth.com/v2/project/%s/version" % os.environ["MR"])
+                  if any(v.get("version_number") == expected for v in versions):
+                      print("Modrinth OK:", expected)
+                  else:
+                      failures.append("Modrinth: %s not present" % expected)
+              except Exception as e:
+                  failures.append("Modrinth check error: %r" % (e,))
+
+          if stores in ("curseforge", "publishMods") and os.environ.get("CF"):
+              try:
+                  data = get("https://www.curseforge.com/api/v1/mods/%s/files?pageIndex=0&pageSize=25&sort=dateCreated" % os.environ["CF"])
+                  names = [f.get("displayName") for f in data.get("data", [])]
+                  if expected in names:
+                      print("CurseForge OK:", expected)
+                  else:
+                      failures.append("CurseForge: %s not present (newest: %s)" % (expected, names[:3]))
+              except Exception as e:
+                  failures.append("CurseForge check error: %r" % (e,))
+
+          if failures:
+              for f in failures:
+                  print("::error::" + f)
+              sys.exit(1)
+          print("store verification passed:", expected)
+          PY
