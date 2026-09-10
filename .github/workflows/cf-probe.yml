@@ -1,8 +1,8 @@
 name: cf-probe
 
-# Temporary diagnostic: local network is blocked by Cloudflare on
-# minecraft.curseforge.com, so drive the authoring API from a runner.
-# Reads game-version / loader ids and the token's project list.
+# Temporary diagnostic workflow (deleted once the CF publish issue is solved).
+# Local network cannot reach minecraft.curseforge.com (Cloudflare blocks it),
+# so the CF website API is queried from a runner instead.
 
 on:
   workflow_dispatch:
@@ -14,39 +14,9 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Game version + loader ids
+      - name: Website file list (includes pending files)
         run: |
-          curl -s -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
-            https://minecraft.curseforge.com/api/game/versions -o /tmp/gv.json
-          echo "bytes: $(wc -c < /tmp/gv.json)"
-          python3 - <<'PY'
-          import json
-          d = json.load(open('/tmp/gv.json'))
-          print('total entries:', len(d))
-          print('--- loader candidates ---')
-          for v in d:
-              if v.get('name') in ('Fabric', 'NeoForge', 'Forge'):
-                  print(v.get('id'), '|', v.get('name'), '|', v.get('gameVersionTypeID'))
-          print('--- mc version candidates ---')
-          for v in d:
-              if v.get('name') in ('1.21.1', '1.20.1'):
-                  print(v.get('id'), '|', v.get('name'), '|', v.get('gameVersionTypeID'))
-          PY
-
-      - name: Project read via authoring API
-        run: |
-          curl -s -o /dev/null -w "single=%{http_code}\n" \
-            -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
-            https://minecraft.curseforge.com/api/projects/1599940
-          curl -s -o /tmp/list.json -w "list=%{http_code}\n" \
-            -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
-            https://minecraft.curseforge.com/api/projects
-          python3 - <<'PY'
-          import json
-          try:
-              d = json.load(open('/tmp/list.json'))
-              for p in d:
-                  print('owned:', p.get('id'), '|', p.get('name'), '|', p.get('slug'))
-          except Exception as e:
-              print('list parse failed:', e, open('/tmp/list.json').read()[:120])
-          PY
+          curl -s --max-time 40 -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" \
+            "https://www.curseforge.com/api/v1/mods/1599940/files?pageIndex=0&pageSize=15&sort=dateCreated&sortDescending=true" \
+            -o /tmp/wf.json -w "http=%{http_code} bytes=%{size_download}\n"
+          python3 -c "import json;d=json.load(open('/tmp/wf.json'));[print(f.get('id'),'|',f.get('displayName'),'|',f.get('fileName'),'| status=',f.get('fileStatus'),'| avail=',f.get('isAvailable'),'|',f.get('fileDate')) for f in d.get('data',[])[:15]]"
