@@ -1,6 +1,8 @@
 name: cf-probe
 
 # Temporary diagnostic workflow (deleted once the CF publish issue is solved).
+# Uploads the already-built Fabric release jar straight to the CurseForge
+# authoring endpoint so the real HTTP response is visible.
 
 on:
   workflow_dispatch:
@@ -12,17 +14,8 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Public file list
+      - name: Upload Fabric jar to CurseForge and print the response
         run: |
-          echo "== public =="
-          curl -s --max-time 40 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" -w "\nhttp=%{http_code}\n" "https://www.curseforge.com/api/v1/mods/1599940/files?pageIndex=0&pageSize=6&sort=dateCreated" | head -c 900
-
-      - name: Authenticated file list
-        run: |
-          echo "== with token =="
-          curl -s --max-time 40 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" -w "\nhttp=%{http_code}\n" "https://www.curseforge.com/api/v1/mods/1599940/files?pageIndex=0&pageSize=6&sort=dateCreated" | head -c 900
-
-      - name: Authoring ping
-        run: |
-          echo "== game/versions http =="
-          curl -s -o /dev/null -w "%{http_code}\n" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" "https://minecraft.curseforge.com/api/game/versions"
+          curl -sL -o /tmp/fab.jar "https://github.com/E33EPUS/E33Chat/releases/download/v2.4.11/e33chat-Fabric-1.21.1-2.4.11.jar"
+          ls -l /tmp/fab.jar
+          curl -s -X POST "https://minecraft.curseforge.com/api/projects/1599940/upload-file" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" -F 'metadata={"displayName":"Fabric-1.21.1-2.4.11","releaseType":"release","gameVersions":[11779,7499,9638,9639,11135],"changelogType":"markdown","changelog":"Added groups, panel background, animated images, profile card. Fixed several chat issues."};type=application/json' -F "file=@/tmp/fab.jar" -w "\nUPLOAD_HTTP=%{http_code}\n"
