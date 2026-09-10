@@ -42,6 +42,22 @@ jobs:
               print('parse failed:', e)
           PY
 
+      - name: Projects owned by this token
+        run: |
+          echo "== GET /api/projects (list) =="
+          curl -s -o /tmp/mine.json -w "%{http_code}
+"             -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}"             https://minecraft.curseforge.com/api/projects
+          python3 - <<'PY'
+          import json
+          try:
+              d = json.load(open('/tmp/mine.json'))
+              for p in d:
+                  print(p.get('id'), '|', p.get('name'), '|', p.get('slug'))
+          except Exception as e:
+              print('parse failed:', e)
+              print(open('/tmp/mine.json').read()[:200])
+          PY
+
       - name: Public file list (cfwidget)
         run: |
           echo "== newest files visible to the public API =="
