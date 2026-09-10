@@ -1,8 +1,6 @@
 name: cf-probe
 
 # Temporary diagnostic workflow (deleted once the CF publish issue is solved).
-# Uploads the already-built Fabric release jar straight to the CurseForge
-# authoring endpoint so the real HTTP response is visible.
 
 on:
   workflow_dispatch:
@@ -14,8 +12,7 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Upload Fabric jar to CurseForge and print the response
+      - name: Public CF file list for 2.4.11
         run: |
-          curl -sL -o /tmp/neo.jar "https://github.com/E33EPUS/E33Chat/releases/download/v2.4.11/e33chat-NeoForge-1.21.1-2.4.11.jar"
-          ls -l /tmp/neo.jar
-          curl -s -X POST "https://minecraft.curseforge.com/api/projects/1599940/upload-file" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" -F 'metadata={"displayName":"NeoForge-1.21.1-2.4.11","releaseType":"release","gameVersions":[11779,10150,9638,9639,11135],"changelogType":"markdown","changelog":"Added groups, panel background, animated images, profile card. Fixed several chat issues."};type=application/json' -F "file=@/tmp/neo.jar" -w "\nUPLOAD_HTTP=%{http_code}\n"
+          curl -s --max-time 40 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" "https://www.curseforge.com/api/v1/mods/1599940/files?pageIndex=0&pageSize=25&sort=dateCreated" -o /tmp/l.json -w "http=%{http_code}\n"
+          python3 -c "import json;d=json.load(open('/tmp/l.json'));[print(f.get('id'),'|',f.get('displayName'),'|',f.get('gameVersions'),'|',f.get('dateCreated'),'| status=',f.get('status')) for f in d.get('data',[]) if '2.4.11' in (f.get('displayName') or '')]"
