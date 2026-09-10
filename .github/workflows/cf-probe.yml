@@ -1,0 +1,57 @@
+name: cf-probe
+
+# Temporary diagnostic workflow: the local network cannot reach
+# minecraft.curseforge.com (Cloudflare 403), so run the authoring-API calls
+# from a GitHub runner to learn whether the token works and what the project's
+# file state is. Deleted once the publish issue is understood.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auth check (game versions)
+        run: |
+          echo "== game/versions http code =="
+          curl -s -o /tmp/gv.json -w "%{http_code}\n" \
+            -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
+            https://minecraft.curseforge.com/api/game/versions
+          echo "== body head =="
+          head -c 120 /tmp/gv.json; echo
+
+      - name: Project metadata
+        run: |
+          echo "== project http code =="
+          curl -s -o /tmp/proj.json -w "%{http_code}\n" \
+            -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
+            https://minecraft.curseforge.com/api/projects/1599940
+          echo "== name/gameVersionIds/modLoaderIds =="
+          python3 - <<'PY'
+          import json
+          try:
+              d = json.load(open('/tmp/proj.json'))
+              print('name:', d.get('name'))
+              print('gameVersionIds:', d.get('gameVersionIds'))
+              print('modLoaderIds:', d.get('modLoaderIds'))
+          except Exception as e:
+              print('parse failed:', e)
+          PY
+
+      - name: Public file list (cfwidget)
+        run: |
+          echo "== newest files visible to the public API =="
+          curl -s --max-time 40 "https://api.cfwidget.com/1599940?force=true" -o /tmp/cf.json -w "%{http_code}\n"
+          python3 - <<'PY'
+          import json
+          try:
+              d = json.load(open('/tmp/cf.json'))
+              for f in d.get('files', [])[:8]:
+                  print(f.get('id'), '|', f.get('name'), '|', f.get('uploaded_at'))
+          except Exception as e:
+              print('parse failed:', e)
+          PY
