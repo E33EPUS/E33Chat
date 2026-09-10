@@ -16,6 +16,6 @@ jobs:
     steps:
       - name: Upload Fabric jar to CurseForge and print the response
         run: |
-          curl -sL -o /tmp/fab.jar "https://github.com/E33EPUS/E33Chat/releases/download/v2.4.11/e33chat-Fabric-1.21.1-2.4.11.jar"
-          ls -l /tmp/fab.jar
-          curl -s -X POST "https://minecraft.curseforge.com/api/projects/1599940/upload-file" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" -F 'metadata={"displayName":"Fabric-1.21.1-2.4.11","releaseType":"release","gameVersions":[11779,7499,9638,9639,11135],"changelogType":"markdown","changelog":"Added groups, panel background, animated images, profile card. Fixed several chat issues."};type=application/json' -F "file=@/tmp/fab.jar" -w "\nUPLOAD_HTTP=%{http_code}\n"
+          curl -sL -o /tmp/neo.jar "https://github.com/E33EPUS/E33Chat/releases/download/v2.4.11/e33chat-NeoForge-1.21.1-2.4.11.jar"
+          ls -l /tmp/neo.jar
+          curl -s -X POST "https://minecraft.curseforge.com/api/projects/1599940/upload-file" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" -F 'metadata={"displayName":"NeoForge-1.21.1-2.4.11","releaseType":"release","gameVersions":[11779,10150,9638,9639,11135],"changelogType":"markdown","changelog":"Added groups, panel background, animated images, profile card. Fixed several chat issues."};type=application/json' -F "file=@/tmp/neo.jar" -w "\nUPLOAD_HTTP=%{http_code}\n"
