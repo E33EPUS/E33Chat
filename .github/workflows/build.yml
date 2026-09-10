@@ -1,30 +1,65 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+name: Build
 
-name: build
-on: [pull_request, push]
+# Branch/PR CI: builds all three loader branches on every push so a change on
+# one branch that breaks another is caught immediately. Forge runs on Java 17
+# (MC 1.20.1), NeoForge and Fabric on Java 21 (MC 1.21.1).
+
+on:
+  push:
+    branches: ["Forge-1.20.1", "Neoforge-1.21.1", "Fabric-1.21.1"]
+  pull_request:
+    branches: ["Forge-1.20.1", "Neoforge-1.21.1", "Fabric-1.21.1"]
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    name: Build (${{ matrix.loader }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - loader: Forge
+            java: "17"
+            tests: "-PrunTests"
+          - loader: NeoForge
+            java: "21"
+            tests: "-PrunTests"
+          - loader: Fabric
+            java: "21"
+            tests: ""
+
     steps:
-      - name: checkout repository
-        uses: actions/checkout@v6
-      - name: validate gradle wrapper
-        uses: gradle/actions/wrapper-validation@v6
-      - name: setup jdk
-        uses: actions/setup-java@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java ${{ matrix.java }}
+        uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'microsoft'
-      - name: make gradle wrapper executable
-        run: chmod +x ./gradlew
-      - name: build
-        run: ./gradlew build
-      - name: capture build artifacts
-        uses: actions/upload-artifact@v7
+          java-version: ${{ matrix.java }}
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          name: Artifacts
-          path: build/libs/
+          # PR builds read the cache only; pushes refresh it.
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          gradle-home-cache-includes: |
+            caches
+            notifications
+            .gradle/loom-cache
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build and test
+        run: ./gradlew build ${{ matrix.tests }} --no-daemon
+
+      - name: Upload mod jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: e33chat-${{ matrix.loader }}-${{ github.sha }}
+          path: build/libs/*.jar
+          if-no-files-found: error
