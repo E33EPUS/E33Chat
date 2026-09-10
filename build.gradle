@@ -44,8 +44,9 @@ tasks.withType(Test).configureEach { useJUnitPlatform() }
 
 def storeVersion = "Fabric-${project.minecraft_version}-${project.mod_version}"
 
-// Store changelog convention: the [en] block of the version section in
-// RELEASE_NOTES.md (the bilingual full section is for the GitHub release body).
+// Store changelog convention: the trailing English block of the version
+// section in RELEASE_NOTES.md (Chinese summary first, English last; the whole
+// bilingual section is for the GitHub release body).
 def changelogFor(version) {
     def text = rootProject.file('RELEASE_NOTES.md').getText('UTF-8')
     def start = text.indexOf("## v${version}")
@@ -54,11 +55,9 @@ def changelogFor(version) {
     }
     def end = text.indexOf('\n## ', start + 1)
     def section = end > start ? text.substring(start, end) : text.substring(start)
-    def en = section.indexOf('**English**')
-    if (en < 0) {
-        return section.trim()
-    }
-    return section.substring(en + '**English**'.length()).trim()
+    def trimmed = section.trim()
+    def idx = trimmed.lastIndexOf('\n\n')
+    return idx >= 0 ? trimmed.substring(idx).trim() : trimmed
 }
 
 modrinth {
