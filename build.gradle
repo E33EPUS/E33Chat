@@ -203,7 +203,7 @@ modrinth {
     versionType = "release"
     uploadFile = jar
     gameVersions = [project.minecraft_version]
-    loaders = ["Forge"]
+    loaders = ["forge"]
     changelog = changelogFor(project.version)
     }
 
