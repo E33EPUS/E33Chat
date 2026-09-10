@@ -255,7 +255,6 @@ def cfConfigured = cfProjectId ==~ /\d+/
 
 tasks.register('curseforge', net.darkhax.curseforgegradle.TaskPublishCurseForge) {
     apiToken = System.getenv("CURSEFORGE_TOKEN") ?: ""
-    debugMode = true  // TEMP diagnostic
     onlyIf { cfConfigured && System.getenv("CURSEFORGE_TOKEN") }
 
     if (cfConfigured) {
