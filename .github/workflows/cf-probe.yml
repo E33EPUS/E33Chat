@@ -12,10 +12,20 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Raw JSON for the uploaded ids
+      - name: Upload Fabric jar then poll its id
         run: |
-          for id in 8848269 8848273 8847778; do
-            echo "===== $id ====="
-            curl -s --max-time 30 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" "https://www.curseforge.com/api/v1/mods/1599940/files/$id" -w "\nhttp=%{http_code}\n"
-            echo
+          curl -sL -o /tmp/fab.jar "https://github.com/E33EPUS/E33Chat/releases/download/v2.4.11/e33chat-Fabric-1.21.1-2.4.11.jar"
+          echo "jarsize=$(wc -c < /tmp/fab.jar)"
+          echo "--- POST ---"
+          RESP=$(curl -s -X POST "https://minecraft.curseforge.com/api/projects/1599940/upload-file" \
+            -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" \
+            -F 'metadata={"displayName":"Fabric-1.21.1-2.4.11","releaseType":"release","gameVersions":[11779,7499,9638,9639,11135],"changelogType":"markdown","changelog":"summary"};type=application/json' \
+            -F "file=@/tmp/fab.jar" -w " HTTP=%{http_code}")
+          echo "resp=$RESP"
+          ID=$(echo "$RESP" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+          echo "parsed id=$ID"
+          for t in 0 3 10 25; do
+            sleep $t
+            echo "--- after ${t}s: GET /files/$ID ---"
+            curl -s --max-time 25 -H "Accept: application/json" -H "User-Agent: Mozilla/5.0" -H "X-Api-Token: ${{ secrets.CURSEFORGE_TOKEN }}" "https://www.curseforge.com/api/v1/mods/1599940/files/$ID" -w " http=%{http_code}\n"
           done
