@@ -1,0 +1,21 @@
+{
+  "_comment": [
+    "共享层（shared/ 与 layers/）里出现的第三方 import 声明表。",
+    "这不是白名单制度，而是「我确实依赖了这个」的登记：漏声明的表现是某个目标没带上那个库",
+    "—— 编得过、跑起来 NoClassDefFoundError。",
+    "_provided：原版 / 加载器本身提供的包，不必打进展物；",
+    "_test_only：只在测试里出现，不进产物。"
+  ],
+
+  "_provided": [
+    "net.minecraft — 原版类（映射层按官方名；shared/ 只允许两个映射家族同名的极少数，如 client.main.Main）",
+    "com.mojang — 原版自带（blaze3d / logging / authlib 等）",
+    "org.spongepowered — Mixin（加载器提供）",
+    "org.slf4j — 日志门面（加载器提供）",
+    "com.google.gson — 原版自带"
+  ],
+
+  "_test_only": [
+    "org.junit.jupiter — 测试框架，不进产物"
+  ]
+}

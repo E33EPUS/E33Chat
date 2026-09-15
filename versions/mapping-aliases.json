@@ -1,0 +1,14 @@
+{
+  "_comment": [
+    "【路径别名：同一个类在两个映射家族上路径不同】",
+    "映射层假设「同一个类在各家族的路径相同」，孪生副本能按路径一一对应。",
+    "当前 official 层的 25 个文件在 Fabric 侧都有同路径孪生，所以这里没有别名条目。",
+    "",
+    "已知潜在的一条（写在这里备忘，不声明就不是事实）：Fabric 的聊天主界面住在",
+    "com/niuqu/chatbubble/ChatBubbleScreen.java（根包），另两端住在",
+    "com/niuqu/chatbubble/render/ChatBubbleScreen.java。ChatBubbleScreen 没进映射层，",
+    "所以今天不构成别名；哪天它进层了，这里就要加对应条目。",
+    "",
+    "【键是层内的相对路径，值是该类在另一家族上的相对路径】两边都相对仓库根。"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "_comment": [
+    "服务端侧的类不许引用客户端类型（专用服务端上会 NoClassDefFoundError）。",
+    "markers 是源码级标记（先剥注释再扫）：出现即红。patterns 是匹配式，",
+    "一个都没命中说明布局变了，也要红。"
+  ],
+
+  "markers": [
+    "net.minecraft.client.",
+    "com.mojang.blaze3d."
+  ],
+  "patterns": [
+    "platforms/*/src/main/java/com/niuqu/chatbubble/server/*.java",
+    "shared/src/main/java/com/niuqu/chatbubble/server/*.java"
+  ],
+  "min_files": 9
+}

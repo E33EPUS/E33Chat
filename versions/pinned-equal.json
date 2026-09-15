@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "钉等清单：这些路径在多个平台各有一份，内容必须逐字相同（行尾无关比较）。",
+    "它们本该进 shared/ 或映射层，暂时进不去，原因各不相同 —— 这里把「暂时」",
+    "从靠自觉变成有闸盯着的显式状态。哪天消掉一条，就从清单里删掉它。",
+    "",
+    "ChatBars / ChatContextMenus / ChatLayout：Forge 与 Neo 逐字相同，但 Fabric",
+    "没有同名类（功能并进它的 ChatBubbleScreen 了）—— 进映射层就欠 Fabric 一份",
+    "不存在的孪生，所以在两端钉等。等 Fabric 侧拆出同名类即可转正进层。",
+    "",
+    "AnimationStyle / GroupChannelState：三端逐字相同、本可进 shared/，但它们引用",
+    "平台类（render.Animation / store.ChatMessageStore），shared/ 不许向下依赖 ——",
+    "在三端钉等。等引用解耦（facade 化）即可进 shared/。",
+    "",
+    "5 个 render 测试：Forge 与 Neo 逐字相同，Fabric 没有对应测试 —— 两端钉等。"
+  ],
+
+  "pinned": [
+    "src/main/java/com/niuqu/chatbubble/render/ChatBars.java",
+    "src/main/java/com/niuqu/chatbubble/render/ChatContextMenus.java",
+    "src/main/java/com/niuqu/chatbubble/render/ChatLayout.java",
+    "src/main/java/com/niuqu/chatbubble/render/AnimationStyle.java",
+    "src/main/java/com/niuqu/chatbubble/chat/GroupChannelState.java",
+    "src/test/java/com/niuqu/chatbubble/render/ChatBubbleScreenLayoutTest.java",
+    "src/test/java/com/niuqu/chatbubble/render/ChatContextMenusTest.java",
+    "src/test/java/com/niuqu/chatbubble/render/ChatMessageRendererTest.java",
+    "src/test/java/com/niuqu/chatbubble/render/ChatScrollbarTest.java",
+    "src/test/java/com/niuqu/chatbubble/render/ChatSidebarTest.java"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "_comment": [
+    "逐目标比对资源落点：着色器命名空间、语言文件、显式列出的必备文件。",
+    "放错命名空间不会报错，只会在运行期静默降级（圆角没了 / 界面退回英文），",
+    "所以这里按声明逐项相等来卡 —— 多一个少一个都红。",
+    "",
+    "【为什么 Fabric 的 shaders_root 是 minecraft 命名空间】三个目标加载自定义核心着色器的",
+    "路径规则不同：Forge / NeoForge 用 mod 命名空间 assets/e33chat/shaders/core/，",
+    "Fabric 侧历史上放在 assets/minecraft/shaders/core/ 才被加载。这是真实差异，写下来，",
+    "别让人「顺手统一命名空间」之后静默丢效。"
+  ],
+
+  "shader_names": ["rendertype_round_rect"],
+  "shader_extensions": [".json", ".vsh", ".fsh"],
+  "languages": ["en_us", "zh_cn"],
+  "also_required": [],
+
+  "targets": {
+    "1.20.1-forge": {
+      "shaders_root": "assets/e33chat/shaders/core",
+      "lang_root": "assets/e33chat/lang"
+    },
+    "1.21.1-neoforge": {
+      "shaders_root": "assets/e33chat/shaders/core",
+      "lang_root": "assets/e33chat/lang"
+    },
+    "1.21.1-fabric": {
+      "shaders_root": "assets/minecraft/shaders/core",
+      "lang_root": "assets/e33chat/lang"
+    }
+  }
+}
