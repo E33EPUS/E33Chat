@@ -113,8 +113,6 @@ public class ChatBubbleScreen extends ChatScreen {
     // Caches resolved head skins per player uuid so the SkinManager isn't hit every frame
     private CommandSuggestions suggestions;
     private final String initialText;
-    /** True while this screen has pushed its HUD-hide request (see init/removed). */
-    private boolean hudHidden;
     private String historyBuffer = "";
     private int historyPos = -1;
     private int scrollOffset;
@@ -220,6 +218,14 @@ public class ChatBubbleScreen extends ChatScreen {
             @Override public void onBusyStart() { uploadBusyTicks = 60; }
             @Override public void onIdle() { uploadBusyTicks = 0; }
             @Override public void onFailure() { uploadBusyTicks = 0; uploadToastTicks = 60; }
+            @Override public void onRejected(com.niuqu.chatbubble.image.AnimatedImageLoader.OverBudget reason) {
+                uploadBusyTicks = 0;
+                showToast(switch (reason) {
+                    case TOO_MANY_FRAMES -> "e33chat.toast.anim_frames";
+                    case TOO_LARGE_DIMENSION -> "e33chat.toast.anim_size";
+                    case TOO_LARGE_BYTES -> "e33chat.toast.anim_bytes";
+                });
+            }
             @Override public void onEmoteSent(String url) { sendMessageText(url); }
             @Override public void onSendText(String text) { sendMessageText(text); }
             @Override public void onInputImage(String code) {
@@ -257,15 +263,12 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     protected void init() {
-        // Translucent panel: hide the vanilla HUD (hotbar/effects/chat and
-        // HUD-drawn third-party tooltips such as Jade) behind it while open.
-        // Uses HudVisibility + RenderGuiEvent.Pre cancellation rather than
-        // options.hideGui — that flag is F1 and also hides the first-person
-        // hand/held item (GameRenderer gates hands on it).
-        if (!hudHidden) {
-            com.niuqu.chatbubble.render.HudVisibility.push();
-            hudHidden = true;
-        }
+        // The chat panel no longer hides the vanilla HUD. It is a left-aligned
+        // column (~40% of the screen), so the hotbar, status effects and
+        // HUD-drawn tooltips mostly sit outside it anyway; hiding them took the
+        // hotbar away for no visible benefit. The config screens still hide the
+        // HUD (full-width translucent background). Never use options.hideGui for
+        // this — that is the F1 flag and also removes the first-person hand.
         ChatMessageStore.setScreenOpen(true);
         historyPos = minecraft.gui.getChat().getRecentChat().size();
         animStart = net.minecraft.Util.getMillis();
@@ -829,9 +832,13 @@ public class ChatBubbleScreen extends ChatScreen {
         if (nav != null) {
             net.minecraft.client.gui.ComponentPath path = super.nextFocusPath(nav);
             if (path == null && nav instanceof net.minecraft.client.gui.navigation.FocusNavigationEvent.TabNavigation) {
-                // 1.20.1 的 Screen.clearFocus 是 private，self 等价：让当前焦点路径失焦
-                if (this.getCurrentFocusPath() != null) this.getCurrentFocusPath().applyFocus(false);
-                path = super.nextFocusPath(nav);
+                // 1.20.1 的 Screen.clearFocus 是 private，self 等价：让当前焦点路径失焦。
+                // 但输入框是 setCanLoseFocus(false)，清掉焦点就再也拿不回来（键鼠全废，
+                // 只能重开面板）——输入框仍持有焦点时不清。
+                if (this.getFocused() != input) {
+                    if (this.getCurrentFocusPath() != null) this.getCurrentFocusPath().applyFocus(false);
+                    path = super.nextFocusPath(nav);
+                }
             }
             if (path != null) this.changeFocus(path);
         }
@@ -1031,6 +1038,18 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
+        // TEMP DIAG (2.4.12, issue #8): the suggestion list does not respond to
+        // mouse clicks for some users. Logs the click point and whether the list
+        // consumed it, so one reproduction decides between "an earlier branch ate
+        // the click" and "the hit rect does not match where it is drawn".
+        if (suggestions != null && com.niuqu.chatbubble.config.ChatBubbleConfig.DEBUG_LOG.get()) {
+            int _sx = (int) mouseX, _sy = (int) mouseY;
+            String _diag = "[e33chat] SuggClick screen | point=(" + _sx + "," + _sy + ")"
+                + " button=" + button + " rawX=" + (int) origX
+                + " inputX=" + inputX + " inputY=" + inputY
+                + " panelOffset=" + currentPanelOffset() + " sliding=" + isPanelSliding();
+            com.niuqu.chatbubble.store.ChatMessageStore.debugLog(() -> _diag);
+        }
         if (suggestions != null && suggestions.mouseClicked((int) mouseX, (int) mouseY, button))
             return true;
 
@@ -2743,10 +2762,6 @@ public class ChatBubbleScreen extends ChatScreen {
     public void removed() {
         if (ChatBubbleConfig.PRESERVE_INPUT.get()) savedInput = input.getValue();
         ChatMessageStore.setScreenOpen(false);
-        if (hudHidden) {
-            com.niuqu.chatbubble.render.HudVisibility.pop();
-            hudHidden = false;
-        }
         minecraft.gui.getChat().resetChatScroll();
     }
 

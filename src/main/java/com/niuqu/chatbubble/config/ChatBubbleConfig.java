@@ -45,6 +45,7 @@ public class ChatBubbleConfig {
     public static final ForgeConfigSpec.IntValue PANEL_OPACITY;
     public static final ForgeConfigSpec.ConfigValue<String> PANEL_BG_IMAGE;
     public static final ForgeConfigSpec.IntValue PANEL_BG_OPACITY;
+    public static final ForgeConfigSpec.ConfigValue<String> PANEL_BG_CROP;
     public static final ForgeConfigSpec.BooleanValue DEBUG_LOG;
     public static final ForgeConfigSpec.BooleanValue SOUND_SYSTEM;
     public static final ForgeConfigSpec.BooleanValue SOUND_WHISPER;
@@ -151,6 +152,14 @@ public class ChatBubbleConfig {
             .comment("Custom panel background image opacity percentage (0-100); scales on top of the panel opacity")
             .translation("e33chat.config.panel_bg_opacity")
             .defineInRange("panel_bg_opacity", 100, 0, 100);
+
+        PANEL_BG_CROP = builder
+            .comment("Framing of the custom panel background: \"centerX,centerY,zoom\" in normalized",
+                "units. 0.5,0.5 centers the picture and zoom 1 is the widest view that still covers",
+                "the panel's aspect ratio; larger zoom tightens it. Blank = centered, widest view.",
+                "Set from the settings screen (Adjust framing); not meant to be typed by hand")
+            .translation("e33chat.config.panel_bg_crop")
+            .define("panel_bg_crop", "");
 
         SYSTEM_CHAT_AS_BUBBLE = builder
             .comment("Render system messages as chat bubbles")

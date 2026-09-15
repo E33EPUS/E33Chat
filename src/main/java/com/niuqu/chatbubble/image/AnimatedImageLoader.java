@@ -60,6 +60,90 @@ public final class AnimatedImageLoader {
 
     private AnimatedImageLoader() {}
 
+    /** Structural facts about an animated file, read without decoding pixels. */
+    public record Probe(int frames, int width, int height, String format) {}
+
+    /** Why an animated source cannot be rendered by the receiver as-is. */
+    public enum OverBudget { TOO_MANY_FRAMES, TOO_LARGE_DIMENSION, TOO_LARGE_BYTES }
+
+    /**
+     * Reader-level probe: frame count + canvas size, no pixel decode. Null when
+     * the bytes are not a readable multi-frame image, i.e. whenever the static
+     * path should handle the file instead.
+     *
+     * <p>This is what lets the upload side tell "animated, send as-is" from
+     * "still image, re-encode"; decoding with {@code ImageIO.read} returns only
+     * the first frame, which is how every outgoing GIF used to lose its
+     * animation before it ever left the client.
+     */
+    public static Probe probe(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) return null;
+        try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            if (input == null) return null;
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) return null;
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input, false, false);
+                int count = reader.getNumImages(true);
+                if (count < 2) return null;
+                int w = reader.getWidth(0);
+                int h = reader.getHeight(0);
+                // A GIF's logical screen can be larger than the first frame's
+                // own bounds; the canvas is what actually gets rendered.
+                if ("gif".equalsIgnoreCase(reader.getFormatName())) {
+                    IIOMetadata stream = reader.getStreamMetadata();
+                    if (stream != null) {
+                        try {
+                            var root = stream.getAsTree("javax_imageio_gif_stream_1.0");
+                            if (root instanceof IIOMetadataNode node) {
+                                var d = node.getElementsByTagName("LogicalScreenDescriptor");
+                                if (d.getLength() > 0 && d.item(0) instanceof IIOMetadataNode n) {
+                                    w = Math.max(w, parseInt(n.getAttribute("logicalScreenWidth"), w));
+                                    h = Math.max(h, parseInt(n.getAttribute("logicalScreenHeight"), h));
+                                }
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                }
+                return new Probe(count, w, h, reader.getFormatName().toLowerCase(java.util.Locale.ROOT));
+            } finally {
+                reader.dispose();
+            }
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /**
+     * Null when the receiver can render this source; otherwise the first limit it
+     * breaks. The budget is deliberately the receiver's, not a new one: sending
+     * something bigger would be accepted by the upload and then silently fall
+     * back to a still frame on arrival — the failure this whole path exists to
+     * prevent.
+     */
+    public static OverBudget checkBudget(Probe probe, long byteCount) {
+        if (probe == null) return null;
+        if (probe.frames() > MAX_FRAMES) return OverBudget.TOO_MANY_FRAMES;
+        if (probe.width() > MAX_DIMENSION || probe.height() > MAX_DIMENSION) {
+            return OverBudget.TOO_LARGE_DIMENSION;
+        }
+        if (byteCount > MAX_BYTES) return OverBudget.TOO_LARGE_BYTES;
+        return null;
+    }
+
+    /** MIME type for a probed format name, so passthrough uploads keep theirs. */
+    public static String mimeType(String format) {
+        if (format == null) return "application/octet-stream";
+        return switch (format.toLowerCase(java.util.Locale.ROOT)) {
+            case "gif" -> "image/gif";
+            case "png" -> "image/png";   // APNG reports as png
+            case "jpeg", "jpg" -> "image/jpeg";
+            case "webp" -> "image/webp";
+            default -> "application/octet-stream";
+        };
+    }
+
     /** URL looks animated by extension / query hint — the cheap path. */
     public static boolean looksAnimated(String url, String nameHint) {
         String lower = (url + " " + (nameHint == null ? "" : nameHint))

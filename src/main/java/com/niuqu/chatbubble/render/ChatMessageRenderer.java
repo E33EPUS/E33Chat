@@ -102,7 +102,7 @@ public final class ChatMessageRenderer {
             List<FormattedCharSequence> imgLines = wrapContent(parsed.textWithoutImages(), font, bubbleMaxW);
             int textH = imgLines.size() * font.lineHeight;
             int imgH = 0;
-            for (var ref : parsed.images()) imgH += imageEdgeHeight(ref.url(), panelW) + 2;
+            for (var ref : parsed.images()) imgH += imageEdgeHeight(ref.url(), ref.name(), panelW) + 2;
             int h = NAME_H + textH + imgH;
             if (msg.replyContent() != null) h += font.lineHeight + 7;
             return h;
@@ -143,13 +143,13 @@ public final class ChatMessageRenderer {
      *  The content probe costs an extra server media fetch (the server
      *  rate-limits downloads per player), so it is skipped once the same URL
      *  already failed its probe — a static image must not keep re-downloading. */
-    private static com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url) {
-        var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, null);
+    private static com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url, String nameHint) {
+        var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, nameHint);
         if (entry != null) return entry;
         if (url == null || !url.startsWith("e33chat://media/")) return null;
         // Only probe server media once per URL; the static ImageLoader owns the
         // bytes afterwards (shared fetch makes the second request free anyway).
-        return com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, null);
+        return com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, nameHint);
     }
 
     /** Still decoding: the static ImageLoader must not win the race yet, or the
@@ -169,9 +169,9 @@ public final class ChatMessageRenderer {
     }
 
     /** Height in px for one bubble-less image (state-dependent, panel-clamped, never upscaled). */
-    public static int imageEdgeHeight(String url, int panelW) {
+    public static int imageEdgeHeight(String url, String nameHint, int panelW) {
         int maxW = Math.max(80, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16);
-        var animated = animatedEntry(url);
+        var animated = animatedEntry(url, nameHint);
         if (animated != null && animated.ready() && animated.width() > 0 && animated.height() > 0) {
             float ratio = Math.min((float) maxW / animated.width(),
                 (float) maxW / animated.height());
@@ -254,7 +254,7 @@ public final class ChatMessageRenderer {
         int maxImgW = Math.max(80, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16);
         for (var ref : parsed.images()) {
             int w = maxImgW, h = maxImgW;
-            var animated = animatedEntry(ref.url());
+            var animated = animatedEntry(ref.url(), ref.name());
             var animatedFrame = animatedTex(animated);
             if (animatedFrame != null && animatedFrame.width() > 0 && animatedFrame.height() > 0) {
                 float ratio = Math.min((float) maxImgW / animatedFrame.width(),
@@ -358,7 +358,7 @@ public final class ChatMessageRenderer {
         int emoteY = baseY + (showAvatar ? NAME_H + 2 : 2);
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - ChatLayout.PAD * 2 - 16));
         int w = maxE, h = maxE;
-        var animated = animatedEntry(ref.url());
+        var animated = animatedEntry(ref.url(), ref.name());
         var animatedFrame = animatedTex(animated);
         if (animatedFrame != null && animatedFrame.width() > 0 && animatedFrame.height() > 0) {
             float ratio = Math.min((float) maxE / animatedFrame.width(), (float) maxE / animatedFrame.height());

@@ -27,6 +27,11 @@ public final class UploadQueue {
         void onIdle();
         /** Upload failed (or nothing to upload): toast + restore draft. */
         void onFailure();
+        /**
+         * Rejected before upload: the animated source exceeds what the receiver
+         * can render. Carries which limit was broken so the toast can name it.
+         */
+        void onRejected(AnimatedImageLoader.OverBudget reason);
         /** Emote upload done: send the emote message immediately. */
         void onEmoteSent(String url);
         /** Draft send done: send the text with the real URL substituted. */
@@ -71,7 +76,23 @@ public final class UploadQueue {
                     MediaClient.serverEnabled());
                 LocalImageSource.PreparedImage prep;
                 if (job.file() != null) {
-                    prep = LocalImageSource.fromFile(job.file());
+                    LocalImageSource.Prep rep = LocalImageSource.prepare(job.file());
+                    if (rep instanceof LocalImageSource.Prep.Rejected rejected) {
+                        // Refuse rather than downgrade: a silently re-encoded GIF
+                        // arrives as a still frame and reads as "the animation broke".
+                        com.mojang.logging.LogUtils.getLogger().info(
+                            "[e33chat] upload rejected (animated over budget: {}) | file={}",
+                            rejected.reason(), job.file().getName());
+                        AnimatedImageLoader.OverBudget reason = rejected.reason();
+                        Minecraft.getInstance().execute(() -> {
+                            running = false;
+                            cb.onRejected(reason);
+                            if (job.pendingText() != null) cb.onRestoreInput(job.pendingText());
+                            drain();
+                        });
+                        return;
+                    }
+                    prep = ((LocalImageSource.Prep.Ok) rep).image();
                 } else {
                     prep = new LocalImageSource.PreparedImage(job.bytes(), job.fileName());
                 }
@@ -100,8 +121,10 @@ public final class UploadQueue {
     }
 
     private void finish(UploadJob job, LocalImageSource.PreparedImage prep) {
+        // The real content type: an untouched GIF must not be announced as PNG,
+        // or a server-side store may re-wrap it and lose the animation again.
         String serverUrl = MediaClient.serverEnabled()
-            ? MediaClient.upload(prep.bytes(), "image/png")
+            ? MediaClient.upload(prep.bytes(), prep.contentType())
             : null;
         // Server hosting unavailable (not installed / disabled / failed) — fall back to third-party
         final String url = serverUrl != null
@@ -121,17 +144,22 @@ public final class UploadQueue {
                 return;
             }
             cb.onIdle();
+            // Carry the original file name: image hosts hand back extension-less
+            // URLs, and the download side can only recognise an animation by
+            // extension or content probe. "name=" is part of the CICode format,
+            // so ChatImage and our own parser both read it.
+            String nameAttr = "name=" + prep.fileName();
             if (job.emote()) {
                 // Emote click = send immediately as a bubble-less emote message.
-                cb.onEmoteSent("[[E33Emote,url=" + url + "]]");
+                cb.onEmoteSent("[[E33Emote,url=" + url + "," + nameAttr + "]]");
             } else if (job.pendingText() != null) {
                 // Enter was pressed on a file:// CICode: finish the send now —
                 // one enter, no second press, no lost message.
                 String finalText = job.pendingText().replaceFirst(
-                    "\\[\\[CICode,url=file://[^]]*]]", "[[CICode,url=" + url + "]]");
+                    "\\[\\[CICode,url=file://[^]]*]]", "[[CICode,url=" + url + "," + nameAttr + "]]");
                 cb.onSendText(finalText);
             } else {
-                String code = "[[CICode,url=" + url + "]]";
+                String code = "[[CICode,url=" + url + "," + nameAttr + "]]";
                 cb.onInputImage(code);
             }
             drain();
