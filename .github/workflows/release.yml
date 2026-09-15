@@ -30,6 +30,15 @@ on:
           - 1.21.1-fabric
           - 1.21.1-neoforge
           - 1.20.1-forge
+      stores:
+        description: 只重发某个商店（手动补发时选它；Modrinth 有重复文件守卫，补发 CF 别带 modrinth）
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - modrinth
+          - curseforge
       dry_run:
         description: 只构建与校验，不建 Release、不发布到商店
         required: false
@@ -202,6 +211,8 @@ jobs:
 
       # publishMods 由各平台自己的 build.gradle 定义（dependsOn modrinth / curseforge），
       # 两个商店各自带 onlyIf 闸：没 token 或项目 id 没填就 SKIPPED，不会红。
+      # stores 输入支持手动补发单个商店；--no-configuration-cache 是硬要求：
+      # NeoForge 端开着配置缓存，minotaur 在执行期读 project 会被判不支持（2.4.11 踩过）。
       - name: 构建并发布到 Modrinth 与 CurseForge
         if: >-
           ${{
@@ -212,7 +223,12 @@ jobs:
         working-directory: ${{ matrix.project }}
         run: |
           chmod +x ./gradlew
-          ./gradlew build -PrunTests publishMods --no-daemon
+          case "${{ inputs.stores }}" in
+            modrinth) TASKS="modrinth" ;;
+            curseforge) TASKS="curseforge" ;;
+            *) TASKS="publishMods" ;;
+          esac
+          ./gradlew build -PrunTests $TASKS --no-daemon --no-configuration-cache
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}

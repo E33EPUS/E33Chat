@@ -1,24 +1,5 @@
 # Changelog
 
-**Fixed: your own images would "randomly fail to load"**
-- Symptom: after pasting a few images in a row, one of them reported a load failure; the log said `timed out after 30s` while only 6ms had passed, and the same file loaded fine moments later
-- Root cause (three things stacked):
-  1. **Every image wasted a download slot** — the animated probe fired a request for every `e33chat://media/` URL even when the CICode already carried `name=1.jpg` (a JPEG cannot animate), and each image already costs "one upload plus one download by its own sender"
-  2. **NeoForge never got the 2.4.11 de-duplication fix** — its `fetch` did a plain `FETCHES.put()`, so the second request for a mediaId (the probe and the static loader both fetch) replaced the first caller's future; the first then waited out its full 30-second timeout and reported a failure for an image that had already downloaded. The 2.4.11 merge fix only ever landed on Forge
-  3. **The log lied** — the server answers "rate limited" and "file missing" with the same sentinel, and the client reported both as a 30-second timeout, pointing every investigation at the network
-- Fix: (1) `animatedEntry` short-circuits `.jpg/.jpeg/.bmp` (those cannot animate; `.png` is still probed because APNG shares the extension), (2) `MediaClient` keeps a **local cache of our own uploads** (24-entry LRU) so the sender's own images come from memory — no download slot, nothing to fail, (3) NeoForge and Fabric now use `computeIfAbsent` to merge concurrent fetches like Forge does, (4) timeouts and refusals are logged as the different things they are, (5) the server rate limit goes from 4 to 16 per 10 seconds (still bounding abuse, no longer punishing a normal paste-a-few session)
-
-**Fixed: the background framing screen was blank (bug in the new framing feature)**
-- Symptom: choosing a panel background and then opening the framing editor showed nothing at all
-- Root cause: `PanelBackground.ensureLoaded()` was only ever called while the chat panel rendered. The settings screen and the framing screen do not draw the chat panel, so a picture chosen there never started loading and `imageWidth()` stayed 0
-- Fix: the framing screen starts the load itself, polls for the size while it loads and re-lays out once it arrives, and shows "Loading the background image...", a **red specific reason** on failure (unsupported format / missing file) or "No background image set" — no more staring at an empty screen
-
-**Changed: animation limits aligned with AtomChat (48 -> 120 frames, trimming instead of rejecting)**
-- Symptom: a 66-frame and a 72-frame GIF were refused here while AtomChat accepted the same files
-- Root cause: E33Chat used "48-frame hard cap, reject past it"; AtomChat uses "120-frame cap plus an 8M-pixel-per-image budget", trimming the tail instead of refusing
-- Fix: the frame cap is now 120, with an 8M-pixel **decoded budget per image** (~32 MB of GPU memory) that keeps the first frames when a longer animation would exceed it — a trimmed GIF still plays and still reads, while a rejection is a dead end the user cannot act on. The 512px dimension cap is unchanged
-- Note: this is also why **GIFs in the emote panel are now still thumbnails** — with the cap at 120, animating 32 grid cells would burn frame time and GPU memory for a 26px square you cannot read anyway, while the sent message still animates. Animated emotes carry a `GIF` badge so it is clear they move once sent
-
 ## v2.4.12
 
 **修复：发出去的 GIF 不会动（2.4.10 功能的一半没兑现）**
@@ -117,6 +98,25 @@
 - Symptom: the suggestion list cannot be clicked with the mouse (vanilla allows it)
 - Status: the click is wired up in code and the render and hit-test use the same rectangle, so static analysis could not explain it
 - This release adds temporary diagnostics (click point, panel offset, and the rectangle the list is built with) so one in-game reproduction can separate "an earlier branch eats the click" from "the drawn rect and the hit rect disagree". **Enable `debug_log` and reproduce once**; the fix is deferred to the next version
+
+**Fixed: your own images would "randomly fail to load"**
+- Symptom: after pasting a few images in a row, one of them reported a load failure; the log said `timed out after 30s` while only 6ms had passed, and the same file loaded fine moments later
+- Root cause (three things stacked):
+  1. **Every image wasted a download slot** — the animated probe fired a request for every `e33chat://media/` URL even when the CICode already carried `name=1.jpg` (a JPEG cannot animate), and each image already costs "one upload plus one download by its own sender"
+  2. **NeoForge never got the 2.4.11 de-duplication fix** — its `fetch` did a plain `FETCHES.put()`, so the second request for a mediaId (the probe and the static loader both fetch) replaced the first caller's future; the first then waited out its full 30-second timeout and reported a failure for an image that had already downloaded. The 2.4.11 merge fix only ever landed on Forge
+  3. **The log lied** — the server answers "rate limited" and "file missing" with the same sentinel, and the client reported both as a 30-second timeout, pointing every investigation at the network
+- Fix: (1) `animatedEntry` short-circuits `.jpg/.jpeg/.bmp` (those cannot animate; `.png` is still probed because APNG shares the extension), (2) `MediaClient` keeps a **local cache of our own uploads** (24-entry LRU) so the sender's own images come from memory — no download slot, nothing to fail, (3) NeoForge and Fabric now use `computeIfAbsent` to merge concurrent fetches like Forge does, (4) timeouts and refusals are logged as the different things they are, (5) the server rate limit goes from 4 to 16 per 10 seconds (still bounding abuse, no longer punishing a normal paste-a-few session)
+
+**Fixed: the background framing screen was blank (bug in the new framing feature)**
+- Symptom: choosing a panel background and then opening the framing editor showed nothing at all
+- Root cause: `PanelBackground.ensureLoaded()` was only ever called while the chat panel rendered. The settings screen and the framing screen do not draw the chat panel, so a picture chosen there never started loading and `imageWidth()` stayed 0
+- Fix: the framing screen starts the load itself, polls for the size while it loads and re-lays out once it arrives, and shows "Loading the background image...", a **red specific reason** on failure (unsupported format / missing file) or "No background image set" — no more staring at an empty screen
+
+**Changed: animation limits aligned with AtomChat (48 -> 120 frames, trimming instead of rejecting)**
+- Symptom: a 66-frame and a 72-frame GIF were refused here while AtomChat accepted the same files
+- Root cause: E33Chat used "48-frame hard cap, reject past it"; AtomChat uses "120-frame cap plus an 8M-pixel-per-image budget", trimming the tail instead of refusing
+- Fix: the frame cap is now 120, with an 8M-pixel **decoded budget per image** (~32 MB of GPU memory) that keeps the first frames when a longer animation would exceed it — a trimmed GIF still plays and still reads, while a rejection is a dead end the user cannot act on. The 512px dimension cap is unchanged
+- Note: this is also why **GIFs in the emote panel are now still thumbnails** — with the cap at 120, animating 32 grid cells would burn frame time and GPU memory for a 26px square you cannot read anyway, while the sent message still animates. Animated emotes carry a `GIF` badge so it is clear they move once sent
 
 ## v2.4.11
 
