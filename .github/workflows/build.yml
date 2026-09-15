@@ -1,65 +1,98 @@
 name: Build
 
-# Branch/PR CI: builds all three loader branches on every push so a change on
-# one branch that breaks another is caught immediately. Forge runs on Java 17
-# (MC 1.20.1), NeoForge and Fabric on Java 21 (MC 1.21.1).
+# 单分支多目标：支持哪些目标写在 versions/targets.json 里，这个工作流里没有分支名。
+# 新增一个目标 = 加一条 JSON + 建工程目录，不必碰这个文件。
+#
+# 旧的平台分支（Forge-1.20.1 / Neoforge-1.21.1 / Fabric-1.21.1）各自还带着自己那份
+# build.yml，随分支一起归档；main 上的构建不发布任何东西，发版走 release.yml。
 
 on:
   push:
-    branches: ["Forge-1.20.1", "Neoforge-1.21.1", "Fabric-1.21.1"]
+    branches: ["main"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   pull_request:
-    branches: ["Forge-1.20.1", "Neoforge-1.21.1", "Fabric-1.21.1"]
+    branches: ["main"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build (${{ matrix.loader }})
+  targets:
+    name: 校验矩阵
     runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.matrix.outputs.list }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # 本地与 CI 跑的是同一个脚本：矩阵是规则、身份只有一份、工程目录与矩阵条目
+      # 必须互相存在、映射层孪生不缺不重。红的原因会直接写在日志里。
+      - name: 校验 versions/ 与各平台的身份来源
+        run: python3 tools/verify_targets.py --matrix-out "$RUNNER_TEMP/matrix.json"
+
+      - name: 导出矩阵
+        id: matrix
+        run: echo "list=$(cat "$RUNNER_TEMP/matrix.json")" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: 构建 ${{ matrix.target }}
+    needs: targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - loader: Forge
-            java: "17"
-            tests: "-PrunTests"
-          - loader: NeoForge
-            java: "21"
-            tests: "-PrunTests"
-          - loader: Fabric
-            java: "21"
-            tests: ""
-
+        include: ${{ fromJSON(needs.targets.outputs.list) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Set up Java ${{ matrix.java }}
-        uses: actions/setup-java@v4
+      - name: 设置 JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
         with:
-          java-version: ${{ matrix.java }}
-          distribution: "temurin"
+          java-version: "${{ matrix.java }}"
+          distribution: temurin
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
-          # PR builds read the cache only; pushes refresh it.
+          # PR 只读缓存；推 main 才刷新它。
           cache-read-only: ${{ github.event_name == 'pull_request' }}
-          gradle-home-cache-includes: |
-            caches
-            notifications
-            .gradle/loom-cache
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      # Forge / NeoForge 的 test 任务带 onlyIf(runTests) 闸（JUnit 离线解析的缘故），
+      # 所以三端统一带 -PrunTests；Fabric 端没有这个闸，多传无害。
+      - name: 构建并测试
+        working-directory: ${{ matrix.project }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build -PrunTests --no-daemon
 
-      - name: Build and test
-        run: ./gradlew build ${{ matrix.tests }} --no-daemon
+      # 取产物：sources 一律不要，且每个目标必须恰好一个发布 jar ——
+      # 产物名有歧义时取件规则要重新定，不能静默多拿少拿。
+      - name: 取产物
+        working-directory: ${{ matrix.project }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          find build/libs -name "*.jar" ! -name "*sources*" \
+            -exec cp {} "$GITHUB_WORKSPACE/dist/" \;
+          ls -la "$GITHUB_WORKSPACE/dist"
+          count=$(find "$GITHUB_WORKSPACE/dist" -name "*.jar" | wc -l)
+          if [ "$count" -ne 1 ]; then
+            echo "::error::期望恰好一个发布 jar，实际 $count 个"
+            exit 1
+          fi
 
-      - name: Upload mod jar
-        uses: actions/upload-artifact@v4
+      - name: 上传产物
+        uses: actions/upload-artifact@v7
         with:
-          name: e33chat-${{ matrix.loader }}-${{ github.sha }}
-          path: build/libs/*.jar
+          # buildable: false 但工程存在的目标照样编，名字上带出"未验证"。
+          # 后缀由 verify_targets.py 算好放进矩阵 —— 不在这里拼表达式。
+          name: e33chat-${{ matrix.target }}${{ matrix.suffix }}
+          path: dist/*.jar
           if-no-files-found: error

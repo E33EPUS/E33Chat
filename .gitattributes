@@ -6,6 +6,9 @@ gradlew text eol=lf
 platforms/*/gradlew text eol=lf
 *.bat text eol=crlf
 
+# 我们自己的 shell 脚本：bash 吃不下 CRLF（build_all.sh 首跑就栽过）
+tools/*.sh text eol=lf
+
 # datagen 的缓存与产物永远 LF，避免「只有行尾不同」的假变更
 **/src/generated/**/.cache/* text eol=lf
 **/src/generated/**/*.json text eol=lf

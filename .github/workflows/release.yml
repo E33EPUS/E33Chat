@@ -1,304 +1,218 @@
 name: Release
 
-# Tag push (v*) runs the full pipeline: build Forge + NeoForge + Fabric -> one
-# GitHub Release carrying all three jars (bilingual notes from CHANGELOG.md)
-# -> publish each loader to Modrinth and CurseForge. The Gradle publish tasks
-# skip themselves when MODRINTH_TOKEN / CURSEFORGE_TOKEN or the project IDs in
-# gradle.properties are unset, so a partially configured store still releases.
-# workflow_dispatch allows re-running publishing alone without re-tagging:
-# the stores input picks Modrinth / CurseForge (e.g. adding a token later —
-# re-uploading an existing version to Modrinth would hit its duplicate-file
-# guard), the loaders input narrows the matrix.
+# 单分支多目标：发什么由 versions/targets.json 决定，本文件里没有分支名。
+#
+# 【标签分两类】
+#   vX.Y.Z        正式版 —— 建 Release，并发布到 Modrinth / CurseForge
+#                 （token 或项目 id 未配置时对应商店自动跳过）
+#   vX.Y.Z-rc1    预发布 —— 只建 prerelease，**不发布到商店**；演练与候选版走这条
+# 分这两类是为了让"走一遍完整流程"不必污染商店：pre 标签会把发布那一段整段跳过。
+#
+# 【workflow_dispatch】用来在不动标签的情况下重跑发布（token 换了、商店侧卡住），
+# target 输入可以只发某一个目标；dry_run 只构建与校验，不建 Release、不发商店。
+#
+# ⚠ AtomChat 的教训：publish job 必须把 targets 列进 needs（下面的 matrix 读的是
+# needs.targets.outputs.list）。只写 needs: build 的后果不是报错，而是整个 job 被
+# 静默丢掉 —— 预发布演练看不见它，真发版才撞上。
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
-      stores:
-        description: Stores to publish (manual dispatch only)
+      target:
+        description: 只发布某个目标（手动触发时）
         required: false
         default: all
         type: choice
         options:
           - all
-          - modrinth
-          - curseforge
-      loaders:
-        description: Loaders to publish (manual dispatch only)
+          - 1.21.1-fabric
+          - 1.21.1-neoforge
+          - 1.20.1-forge
+      dry_run:
+        description: 只构建与校验，不建 Release、不发布到商店
         required: false
-        default: all
-        type: choice
-        options:
-          - all
-          - forge
-          - neoforge
-          - fabric
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build (${{ matrix.loader }})
+  targets:
+    name: 校验矩阵
     runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.matrix.outputs.list }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 校验 versions/ 与各平台的身份来源
+        run: python3 tools/verify_targets.py --matrix-out "$RUNNER_TEMP/matrix.json"
+
+      - name: 导出矩阵
+        id: matrix
+        run: echo "list=$(cat "$RUNNER_TEMP/matrix.json")" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: 构建 ${{ matrix.target }}
+    needs: targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - loader: Forge
-            branch: Forge-1.20.1
-            java: "17"
-            tests: "-PrunTests"
-          - loader: NeoForge
-            branch: Neoforge-1.21.1
-            java: "21"
-            tests: "-PrunTests"
-          - loader: Fabric
-            branch: Fabric-1.21.1
-            java: "21"
-            tests: ""
-
+        include: ${{ fromJSON(needs.targets.outputs.list) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ matrix.branch }}
-          fetch-depth: 0
-          fetch-tags: true
+      - uses: actions/checkout@v7
 
-      - name: Set up Java ${{ matrix.java }}
-        uses: actions/setup-java@v4
+      - name: 设置 JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
         with:
-          java-version: ${{ matrix.java }}
-          distribution: "temurin"
+          java-version: "${{ matrix.java }}"
+          distribution: temurin
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-home-cache-includes: |
-            caches
-            notifications
-            .gradle/loom-cache
+        uses: gradle/actions/setup-gradle@v6
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Verify branch version matches tag
+      # 版本号只有一处（仓库根 gradle.properties），所以标签只需要跟这一处对齐。
+      - name: 校验仓库版本号与标签一致
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           EXPECTED="${GITHUB_REF_NAME#v}"
           ACTUAL="$(grep '^mod_version=' gradle.properties | cut -d= -f2 | tr -d '\r')"
           if [ "$EXPECTED" != "$ACTUAL" ]; then
-            echo "::error::${{ matrix.loader }} branch mod_version=${ACTUAL} does not match tag ${EXPECTED}"
+            echo "::error::仓库根的 mod_version=${ACTUAL} 与标签 ${EXPECTED} 不一致"
             exit 1
           fi
-          echo "Branch ${ACTUAL} matches tag ${EXPECTED}"
+          echo "版本 ${ACTUAL} 与标签一致"
 
-      - name: Build and test
-        run: ./gradlew build ${{ matrix.tests }} --no-daemon
-
-      - name: Stage mod jar (exclude sources jar)
+      - name: 构建并测试
+        working-directory: ${{ matrix.project }}
         run: |
-          mkdir -p release-out
-          find build/libs -name "*.jar" ! -name "*sources*" -exec cp {} release-out/ \;
-          ls -la release-out
+          chmod +x ./gradlew
+          ./gradlew build -PrunTests --no-daemon
 
-      - name: Upload mod jar
-        uses: actions/upload-artifact@v4
+      - name: 取产物
+        working-directory: ${{ matrix.project }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          find build/libs -name "*.jar" ! -name "*sources*" \
+            -exec cp {} "$GITHUB_WORKSPACE/dist/" \;
+          count=$(find "$GITHUB_WORKSPACE/dist" -name "*.jar" | wc -l)
+          if [ "$count" -ne 1 ]; then
+            echo "::error::期望恰好一个发布 jar，实际 $count 个"
+            exit 1
+          fi
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v7
         with:
-          name: jar-${{ matrix.loader }}
-          path: release-out/*.jar
+          name: jar-${{ matrix.target }}${{ matrix.suffix }}
+          path: dist/*.jar
           if-no-files-found: error
 
   release:
-    name: Create GitHub Release
+    name: 建 Release
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Forge branch for release notes
-        uses: actions/checkout@v4
-        with:
-          ref: Forge-1.20.1
-          fetch-depth: 0
-          fetch-tags: true
+      - uses: actions/checkout@v7
 
-      - name: Download all mod jars
-        uses: actions/download-artifact@v4
+      - name: 取回全部 jar
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
 
-      - name: Flatten release jars
+      - name: 汇总并校验数量
         run: |
+          set -euo pipefail
           mkdir -p release-out
           find artifacts -name "*.jar" ! -name "*sources*" -exec cp {} release-out/ \;
           ls -la release-out
+          count=$(find release-out -name "*.jar" | wc -l)
+          echo "Release 将挂上 ${count} 个 jar"
+          if [ "$count" -lt 1 ]; then
+            echo "::error::一个 jar 都没有"
+            exit 1
+          fi
 
-      - name: Extract release notes
-        if: startsWith(github.ref, 'refs/tags/v')
+      # 发布说明取自仓库根的 RELEASE_NOTES.md（单分支之后它只有一份）
+      - name: 摘出版本对应的说明
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          export VERSION
-          python3 - <<'PY'
+          VERSION="${GITHUB_REF_NAME#v}" python3 - <<'PY'
           import os
           version = os.environ["VERSION"]
-          # Convention: the release body is the whole version section from
-          # RELEASE_NOTES.md (Chinese summary first, English block last) — a short summary, not the CHANGELOG.
           with open("RELEASE_NOTES.md", encoding="utf-8") as f:
               notes = f.read()
           start = notes.find("## v" + version)
           if start < 0:
+              # 预发布/hotfix 标签复用基础版本的段落（v2.4.13-rc1 → v2.4.13）
               start = notes.find("## v" + version.split("-")[0])
           if start < 0:
-              raise SystemExit(f"ERROR: no '## v{version}' section in RELEASE_NOTES.md — write it before tagging")
+              raise SystemExit(f"ERROR: RELEASE_NOTES.md 里没有 '## v{version}' 段落 —— 打标签前先写它")
           end = notes.find("\n## ", start + 1)
           section = (notes[start:end] if end > start else notes[start:]).strip()
           with open("release-notes.md", "w", encoding="utf-8") as f:
               f.write(section + "\n")
+          print(section[:400])
           PY
 
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: 建 Release
         uses: softprops/action-gh-release@v2
         with:
           files: release-out/*.jar
           body_path: release-notes.md
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          # 带后缀的标签（-rc1 / -beta / -alpha）就是预发布
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
+  # 商店发布与建 Release 分开：手动重发时不必重新建 Release。
+  # 预发布标签整段跳过 —— 候选版不该出现在商店里。
   publish:
-    name: Publish (${{ matrix.loader }})
-    needs: release
+    name: 发布到商店 ${{ matrix.target }}
+    needs: [targets, build]
+    if: >-
+      ${{
+        startsWith(github.ref, 'refs/tags/v') &&
+        !contains(github.ref_name, '-') &&
+        inputs.dry_run != true
+      }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - loader: Forge
-            branch: Forge-1.20.1
-            java: "17"
-            store_prefix: Forge
-          - loader: NeoForge
-            branch: Neoforge-1.21.1
-            java: "21"
-            store_prefix: NeoForge
-          - loader: Fabric
-            branch: Fabric-1.21.1
-            java: "21"
-            store_prefix: Fabric
-
+        include: ${{ fromJSON(needs.targets.outputs.list) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ matrix.branch }}
-          fetch-depth: 0
-          fetch-tags: true
+      - uses: actions/checkout@v7
 
-      - name: Set up Java ${{ matrix.java }}
-        uses: actions/setup-java@v4
+      - name: 设置 JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
         with:
-          java-version: ${{ matrix.java }}
-          distribution: "temurin"
+          java-version: "${{ matrix.java }}"
+          distribution: temurin
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-home-cache-includes: |
-            caches
-            notifications
-            .gradle/loom-cache
+        uses: gradle/actions/setup-gradle@v6
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Resolve store task
-        id: store
-        run: |
-          case "${{ github.event.inputs.stores }}" in
-            modrinth)  echo "task=modrinth"   >> "$GITHUB_OUTPUT" ;;
-            curseforge) echo "task=curseforge" >> "$GITHUB_OUTPUT" ;;
-            *)          echo "task=publishMods" >> "$GITHUB_OUTPUT" ;;
-          esac
-
-      - name: Build and publish to Modrinth and CurseForge
+      # publishMods 由各平台自己的 build.gradle 定义（dependsOn modrinth / curseforge），
+      # 两个商店各自带 onlyIf 闸：没 token 或项目 id 没填就 SKIPPED，不会红。
+      - name: 构建并发布到 Modrinth 与 CurseForge
         if: >-
           ${{
-            github.event_name != 'workflow_dispatch' ||
-            github.event.inputs.loaders == 'all' ||
-            (matrix.loader == 'Forge' && github.event.inputs.loaders == 'forge') ||
-            (matrix.loader == 'NeoForge' && github.event.inputs.loaders == 'neoforge') ||
-            (matrix.loader == 'Fabric' && github.event.inputs.loaders == 'fabric')
+            inputs.target == '' ||
+            inputs.target == 'all' ||
+            inputs.target == matrix.target
           }}
-        # --no-configuration-cache: minotaur touches Task.project at execution
-        # time, which the configuration cache (enabled on the Neo branch) forbids.
-        run: ./gradlew build ${{ steps.store.outputs.task }} --no-daemon --no-configuration-cache
+        working-directory: ${{ matrix.project }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build -PrunTests publishMods --no-daemon
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
-
-      # A store task can report success while the file never lands (Modrinth
-      # skips a duplicate silently; the CurseForge upload endpoint once returned
-      # an id for a file that was never persisted). Verify against the public
-      # APIs so a non-upload fails the release instead of shipping green.
-      - name: Verify the store received this version
-        if: >-
-          ${{
-            github.event_name != 'workflow_dispatch' ||
-            github.event.inputs.loaders == 'all' ||
-            (matrix.loader == 'Forge' && github.event.inputs.loaders == 'forge') ||
-            (matrix.loader == 'NeoForge' && github.event.inputs.loaders == 'neoforge') ||
-            (matrix.loader == 'Fabric' && github.event.inputs.loaders == 'fabric')
-          }}
-        env:
-          PREFIX: ${{ matrix.store_prefix }}
-          STORES: ${{ steps.store.outputs.task }}
-        run: |
-          VER=$(grep '^mod_version=' gradle.properties | cut -d= -f2 | tr -d '\r')
-          MC=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2 | tr -d '\r')
-          MR=$(grep '^modrinth_project_id=' gradle.properties | cut -d= -f2 | tr -d '\r')
-          CF=$(grep '^curseforge_project_id=' gradle.properties | cut -d= -f2 | tr -d '\r')
-          EXPECTED="${PREFIX}-${MC}-${VER}"
-          echo "expecting store version: ${EXPECTED} (stores=${STORES})"
-          EXPECTED="$EXPECTED" STORES="$STORES" MR="$MR" CF="$CF" python3 - <<'PY'
-          import json, os, sys, urllib.request
-
-          expected, stores = os.environ["EXPECTED"], os.environ["STORES"]
-          failures = []
-
-          def get(url, headers=None):
-              req = urllib.request.Request(url, headers=headers or {
-                  "Accept": "application/json", "User-Agent": "Mozilla/5.0"})
-              with urllib.request.urlopen(req, timeout=45) as r:
-                  return json.load(r)
-
-          if stores in ("modrinth", "publishMods") and os.environ.get("MR"):
-              try:
-                  versions = get("https://api.modrinth.com/v2/project/%s/version" % os.environ["MR"])
-                  if any(v.get("version_number") == expected for v in versions):
-                      print("Modrinth OK:", expected)
-                  else:
-                      failures.append("Modrinth: %s not present" % expected)
-              except Exception as e:
-                  failures.append("Modrinth check error: %r" % (e,))
-
-          if stores in ("curseforge", "publishMods") and os.environ.get("CF"):
-              try:
-                  data = get("https://www.curseforge.com/api/v1/mods/%s/files?pageIndex=0&pageSize=25&sort=dateCreated" % os.environ["CF"])
-                  names = [f.get("displayName") for f in data.get("data", [])]
-                  if expected in names:
-                      print("CurseForge OK:", expected)
-                  else:
-                      failures.append("CurseForge: %s not present (newest: %s)" % (expected, names[:3]))
-              except Exception as e:
-                  failures.append("CurseForge check error: %r" % (e,))
-
-          if failures:
-              for f in failures:
-                  print("::error::" + f)
-              sys.exit(1)
-          print("store verification passed:", expected)
-          PY

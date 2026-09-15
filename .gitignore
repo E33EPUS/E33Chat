@@ -7,6 +7,7 @@
 **/mcmodsrepo/
 **/repo/
 **/libs/
+/dist/
 temp_refmap/
 crash_tmp/
 xaero_analysis/
