@@ -115,8 +115,6 @@ public class ChatBubbleScreen extends ChatScreen {
     public static int getInputX() { return inputX; }
     public static int getInputY() { return inputY; }
     private final String initialText;
-    /** True while this screen has pushed its HUD-hide request (see init/removed). */
-    private boolean hudHidden;
     private String historyBuffer = "";
     private int historyPos = -1;
     private int scrollOffset;
@@ -208,6 +206,14 @@ public class ChatBubbleScreen extends ChatScreen {
             @Override public void onBusyStart() { uploadBusyTicks = 60; }
             @Override public void onIdle() { uploadBusyTicks = 0; }
             @Override public void onFailure() { uploadBusyTicks = 0; uploadToastTicks = 60; }
+            @Override public void onRejected(com.niuqu.chatbubble.image.AnimatedImageLoader.OverBudget reason) {
+                uploadBusyTicks = 0;
+                showToast(switch (reason) {
+                    case TOO_MANY_FRAMES -> "e33chat.toast.anim_frames";
+                    case TOO_LARGE_DIMENSION -> "e33chat.toast.anim_size";
+                    case TOO_LARGE_BYTES -> "e33chat.toast.anim_bytes";
+                });
+            }
             @Override public void onEmoteSent(String url) { sendMessageText(url); }
             @Override public void onSendText(String text) { sendMessageText(text); }
             @Override public void onInputImage(String code) {
@@ -257,15 +263,12 @@ public class ChatBubbleScreen extends ChatScreen {
 
     @Override
     protected void init() {
-        // Translucent panel: hide the vanilla HUD (hotbar/effects/chat and
-        // HUD-drawn third-party tooltips such as Jade) behind it while open.
-        // Restored in removed() once the close animation has finished.
-        // Hide the HUD via HudVisibility (InGameHudMixin cancels the HUD render);
-        // options.hudHidden is the F1 flag and would also hide the hand.
-        if (!hudHidden) {
-            com.niuqu.chatbubble.render.HudVisibility.push();
-            hudHidden = true;
-        }
+        // The chat panel no longer hides the vanilla HUD. It is a left-aligned
+        // column (~40% of the screen), so the hotbar, status effects and
+        // HUD-drawn tooltips mostly sit outside it anyway; hiding them took the
+        // hotbar away for no visible benefit. The config screens still hide the
+        // HUD (full-width translucent background). Never use options.hudHidden
+        // for this — that is the F1 flag and also removes the hand.
         historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
         ChatMessageStore.setScreenOpen(true);
         historyPos = client.inGameHud.getChatHud().getMessageHistory().size();
@@ -311,6 +314,12 @@ public class ChatBubbleScreen extends ChatScreen {
         int cmdBgAlpha = theme() == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
         commandSuggestions = new ChatInputSuggestor(client, this, chatField, textRenderer,
             false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdBgAlpha));
+        // Vanilla ChatScreen sets canLeave(false). Without it, Tab on an empty input
+        // makes ChatInputSuggestor.keyPressed return false; keyPressed then falls
+        // through to the self-implemented navigation tail below, whose blur() drops
+        // the focus of a TextFieldWidget built with setFocusUnlocked(false) — focus
+        // never comes back, so typing/backspace die until the panel reopens.
+        commandSuggestions.setCanLeave(false);
         commandSuggestions.setWindowActive(true);
         commandSuggestions.refresh();
 
@@ -906,8 +915,14 @@ public class ChatBubbleScreen extends ChatScreen {
         if (nav != null) {
             net.minecraft.client.gui.navigation.GuiNavigationPath path = super.getNavigationPath(nav);
             if (path == null && nav instanceof net.minecraft.client.gui.navigation.GuiNavigation.Tab) {
-                this.blur();
-                path = super.getNavigationPath(nav);
+                // Vanilla wraps Tab around by blurring and retrying. The chat field is
+                // built with setFocusUnlocked(false), so blurring it is a one-way trip —
+                // nothing can focus it again and keyboard input dies until the panel is
+                // reopened. Leave the focus alone; a Tab with nowhere to go does nothing.
+                if (this.getFocused() != chatField) {
+                    this.blur();
+                    path = super.getNavigationPath(nav);
+                }
             }
             if (path != null) this.switchFocus(path);
         }
@@ -1059,6 +1074,18 @@ public class ChatBubbleScreen extends ChatScreen {
             }
         }
 
+        // TEMP DIAG (2.4.12, issue #8): the suggestion list does not respond to
+        // mouse clicks for some users. Logs the click point and whether the list
+        // consumed it, so one reproduction decides between "an earlier branch ate
+        // the click" and "the hit rect does not match where it is drawn".
+        if (commandSuggestions != null && com.niuqu.chatbubble.ChatBubbleClientSetup.config().debugLog()) {
+            int _sx = (int) mouseX, _sy = (int) mouseY;
+            String _diag = "[e33chat] SuggClick screen | point=(" + _sx + "," + _sy + ")"
+                + " button=" + button + " rawX=" + (int) origX
+                + " inputX=" + inputX + " inputY=" + inputY
+                + " panelOffset=" + currentPanelOffset() + " sliding=" + isPanelSliding();
+            com.niuqu.chatbubble.store.ChatMessageStore.debugLog(() -> _diag);
+        }
         if (commandSuggestions != null && commandSuggestions.mouseClicked((int) mouseX, (int) mouseY, button))
             return true;
 
@@ -2194,7 +2221,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 List<OrderedText> imgLines = wrapContent(parsed.textWithoutImages(), bubbleMaxW);
                 int textH = imgLines.size() * textRenderer.fontHeight;
                 int imgH = 0;
-                for (var ref : parsed.images()) imgH += imageEdgeHeight(ref.url()) + 2;
+                for (var ref : parsed.images()) imgH += imageEdgeHeight(ref.url(), ref.name()) + 2;
                 h = NAME_H + textH + imgH;
                 if (msg.replyContent() != null) h += textRenderer.fontHeight + 7;
                 msgHeightCache.put(msg, h);
@@ -2226,11 +2253,11 @@ public class ChatBubbleScreen extends ChatScreen {
 
     /** Animated entry for a URL: extension-gated; content-probe only for the
      *  extension-less server media transport (e33chat://media/<id>). */
-    private com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url) {
-        var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, null);
+    private com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url, String nameHint) {
+        var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, nameHint);
         if (entry != null) return entry;
         return url != null && url.startsWith("e33chat://media/")
-            ? com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, null)
+            ? com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, nameHint)
             : null;
     }
 
@@ -2251,9 +2278,9 @@ public class ChatBubbleScreen extends ChatScreen {
     }
 
     /** Height in px for one bubble-less image (state-dependent, panel-clamped, never upscaled). */
-    private int imageEdgeHeight(String url) {
+    private int imageEdgeHeight(String url, String nameHint) {
         int maxW = Math.max(80, panelW - Appearance.avatarSize() - PAD * 2 - 16);
-        var animated = animatedEntry(url);
+        var animated = animatedEntry(url, nameHint);
         if (animated != null && animated.ready() && animated.width() > 0 && animated.height() > 0) {
             float ratio = Math.min((float) maxW / animated.width(),
                 (float) maxW / animated.height());
@@ -2507,7 +2534,7 @@ public class ChatBubbleScreen extends ChatScreen {
 
         for (var ref : parsed.images()) {
             int w = maxImgW, h = maxImgW;
-            var animated = animatedEntry(ref.url());
+            var animated = animatedEntry(ref.url(), ref.name());
             var animatedFrame = animatedTex(animated);
             if (animatedFrame != null && animatedFrame.width() > 0 && animatedFrame.height() > 0) {
                 float ratio = Math.min((float) maxImgW / animatedFrame.width(),
@@ -2615,7 +2642,7 @@ public class ChatBubbleScreen extends ChatScreen {
         int emoteY = baseY + (showAvatar ? NAME_H + 2 : 2);
         int maxE = Math.max(16, Math.min(EMOTE_MAX_SIZE, panelW - Appearance.avatarSize() - PAD * 2 - 16));
         int w = maxE, h = maxE;
-        var animated = animatedEntry(ref.url());
+        var animated = animatedEntry(ref.url(), ref.name());
         var animatedFrame = animatedTex(animated);
         if (animatedFrame != null && animatedFrame.width() > 0 && animatedFrame.height() > 0) {
             float ratio = Math.min((float) maxE / animatedFrame.width(), (float) maxE / animatedFrame.height());
@@ -3113,6 +3140,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 int cmdAlpha = next == ChatBubbleTheme.LIGHT ? 0x99 : 0xDD;
                 commandSuggestions = new ChatInputSuggestor(client, this, chatField, textRenderer,
                     false, false, 0, 8, true, ChatBubbleTheme.alphaBlend(c().panelBg(), cmdAlpha));
+                commandSuggestions.setCanLeave(false); // vanilla parity; see the init() site
                 commandSuggestions.setWindowActive(true);
                 break;
             }
@@ -3495,10 +3523,6 @@ public class ChatBubbleScreen extends ChatScreen {
     public void removed() {
         if (ChatBubbleClientSetup.config().preserveInput()) savedInput = chatField.getText();
         ChatMessageStore.setScreenOpen(false);
-        if (hudHidden) {
-            com.niuqu.chatbubble.render.HudVisibility.pop();
-            hudHidden = false;
-        }
         client.inGameHud.getChatHud().reset();
     }
 

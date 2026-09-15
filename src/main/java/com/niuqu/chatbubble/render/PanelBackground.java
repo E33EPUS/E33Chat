@@ -136,18 +136,115 @@ public final class PanelBackground {
     }
 
     /**
-     * Draw the custom image over the given rect, "cover" style: aspect ratio
-     * preserved, centered, edges cropped.
+     * Where the panel background is looking, in normalized picture coordinates:
+     * the point that is centered, plus how tight the view is. Wide pictures over
+     * a narrow panel lose their sides under plain cover-cropping, so the user
+     * needs a way to choose which part survives — that choice lives here.
+     *
+     * <p>Expressed as center + zoom rather than an absolute rectangle so it
+     * survives the panel changing shape: when the panel's aspect ratio changes,
+     * the same center and zoom still describe something valid.
+     */
+    public record Crop(float centerX, float centerY, float zoom) {
+        /** Centered, widest view: exactly the old cover-crop behaviour. */
+        public static final Crop DEFAULT = new Crop(0.5f, 0.5f, 1f);
+    }
+
+    /**
+     * Parses the {@code panel_bg_crop} value ("centerX,centerY,zoom"). Blank or
+     * malformed input falls back to {@link Crop#DEFAULT}, so a hand-edited config
+     * can never wedge the panel.
+     */
+    public static Crop parseCrop(String raw) {
+        if (raw == null || raw.isBlank()) return Crop.DEFAULT;
+        String[] parts = raw.trim().split(",");
+        if (parts.length != 3) return Crop.DEFAULT;
+        try {
+            float cx = Float.parseFloat(parts[0].trim());
+            float cy = Float.parseFloat(parts[1].trim());
+            float zoom = Float.parseFloat(parts[2].trim());
+            if (!Float.isFinite(cx) || !Float.isFinite(cy) || !Float.isFinite(zoom)) return Crop.DEFAULT;
+            return new Crop(clamp01(cx), clamp01(cy), Math.max(1f, zoom));
+        } catch (NumberFormatException e) {
+            return Crop.DEFAULT;
+        }
+    }
+
+    /** Serializes a crop for the config; the inverse of {@link #parseCrop}. */
+    public static String formatCrop(Crop crop) {
+        return String.format(java.util.Locale.ROOT, "%.4f,%.4f,%.4f",
+            crop.centerX(), crop.centerY(), crop.zoom());
+    }
+
+    private static float clamp01(float v) {
+        return v < 0f ? 0f : (v > 1f ? 1f : v);
+    }
+
+    /**
+     * Source rectangle (u, v, width, height) of the picture to draw into a
+     * {@code targetW x targetH} area, for the given crop. Pure function so the
+     * framing maths can be tested without a GL context.
+     *
+     * <p>Zoom 1 is the widest rectangle with the target's aspect ratio that still
+     * covers the area (the classic cover crop); larger zoom tightens it. The
+     * result is always inside the picture.
+     */
+    public static int[] sourceRect(int texW, int texH, int targetW, int targetH, Crop crop) {
+        if (texW <= 0 || texH <= 0 || targetW <= 0 || targetH <= 0) return new int[]{0, 0, 1, 1};
+        float targetAspect = (float) targetW / targetH;
+        float srcW = texW, srcH = texH;
+        // Widest cover rectangle for this aspect ratio.
+        if ((float) texW / texH > targetAspect) {
+            srcW = texH * targetAspect;
+        } else {
+            srcH = texW / targetAspect;
+        }
+        // Tighten by zoom, never past the picture's own bounds.
+        float zoom = Math.max(1f, crop.zoom());
+        srcW /= zoom;
+        srcH /= zoom;
+        float minZoom = Math.max(srcW / texW, srcH / texH);
+        if (minZoom > 1f) {
+            srcW /= minZoom;
+            srcH /= minZoom;
+        }
+        int w = Math.max(1, Math.round(srcW));
+        int h = Math.max(1, Math.round(srcH));
+        // Center on the chosen point, then keep the rect inside the picture.
+        int u = Math.round(crop.centerX() * texW - w / 2f);
+        int v = Math.round(crop.centerY() * texH - h / 2f);
+        u = Math.max(0, Math.min(u, texW - w));
+        v = Math.max(0, Math.min(v, texH - h));
+        return new int[]{u, v, w, h};
+    }
+
+    /** Decoded picture size, or 0 when nothing is loaded (used by the crop editor). */
+    public static int imageWidth() { return texW; }
+    public static int imageHeight() { return texH; }
+
+    /** Texture of the loaded picture, or null when nothing is loaded. */
+    public static Identifier textureId() { return available() ? ID : null; }
+
+    /**
+     * Aspect ratio (w/h) the panel was last drawn at. The crop editor frames the
+     * selection box with it, so the picture the user picks is exactly what the
+     * panel will show. The chat panel draws every frame, so this is current by
+     * the time any settings screen opens; the fallback only matters in the
+     * window between mod start and the first frame.
+     */
+    private static volatile float lastAspect = 0.4f;
+    public static float lastTargetAspect() { return lastAspect; }
+
+    /**
+     * Draw the custom image over the given rect using the configured framing.
+     * Never upsets blend state (the shared colored-texture path restores it).
      */
     public static void draw(net.minecraft.client.gui.DrawContext g,
                             int x, int y, int w, int h, float alpha) {
+        if (w > 0 && h > 0) lastAspect = (float) w / h;
         if (!available() || w <= 0 || h <= 0 || alpha <= 0.003f) return;
-        float scale = Math.max((float) w / texW, (float) h / texH);
-        int srcW = Math.max(1, Math.round(w / scale));
-        int srcH = Math.max(1, Math.round(h / scale));
-        int u = (texW - srcW) / 2;
-        int v = (texH - srcH) / 2;
+        int[] src = sourceRect(texW, texH, w, h, parseCrop(ChatBubbleClientSetup.config().panelBgCrop()));
         com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(
-            g, ID, x, y, w, h, u, v, srcW, srcH, texW, texH, alpha);
+            g, ID, x, y, w, h, src[0], src[1], src[2], src[3], texW, texH, alpha);
     }
 }

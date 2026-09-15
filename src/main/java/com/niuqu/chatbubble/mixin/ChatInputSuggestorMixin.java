@@ -30,5 +30,16 @@ public class ChatInputSuggestorMixin {
         int newY = ChatBubbleScreen.getInputY() - area.getHeight() - 4;
         if (area.getY() != newY) area.setY(newY);
         if (area.getX() < ChatBubbleScreen.getInputX()) area.setX(ChatBubbleScreen.getInputX());
+        // TEMP DIAG (2.4.12, issue #8): the list does not answer mouse clicks for
+        // some users. This is the rect the window renders with AND hit-tests with
+        // (mouseClicked uses area.contains), so pairing it with the click point
+        // logged in ChatBubbleScreen settles whether they disagree. Remove once fixed.
+        if (com.niuqu.chatbubble.ChatBubbleClientSetup.config().debugLog()) {
+            String diag = "[e33chat] SuggClick list | area=(" + area.getX() + "," + area.getY()
+                + " " + area.getWidth() + "x" + area.getHeight() + ")"
+                + " | inputX=" + ChatBubbleScreen.getInputX()
+                + " inputY=" + ChatBubbleScreen.getInputY();
+            com.niuqu.chatbubble.store.ChatMessageStore.debugLog(() -> diag);
+        }
     }
 }

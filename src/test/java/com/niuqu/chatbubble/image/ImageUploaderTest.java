@@ -153,4 +153,78 @@ class ImageUploaderTest {
             throw new RuntimeException(e);
         }
     }
+
+    // ---- Animated passthrough (2.4.12): the outgoing GIF must not be flattened
+    // ---- by ImageIO.read, which returns only the first frame.
+
+    @Test
+    void preparePassesAnimatedFileThroughUntouched() throws Exception {
+        java.io.File gif = writeTempGif(64, 64, 3);
+        LocalImageSource.Prep result = LocalImageSource.prepare(gif);
+        assertTrue(result instanceof LocalImageSource.Prep.Ok, String.valueOf(result));
+        LocalImageSource.Prep.Ok ok = (LocalImageSource.Prep.Ok) result;
+        assertTrue(ok.animated());
+        assertEquals("image/gif", ok.image().contentType());
+        assertTrue(ok.image().fileName().endsWith(".gif"), ok.image().fileName());
+        assertArrayEquals(java.nio.file.Files.readAllBytes(gif.toPath()), ok.image().bytes());
+    }
+
+    @Test
+    void prepareReEncodesStillImages() throws Exception {
+        java.awt.image.BufferedImage still =
+            new java.awt.image.BufferedImage(40, 30, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        LocalImageSource.Prep result = LocalImageSource.prepare(writeTempPng(still, "still.png"));
+        assertTrue(result instanceof LocalImageSource.Prep.Ok, String.valueOf(result));
+        LocalImageSource.Prep.Ok ok = (LocalImageSource.Prep.Ok) result;
+        assertFalse(ok.animated());
+        assertEquals("image/png", ok.image().contentType());
+    }
+
+    @Test
+    void prepareRejectsAnimationOverTheReceiverBudget() throws Exception {
+        java.io.File big = writeTempGif(513, 40, 2);
+        LocalImageSource.Prep result = LocalImageSource.prepare(big);
+        assertTrue(result instanceof LocalImageSource.Prep.Rejected, String.valueOf(result));
+        assertEquals(AnimatedImageLoader.OverBudget.TOO_LARGE_DIMENSION,
+            ((LocalImageSource.Prep.Rejected) result).reason());
+    }
+
+    @Test
+    void probeReadsFrameCountAndCanvasWithoutDecoding() throws Exception {
+        java.io.File gif = writeTempGif(40, 30, 4);
+        AnimatedImageLoader.Probe probe = AnimatedImageLoader.probe(
+            java.nio.file.Files.readAllBytes(gif.toPath()));
+        assertNotNull(probe);
+        assertEquals(4, probe.frames());
+        assertEquals(40, probe.width());
+        assertEquals(30, probe.height());
+        assertEquals("gif", probe.format());
+        java.awt.image.BufferedImage still =
+            new java.awt.image.BufferedImage(10, 10, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        assertNull(AnimatedImageLoader.probe(
+            java.nio.file.Files.readAllBytes(writeTempPng(still, "one.png").toPath())));
+    }
+
+    private static java.io.File writeTempGif(int w, int h, int frames) {
+        try {
+            java.io.File f = java.io.File.createTempFile("e33-test-", ".gif");
+            var writer = javax.imageio.ImageIO.getImageWritersByFormatName("gif").next();
+            try (var out = javax.imageio.ImageIO.createImageOutputStream(f)) {
+                writer.setOutput(out);
+                writer.prepareWriteSequence(null);
+                for (int i = 0; i < frames; i++) {
+                    java.awt.image.BufferedImage img =
+                        new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                    img.setRGB(i % w, 0, 0xFF00FF00 + i);
+                    writer.writeToSequence(new javax.imageio.IIOImage(img, null, null), null);
+                }
+                writer.endWriteSequence();
+            } finally {
+                writer.dispose();
+            }
+            return f;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

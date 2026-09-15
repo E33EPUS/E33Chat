@@ -34,7 +34,7 @@ class ConfigManagerTest {
             true, true,
             null, null, null, null,
             6, 20, true, false, 0, 100,
-            "", 100);
+            "", 100, null);
         ConfigManager.save(p, c);
 
         ChatBubbleConfig loaded = ConfigManager.load(p);

@@ -91,7 +91,8 @@ public final class ConfigManager {
             c.bannerOpacity() != null ? c.bannerOpacity() : d.bannerOpacity(),
             c.bubbleSize() != null ? c.bubbleSize() : d.bubbleSize(),
             c.panelBgImage() != null ? c.panelBgImage() : d.panelBgImage(),
-            c.panelBgOpacity() != null ? c.panelBgOpacity() : d.panelBgOpacity());
+            c.panelBgOpacity() != null ? c.panelBgOpacity() : d.panelBgOpacity(),
+            c.panelBgCrop() != null ? c.panelBgCrop() : d.panelBgCrop());
     }
 
     public static void save(Path path, ChatBubbleConfig config) {

@@ -66,6 +66,7 @@ public class ChatBubbleConfigScreen extends Screen {
     private String uploadUrl = "";
     private String panelBgImage = "";
     private int panelBgOpacity = 100;
+    private String panelBgCrop = "";
     private boolean soundPublic, soundSystem, soundWhisper;
     private boolean debugLog, preserveInput, colorCodes, closeChatOnSend;
     private boolean mentionBannerEnabled, systemBannerEnabled, mentionSoundEnabled, mentionRequireAt, mentionWhisperBanner;
@@ -190,7 +191,7 @@ public class ChatBubbleConfigScreen extends Screen {
             ChatBubbleClientSetup.config().uploadExtra(),
             ChatBubbleClientSetup.config().uploadResponse(),
             messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity, bubbleSize,
-            panelBgImage, panelBgOpacity));
+            panelBgImage, panelBgOpacity, panelBgCrop));
     }
 
     private void loadFromConfig() {
@@ -239,6 +240,7 @@ public class ChatBubbleConfigScreen extends Screen {
         bubbleSize = cfg.bubbleSize() != null ? cfg.bubbleSize() : 9;
         panelBgImage = cfg.panelBgImage() != null ? cfg.panelBgImage() : "";
         panelBgOpacity = cfg.panelBgOpacity() != null ? cfg.panelBgOpacity() : 100;
+        panelBgCrop = cfg.panelBgCrop() != null ? cfg.panelBgCrop() : "";
         hideRepeatedAvatars = cfg.hideRepeatedAvatars() != null && cfg.hideRepeatedAvatars();
     }
 
@@ -582,8 +584,8 @@ public class ChatBubbleConfigScreen extends Screen {
             }
             case THEME_CYCLE -> new Opt(d.key(), this::mkThemeButton, d.previewColor(), d.ref());
             case TIME_SEP -> new Opt(d.key(), this::mkTimeSepButton, d.previewColor(), d.ref());
-            case BG_IMAGE -> new Opt(d.key(), y -> mkBgImageButton(y, (Ref<String>) d.ref(), d.previewColor(), d.ref()),
-                d.previewColor(), d.ref());
+            case BG_IMAGE -> new Opt(d.key(), null, y -> mkBgImageWidgets(y, (Ref<String>) d.ref()),
+                1, d.previewColor(), d.ref());
         };
     }
 
@@ -777,23 +779,36 @@ public class ChatBubbleConfigScreen extends Screen {
     /** Single-button background-image row: label follows the configured state.
      *  Empty = "Browse…" (opens the file dialog), set = "Clear" (resets it).
      *  Rebuilds the row so the label flips immediately after the action. */
-    private ButtonWidget mkBgImageButton(int y, Ref<String> ref, Supplier<String> previewColor, Ref<?> value) {
+    /**
+     * Browse… when unset; "Adjust framing" + "Clear" once a picture is chosen.
+     * Picking a picture opens the framing editor straight away — a wide image
+     * over this narrow panel almost always needs framing, so making the user
+     * find it in a second step would just be a hidden feature.
+     */
+    private List<ClickableWidget> mkBgImageWidgets(int y, Ref<String> ref) {
         String cur = ref.getter().get();
         boolean hasImage = cur != null && !cur.isBlank();
-        String key = hasImage ? "e33chat.config.panel_bg_clear" : "e33chat.config.panel_bg_browse";
-        return ButtonWidget.builder(Text.translatable(key), b -> {
-            String now = ref.getter().get();
-            if (now != null && !now.isBlank()) {
-                ref.setter().accept("");
-                rebuild();
-            } else {
+        List<ClickableWidget> out = new ArrayList<>();
+        if (!hasImage) {
+            out.add(ButtonWidget.builder(Text.translatable("e33chat.config.panel_bg_browse"), b ->
                 com.niuqu.chatbubble.compat.NativeFileDialog.pickImage(f -> {
                     if (f == null || !f.isFile()) return;
                     ref.setter().accept(f.getAbsolutePath());
-                    rebuild();
-                });
-            }
-        }).dimensions(inputX, y, INPUT_W, 20).build();
+                    client.setScreen(new com.niuqu.chatbubble.ui.PanelCropScreen(this));
+                })).dimensions(inputX, y, INPUT_W, 20).build());
+            return out;
+        }
+        int half = (INPUT_W - 4) / 2;
+        out.add(ButtonWidget.builder(Text.translatable("e33chat.config.panel_bg_adjust"), b ->
+            client.setScreen(new com.niuqu.chatbubble.ui.PanelCropScreen(this)))
+            .dimensions(inputX, y, half, 20).build());
+        out.add(ButtonWidget.builder(Text.translatable("e33chat.config.panel_bg_clear"), b -> {
+            ref.setter().accept("");
+            // Framing belongs to the picture; dropping the picture drops it too.
+            panelBgCrop = "";
+            rebuild();
+        }).dimensions(inputX + half + 4, y, INPUT_W - half - 4, 20).build());
+        return out;
     }
 
     private TextFieldWidget mkHexBox(int y, String initial, java.util.function.Consumer<String> onChange) {

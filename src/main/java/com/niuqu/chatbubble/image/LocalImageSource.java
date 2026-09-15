@@ -9,6 +9,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Iterator;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -28,7 +29,26 @@ public final class LocalImageSource {
     // an 8MB photo compresses to a few hundred KB — fast upload and download.
     public static final int MAX_EDGE = 1280;
 
-    public record PreparedImage(byte[] bytes, String fileName) {}
+    public record PreparedImage(byte[] bytes, String fileName, String contentType) {
+        public PreparedImage(byte[] bytes, String fileName) {
+            this(bytes, fileName, "image/png");
+        }
+    }
+
+    /** Outcome of preparing a local file for upload. */
+    public sealed interface Prep {
+        /**
+         * Uploadable bytes. {@code animated} means the bytes are the untouched
+         * source rather than a re-encode.
+         */
+        record Ok(PreparedImage image, boolean animated) implements Prep {}
+        /**
+         * An animated source heavier than the receiver can render. Carries the
+         * broken limit so the UI can say which one, instead of the generic
+         * failure toast.
+         */
+        record Rejected(AnimatedImageLoader.OverBudget reason) implements Prep {}
+    }
 
     private LocalImageSource() {}
 
@@ -46,6 +66,35 @@ public final class LocalImageSource {
             LOGGER.info("[e33chat] upload: read failed {}: {}", f.getName(), t.toString());
             return null;
         }
+    }
+
+    /**
+     * Prepare a local file for upload, sending animated sources byte-for-byte.
+     *
+     * <p>{@link #fromFile} runs the file through {@code ImageIO.read} and
+     * re-encodes it as a single PNG — for a GIF that reads only the first frame,
+     * so the animation never reached the upload. Here an animated file passes
+     * through untouched, but only when it fits what the receiver can render;
+     * anything heavier is rejected with a reason rather than quietly downgraded
+     * to a still image, because "sent but frozen" is the bug being fixed.
+     */
+    public static Prep prepare(File f) {
+        if (f == null || !f.isFile()) return new Prep.Ok(null, false);
+        byte[] raw;
+        try {
+            raw = Files.readAllBytes(f.toPath());
+        } catch (Throwable t) {
+            LOGGER.info("[e33chat] upload: read failed {}: {}", f.getName(), t.toString());
+            return new Prep.Ok(null, false);
+        }
+        AnimatedImageLoader.Probe probe = AnimatedImageLoader.probe(raw);
+        if (probe != null) {
+            var over = AnimatedImageLoader.checkBudget(probe, raw.length);
+            if (over != null) return new Prep.Rejected(over);
+            return new Prep.Ok(new PreparedImage(raw, sanitizeAnimated(f.getName(), probe.format()),
+                AnimatedImageLoader.mimeType(probe.format())), true);
+        }
+        return new Prep.Ok(fromFile(f), false);
     }
 
     /** Reads an image from the system clipboard (AWT). Null if none/error. */
@@ -129,5 +178,17 @@ public final class LocalImageSource {
     private static String sanitizePng(String name) {
         String n = sanitize(name);
         return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg") ? n : n + ".png";
+    }
+
+    /**
+     * Keeps an animated file's original name, ensuring it carries the extension
+     * its real format needs. The receiver can only probe animation by extension
+     * or content, and third-party hosts hand back extension-less URLs — carrying
+     * a truthful name is what lets the download side recognise it.
+     */
+    private static String sanitizeAnimated(String name, String format) {
+        String n = sanitize(name);
+        String ext = "." + format;
+        return n.toLowerCase(java.util.Locale.ROOT).endsWith(ext) ? n : n + ext;
     }
 }

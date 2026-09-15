@@ -22,7 +22,7 @@ import java.util.Map;
  */
 public final class EmoteStore {
     private static final Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
-    public static final int EMOTE_MAX = 10;
+    public static final int EMOTE_MAX = 32;
     private static final List<File> emotes = new ArrayList<>();
     private static final Map<File, Identifier> textures = new HashMap<>();
     private static int textureSeq;

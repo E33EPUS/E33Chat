@@ -18,10 +18,13 @@ import net.minecraft.text.Text;
  *   [群名] <昵称> 内容
  *   <昵称> 内容                   (group label removed from the template)
  *   <昵称（群名片）> 内容
- * The leading [label] is therefore optional — the angle-bracket name followed
- * by the content is the structural signal. Server templates ({@code {external}})
- * remain available as an explicit override when a server owner customizes the
- * EasyBot template beyond these shapes.
+ *   [群名] 昵称：内容             (template without angle brackets)
+ * The leading [label] is optional for the angle-bracket shapes — there the
+ * bracket pair itself is the structural signal. The colon shape needs the
+ * label, because "name: content" on its own is indistinguishable from ordinary
+ * chat and belongs to the player-path parser. Server templates ({@code
+ * {external}}) remain available as an explicit override when a server owner
+ * customizes the EasyBot template beyond these shapes.
  */
 public final class EasyBotParser {
     private EasyBotParser() {}
@@ -30,6 +33,15 @@ public final class EasyBotParser {
     // matching TemplateMatcher behaviour.
     private static final Pattern RELAY_FORMAT = Pattern.compile(
         "^(?:\\[([^\\]]*)\\]\\s*)?<([^>]*)>\\s*(?s:(.*))$");
+
+    // [label] name: content — what a template like "[{prefix}] {external}：{content}"
+    // produces (no angle brackets). The label is required: a bare "name: content"
+    // line is ordinary chat and stays with the player-path parser. Note this
+    // inherits the architecture's known dead corner ("带分隔符的广播仿冒"): a
+    // separator-shaped broadcast line whose label is not in BROADCAST_LABELS is
+    // indistinguishable from a relay.
+    private static final Pattern RELAY_COLON_FORMAT = Pattern.compile(
+        "^\\[([^\\]]*)\\]\\s*([^<>\\[\\]]{1,32}?)\\s*[:：]\\s*(?s:(.*))$");
 
     // QQ numbers are 5-12 digits, optionally wrapped in parentheses (half- or
     // full-width) at the end of the angle-bracket name area: "昵称(123456)".
@@ -44,9 +56,21 @@ public final class EasyBotParser {
 
     public static ChatMessageStore.SenderMeta tryParse(Text message, String text) {
         if (text == null || text.isEmpty()) return null;
-        Matcher m = RELAY_FORMAT.matcher(text);
-        if (!m.matches()) return null;
+        Matcher angle = RELAY_FORMAT.matcher(text);
+        if (angle.matches()) return build(message, angle, true);
+        // No angle brackets: try the labeled colon shape. This path never steps
+        // aside for a known player, and that is deliberate. The player-path
+        // parser rebuilds a display name as "everything before the name + name",
+        // so a relay line whose nickname collides with an online player got
+        // remembered as "[QQ群消息] dangdang0721" — and since name matching runs
+        // longest-first, that composite then won every later match. Claiming the
+        // line here keeps the name clean and stops the cache from ratcheting.
+        Matcher colon = RELAY_COLON_FORMAT.matcher(text);
+        if (colon.matches()) return build(message, colon, false);
+        return null;
+    }
 
+    private static ChatMessageStore.SenderMeta build(Text message, Matcher m, boolean allowStepAside) {
         String groupName = m.group(1) == null ? "" : m.group(1).trim();
         String nameArea = m.group(2) == null ? "" : m.group(2).trim();
         String content = m.group(3);
@@ -80,16 +104,39 @@ public final class EasyBotParser {
 
         // A locally known player relayed through a system packet keeps its
         // profile UUID (and therefore its skin) only on the player path —
-        // step aside so ChatPipeline can claim the line instead.
-        if (isKnownPlayer(displayName)) return null;
+        // step aside so ChatPipeline can claim the line instead. Only the
+        // angle-bracket shapes do this; see tryParse for why the colon shape
+        // must not.
+        if (allowStepAside && isKnownPlayer(displayName)) return null;
 
+        // Colon shape resolves the UUID itself, so a relay from an online player
+        // keeps their skin even though it never reaches the player path.
+        UUID uuid = allowStepAside ? new UUID(0, 0) : resolveUuid(displayName);
         String rawPlayerName = qq != null ? qq : displayName;
 
         Text contentComp = ChatMessageStore.sliceStyled(message, m.start(3), m.end(3));
         Text nameComp = Text.literal(displayName);
         return new ChatMessageStore.SenderMeta(
-            new UUID(0, 0), nameComp, contentComp, false,
+            uuid, nameComp, contentComp, false,
             rawPlayerName, false, null);
+    }
+
+    /** Online profile UUID for a name, else a previously seen one, else zero. */
+    private static UUID resolveUuid(String name) {
+        try {
+            net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+            if (mc != null && mc.player != null && mc.player.networkHandler != null) {
+                for (net.minecraft.client.network.PlayerListEntry info : mc.player.networkHandler.getPlayerList()) {
+                    for (String cand : ChatClassifier.nameCandidates(info)) {
+                        if (cand.equalsIgnoreCase(name)) return info.getProfile().getId();
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            // Headless (unit tests) or a broken world — fall through to seen names.
+        }
+        UUID seen = ChatMessageStore.findSeenUuid(name);
+        return seen != null ? seen : new UUID(0, 0);
     }
 
     /**
