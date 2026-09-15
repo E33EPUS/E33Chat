@@ -140,15 +140,17 @@ public final class ChatMessageRenderer {
     /** Animated entry for a URL: extension-gated; content-probe only for the
      *  extension-less server media transport (e33chat://media/<id>).
      *
-     *  The content probe costs an extra server media fetch (the server
-     *  rate-limits downloads per player), so it is skipped once the same URL
-     *  already failed its probe — a static image must not keep re-downloading. */
+     *  The probe is a real download and the server rate-limits those per player,
+     *  so it is paid only when the line leaves any doubt: a CICode carries the
+     *  original file name, and a name ending in .jpg/.jpeg/.bmp can only come
+     *  back static. Probing those burned a download slot per ordinary image —
+     *  twice the quota cost — which is what made the sender's own images fail
+     *  once a couple had been pasted in a row. */
     private static com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url, String nameHint) {
         var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, nameHint);
         if (entry != null) return entry;
         if (url == null || !url.startsWith("e33chat://media/")) return null;
-        // Only probe server media once per URL; the static ImageLoader owns the
-        // bytes afterwards (shared fetch makes the second request free anyway).
+        if (com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(url, nameHint)) return null;
         return com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, nameHint);
     }
 
