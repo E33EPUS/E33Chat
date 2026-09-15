@@ -43,13 +43,64 @@ class EasyBotParserTest {
         assertNull(EasyBotParser.tryParse(line, line.getString()));
     }
 
-    @Test void rejectsPlainSystemText() {
-        Component line = Component.literal("服务器重启完成");
+    // A template like "[{prefix}] {external}：{content}" has no angle brackets;
+    // the label plus the colon separator is the structural signal there. This
+    // used to be rejected, which pushed the whole relay through the player-path
+    // parser and greyed it out (or glued the label onto the sender name).
+    @Test void parsesLabeledColonFormat() {
+        Component line = Component.literal("[闲聊群] 小明：你好");
+        ChatMessageStore.SenderMeta meta = EasyBotParser.tryParse(line, line.getString());
+        assertNotNull(meta);
+        assertEquals("小明", meta.senderName().getString());
+        assertEquals("小明", meta.rawPlayerName());
+        assertEquals("你好", meta.rawContent().getString());
+        assertFalse(meta.isSystem());
+        assertFalse(meta.whisper());
+    }
+
+    @Test void parsesLabeledColonFormatWithHalfWidthColon() {
+        Component line = Component.literal("[QQ群消息] dangdang0721: 凑木空");
+        ChatMessageStore.SenderMeta meta = EasyBotParser.tryParse(line, line.getString());
+        assertNotNull(meta);
+        assertEquals("dangdang0721", meta.senderName().getString());
+        assertEquals("凑木空", meta.rawContent().getString());
+    }
+
+    @Test void parsesLabeledColonFormatWithQqId() {
+        Component line = Component.literal("[闲聊群] 小明(123456789)：你好");
+        ChatMessageStore.SenderMeta meta = EasyBotParser.tryParse(line, line.getString());
+        assertNotNull(meta);
+        assertEquals("小明", meta.senderName().getString());
+        assertEquals("123456789", meta.rawPlayerName());
+        assertEquals("你好", meta.rawContent().getString());
+    }
+
+    @Test void colonFormatKeepsColonsInsideContent() {
+        Component line = Component.literal("[闲聊群] 小明：看这个 http://a.com/x 还有 9:30");
+        ChatMessageStore.SenderMeta meta = EasyBotParser.tryParse(line, line.getString());
+        assertNotNull(meta);
+        assertEquals("小明", meta.senderName().getString());
+        assertEquals("看这个 http://a.com/x 还有 9:30", meta.rawContent().getString());
+    }
+
+    @Test void rejectsColonFormatWithoutLabel() {
+        // No label = ordinary chat; the player-path parser owns these lines.
+        Component line = Component.literal("小明：你好");
         assertNull(EasyBotParser.tryParse(line, line.getString()));
     }
 
-    @Test void rejectsMissingAngleBrackets() {
-        Component line = Component.literal("[闲聊群] 小明: 你好");
+    @Test void rejectsColonFormatWithBroadcastLabel() {
+        Component line = Component.literal("[系统] Server：重启完成");
+        assertNull(EasyBotParser.tryParse(line, line.getString()));
+    }
+
+    @Test void rejectsColonFormatWithBlankContent() {
+        Component line = Component.literal("[闲聊群] 小明：   ");
+        assertNull(EasyBotParser.tryParse(line, line.getString()));
+    }
+
+    @Test void rejectsPlainSystemText() {
+        Component line = Component.literal("服务器重启完成");
         assertNull(EasyBotParser.tryParse(line, line.getString()));
     }
 

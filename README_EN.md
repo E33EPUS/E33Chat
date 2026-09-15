@@ -71,7 +71,7 @@ E33Chat is a chat-enhancement mod that rebuilds the vanilla chat HUD in a chat-a
 - 💬 **Chat bubbles** — Heads and names; colors / text color / corner radius / theme adjustable; avatars top-aligned, shown on the first message of a same-sender run only (QQ-style); message gap 4px in-group, 12px between groups
 - 🖼️ **Image messages** — `[[CICode]]` / `[[ChatUpgrade]]` render natively in bubbles (ChatImage interop), click opens the original; anti-flood rate limiting + receive toggle
 - ☁️ **Server-side media hosting** — With E33Chat on the server, images are stored there permanently; otherwise the mod falls back to a third-party host automatically
-- 😀 **Custom emote pack** — Drop images into `config/e33chat/emotes/` (up to 10), or Ctrl+V a clipboard image; click to send
+- 😀 **Custom emote pack** — Drop images into `config/e33chat/emotes/` (up to 32), or Ctrl+V a clipboard image; click to send
 - @ **Mention autocomplete** — Type `@` for a player list, left-click a head to @ them; sound + banner when you are @'d or quoted
 - 👥 **Whisper sidebar** — Online player list, unread dots, public / whisper split view, NPC hide list
 - 🔍 **Search & emoji & quick phrases** — Real-time search (Chinese supported), emoji / kaomoji panel, one-click phrases

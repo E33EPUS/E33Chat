@@ -329,8 +329,8 @@ public class ChatBubbleConfigScreen extends Screen {
                 d.previewColor(), d.value());
             case THEME_CYCLE -> new Opt(d.key(), this::mkThemeButton, d.previewColor(), d.value());
             case TIME_SEP -> new Opt(d.key(), this::mkTimeSepButton, d.previewColor(), d.value());
-            case BG_IMAGE -> new Opt(d.key(), y -> mkBgImageButton(y,
-                (ModConfigSpec.ConfigValue<String>) d.value()), d.previewColor(), d.value());
+            case BG_IMAGE -> new Opt(d.key(), null, y -> mkBgImageWidgets(y,
+                (ModConfigSpec.ConfigValue<String>) d.value()), 1, d.previewColor(), d.value());
         };
     }
 
@@ -524,22 +524,42 @@ public class ChatBubbleConfigScreen extends Screen {
 
     /** Single-button background-image row: label follows the configured state.
      *  Empty = "Browse…" (opens the file dialog), set = "Clear" (resets it). */
-    private Button mkBgImageButton(int y, ModConfigSpec.ConfigValue<String> value) {
+    /**
+     * Browse… when unset; "Adjust framing" + "Clear" once a picture is chosen.
+     * Picking a picture opens the framing editor straight away — a wide image
+     * over this narrow panel almost always needs framing, so making the user
+     * find it in a second step would just be a hidden feature.
+     */
+    private List<AbstractWidget> mkBgImageWidgets(int y, ModConfigSpec.ConfigValue<String> value) {
         boolean hasImage = value.get() != null && !value.get().isBlank();
-        String key = hasImage ? "e33chat.config.panel_bg_clear" : "e33chat.config.panel_bg_browse";
-        Button btn = Button.builder(Component.translatable(key), b -> {
-            if (value.get() != null && !value.get().isBlank()) {
-                value.set("");
-                rebuild();
-            } else {
+        List<AbstractWidget> out = new ArrayList<>();
+        if (!hasImage) {
+            Button browse = Button.builder(Component.translatable("e33chat.config.panel_bg_browse"), b ->
                 com.niuqu.chatbubble.compat.NativeFileDialog.pickImage(f -> {
                     if (f == null || !f.isFile()) return;
                     value.set(f.getAbsolutePath());
-                    rebuild();
-                });
-            }
-        }).bounds(inputX, y, INPUT_W, 20).build();
-        return btn;
+                    openCropEditor();
+                })).bounds(inputX, y, INPUT_W, 20).build();
+            out.add(browse);
+            return out;
+        }
+        int half = (INPUT_W - 4) / 2;
+        Button adjust = Button.builder(Component.translatable("e33chat.config.panel_bg_adjust"), b ->
+            openCropEditor()).bounds(inputX, y, half, 20).build();
+        Button clear = Button.builder(Component.translatable("e33chat.config.panel_bg_clear"), b -> {
+            value.set("");
+            // Framing belongs to the picture; dropping the picture drops it too.
+            ChatBubbleConfig.PANEL_BG_CROP.set("");
+            rebuild();
+        }).bounds(inputX + half + 4, y, INPUT_W - half - 4, 20).build();
+        out.add(adjust);
+        out.add(clear);
+        return out;
+    }
+
+    /** Opens the framing editor once the chosen picture's texture is ready. */
+    private void openCropEditor() {
+        minecraft.setScreen(new com.niuqu.chatbubble.ui.PanelCropScreen(this));
     }
 
     private EditBox mkHexBox(int y, String initial, java.util.function.Consumer<String> onChange) {
