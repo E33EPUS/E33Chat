@@ -4,6 +4,25 @@
 用「新增 / 修复 / 更改」等常规分类组织，写法自由，不要拿语言名当标题。
 仓库 GitHub Release 正文取整段；Modrinth / CurseForge 的 changelog 取段尾英文块（英文内部不要空行）。
 
+**Fixed: your own images would "randomly fail to load"**
+- Symptom: after pasting a few images in a row, one of them reported a load failure; the log said `timed out after 30s` while only 6ms had passed, and the same file loaded fine moments later
+- Root cause (three things stacked):
+  1. **Every image wasted a download slot** — the animated probe fired a request for every `e33chat://media/` URL even when the CICode already carried `name=1.jpg` (a JPEG cannot animate), and each image already costs "one upload plus one download by its own sender"
+  2. **NeoForge never got the 2.4.11 de-duplication fix** — its `fetch` did a plain `FETCHES.put()`, so the second request for a mediaId (the probe and the static loader both fetch) replaced the first caller's future; the first then waited out its full 30-second timeout and reported a failure for an image that had already downloaded. The 2.4.11 merge fix only ever landed on Forge
+  3. **The log lied** — the server answers "rate limited" and "file missing" with the same sentinel, and the client reported both as a 30-second timeout, pointing every investigation at the network
+- Fix: (1) `animatedEntry` short-circuits `.jpg/.jpeg/.bmp` (those cannot animate; `.png` is still probed because APNG shares the extension), (2) `MediaClient` keeps a **local cache of our own uploads** (24-entry LRU) so the sender's own images come from memory — no download slot, nothing to fail, (3) NeoForge and Fabric now use `computeIfAbsent` to merge concurrent fetches like Forge does, (4) timeouts and refusals are logged as the different things they are, (5) the server rate limit goes from 4 to 16 per 10 seconds (still bounding abuse, no longer punishing a normal paste-a-few session)
+
+**Fixed: the background framing screen was blank (bug in the new framing feature)**
+- Symptom: choosing a panel background and then opening the framing editor showed nothing at all
+- Root cause: `PanelBackground.ensureLoaded()` was only ever called while the chat panel rendered. The settings screen and the framing screen do not draw the chat panel, so a picture chosen there never started loading and `imageWidth()` stayed 0
+- Fix: the framing screen starts the load itself, polls for the size while it loads and re-lays out once it arrives, and shows "Loading the background image...", a **red specific reason** on failure (unsupported format / missing file) or "No background image set" — no more staring at an empty screen
+
+**Changed: animation limits aligned with AtomChat (48 -> 120 frames, trimming instead of rejecting)**
+- Symptom: a 66-frame and a 72-frame GIF were refused here while AtomChat accepted the same files
+- Root cause: E33Chat used "48-frame hard cap, reject past it"; AtomChat uses "120-frame cap plus an 8M-pixel-per-image budget", trimming the tail instead of refusing
+- Fix: the frame cap is now 120, with an 8M-pixel **decoded budget per image** (~32 MB of GPU memory) that keeps the first frames when a longer animation would exceed it — a trimmed GIF still plays and still reads, while a rejection is a dead end the user cannot act on. The 512px dimension cap is unchanged
+- Note: this is also why **GIFs in the emote panel are now still thumbnails** — with the cap at 120, animating 32 grid cells would burn frame time and GPU memory for a 26px square you cannot read anyway, while the sent message still animates. Animated emotes carry a `GIF` badge so it is clear they move once sent
+
 ## v2.4.12
 
 **修复：发出去的 GIF 不会动（2.4.10 功能的一半没兑现）**
@@ -44,6 +63,25 @@
 - 现象：补全列表出现后无法用鼠标点击选择（原版可以）
 - 现状：代码上点击是有接线的，且渲染与命中判定用的是同一个矩形，静态分析读不出原因
 - 本版加入了临时诊断日志（记录点击落点、面板偏移、以及补全列表构造出的矩形），需在实机复现一次以区分「点击被更早的分支吃掉」与「绘制与命中矩形不一致」；**开启 `debug_log` 后复现一次即可定位**，修复留待下一版
+
+**修复：自己发的图片会"莫名其妙加载失败"**
+- 现象：连发几张图后，中间某张报加载失败；日志说 `timed out after 30s`，但耗时只有 6ms，同一个文件过一会儿又能正常加载
+- 根因（三层叠加）：
+  1. **每张图白花一次下载额度**——动图探测对 `e33chat://media/` 无条件发请求，哪怕 CICode 里已经写着 `name=1.jpg`（jpg 不可能是动图）。服务端额度是 4 次/10 秒、上传和下载共用，而每条图本身就要花掉"上传 1 次 + 自己的客户端再下载 1 次"
+  2. **NeoForge 端 2.4.11 的去重修复从未落地**——Neo 的 `fetch` 用 `FETCHES.put()` 直接覆盖，同一 mediaId 的第二个请求（探测 + 静态加载器各发一次）会把第一个的 future 顶掉，第一个只能等满 30 秒超时并报失败，而图片其实早就下好了。2.4.11 的"同 id 请求合并"只改到了 Forge
+  3. **日志说谎**——服务端对"被限流"和"文件不存在"回同一个哨兵，客户端 `catch (Exception)` 一律打成"超时 30s"，把排查引向网络
+- 修复：①`animatedEntry` 对 `.jpg/.jpeg/.bmp` 直接短路（这些扩展名不可能动，`.png` 仍探测因为 APNG 共用扩展名）；② `MediaClient` 新增**自己上传的本地缓存**（24 条 LRU）——自己发的图直接命中内存，不花下载额度、也不可能"加载失败"；③NeoForge/Fabric 的 `fetch` 改为 `computeIfAbsent` 合并并发请求（与 Forge 对齐）；④超时与拒绝分开记录日志；⑤服务端限流 4 → 16 次/10 秒（16 仍能挡住滥用，但不再惩罚正常的连发几张）
+
+**修复：壁纸取景界面一片空白（新功能的 bug）**
+- 现象：选完背景图后进入取景界面，什么都没有，看不到图
+- 根因：`PanelBackground.ensureLoaded()` **只在聊天面板渲染时被调用**。配置屏和取景屏都不渲染聊天面板，所以刚选完图时纹理从未开始加载，`imageWidth()` 为 0，自然什么都画不出来
+- 修复：取景屏自己触发加载，并在加载期间每 tick 轮询尺寸、就绪后重排布局；界面在未就绪时显示「正在加载背景图…」，失败时显示**红色的具体原因**（格式不支持/文件不存在），未设置时提示"尚未设置背景图"——不再让用户对着空白界面猜
+
+**更改：动图上限对齐 AtomChat（帧数 48 → 120，并改用像素预算裁帧）**
+- 现象：用户 66 帧 / 72 帧的 GIF 被拒绝，而同一个文件 AtomChat 能发
+- 根因：E33Chat 的动图限制是"48 帧硬上限 + 超出直接拒绝"，AtomChat 用的是"120 帧上限 + 8M 像素/图的预算"，超出部分**裁帧而不是拒绝**
+- 修复：帧数上限提到 120，并引入 8M 像素的**单图解码预算**（约 32MB 显存）——超预算时保留前若干帧（被裁短的 GIF 仍然会动、仍然能看清内容，而"拒绝"是用户无法处理的死路）。512px 尺寸上限不变
+- 说明：这也是为什么**表情面板里的 GIF 改成静态缩略图**——帧数上限提到 120 后，32 个格子同时逐帧动画会白白吃掉帧时间和显存（26px 的格子本来也看不清动画），而发到聊天里的消息仍然逐帧播放。GIF 表情在格子上会有 `GIF` 角标提示它是动图
 
 **Fixed: sent GIFs did not animate (half of the 2.4.10 feature never landed)**
 - Symptom: a GIF animated in the emote panel but froze on its first frame once sent, while GIFs arriving from outside did animate

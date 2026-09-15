@@ -2256,9 +2256,13 @@ public class ChatBubbleScreen extends ChatScreen {
     private com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url, String nameHint) {
         var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, nameHint);
         if (entry != null) return entry;
-        return url != null && url.startsWith("e33chat://media/")
-            ? com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, nameHint)
-            : null;
+        if (url == null || !url.startsWith("e33chat://media/")) return null;
+        // The probe is a real download and the server rate-limits those per
+        // player, so pay it only when the line leaves doubt: a CICode carries the
+        // original name, and a name ending in .jpg/.jpeg/.bmp can only come back
+        // static. Probing those burned a slot per ordinary image.
+        if (com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(url, nameHint)) return null;
+        return com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, nameHint);
     }
 
     /** Still decoding: the static ImageLoader must not win the race yet, or the

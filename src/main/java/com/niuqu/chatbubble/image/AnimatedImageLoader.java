@@ -44,9 +44,18 @@ import java.util.concurrent.Executors;
 public final class AnimatedImageLoader {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Map<String, Entry> CACHE = new ConcurrentHashMap<>();
-    private static final int MAX_FRAMES = 48;
+    private static final int MAX_FRAMES = 120;
     private static final int MAX_DIMENSION = 512;
     private static final long MAX_BYTES = 8L * 1024 * 1024;
+    /**
+     * Decoded-pixel budget for one animation (~8M px, about 32 MB of GPU memory
+     * at 4 bytes per pixel). Animations longer than the budget keep their first
+     * frames instead of being rejected: a truncated GIF still plays and still
+     * says what it is, while a rejection is a dead end the user cannot act on.
+     * This is what keeps 120 frames affordable — at 512px square, 120 frames
+     * would otherwise be ~125 MB. Same numbers AtomChat uses.
+     */
+    private static final long MAX_PIXELS_PER_IMAGE = 8L * 1024L * 1024L;
     private static final long FAILED_RETRY_MS = 60_000;
 
     // Separate small pool: a GIF must never occupy ImageLoader's static-image
@@ -154,6 +163,23 @@ public final class AnimatedImageLoader {
         if (query >= 0) lower = lower.substring(0, query);
         return lower.endsWith(".gif") || lower.endsWith(".webp")
             || lower.endsWith(".apng") || formatHint;
+    }
+
+    /**
+     * The URL/name says a format that is never animated, so a content probe can
+     * only come back negative. The probe costs a download against the server's
+     * per-player quota, and paying that for every ordinary JPEG is what made the
+     * sender's own images the first to fail.
+     *
+     * <p>{@code .png} is deliberately excluded: APNG is animated and shares the
+     * extension, so a PNG still has to be probed.
+     */
+    public static boolean definitivelyStill(String url, String nameHint) {
+        String lower = (url + " " + (nameHint == null ? "" : nameHint))
+            .toLowerCase(java.util.Locale.ROOT);
+        int query = lower.indexOf('?');
+        if (query >= 0) lower = lower.substring(0, query);
+        return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".bmp");
     }
 
     /** Extension-gated entry; null when the URL gives no animation hint. */
@@ -270,6 +296,12 @@ public final class AnimatedImageLoader {
         }
     }
 
+    /** How many frames of this size fit the decoded-pixel budget (at least one). */
+    private static int framesWithinBudget(int w, int h) {
+        long per = (long) Math.max(1, w) * Math.max(1, h);
+        return (int) Math.max(1L, Math.min(Integer.MAX_VALUE, MAX_PIXELS_PER_IMAGE / per));
+    }
+
     private static Decoded decode(byte[] bytes) {
         try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
             if (input == null) return null;
@@ -284,6 +316,14 @@ public final class AnimatedImageLoader {
                 if (count < 2) return null;
                 if ("gif".equalsIgnoreCase(reader.getFormatName())) {
                     return decodeGif(reader, count);
+                }
+                // Trim to the pixel budget before decoding, so an oversized
+                // animation costs neither the CPU nor the GPU memory.
+                int budget = framesWithinBudget(reader.getWidth(0), reader.getHeight(0));
+                if (budget < count) {
+                    LOGGER.info("[e33chat] animated image trimmed to {} of {} frames (pixel budget)",
+                        budget, count);
+                    count = budget;
                 }
                 ArrayList<NativeImage> frames = new ArrayList<>();
                 int[] delays = new int[count];
@@ -339,6 +379,14 @@ public final class AnimatedImageLoader {
             } catch (Throwable ignored) {}
         }
         if (canvasW > MAX_DIMENSION || canvasH > MAX_DIMENSION) return null;
+        // Same pixel budget as the generic path: keep the first frames rather
+        // than refusing the whole animation.
+        int budget = framesWithinBudget(canvasW, canvasH);
+        if (budget < count) {
+            LOGGER.info("[e33chat] animated image trimmed to {} of {} frames (pixel budget)",
+                budget, count);
+            count = budget;
+        }
         BufferedImage canvas = new BufferedImage(canvasW, canvasH, BufferedImage.TYPE_INT_ARGB);
         ArrayList<NativeImage> frames = new ArrayList<>();
         int[] delays = new int[count];

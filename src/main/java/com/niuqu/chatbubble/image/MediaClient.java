@@ -39,6 +39,31 @@ public final class MediaClient {
     private static final Map<String, byte[][]> FETCH_BUFFERS = new ConcurrentHashMap<>();
     private static final Map<String, Integer> FETCH_COUNTS = new ConcurrentHashMap<>();
 
+    /**
+     * What we uploaded, kept locally so we never have to download it back.
+     *
+     * <p>Every download costs one of the server's four-per-ten-seconds slots, and
+     * re-reading our own upload is pure waste: it cannot be missing, and a small
+     * LRU makes repeat views (scrolling back, relogging, reopening history) free.
+     * Before this, pasting a few images in a row exhausted the quota with the
+     * sender's <em>own</em> pictures — the first thing anyone tries.
+     */
+    private static final int OWN_UPLOAD_CACHE_ENTRIES = 24;
+    private static final Map<String, byte[]> OWN_UPLOADS = new ConcurrentHashMap<>();
+    private static final java.util.Deque<String> OWN_UPLOAD_ORDER = new java.util.ArrayDeque<>();
+
+    private static void rememberOwnUpload(String mediaId, byte[] bytes) {
+        if (mediaId == null || bytes == null || bytes.length == 0) return;
+        synchronized (OWN_UPLOAD_ORDER) {
+            OWN_UPLOADS.put(mediaId, bytes);
+            OWN_UPLOAD_ORDER.remove(mediaId);
+            OWN_UPLOAD_ORDER.addLast(mediaId);
+            while (OWN_UPLOAD_ORDER.size() > OWN_UPLOAD_CACHE_ENTRIES) {
+                OWN_UPLOADS.remove(OWN_UPLOAD_ORDER.removeFirst());
+            }
+        }
+    }
+
     private MediaClient() {}
 
     public static void setServerEnabled(boolean b) { serverEnabled = b; }
@@ -122,6 +147,8 @@ public final class MediaClient {
         }
         try {
             String mediaId = done.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            // Keep our own bytes: the local view then needs no download at all.
+            if (mediaId != null) rememberOwnUpload(mediaId, bytes);
             return mediaId != null ? "e33chat://media/" + mediaId : null;
         } catch (Exception e) {
             UPLOADS.remove(uploadId);
@@ -134,23 +161,47 @@ public final class MediaClient {
     public static byte[] fetch(String mediaId) {
         if (!DiskMediaStore.isValidMediaId(mediaId)) return null;
         if (!ClientPlayNetworking.canSend(MediaRequestPayload.ID)) return null;
-        CompletableFuture<byte[]> done = new CompletableFuture<>();
-        FETCHES.put(mediaId, done);
-        MinecraftClient.getInstance().execute(() -> {
-            try {
-                ClientPlayNetworking.send(new MediaRequestPayload(mediaId));
-            } catch (Throwable t) {
-                FETCHES.remove(mediaId);
-                done.completeExceptionally(t);
-            }
+        // Our own upload: answer from memory, so it costs no download quota and
+        // can never be the thing that "randomly failed to load".
+        byte[] own = OWN_UPLOADS.get(mediaId);
+        if (own != null) return own;
+        // computeIfAbsent is atomic: the first caller owns the request and the
+        // rest attach to the same future. This loader previously did a plain
+        // put(), so the second caller (the animated probe and the static loader
+        // both fetch every e33chat:// URL) replaced the first caller's future —
+        // the first then waited out its full 30s timeout and reported a failure
+        // for an image that had downloaded fine. The merge fix in 2.4.11 only
+        // ever landed on the Forge side.
+        CompletableFuture<byte[]> done = FETCHES.computeIfAbsent(mediaId, id -> {
+            CompletableFuture<byte[]> fresh = new CompletableFuture<>();
+            MinecraftClient.getInstance().execute(() -> {
+                try {
+                    ClientPlayNetworking.send(new MediaRequestPayload(id));
+                } catch (Throwable t) {
+                    FETCHES.remove(id, fresh);
+                    fresh.completeExceptionally(t);
+                }
+            });
+            return fresh;
         });
         try {
             return done.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            FETCHES.remove(mediaId);
+        } catch (java.util.concurrent.TimeoutException e) {
+            FETCHES.remove(mediaId, done);
             FETCH_BUFFERS.remove(mediaId);
             FETCH_COUNTS.remove(mediaId);
             LOGGER.info("[e33chat] server media fetch {} timed out after {}s", mediaId, TIMEOUT_SECONDS);
+            return null;
+        } catch (Exception e) {
+            // The server answers a refused request with the same sentinel it uses
+            // for a missing file, so this is nearly always the rate limit rather
+            // than a timeout. Reporting it as one sent every investigation down
+            // the wrong path ("it said 30s but only took 6ms").
+            FETCHES.remove(mediaId, done);
+            FETCH_BUFFERS.remove(mediaId);
+            FETCH_COUNTS.remove(mediaId);
+            LOGGER.info("[e33chat] server media fetch {} refused: {} (most likely the per-player "
+                + "transfer rate limit, 4 per 10s)", mediaId, e.getMessage());
             return null;
         }
     }

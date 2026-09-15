@@ -147,7 +147,11 @@ public final class DiskMediaStore {
         }
     }
 
-    private static final int RATE_LIMIT_PER_WINDOW = 4;
+    // 4 per 10s was tight enough that ordinary use tripped it: every image costs
+    // an upload plus a download, and the sender's own images were the first to
+    // be refused (they are the ones being looked at right after pasting). 16
+    // still bounds abuse without punishing a normal paste-a-few-photos session.
+    private static final int RATE_LIMIT_PER_WINDOW = 16;
     private static final long RATE_WINDOW_MS = 10_000;
     private final Map<String, java.util.ArrayDeque<Long>> rateWindows = new ConcurrentHashMap<>();
 

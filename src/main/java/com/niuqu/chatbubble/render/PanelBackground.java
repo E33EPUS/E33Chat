@@ -42,7 +42,27 @@ public final class PanelBackground {
         return registered && !failed && texW > 0 && texH > 0;
     }
 
-    /** Main-thread: (re)load when the configured path changed; no-op otherwise. */
+    /** True while a decode/upload is in flight (the crop editor waits on this). */
+    public static boolean loading() {
+        synchronized (LOCK) {
+            return loadedKey != null && !loadedKey.isEmpty() && !registered && !failed;
+        }
+    }
+
+    /** True when the most recent load attempt failed (bad path / unreadable). */
+    public static boolean failed() {
+        synchronized (LOCK) {
+            return failed;
+        }
+    }
+
+    /**
+     * Main-thread: (re)load when the configured path changed; no-op otherwise.
+     *
+     * <p>Every screen that shows the picture has to call this, not just the chat
+     * panel: the decode starts here, and the crop editor used to open with
+     * nothing because only the chat screen ever triggered the load.
+     */
     public static void ensureLoaded() {
         String raw = ChatBubbleClientSetup.config().panelBgImage();
         String key = raw == null ? "" : raw.trim();

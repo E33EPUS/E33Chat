@@ -51,6 +51,35 @@ public class PanelCropScreen extends Screen {
 
     @Override
     protected void init() {
+        // The decode+upload is asynchronous and only the chat panel used to kick
+        // it off, so opening this screen straight from the settings screen left
+        // it showing nothing at all. Start it here, and if it is still in flight
+        // the render pass keeps re-running init (cheap) until the size is known.
+        PanelBackground.ensureLoaded();
+        lastKnownSize = PanelBackground.imageWidth() * 10000 + PanelBackground.imageHeight();
+        layout();
+    }
+
+    private int lastKnownSize = -1;
+
+    @Override
+    public void tick() {
+        // Wait for the picture: without this the screen stays blank forever when
+        // it was opened before the first frame ever drew the chat panel.
+        if (PanelBackground.available()) {
+            int now = PanelBackground.imageWidth() * 10000 + PanelBackground.imageHeight();
+            if (now != lastKnownSize) {
+                lastKnownSize = now;
+                // yarn Screen has no rebuildWidgets(); re-running init() is the
+                // equivalent, and this screen builds no widgets of its own.
+                clearChildren();
+                init();
+            }
+        }
+        super.tick();
+    }
+
+    private void layout() {
         int texW = PanelBackground.imageWidth();
         int texH = PanelBackground.imageHeight();
         int availH = height - PAD * 2 - BTN_H - 24;
@@ -106,6 +135,13 @@ public class PanelCropScreen extends Screen {
             ColoredTextureRenderer.drawWithAlpha(g, tex, imgX, imgY, dispW, dispH,
                 0f, 0f, PanelBackground.imageWidth(), PanelBackground.imageHeight(),
                 PanelBackground.imageWidth(), PanelBackground.imageHeight(), 1f);
+        } else {
+            // Never leave the user staring at an empty screen: say why it is empty.
+            String reason = PanelBackground.failed() ? "e33chat.crop.failed"
+                : PanelBackground.loading() ? "e33chat.crop.loading" : "e33chat.crop.no_image";
+            String msg = net.minecraft.text.Text.translatable(reason).getString();
+            g.drawText(textRenderer, msg, (width - textRenderer.getWidth(msg)) / 2, height / 2,
+                PanelBackground.failed() ? 0xFFFF6666 : c.textSecondary(), false);
         }
 
         int[] sel = selectionScreenRect();

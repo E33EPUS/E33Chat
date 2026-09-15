@@ -40,4 +40,49 @@ class MediaClientDedupTest {
         // before any packet is sent (NetworkHandler.CHANNEL is null here).
         org.junit.jupiter.api.Assertions.assertNull(MediaClient.fetch("not-a-valid-id"));
     }
+
+    /**
+     * 2.4.13: the animated probe is a real download and the server rate-limits
+     * those per player, so it must be skipped for formats that cannot animate.
+     * This is the guard that stops ordinary JPEGs from costing a download slot
+     * each (which is what made the sender's own images the first to fail).
+     */
+    @Test
+    void jpegAndBmpAreNeverProbed() {
+        assertTrue(com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(
+            "e33chat://media/277ba77e3fa549948d0f6976c4a9aa08", "1.jpg"));
+        assertTrue(com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(
+            "https://d.uguu.se/x", "photo.JPEG"));
+        assertTrue(com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(
+            "https://d.uguu.se/x", "a.bmp"));
+    }
+
+    @Test
+    void pngIsStillProbedBecauseApngSharesTheExtension() {
+        assertFalse(com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(
+            "e33chat://media/277ba77e3fa549948d0f6976c4a9aa08", "anim.png"));
+    }
+
+    @Test
+    void gifIsStillProbedSoItCanAnimate() {
+        assertFalse(com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(
+            "e33chat://media/277ba77e3fa549948d0f6976c4a9aa08", "a.gif"));
+    }
+
+    @Test
+    void queriesDoNotDefeatTheExtensionCheck() {
+        assertTrue(com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(
+            "https://host/a.jpg?token=abc", null));
+        assertFalse(com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(
+            "https://host/a.gif?token=abc", null));
+    }
+
+    @Test
+    void unknownExtensionIsProbed() {
+        // No hint: the content probe is the only way to know.
+        assertFalse(com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(
+            "e33chat://media/277ba77e3fa549948d0f6976c4a9aa08", null));
+        assertFalse(com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(
+            "e33chat://media/277ba77e3fa549948d0f6976c4a9aa08", "blob"));
+    }
 }
