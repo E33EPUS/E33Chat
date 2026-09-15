@@ -1,11 +1,19 @@
-build/
-.gradle/
-run/
-logs/
+# 构建产物与开发期运行状态 —— 任意深度（三平台各自有 build/run/.gradle）
+**/build/
+**/.gradle/
+**/run/
+**/run-data/
+**/logs/
+**/mcmodsrepo/
+**/repo/
+**/libs/
+temp_refmap/
+crash_tmp/
+xaero_analysis/
+*.log
 *.iml
 .idea/
 out/
 classes/
-temp_refmap/
-*.log
-crash_tmp/
+.vscode/
+.superpowers/

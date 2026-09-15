@@ -1,5 +1,11 @@
-# Disable autocrlf on generated files, they always generate with LF
-# Add any extra files or paths here to make git stop saying they
-# are changed when only line endings change.
-src/generated/**/.cache/cache text eol=lf
-src/generated/**/*.json text eol=lf
+# 行尾策略：默认按文本处理、入库统一 LF（校验脚本与 CI 都按这个前提跑）
+* text=auto
+
+# gradle wrapper 脚本必须保持各自平台的行尾（gradlew 是 shell 脚本，坏了 Linux 起不来）
+gradlew text eol=lf
+platforms/*/gradlew text eol=lf
+*.bat text eol=crlf
+
+# datagen 的缓存与产物永远 LF，避免「只有行尾不同」的假变更
+**/src/generated/**/.cache/* text eol=lf
+**/src/generated/**/*.json text eol=lf

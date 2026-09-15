@@ -8,6 +8,10 @@ plugins {
     id 'net.darkhax.curseforgegradle' version '1.1.28'
 }
 
+// 共享层装配：读仓库级身份 + 把 shared/ 与本目标挂载的层接进源集。
+// 判定依据在 versions/*.json，本平台不做任何目标名硬编码。
+apply from: '../../gradle/e33chat-layers.gradle'
+
 version = mod_version
 group = mod_group_id
 
@@ -189,7 +193,7 @@ def storeVersion = "Forge-${project.minecraft_version}-${project.mod_version}"
 // section in RELEASE_NOTES.md (Chinese summary first, English last; the whole
 // bilingual section is for the GitHub release body).
 def changelogFor(version) {
-    def text = rootProject.file('RELEASE_NOTES.md').getText('UTF-8')
+    def text = new File(e33chatRepoRoot, 'RELEASE_NOTES.md').getText('UTF-8')
     def start = text.indexOf("## v${version}")
     if (start < 0) {
         return "E33Chat ${version}"

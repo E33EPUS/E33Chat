@@ -1,0 +1,180 @@
+// ============================================================
+//  E33Chat 共享层装配（由各平台 build.gradle 在 plugins 块之后 apply）
+// ============================================================
+//
+// 它做两件事：
+//   1. 把【仓库级身份】（mod_version / mod_id / …）读进来挂到 project.ext
+//      —— 各平台自己不许定义这些键
+//   2. 把 shared/ 与本目标挂载的层接进 main / test 源集
+//
+// 判定依据全部来自 versions/targets.json 与 versions/layers.json，
+// 本脚本不含任何目标名硬编码：新增目标或新增层只改 JSON。
+// （结构与 AtomChat 的 atomchat-layers.gradle 同款：身份读不到就失败、
+// 挂载即声明、目录由声明的轴推出来。）
+
+import groovy.json.JsonSlurper
+
+def repoRoot = file('../..').canonicalFile
+
+// ---- 1. 仓库级身份 ----
+def propsFile = new File(repoRoot, 'gradle.properties')
+if (!propsFile.isFile()) {
+    throw new GradleException(
+        "找不到 ${propsFile.path}。\n" +
+        "仓库级身份（mod_version / mod_id / mod_name / mod_license / mod_group_id / mod_authors / mod_description）\n" +
+        "只在仓库根那一份里，各平台不许自己定义。是不是把 platforms/<目标>/ 从仓库里单独拷出来构建了？\n" +
+        "那样出来的 jar 版本号没有来源。")
+}
+def repoProps = new Properties()
+propsFile.withInputStream { repoProps.load(it) }
+
+['mod_id', 'mod_name', 'mod_license', 'mod_group_id', 'mod_authors', 'mod_description', 'mod_version'].each { k ->
+    if (!repoProps.containsKey(k)) {
+        throw new GradleException("仓库根的 gradle.properties 缺 ${k} —— 各平台不提供默认值，读不到就失败")
+    }
+    ext[k] = repoProps.getProperty(k)
+}
+ext.maven_group = repoProps.getProperty('mod_group_id')   // Fabric 侧一直叫 maven_group
+['curseforge_project_id', 'modrinth_project_id'].each { k ->
+    if (repoProps.containsKey(k)) {
+        ext[k] = repoProps.getProperty(k)
+    }
+}
+ext.e33chatRepoRoot = repoRoot
+
+// ---- 2. 本目标是哪一个 ----
+def targetsFile = new File(repoRoot, 'versions/targets.json')
+def layersFile = new File(repoRoot, 'versions/layers.json')
+if (!targetsFile.isFile()) {
+    throw new GradleException("找不到 ${targetsFile.path}")
+}
+if (!layersFile.isFile()) {
+    throw new GradleException("找不到 ${layersFile.path}")
+}
+
+def relPath = repoRoot.toPath().relativize(projectDir.canonicalFile.toPath()).toString().replace('\\', '/')
+def targets = new JsonSlurper().parse(targetsFile)
+def targetEntry = targets.find { k, v -> !k.toString().startsWith('_') && v instanceof Map && v.project == relPath }
+if (targetEntry == null) {
+    throw new GradleException(
+        "versions/targets.json 里没有工程路径为 ${relPath} 的目标。\n" +
+        "工程目录存在就必须在矩阵里有条目 —— 否则它是一份没有任何地方验证的源码：\n" +
+        "本地不编（它不是当前目标），CI 也跳过。")
+}
+def targetName = targetEntry.key.toString()
+def targetDef = targetEntry.value as Map
+
+def layers = new JsonSlurper().parse(layersFile)
+def mounted = (targetDef.layers ?: []) as List
+if (mounted.isEmpty() && !(targetDef.containsKey('no_layers') && targetDef.no_layers)) {
+    logger.info("目标 ${targetName} 一层共享层都不挂（例如 1.20.1 在 1.21+ 之前）")
+}
+mounted.each { name ->
+    if (!layers.containsKey(name)) {
+        throw new GradleException("targets.json 的 ${targetName} 引用了 layers.json 里没有的层：${name}")
+    }
+}
+
+// 三个轴；目录由【声明的轴】推出来：单轴 → layers/<轴名>/，多轴 → layers/<轴名按字母序 + 连接>/
+def AXIS_DIR = [since: 'version', loader: 'loader', mappings: 'mapping']
+def axesOf = { Map d -> ['since', 'loader', 'mappings'].findAll { d.containsKey(it) } }
+def layerDir = { String name ->
+    def d = layers[name] as Map
+    def axes = axesOf(d)
+    if (axes.isEmpty()) {
+        throw new GradleException("层 ${name} 一个轴都没钉（since / loader / mappings）—— 一个都不写就是 shared/，不是层")
+    }
+    return new File(repoRoot, "layers/${axes.collect { AXIS_DIR[it] }.sort().join('+')}/${name}")
+}
+
+// 版本比较：够不够得到 since
+def versionAtLeast = { String have, String want ->
+    def a = have.tokenize('.').collect { it.isInteger() ? it.toInteger() : 0 }
+    def b = want.tokenize('.').collect { it.isInteger() ? it.toInteger() : 0 }
+    for (int i = 0; i < Math.max(a.size(), b.size()); i++) {
+        int x = i < a.size() ? a[i] : 0
+        int y = i < b.size() ? b[i] : 0
+        if (x != y) { return x > y }
+    }
+    return true
+}
+
+// 挂载即声明：目标必须真的满足该层的谓词 —— yarn 家族的目标挂 official 映射层是硬错误，
+// 而且要在【配置期】就红，不要等到某个文件恰好被编到才暴露。
+mounted.each { name ->
+    def d = layers[name] as Map
+    axesOf(d).each { axis ->
+        def want = d[axis].toString()
+        if (axis == 'since') {
+            if (!versionAtLeast(targetDef.minecraft.toString(), want)) {
+                throw new GradleException(
+                    "目标 ${targetName}（Minecraft ${targetDef.minecraft}）挂了版本层 ${name}（since ${want}）—— 它够不到。")
+            }
+        } else {
+            def have = (axis == 'mappings' ? targetDef.mappings : targetDef.loader).toString()
+            if (have != want) {
+                throw new GradleException(
+                    "目标 ${targetName} 的 ${axis} 是 ${have}，却挂了要求 ${axis}=${want} 的层 ${name}。\n" +
+                    "挂载即声明：要么去掉这一层，要么这一层本来就不该给这个目标。")
+            }
+        }
+    }
+}
+
+// ---- 3. 接进源集 ----
+def mainJava = []
+def mainRes = []
+def testJava = []
+def testRes = []
+
+def collect = { File base, List java, List res ->
+    def j = new File(base, 'src/main/java')
+    def r = new File(base, 'src/main/resources')
+    if (j.isDirectory()) { java << j.path }
+    if (r.isDirectory()) { res << r.path }
+}
+collect(new File(repoRoot, 'shared'), mainJava, mainRes)
+def sharedTestJava = new File(repoRoot, 'shared/src/test/java')
+def sharedTestRes = new File(repoRoot, 'shared/src/test/resources')
+if (sharedTestJava.isDirectory()) { testJava << sharedTestJava.path }
+if (sharedTestRes.isDirectory()) { testRes << sharedTestRes.path }
+
+mounted.each { name ->
+    def d = layerDir(name as String)
+    collect(d, mainJava, mainRes)
+    def tj = new File(d, 'src/test/java')
+    def tr = new File(d, 'src/test/resources')
+    if (tj.isDirectory()) { testJava << tj.path }
+    if (tr.isDirectory()) { testRes << tr.path }
+}
+
+if (project.extensions.findByName('sourceSets') == null) {
+    throw new GradleException("目标 ${targetName} 的构建脚本没有 java 插件 —— 共享层源集无处可接")
+}
+sourceSets.main.java.srcDirs += mainJava
+sourceSets.main.resources.srcDirs += mainRes
+sourceSets.test.java.srcDirs += testJava
+sourceSets.test.resources.srcDirs += testRes
+
+// ---- 4. 打印（算出来的，不手写） ----
+// 这些值在【配置期】取好：doLast 里碰 project / sourceSets 会让配置缓存失效
+// （NeoForge 目标开着 org.gradle.configuration-cache=true）。
+def targetLabel = "${targetDef.minecraft} / ${targetDef.loader} ${targetDef.loader_version}".toString()
+def mountedList = mounted.collect { it.toString() }
+def mainJavaList = mainJava.collect { it.toString() }
+def mainResList = mainRes.collect { it.toString() }
+def testJavaList = testJava.collect { it.toString() }
+def testResList = testRes.collect { it.toString() }
+
+tasks.register('e33chatLayers') {
+    group = 'e33chat'
+    description = '打印本目标挂载的共享层与接进来的源目录'
+    doLast {
+        logger.lifecycle("目标 ${targetName}：${targetLabel}，仓库版本 ${repoVersion}")
+        logger.lifecycle("  挂载层：${mountedList.isEmpty() ? '（无）' : mountedList.join(', ')}")
+        logger.lifecycle("  main java：${mainJavaList.isEmpty() ? '（共享层暂无内容）' : mainJavaList.join(', ')}")
+        logger.lifecycle("  main resources：${mainResList.isEmpty() ? '（共享层暂无内容）' : mainResList.join(', ')}")
+        logger.lifecycle("  test java：${testJavaList.isEmpty() ? '（共享层暂无内容）' : testJavaList.join(', ')}")
+        logger.lifecycle("  test resources：${testResList.isEmpty() ? '（共享层暂无内容）' : testResList.join(', ')}")
+    }
+}

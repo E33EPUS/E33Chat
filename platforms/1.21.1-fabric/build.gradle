@@ -1,0 +1,113 @@
+plugins {
+    id 'fabric-loom' version '1.7.4'
+    id 'maven-publish'
+    id 'com.modrinth.minotaur' version '2.8.7'
+    id 'net.darkhax.curseforgegradle' version '1.1.28'
+}
+
+// 共享层装配：读仓库级身份 + 把 shared/ 与本目标挂载的层接进源集。
+// 判定依据在 versions/*.json，本平台不做任何目标名硬编码。
+apply from: '../../gradle/e33chat-layers.gradle'
+
+version = project.mod_version
+group = project.maven_group
+archivesBaseName = project.archives_base_name
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.terraformersmc.com/releases/" }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.minecraft_version}+build.3:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    modCompileOnly "com.terraformersmc:modmenu:11.0.3"
+    // WebP emote decoding via TwelveMonkeys ImageIO (picked up by RasterImageDecoder)
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand version: project.version }
+}
+
+tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
+java { withSourcesJar(); toolchain.languageVersion = JavaLanguageVersion.of(21) }
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+
+// ---------------------------------------------------------------------------
+// Store publishing (Modrinth + CurseForge), same pipeline as AtomChat.
+// Project IDs live in gradle.properties (modrinth_project_id /
+// curseforge_project_id); tokens come from the CI environment only. Tasks
+// skip themselves when unconfigured, so local builds and a CI without
+// secrets stay green instead of failing the release.
+// ---------------------------------------------------------------------------
+
+def storeVersion = "Fabric-${project.minecraft_version}-${project.mod_version}"
+
+// Store changelog convention: the trailing English block of the version
+// section in RELEASE_NOTES.md (Chinese summary first, English last; the whole
+// bilingual section is for the GitHub release body).
+def changelogFor(version) {
+    def text = new File(e33chatRepoRoot, 'RELEASE_NOTES.md').getText('UTF-8')
+    def start = text.indexOf("## v${version}")
+    if (start < 0) {
+        return "E33Chat ${version}"
+    }
+    def end = text.indexOf('\n## ', start + 1)
+    def section = end > start ? text.substring(start, end) : text.substring(start)
+    def trimmed = section.trim()
+    def idx = trimmed.lastIndexOf('\n\n')
+    return idx >= 0 ? trimmed.substring(idx).trim() : trimmed
+}
+
+modrinth {
+    token = System.getenv("MODRINTH_TOKEN") ?: ""
+    projectId = (project.findProperty('modrinth_project_id') ?: '').toString()
+    versionNumber = storeVersion
+    versionType = "release"
+    uploadFile = remapJar
+    gameVersions = [project.minecraft_version]
+    loaders = ["fabric"]
+    changelog = changelogFor(project.version)
+
+    dependencies {
+        required.project "fabric-api"
+    }
+}
+
+def mrProjectId = (project.findProperty('modrinth_project_id') ?: '').toString()
+tasks.named('modrinth') {
+    onlyIf { System.getenv("MODRINTH_TOKEN") && !mrProjectId.isEmpty() }
+}
+
+def cfProjectId = (project.findProperty('curseforge_project_id') ?: '').toString()
+def cfConfigured = cfProjectId ==~ /\d+/
+
+tasks.register('curseforge', net.darkhax.curseforgegradle.TaskPublishCurseForge) {
+    apiToken = System.getenv("CURSEFORGE_TOKEN") ?: ""
+    onlyIf { cfConfigured && System.getenv("CURSEFORGE_TOKEN") }
+
+    if (cfConfigured) {
+        def main = upload(cfProjectId as int, remapJar)
+        main.changelogType = 'markdown'
+        main.changelog = changelogFor(project.version)
+        main.releaseType = 'release'
+        main.displayName = storeVersion
+        main.addGameVersion project.minecraft_version
+        main.addModLoader 'Fabric'
+        main.addJavaVersion 'Java 21'
+        // CurseForge rejects uploads without an environment tag (error 1021).
+        main.addEnvironment 'Client', 'Server'
+        main.addRequirement 'fabric-api'
+    }
+}
+
+tasks.register('publishMods') {
+    group = 'publishing'
+    description = 'Publish the mod to Modrinth and CurseForge.'
+    dependsOn 'modrinth', 'curseforge'
+}

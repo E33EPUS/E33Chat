@@ -1,0 +1,345 @@
+package com.niuqu.chatbubble;
+
+import com.niuqu.chatbubble.config.ServerConfig;
+import com.niuqu.chatbubble.config.ServerConfigManager;
+import com.niuqu.chatbubble.network.ChatMetaPayload;
+import com.niuqu.chatbubble.network.ConfigSyncPayload;
+import com.niuqu.chatbubble.network.ConfigSyncV2Payload;
+import com.niuqu.chatbubble.network.ClientHelloPayload;
+import com.niuqu.chatbubble.network.EasyBotConfigPayload;
+import com.niuqu.chatbubble.network.GroupActionPayload;
+import com.niuqu.chatbubble.network.GroupChatPayload;
+import com.niuqu.chatbubble.network.GroupListPayload;
+import com.niuqu.chatbubble.network.HistoryPayload;
+import com.niuqu.chatbubble.network.MediaRequestPayload;
+import com.niuqu.chatbubble.network.MediaResponsePayload;
+import com.niuqu.chatbubble.network.MediaUploadAckPayload;
+import com.niuqu.chatbubble.network.MediaUploadPayload;
+import com.niuqu.chatbubble.network.MediaCapPayload;
+import com.niuqu.chatbubble.network.QuoteSyncPayload;
+import com.niuqu.chatbubble.network.ServerConfigSavePayload;
+import com.niuqu.chatbubble.network.ServerConfigScreenPayload;
+import com.niuqu.chatbubble.server.DiskMediaStore;
+import net.fabricmc.api.ModInitializer;
+import com.mojang.brigadier.ParseResults;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
+
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class ChatBubbleMod implements ModInitializer {
+    public static final String MOD_ID = "e33chat";
+
+    // Align with Forge/Neo: \p{L}\p{N} covers non-ASCII names (cracked servers allow
+    // Chinese player names); @(\w+) only matched ASCII and missed them
+    private static final Pattern MENTION_PATTERN = Pattern.compile("@([\\p{L}\\p{N}_]+)");
+    private static final int HISTORY_MAX = 50;
+
+    private static final Map<UUID, QuotePending> pendingQuotes = new HashMap<>();
+    private static final Deque<HistoryPayload.HistoryEntry> historyBuffer = new ArrayDeque<>();
+
+    // Server-side settings (loaded per-world from <world>/serverconfig/e33chat-server.json)
+    private static boolean historyEnabled;
+    private static boolean useTpa;
+    private static boolean templateDebug;
+    private static boolean mediaEnabled;
+    private static boolean mediaAutoClean = true;
+    private static boolean easyBotCompat = true;
+    private static boolean groupsEnabled = true;
+    private static int groupMaxCount = 20;
+    private static int groupMaxMembers = 50;
+    private static boolean groupCreateOpOnly = false;
+    private static List<String> chatTemplates = List.of();
+    private static List<String> whisperTemplates = List.of();
+    private static boolean configLoaded;
+    private static volatile com.niuqu.chatbubble.server.DiskMediaStore mediaStore;
+
+    /** Lazily-created per-world media store (next to the server config). */
+    private static com.niuqu.chatbubble.server.DiskMediaStore mediaStore(net.minecraft.server.MinecraftServer server) {
+        com.niuqu.chatbubble.server.DiskMediaStore s = mediaStore;
+        if (s == null) {
+            synchronized (ChatBubbleMod.class) {
+                s = mediaStore;
+                if (s == null) {
+                    s = new com.niuqu.chatbubble.server.DiskMediaStore(
+                        server.getSavePath(net.minecraft.util.WorldSavePath.ROOT)
+                            .resolve("serverconfig").resolve("e33chat-media"));
+                    mediaStore = s;
+                }
+            }
+        }
+        return s;
+    }
+
+    // GroupManager.say consumes quotes for group messages
+    public record QuotePending(String quotedSenderName, String quotedContent, String messageHash, long time) {}
+
+    // A quote that never made it into a sent message (e.g. an anti-spam plugin blocked
+    // it) must not tag a later unrelated message — expire after 10s (parity with Forge)
+    private static QuotePending takeQuote(UUID playerUUID) {
+        QuotePending quote = pendingQuotes.remove(playerUUID);
+        if (quote != null && System.currentTimeMillis() - quote.time() > 10_000) return null;
+        return quote;
+    }
+
+    /** Group chat path (2.4.10): consume the pending quote attached by QuoteSyncPayload. */
+    public static QuotePending consumeQuote(UUID playerUUID) {
+        return takeQuote(playerUUID);
+    }
+
+    /** Group chat path: append an already-built entry (carries the group tag). */
+    public static void addHistoryEntry(HistoryPayload.HistoryEntry entry) {
+        addToHistory(entry);
+    }
+
+    @Override
+    public void onInitialize() {
+        PayloadTypeRegistry.playC2S().register(QuoteSyncPayload.ID, QuoteSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ChatMetaPayload.ID, ChatMetaPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(HistoryPayload.ID, HistoryPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ConfigSyncPayload.ID, ConfigSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ConfigSyncV2Payload.ID, ConfigSyncV2Payload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ServerConfigScreenPayload.ID, ServerConfigScreenPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(ServerConfigSavePayload.ID, ServerConfigSavePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaUploadPayload.ID, MediaUploadPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaRequestPayload.ID, MediaRequestPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaUploadAckPayload.ID, MediaUploadAckPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaResponsePayload.ID, MediaResponsePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaCapPayload.ID, MediaCapPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(EasyBotConfigPayload.ID, EasyBotConfigPayload.CODEC);
+        // 2.4.10 group chat: handshake / say / directory / manage. Old clients
+        // drop unknown payloads harmlessly; a new client against an old server
+        // just never receives group_list, so the tab strip stays hidden.
+        PayloadTypeRegistry.playC2S().register(ClientHelloPayload.ID, ClientHelloPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(GroupChatPayload.ID, GroupChatPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(GroupListPayload.ID, GroupListPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(GroupActionPayload.ID, GroupActionPayload.CODEC);
+
+        ServerPlayNetworking.registerGlobalReceiver(MediaUploadPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> com.niuqu.chatbubble.server.MediaService.handleUpload(
+                player, mediaStore(context.server()), mediaEnabled, mediaAutoClean,
+                payload.uploadId(), payload.index(), payload.totalChunks(),
+                payload.totalBytes(), payload.contentType(), payload.chunk()));
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(MediaRequestPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> com.niuqu.chatbubble.server.MediaService.handleRequest(
+                player, mediaStore(context.server()), payload.mediaId()));
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(QuoteSyncPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> {
+                String messageHash = payload.messageHash();
+                pendingQuotes.put(player.getUuid(),
+                    new QuotePending(payload.quotedSenderName(), payload.quotedContent(), messageHash,
+                        System.currentTimeMillis()));
+            });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(ClientHelloPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> ClientHelloPayload.handleServer(payload, player));
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(GroupActionPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() ->
+                com.niuqu.chatbubble.server.GroupManager.handleAction(player, payload.action(), payload.groupName()));
+        });
+
+        // Server-config GUI save: validate, persist to JSON, rebroadcast
+        ServerPlayNetworking.registerGlobalReceiver(ServerConfigSavePayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            context.server().execute(() -> {
+                if (!player.hasPermissionLevel(2)) {
+                    player.sendMessage(Text.translatable("e33chat.server.op_required")
+                        .formatted(Formatting.RED), false);
+                    return;
+                }
+                ServerConfigSavePayload.handleServer(payload, player, cfg -> {
+                    var path = context.server().getSavePath(net.minecraft.util.WorldSavePath.ROOT)
+                        .resolve("serverconfig").resolve("e33chat-server.json");
+                    ServerConfigManager.save(path, cfg);
+                    loadConfig(cfg);
+                    broadcastServerConfig(context.server());
+                });
+            });
+        });
+
+        ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
+            String rawText = message.getContent().getString();
+            int playerCount = sender.getServer() != null
+                ? sender.getServer().getPlayerManager().getPlayerList().size() : 1;
+            List<String> mentions = extractMentions(rawText, playerCount);
+
+            QuotePending quote = takeQuote(sender.getUuid());
+            String messageHash = quote != null ? quote.messageHash() : String.valueOf(rawText.hashCode());
+            String quoteSender = quote != null ? quote.quotedSenderName() : "";
+            String quoteContent = quote != null ? quote.quotedContent() : "";
+
+            if (quote != null || !mentions.isEmpty()) {
+                ChatMetaPayload meta = new ChatMetaPayload(
+                    sender.getUuid(), sender.getName().getString(), messageHash,
+                    quoteSender, quoteContent, mentions);
+                for (ServerPlayerEntity p : sender.getServer().getPlayerManager().getPlayerList()) {
+                    ServerPlayNetworking.send(p, meta);
+                }
+            }
+
+            addToHistory(new HistoryPayload.HistoryEntry(
+                sender.getUuid(), sender.getName().getString(), rawText,
+                System.currentTimeMillis(), false,
+                quote != null ? quote.quotedContent() : null,
+                quote != null ? quote.quotedSenderName() : null,
+                null));
+        });
+
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            // Load server config from <world>/serverconfig/ on first join (matching
+            // NeoForge's per-world ModConfig.Type.SERVER convention)
+            if (!configLoaded) {
+                configLoaded = true;
+                var configPath = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT)
+                    .resolve("serverconfig").resolve("e33chat-server.json");
+                ServerConfig config = ServerConfigManager.load(configPath);
+                loadConfig(config);
+                if (mediaAutoClean) mediaStore(server).cleanupExpired();
+            }
+
+            // Always sync server-side settings so the client head menu matches the server
+            sendServerConfigTripleTo(handler.player);
+            com.niuqu.chatbubble.server.GroupManager.sendGroupList(handler.player);
+
+            if (!historyEnabled) return;
+            if (historyBuffer.isEmpty()) return;
+            ServerPlayNetworking.send(handler.player,
+                new HistoryPayload(new ArrayList<>(historyBuffer)));
+        });
+
+        // /e33chat template commands + /e33chat gui
+        com.niuqu.chatbubble.command.E33ChatCommands.register();
+
+        // Drop the per-world media store on server stop so the next world (which may
+        // be a different save directory) lazily rebuilds it against its own path;
+        // also discard any in-flight upload sessions and their temp files.
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            DiskMediaStore s = mediaStore;
+            if (s != null) s.discardAllUploads();
+            mediaStore = null;
+            com.niuqu.chatbubble.server.GroupManager.onServerStopping(server);
+        });
+
+        // Discard a leaving player's in-flight upload session (and temp file).
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            DiskMediaStore s = mediaStore;
+            if (s != null) s.discardUploadsFor(handler.player.getName().getString());
+            com.niuqu.chatbubble.server.GroupManager.onPlayerLoggedOut(handler.player.getUuid());
+        });
+    }
+
+    // Called from CommandManagerMixin.execute (parity with Forge ChatServerListener.onCommand):
+    // /msg /tell /w /whisper carry a quote the client synced (QuoteSyncPayload); consume it
+    // here and broadcast the quote meta, because vanilla private messages never hit
+    // ServerMessageEvents.CHAT_MESSAGE
+    public static void consumePrivateMessageQuote(ParseResults<ServerCommandSource> parseResults, String command) {
+        String[] parts = command.split(" ");
+        if (parts.length < 3) return;
+        String label = parts[0];
+        if (label.startsWith("/")) label = label.substring(1);
+        if (!label.equals("msg") && !label.equals("tell") && !label.equals("w") && !label.equals("whisper")) return;
+        ServerCommandSource source = parseResults.getContext().getSource();
+        ServerPlayerEntity sender = source.getPlayer();
+        if (sender == null) return;
+        QuotePending quote = takeQuote(sender.getUuid());
+        if (quote == null) return;
+        ChatMetaPayload meta = new ChatMetaPayload(sender.getUuid(), sender.getName().getString(),
+            quote.messageHash(), quote.quotedSenderName(), quote.quotedContent(), Collections.emptyList());
+        for (ServerPlayerEntity p : source.getServer().getPlayerManager().getPlayerList()) {
+            ServerPlayNetworking.send(p, meta);
+        }
+    }
+
+    private static void loadConfig(ServerConfig config) {
+        useTpa = config.use_tpa;
+        historyEnabled = config.history_enabled;
+        templateDebug = config.template_debug;
+        mediaEnabled = config.media_enabled;
+        mediaAutoClean = config.media_auto_clean == null || config.media_auto_clean;
+        easyBotCompat = config.easy_bot_compat == null || config.easy_bot_compat;
+        groupsEnabled = config.groups_enabled == null || config.groups_enabled;
+        groupMaxCount = config.group_max_count != null ? config.group_max_count : 20;
+        groupMaxMembers = config.group_max_members != null ? config.group_max_members : 50;
+        groupCreateOpOnly = config.group_create_op_only != null && config.group_create_op_only;
+        chatTemplates = config.chat_templates != null ? config.chat_templates : List.of();
+        whisperTemplates = config.whisper_templates != null ? config.whisper_templates : List.of();
+    }
+
+    public static void broadcastServerConfig(net.minecraft.server.MinecraftServer server) {
+        for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+            sendServerConfigTripleTo(p);
+        }
+    }
+
+    // 四 payload 组合（use_tpa + templates + media cap + easybot）：JOIN 与 broadcast 共用。
+    // media/easybot 是独立能力 type——旧客户端安全丢未知 payload，混版本不会 desync。
+    private static void sendServerConfigTripleTo(ServerPlayerEntity player) {
+        ServerPlayNetworking.send(player,
+            new ConfigSyncPayload(useTpa));
+        ServerPlayNetworking.send(player, buildConfigV2());
+        ServerPlayNetworking.send(player,
+            new MediaCapPayload(mediaEnabled));
+        ServerPlayNetworking.send(player,
+            new EasyBotConfigPayload(easyBotCompat));
+    }
+
+    private static ConfigSyncV2Payload buildConfigV2() {
+        return new ConfigSyncV2Payload(useTpa, new ArrayList<>(chatTemplates),
+            new ArrayList<>(whisperTemplates), templateDebug);
+    }
+
+    // Server-side state accessors for the command handler
+    public static boolean useTpa() { return useTpa; }
+    public static boolean historyEnabled() { return historyEnabled; }
+    public static boolean templateDebug() { return templateDebug; }
+    public static boolean mediaEnabled() { return mediaEnabled; }
+    public static boolean mediaAutoClean() { return mediaAutoClean; }
+    public static boolean easyBotCompat() { return easyBotCompat; }
+    public static boolean groupsEnabled() { return groupsEnabled; }
+    public static int groupMaxCount() { return groupMaxCount; }
+    public static int groupMaxMembers() { return groupMaxMembers; }
+    public static boolean groupCreateOpOnly() { return groupCreateOpOnly; }
+    public static List<String> chatTemplates() { return chatTemplates; }
+    public static List<String> whisperTemplates() { return whisperTemplates; }
+    public static void setTemplates(List<String> chat, List<String> whisper, boolean debug) {
+        chatTemplates = chat;
+        whisperTemplates = whisper;
+        templateDebug = debug;
+    }
+
+    private static void addToHistory(HistoryPayload.HistoryEntry entry) {
+        historyBuffer.addLast(entry);
+        while (historyBuffer.size() > HISTORY_MAX)
+            historyBuffer.removeFirst();
+    }
+
+    private static List<String> extractMentions(String text, int playerCount) {
+        if (playerCount <= 1) return Collections.emptyList();
+        List<String> mentions = new ArrayList<>();
+        Matcher m = MENTION_PATTERN.matcher(text);
+        while (m.find()) mentions.add(m.group(1));
+        return mentions;
+    }
+}
