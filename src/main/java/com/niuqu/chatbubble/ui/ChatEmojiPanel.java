@@ -19,6 +19,26 @@ public class ChatEmojiPanel {
     private static final int EMOTE_SLOT = 26;
     private static final int EMOTE_COLS = 5;
 
+    /**
+     * Emotes whose file name says they are animated, so the grid can mark them.
+     * Keyed by path + last-modified because a replacement file reuses the name;
+     * resolved from the extension rather than a content probe, which would
+     * download every emote just to draw a badge.
+     */
+    private static final java.util.Map<String, Boolean> EMOTE_ANIMATED = new java.util.HashMap<>();
+
+    private static boolean isAnimatedEmote(java.io.File f) {
+        String key = f.getPath() + "|" + f.lastModified();
+        Boolean cached = EMOTE_ANIMATED.get(key);
+        if (cached != null) return cached;
+        String n = f.getName().toLowerCase(java.util.Locale.ROOT);
+        boolean animated = n.endsWith(".gif") || n.endsWith(".webp") || n.endsWith(".apng");
+        if (EMOTE_ANIMATED.size() > 256) EMOTE_ANIMATED.clear();
+        EMOTE_ANIMATED.put(key, animated);
+        return animated;
+    }
+
+
     // 面板宽度自适应：聊天面板按固定物理宽设计（6x 时 panelW 收缩到 ~166），
     // 表情面板若固定 170 逻辑宽会反超面板 → clamp 边界反转 → 溢出屏幕左边。
     // 收缩到 panelW-4（保证 clamp 右界 ≥ 左界），最小 100。
@@ -165,11 +185,13 @@ public class ChatEmojiPanel {
                     ex, ey, EMOTE_SLOT - 1, EMOTE_SLOT - 1, alpha);
             if (i < emotes.size()) {
                 java.io.File f = emotes.get(i);
-                // 2.4.10: GIF/WebP 自定义表情走逐帧动画；静态图回退 EmoteStore 纹理
-                var anim = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadFile(f);
-                var animFrame = anim != null && anim.ready() ? anim.texture() : null;
-                net.minecraft.resources.ResourceLocation tex = animFrame != null
-                    ? animFrame : EmoteStore.texture(f);
+                // The panel shows a still thumbnail, not the animation. A 26px
+                // slot is far too small to read a GIF in, and with the frame cap
+                // now at 120 an animating 32-slot grid would cost real frame time
+                // and GPU memory for something nobody is looking at. Sending the
+                // emote still animates in the message, where the frame is big
+                // enough to matter.
+                net.minecraft.resources.ResourceLocation tex = EmoteStore.texture(f);
                 if (tex != null)
                     com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, tex,
                         ex + 4, ey + 4, EMOTE_SLOT - 8, EMOTE_SLOT - 8, alpha);
@@ -177,6 +199,14 @@ public class ChatEmojiPanel {
                     g.drawString(font, Component.literal("?"), ex + EMOTE_SLOT / 2 - 3,
                         ey + (EMOTE_SLOT - font.lineHeight) / 2,
                         ChatBubbleTheme.alphaBlend(c.textMuted(), a255), false);
+                // Badge: this one is animated once sent (the thumbnail cannot say so).
+                if (isAnimatedEmote(f)) {
+                    String dot = "GIF";
+                    int dw = font.width(dot);
+                    g.drawString(font, Component.literal(dot),
+                        ex + EMOTE_SLOT - dw - 5, ey + EMOTE_SLOT - font.lineHeight - 3,
+                        ChatBubbleTheme.alphaBlend(c.textSecondary(), a255), false);
+                }
                 if (hover) {
                     com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g,
                         com.niuqu.chatbubble.texture.UiTextureManager.rl(com.niuqu.chatbubble.texture.UiElement.CLOSE_BG),
