@@ -32,8 +32,8 @@
 
   "official": {
     "mappings": "official",
-    "populated": false,
-    "note": "映射层：Forge / NeoForge 共用的 Mojang 官方名代码。Fabric 走 Yarn，不挂这层，自己在平台目录保留同路径孪生副本。wave-2 填充时把 populated 翻成 true。"
+    "populated": true,
+    "note": "映射层：Forge / NeoForge 共用的 Mojang 官方名代码（22 main + 3 test，全部来自「Forge 与 Neo 逐字相同、只有 Fabric 不同」的那一批）。Fabric 走 Yarn，不挂这层，自己在平台目录保留同路径孪生副本（由孪生守卫盯着）。"
   },
 
   "1.21+": {
