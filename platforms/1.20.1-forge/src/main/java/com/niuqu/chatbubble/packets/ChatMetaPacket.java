@@ -65,4 +65,9 @@ public class ChatMetaPacket {
         );
         ctx.get().setPacketHandled(true);
     }
+
+    /** Mention list, exposed so the decode-bound test can assert the cap. */
+    public List<String> mentionTargets() {
+        return mentionTargets;
+    }
 }

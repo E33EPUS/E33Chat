@@ -417,9 +417,16 @@ public class ChatBubbleConfig {
         CLIENT_CONFIG = builder.build();
     }
 
+    /** Test seam: ModConfigSpec/ForgeConfigSpec values throw until a config is
+     *  loaded, so headless tests stub the pattern list. */
+    public static java.util.function.Supplier<java.util.List<String>> sidebarHidePatternsSupplier =
+        () -> new java.util.ArrayList<>(SIDEBAR_HIDE_PATTERNS.get());
+
     public static boolean isSidebarHidden(String name) {
         if (name == null || name.isEmpty()) return false;
-        for (String pattern : SIDEBAR_HIDE_PATTERNS.get()) {
+        java.util.List<String> patterns = sidebarHidePatternsSupplier.get();
+        if (patterns == null) return false;
+        for (String pattern : patterns) {
             if (pattern == null || pattern.isBlank()) continue;
             if (com.niuqu.chatbubble.chat.WildcardPatterns.matches(name, pattern)) return true;
         }

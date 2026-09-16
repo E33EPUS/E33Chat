@@ -64,6 +64,19 @@ public final class DiskMediaStore {
         return (int) ((size + CHUNK_BYTES - 1) / CHUNK_BYTES);
     }
 
+    /** Upper bound on a legitimately advertised chunk count, derived from the
+     *  per-file limit. The client uses this to bound its reassembly array: the
+     *  count arrives off the wire, so an unclamped value lets one hostile
+     *  response allocate an arbitrarily large array. */
+    public static int maxTotalChunks() {
+        return totalChunksFor(MAX_SINGLE_BYTES);
+    }
+
+    /** Whether a wire-advertised chunk count is plausible for one file. */
+    public static boolean isValidChunkCount(int totalChunks) {
+        return totalChunks >= 1 && totalChunks <= maxTotalChunks();
+    }
+
     /** First chunk: validate size/quota and create the session. Null on success, else error reason. */
     public synchronized String beginUpload(long uploadId, String playerName, int totalChunks,
                                            long totalBytes, String contentType) {

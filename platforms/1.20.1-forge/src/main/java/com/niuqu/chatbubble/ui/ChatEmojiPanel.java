@@ -50,6 +50,16 @@ public class ChatEmojiPanel {
         return Math.max(1, (pw - 8) / SLOT);
     }
 
+    /** Grid column for a click, or -1 when the point lands in the panel's own
+     *  padding band on either edge. Plain integer division maps that band onto
+     *  column 0 or onto the next row's first cell, which inserted the wrong
+     *  emote on narrow panels. */
+    static int gridColumn(int mx, int px, int cellSize, int cols) {
+        if (cellSize <= 0 || cols <= 0) return -1;
+        int col = (mx - px - 4) / cellSize;
+        return (col < 0 || col >= cols) ? -1 : col;
+    }
+
     // 弹层 x 夹在聊天面板内且不超屏幕左右（表情/快捷/搜索共用模式）
     private static int clampX(int px, int pw, int panelX, int panelW) {
         int screenW = net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScaledWidth();
@@ -316,19 +326,16 @@ public class ChatEmojiPanel {
         int cy = py + TAB_H + 1;
         if (isKaomoji) {
             int cw = (pw - 8) / KAO_COLS;
-            int col = (mx - px - 4) / cw;
+            int col = gridColumn(mx, px, cw, KAO_COLS);
+            if (col < 0) return null;
             int row = (my - cy - 2 + scroll) / KAO_ITEM_H;
-            // The right edge of a shrunken panel is padding, not a grid cell:
-            // integer division lets col reach KAO_COLS there, and the unclamped
-            // index then wrapped onto the next row's first item.
-            if (col < 0 || col >= KAO_COLS) return null;
             int idx = row * KAO_COLS + col;
             if (idx >= 0 && idx < KAO.length) return KAO[idx];
         } else if (isCustom) {
             int cols = Math.max(1, (pw - 8) / EMOTE_SLOT);
             java.util.List<java.io.File> emotes = EmoteStore.list();
-            int col = (mx - px - 4) / EMOTE_SLOT;
-            if (col < 0 || col >= cols) return null;
+            int col = gridColumn(mx, px, EMOTE_SLOT, cols);
+            if (col < 0) return null;
             int row = (my - cy - 2 + scroll) / EMOTE_SLOT;
             int idx = row * cols + col;
             if (idx < 0) return null;
@@ -345,10 +352,8 @@ public class ChatEmojiPanel {
             return null;
         } else {
             int cols = gridCols(pw);
-            int col = (mx - px - 4) / SLOT;
-            // Same padding-band guard as the emote grid: col can reach cols on
-            // the shrunken right edge and land on the next row's first emoji.
-            if (col < 0 || col >= cols) return null;
+            int col = gridColumn(mx, px, SLOT, cols);
+            if (col < 0) return null;
             int row = (my - cy - 2 + scroll) / SLOT;
             int idx = row * cols + col;
             if (idx >= 0 && idx < EMOTES.length) return EMOTES[idx];

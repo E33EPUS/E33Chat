@@ -281,13 +281,27 @@ def check_pinned_equal(pinned: dict) -> None:
     """钉等清单：同一路径在多个平台各有一份，内容必须逐字相同（行尾无关）。
 
     清单里的每一项都是「本该进 shared/ 或映射层，暂时进不去」的显式状态 ——
-    有闸盯着，它们才不会悄悄漂移。哪天消掉一条，就从清单里删掉它。"""
+    有闸盯着，它们才不会悄悄漂移。哪天消掉一条，就从清单里删掉它。
+
+    条目可以是字符串（全部平台互等），也可以是 {"path": ..., "platforms": [...]} ——
+    后者用于 Fabric 有 Yarn 孪生、内容本就不同的文件：只在列出的平台之间要求逐字相同。"""
     items = pinned.get("pinned", [])
     if not items:
         fail("versions/pinned-equal.json 的 pinned 清单是空的 —— 要么这条制度废了，要么布局变了")
         return
-    platforms = sorted(p.name for p in (ROOT / "platforms").iterdir() if p.is_dir())
-    for rel in items:
+    all_platforms = sorted(p.name for p in (ROOT / "platforms").iterdir() if p.is_dir())
+    for item in items:
+        if isinstance(item, str):
+            rel, scope = item, None
+        elif isinstance(item, dict) and isinstance(item.get("path"), str):
+            rel, scope = item["path"], item.get("platforms")
+            if not isinstance(scope, list) or not scope:
+                fail(f"钉等清单 {rel} 的对象条目缺少非空 platforms 列表 —— 限定不了范围就等于没钉")
+                continue
+        else:
+            fail(f"钉等清单有条目既不是字符串也不是 {{path, platforms}} 对象：{item!r}")
+            continue
+        platforms = [p for p in (scope if scope is not None else all_platforms) if p in all_platforms]
         copies = {p: ROOT / "platforms" / p / rel for p in platforms if (ROOT / "platforms" / p / rel).is_file()}
         if len(copies) < 2:
             continue  # 只剩一份就没有「漂移」可言（可能是清理到一半，等下一波收编）
@@ -295,7 +309,8 @@ def check_pinned_equal(pinned: dict) -> None:
         distinct = {v for v in digests.values()}
         if len(distinct) > 1:
             where = ", ".join(sorted(digests))
-            fail(f"钉等清单里的 {rel} 在各平台内容不一致（{where}）—— "
+            scope_note = "" if scope is None else "（限定平台：" + ", ".join(scope) + "）"
+            fail(f"钉等清单里的 {rel}{scope_note} 在各平台内容不一致（{where}）—— "
                  f"要么把改动同步到每一份，要么把它收编进 shared//映射层然后从清单删掉")
 
 

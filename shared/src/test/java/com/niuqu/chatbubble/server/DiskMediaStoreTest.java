@@ -165,4 +165,21 @@ class DiskMediaStoreTest {
         store.cleanupExpiredThrottled();
         assertEquals(10, store.sizeOf(second));
     }
+
+    // ---- wire chunk-count bound: the client uses this to size its
+    // reassembly array from a count that arrives over the network ----
+
+    @Test void chunkCountBoundMatchesThePerFileLimit() {
+        assertEquals(DiskMediaStore.totalChunksFor(DiskMediaStore.MAX_SINGLE_BYTES),
+            DiskMediaStore.maxTotalChunks());
+        assertTrue(DiskMediaStore.isValidChunkCount(1));
+        assertTrue(DiskMediaStore.isValidChunkCount(DiskMediaStore.maxTotalChunks()));
+    }
+
+    @Test void implausibleChunkCountsAreRejected() {
+        assertFalse(DiskMediaStore.isValidChunkCount(0));
+        assertFalse(DiskMediaStore.isValidChunkCount(-1));
+        assertFalse(DiskMediaStore.isValidChunkCount(DiskMediaStore.maxTotalChunks() + 1));
+        assertFalse(DiskMediaStore.isValidChunkCount(Integer.MAX_VALUE));
+    }
 }

@@ -4,6 +4,9 @@
     "它们本该进 shared/ 或映射层，暂时进不去，原因各不相同 —— 这里把「暂时」",
     "从靠自觉变成有闸盯着的显式状态。哪天消掉一条，就从清单里删掉它。",
     "",
+    "条目两种写法：字符串 = 全部平台互等；{path, platforms} = 只在列出的平台间互等",
+    "（Fabric 有 Yarn 孪生副本、内容本就不同的文件，只钉 Forge 与 NeoForge 两份）。",
+    "",
     "ChatBars / ChatContextMenus / ChatLayout：Forge 与 Neo 逐字相同，但 Fabric",
     "没有同名类（功能并进它的 ChatBubbleScreen 了）—— 进映射层就欠 Fabric 一份",
     "不存在的孪生，所以在两端钉等。等 Fabric 侧拆出同名类即可转正进层。",
@@ -12,7 +15,13 @@
     "平台类（render.Animation / store.ChatMessageStore），shared/ 不许向下依赖 ——",
     "在三端钉等。等引用解耦（facade 化）即可进 shared/。",
     "",
-    "5 个 render 测试：Forge 与 Neo 逐字相同，Fabric 没有对应测试 —— 两端钉等。"
+    "5 个 render 测试：Forge 与 Neo 逐字相同，Fabric 没有对应测试 —— 两端钉等。",
+    "",
+    "2026-09-16 审计补充：EasyBotParser / AnimatedImageLoader / UploadQueue /",
+    "GroupBrowserPanel 与 4 份测试在 Forge/Neo 逐字相同（Fabric 有 Yarn 孪生，",
+    "内容本就不同）。它们引用平台类或属于平台工程，进不了 shared/，而审计里 Neo",
+    "的漏修恰恰发生在这类「两份手抄、没有闸」的文件上 —— 补进钉等后任一端单方面",
+    "改动立刻报红。"
   ],
 
   "pinned": [
@@ -21,10 +30,42 @@
     "src/main/java/com/niuqu/chatbubble/render/ChatLayout.java",
     "src/main/java/com/niuqu/chatbubble/render/AnimationStyle.java",
     "src/main/java/com/niuqu/chatbubble/chat/GroupChannelState.java",
+    {
+      "path": "src/main/java/com/niuqu/chatbubble/chat/capture/EasyBotParser.java",
+      "platforms": ["1.20.1-forge", "1.21.1-neoforge"]
+    },
+    {
+      "path": "src/main/java/com/niuqu/chatbubble/image/AnimatedImageLoader.java",
+      "platforms": ["1.20.1-forge", "1.21.1-neoforge"]
+    },
+    {
+      "path": "src/main/java/com/niuqu/chatbubble/image/UploadQueue.java",
+      "platforms": ["1.20.1-forge", "1.21.1-neoforge"]
+    },
+    {
+      "path": "src/main/java/com/niuqu/chatbubble/ui/GroupBrowserPanel.java",
+      "platforms": ["1.20.1-forge", "1.21.1-neoforge"]
+    },
     "src/test/java/com/niuqu/chatbubble/render/ChatBubbleScreenLayoutTest.java",
     "src/test/java/com/niuqu/chatbubble/render/ChatContextMenusTest.java",
     "src/test/java/com/niuqu/chatbubble/render/ChatMessageRendererTest.java",
     "src/test/java/com/niuqu/chatbubble/render/ChatScrollbarTest.java",
-    "src/test/java/com/niuqu/chatbubble/render/ChatSidebarTest.java"
+    "src/test/java/com/niuqu/chatbubble/render/ChatSidebarTest.java",
+    {
+      "path": "src/test/java/com/niuqu/chatbubble/BracketCodecTest.java",
+      "platforms": ["1.20.1-forge", "1.21.1-neoforge"]
+    },
+    {
+      "path": "src/test/java/com/niuqu/chatbubble/chat/EasyBotParserTest.java",
+      "platforms": ["1.20.1-forge", "1.21.1-neoforge"]
+    },
+    {
+      "path": "src/test/java/com/niuqu/chatbubble/image/ImageUploaderTest.java",
+      "platforms": ["1.20.1-forge", "1.21.1-neoforge"]
+    },
+    {
+      "path": "src/test/java/com/niuqu/chatbubble/store/ChatMessageGroupPersistenceTest.java",
+      "platforms": ["1.20.1-forge", "1.21.1-neoforge"]
+    }
   ]
 }

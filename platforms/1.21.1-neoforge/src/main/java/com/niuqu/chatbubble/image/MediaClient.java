@@ -101,7 +101,7 @@ public final class MediaClient {
             // the client. The legitimate max is whatever the server allows per
             // upload (8 MB in 512 KB chunks).
             int totalChunks = payload.totalChunks();
-            if (totalChunks < 1 || totalChunks > DiskMediaStore.totalChunksFor(DiskMediaStore.MAX_SINGLE_BYTES)) {
+            if (!DiskMediaStore.isValidChunkCount(totalChunks)) {
                 failFetch(id, "media chunk count out of range: " + id);
                 return;
             }
