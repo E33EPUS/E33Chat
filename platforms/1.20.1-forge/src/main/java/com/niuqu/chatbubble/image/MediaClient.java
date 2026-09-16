@@ -53,7 +53,7 @@ public final class MediaClient {
     private static final Map<String, byte[]> OWN_UPLOADS = new ConcurrentHashMap<>();
     private static final java.util.Deque<String> OWN_UPLOAD_ORDER = new java.util.ArrayDeque<>();
 
-    private static void rememberOwnUpload(String mediaId, byte[] bytes, String contentType) {
+    private static void rememberOwnUpload(String mediaId, byte[] bytes) {
         if (mediaId == null || bytes == null || bytes.length == 0) return;
         synchronized (OWN_UPLOAD_ORDER) {
             OWN_UPLOADS.put(mediaId, bytes);
@@ -161,7 +161,7 @@ public final class MediaClient {
         try {
             String mediaId = done.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             // Keep our own bytes: the local view then needs no download at all.
-            if (mediaId != null) rememberOwnUpload(mediaId, bytes, contentType);
+            if (mediaId != null) rememberOwnUpload(mediaId, bytes);
             return mediaId != null ? "e33chat://media/" + mediaId : null;
         } catch (Exception e) {
             UPLOADS.remove(uploadId);

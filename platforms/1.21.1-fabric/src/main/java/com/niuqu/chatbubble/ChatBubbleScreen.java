@@ -98,7 +98,9 @@ public class ChatBubbleScreen extends ChatScreen {
     private static final int ICON_S = 14;
 
     public static Identifier iconTex(String name) {
-        String theme = ChatBubbleClientSetup.config().theme().toLowerCase();
+        // Normalize like theme(): a hand-edited invalid value must not 404
+        // every icon (UiTextureManager already falls back the same way).
+        String theme = "light".equalsIgnoreCase(ChatBubbleClientSetup.config().theme()) ? "light" : "dark";
         return Identifier.of("e33chat", "textures/gui/" + theme + "/" + name + ".png");
     }
 

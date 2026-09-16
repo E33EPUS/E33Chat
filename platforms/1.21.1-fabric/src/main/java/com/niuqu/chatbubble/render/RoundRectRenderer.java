@@ -69,6 +69,10 @@ public class RoundRectRenderer {
         float gr = (argb >> 8 & 0xFF) / 255f;
         float b = (argb & 0xFF) / 255f;
 
+        // Save/restore the caller's blend state (GL hygiene, same as
+        // ColoredTextureRenderer): an unconditional disableBlend at the end
+        // would corrupt a caller that renders inside blend-off.
+        boolean blendWasEnabled = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_BLEND);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(() -> sh);
@@ -80,7 +84,7 @@ public class RoundRectRenderer {
         bb.vertex(pose, x2, y1, 0).color(r, gr, b, a);
         BufferRenderer.drawWithGlobalProgram(bb.end());
 
-        RenderSystem.disableBlend();
+        if (!blendWasEnabled) RenderSystem.disableBlend();
     }
 
 }

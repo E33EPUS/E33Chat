@@ -322,7 +322,7 @@ public class ChatBubbleScreen extends ChatScreen {
         suggestions.updateCommandInfo();
 
 
-        sidebarSearchBox = new EditBox(font, 2, 5, SIDEBAR_W - 5, 14, Component.literal(""));
+        sidebarSearchBox = new EditBox(font, 2, 5, SIDEBAR_W - 5, SIDEBAR_SEARCH_H, Component.literal(""));
         sidebarSearchBox.setMaxLength(20);
         sidebarSearchBox.setBordered(false);
         sidebarSearchBox.setTextColor(editColor);
@@ -941,7 +941,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 sidebarX, sidebarOpen || sidebarAnimating, sidebarSearchBox, sidebarScrollOffset)) {
             // Search box
             int searchY = 2;
-            int searchH = 14;
+            int searchH = SIDEBAR_SEARCH_H;
             if (mouseY >= searchY && mouseY <= searchY + searchH) {
                 boolean handled = sidebarSearchBox.mouseClicked(origX, mouseY, button);
                 setFocused(sidebarSearchBox);
