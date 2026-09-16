@@ -220,10 +220,16 @@ public final class AnimatedImageLoader {
         }
     }
 
-    /** Drop every cached animation and release its textures (disconnect / world switch). */
+    /** Drop every cached animation and release its textures (disconnect / world
+     *  switch). Entries still decoding are marked retired first: otherwise their
+     *  load task would register a full frame set after the map is cleared and
+     *  nothing would ever release it. */
     public static void resetAll() {
         synchronized (CACHE) {
-            for (Entry entry : CACHE.values()) releaseTextures(entry);
+            for (Entry entry : CACHE.values()) {
+                entry.retired = true;
+                releaseTextures(entry);
+            }
             CACHE.clear();
         }
     }
@@ -330,6 +336,12 @@ public final class AnimatedImageLoader {
                 return;
             }
             MinecraftClient.getInstance().execute(() -> {
+                if (entry.retired) {
+                    // The cache was cleared while this decode was in flight;
+                    // registering now would leak the whole frame set.
+                    closeFrames(decoded.frames());
+                    return;
+                }
                 try {
                     Identifier[] ids = new Identifier[decoded.frames().size()];
                     for (int i = 0; i < decoded.frames().size(); i++) {
@@ -596,6 +608,8 @@ public final class AnimatedImageLoader {
         private volatile long sizeBytes;
         private volatile long frameStart;
         private volatile int frameIndex;
+        /** Set when the cache dropped this entry; a late load must not register. */
+        private volatile boolean retired;
 
         private Entry(String url) {
             this.url = url;
