@@ -1,5 +1,77 @@
 # Changelog
 
+## v2.4.13
+
+**本版为全量代码审计（7 域并行 + 逐项复核）后的修复版：P0=0，P1×7、P2×20 全部修复，附测试补齐与守卫加固。**
+
+**修复：恶意数据包可让对端无限分配内存（P1，5 处路径）**
+- 根因：网络解码普遍是「读计数 → new ArrayList<>(count)」家族，计数来自网络且不设上限——`ChatMetaPacket`（Forge 手写）、`ConfigSyncV2Payload`（Neo/Fabric 手写）、`ServerConfigDto`（三端；1.20.1 原版 `readCollection` 经反编译核实预分配同样无上限）、`MediaClient` 的 `new byte[totalChunks()][]`（三端）。恶意服务器一包打崩客户端、恶意客户端一包打崩服务器
+- 修复：列表计数钳 200/256（条目数本就只有个位数量级）、chunk 数经共享的 `DiskMediaStore.isValidChunkCount` 校验、重组体交付前校验 ≤8MB；超出范围的媒体串/块长度**直接抛出拒收整包**（此前 Neo 的做法是钳制后继续读，残留字节使后续字段整体错位）
+- 顺带修复 NeoForge 媒体串写读不对称：写的是字符数、读的是字节数——错误文案一旦非 ASCII 即整体错位（当前恒 ASCII，属潜伏雷）
+
+**修复：NeoForge 端连发服务器中转 JPEG 双倍消耗下载额度（P1）**
+- 根因：2.4.12 给 `animatedEntry` 加的「jpg/jpeg/bmp 不做内容探测」短路只落在 Forge 与 Fabric，Neo 端漏掉——每张服务器中转的 jpg 每次进渲染路径都白发一次探测下载，正是 2.4.12「发图人自己的图最先失败」病灶的残留
+- 修复：短路与注释原样移植；与 2.4.11 的教训互为镜像——**修复必须以协议/逻辑为单位改三端，不以「出事的端」为单位**
+
+**修复：Fabric 切换主题永久丢失面板背景图与取景（P1 数据丢失）**
+- 根因：`ChatBubbleConfig.withTheme` 的尾三参硬编码 `("", 100, null)`，把背景图/不透明度/取景一并清空；聊天内设置菜单切主题会立即落盘，重启也回不来
+- 修复：改为透传；新增 `ChatBubbleConfigWithMethodsTest` 用反射断言「每个 with* 只改自己的字段」——这个 bug 正是缺这条测试的直接代价
+
+**修复：Fabric `/e33chat template` 保存后悄悄关闭服务器托管图片（P1）**
+- 根因：命令落盘时 `new ServerConfig()` 只填 5 个字段；`media_enabled` 是原始类型 boolean，未赋值即 false 被 Gson 写进文件（其余包装类型 null 被省略、读回回退默认，唯独它被毒化）——改过一次常用语，重启后媒体直传静默失效
+- 修复：照 GUI 保存链从现值补齐全部 12 个字段
+
+**修复：群目录超过 200 个时数据错位（P1）**
+- 根因：Forge 对 counts 前置钳 200、Neo 对三个列表全部前置钳 200——多出的条目字节留在缓冲区，后续字段从残留字节开始解析，错位或整包丢弃；`group_max_count` 合法范围是 1–500，配到 201+ 即触发
+- 修复：三端统一为 Fabric 的「全读后截断」（预分配另有 1024 上限防恶意计数）
+
+**修复：动图纹理永久占用显存（P1 泄漏）**
+- 根因：`AnimatedImageLoader` 的缓存无上限无淘汰，每帧一张 `DynamicTexture` 注册后从不释放；断线钩子也不清理。对照静态图加载器本就有 64 条 LRU + 释放的先例
+- 修复：缓存改为访问序 LRU（24 条 / 192 帧双上限），逐出与断线 `resetAll` 时释放纹理；generic 解码失败路径补 `closeFrames`（此前只有 GIF 路径有）；`resetAll` 与仍在途的解码任务竞态已堵（先标记 retired，迟到的注册就地释放）
+- 附：侧栏背景/分隔线高度硬编码 999 改为真实屏幕高——GUI 高度超过 999（1080p+ @ 缩放 1）时下半截直接消失透出世界
+
+**修复：清空历史两击确认永不过期（P2 时钟错位）**
+- 根因：武装时存 `System.currentTimeMillis()`（epoch），过期检查收到的却是游戏单调钟——差值恒为巨负，1 秒窗口永不失效，隔多久再点都直接清空
+- 修复：`handleClick` 增加与 tick 同源的 `now` 参数，武装与确认在同一时钟域比对；`beginPopupClose` 修过的同类坑至此有三处沉淀（统一 UiClock 的门面方案留在下一波）
+
+**修复：弹层关闭后立刻重开被旧计时器误关（P2）**
+- 根因：重开路径只置 `visible = true` 不清 `closeStart`，150ms 窗口内 tick 的 `finishPopupClose` 到期把刚重开的弹层连同输入框一起隐藏。群组弹层 2.4.11 修过并留了注释，搜索/常用语两处没照做
+- 修复：重开处统一清零，对齐群组弹层写法
+
+**修复：横幅头像淡入比文字更暗（P2 alpha 平方）**
+- 根因：`setShaderColor` 包住 `drawPlayerHead`，而后者已按顶点色乘 alpha——动画窗口内头像实际是 alpha²
+- 修复：删掉包裹（与 Fabric 对齐）；这是「setShaderColor 对 blit 无效」史实坑的进化残留——对带色路径它不是无效，是双重生效
+
+**修复：表情面板右侧空白点击误发（P2）**
+- 根因：命中用整数除法算列号且不钳上界，GUI 缩放压缩面板后右侧 padding 带整除成「下一行第 0 列」——点空白发错表情/图片
+- 修复：列号钳制抽成可测的 `gridColumn`；滚动高度改用真实面板宽度推导（此前固定 5/9 列，窄面板滚不到底）
+
+**加固：群组数据与服务端配置的持久化（P2）**
+- 群组 JSON 改为写临时文件 + 原子 move；保存失败时**向玩家回报**而不是照常回「已创建」；损坏文件保留 `.broken-<时间戳>` 备份而不是被空内存态覆盖（此前的失败链：截断 → 加载为空 → 下次保存清零全服群组）
+- Fabric `ServerConfigManager` 同步补齐：保存失败记日志（原来静默吞）、损坏文件备份、原子写
+- Fabric GUI 保存后补发群组目录广播（Forge/Neo 本有）；`sendGroupList` 补 ensureLoaded（JOIN 早于握手时不再发空目录）；Forge/Neo 的 `bad_name`/`exists` 报错补上格式参数（此前玩家看到裸 %s）
+
+**加固：单机切换世界的残留（P2）**
+- Fabric `configLoaded` 停服时复位——同一客户端会话进第二个世界不再沿用第一个世界的服务端配置
+- 三端 `pendingQuotes`/`historyBuffer` 停服清空——A 档的历史不再作为「聊天记录」下发给 B 档、残留引用不再错误附着
+
+**修复：带频道前缀的普通聊天丢失样式（P2，行为面）**
+- 根因：EasyBot 冒号形状（`[标签] 名字：内容`）为反棘轮不做让位，但认领后名字退化为纯文本字面量，`[世界] Steve` 的频道/称号/颜色前缀全丢——`easy_bot_compat` 默认开启放大了此面
+- 修复：命中**在线真实玩家**时改用原行重建带样式显示名（不让位的反棘轮语义保留）；真 QQ 转发不受影响
+- 附：`isTemplateNameKnown` 的 `contains()` 守卫改词边界匹配（转发正文提到自己名字不再被当已知玩家）；`seenPlayers` 断线清空（跨服昵称残影不再污染归因）
+
+**修复：侧栏通配符屏蔽从未生效 / Fabric 含括号规则崩溃（P2）**
+- 根因：Forge/Neo 先 `Pattern.quote` 再替换 `*`——引号产物里 `*` 前没有反斜杠，替换永不命中，`Islot_*` 只匹配字面量（tooltip 承诺的通配从未兑现）；Fabric 反向裸拼用户文本进正则，`[`/`(` 直接抛 `PatternSyntaxException`
+- 修复：三端统一委托共享层 `WildcardPatterns`（字面量段引号 + 通配符段拼接），附 7 例单测钉住语法
+
+**开发与守卫**
+- `TemplateMatcher`（模板解析，「最强证据」层）与测试从三份手抄收编进 `shared/`；`MessagePresentation` 热路径两枚 Pattern 静态化（每条聊天线原需重复编译）
+- 钉等清单 10 → 18 条：审计里 Neo 漏修高发的 `EasyBotParser`/`AnimatedImageLoader`/`UploadQueue`/`GroupBrowserPanel` 及 4 份测试纳入 Forge↔Neo 钉等；`verify_targets.py` 支持 `{path, platforms}` 平台限定条目（Fabric Yarn 孪生内容本就不同）
+- 新增 6 个测试类：`PacketDecodeBoundsTest`（三端，恶意长度前缀不得无界分配、越界拒收而非静默钳制）、`GroupManagerValidationTest`（三端，注释声称 unit-tested 实为零测试的纯函数）、`ChatEmojiPanelGridTest`（三端）、`SidebarHidePatternTest`（三端，Forge/Neo 经新增 `sidebarHidePatternsSupplier` 测试缝）、`WildcardPatternsTest`（共享）、`DiskMediaStoreTest` 扩 chunk 上限用例
+- 杂项：Neo `ChatMeta` 提及列表改显式 200 上限（库列表编解码允许 65536）、Fabric 文件选择器补 `.gif`、Fabric 非法 theme 值图标不再 404、`RoundRectRenderer` 三端 blend 状态保存/恢复、4 个缺失翻译键补齐、过期限流注释修正、Neo 死常量与 Forge 死参数清理
+
+**不修与登记**：协议版本号恒 "1" 未 bump（2.4.13 无 wire 字段变更，bump 会误拒兼容的 2.4.10–2.4.12 对端；策略已写入注释，下次 wire 变更升 "2"）；恶意输入类不提供实机用例（自动化已钉）；issue #8 补全点击埋点与药水 HUD 泄漏仍等实机日志。
+
 ## v2.4.12
 
 **修复：发出去的 GIF 不会动（2.4.10 功能的一半没兑现）**
