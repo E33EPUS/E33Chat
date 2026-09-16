@@ -41,7 +41,10 @@ public final class TemplateLayer {
         var player = MinecraftClient.getInstance().player;
         if (player != null) {
             String myName = player.getName().getString();
-            if (!myName.isEmpty() && (name.equals(myName) || name.contains(myName))) return true;
+            // Word-boundary match, not contains(): a template that captures a
+            // relay body mentioning my name must not count as a known player.
+            if (!myName.isEmpty() && (name.equals(myName)
+                    || com.niuqu.chatbubble.store.EchoTracker.containsWholeName(name, myName))) return true;
         }
         return ChatClassifier.resolveOnlinePlayer(name) != null || ChatMessageStore.findSeenUuid(name) != null;
     }

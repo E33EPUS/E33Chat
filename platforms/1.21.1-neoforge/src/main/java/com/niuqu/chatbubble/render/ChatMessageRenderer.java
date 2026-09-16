@@ -137,15 +137,21 @@ public final class ChatMessageRenderer {
         return BracketCodec.parseOrExtract(c);
     }
 
-    /** Animated entry for a URL: extension-gated, with the CICode "name=" hint
-     *  supplied because image hosts hand back extension-less URLs; content-probe
-     *  only for the extension-less server media transport (e33chat://media/<id>). */
+    /** Animated entry for a URL: extension-gated; content-probe only for the
+     *  extension-less server media transport (e33chat://media/<id>).
+     *
+     *  The probe is a real download and the server rate-limits those per player,
+     *  so it is paid only when the line leaves any doubt: a CICode carries the
+     *  original file name, and a name ending in .jpg/.jpeg/.bmp can only come
+     *  back static. Probing those burned a download slot per ordinary image —
+     *  twice the quota cost — which is what made the sender's own images fail
+     *  once a couple had been pasted in a row. */
     private static com.niuqu.chatbubble.image.AnimatedImageLoader.Entry animatedEntry(String url, String nameHint) {
         var entry = com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoad(url, nameHint);
         if (entry != null) return entry;
-        return url != null && url.startsWith("e33chat://media/")
-            ? com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, nameHint)
-            : null;
+        if (url == null || !url.startsWith("e33chat://media/")) return null;
+        if (com.niuqu.chatbubble.image.AnimatedImageLoader.definitivelyStill(url, nameHint)) return null;
+        return com.niuqu.chatbubble.image.AnimatedImageLoader.getOrLoadAny(url, nameHint);
     }
 
     /** Still decoding: the static ImageLoader must not win the race yet, or the

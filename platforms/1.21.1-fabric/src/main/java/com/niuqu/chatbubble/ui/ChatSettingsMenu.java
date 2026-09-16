@@ -98,7 +98,10 @@ public class ChatSettingsMenu {
         }
     }
 
-    public int handleClick(int mx, int my, int panelX, int panelW, int barTop, int iconS) {
+    /** @param now same monotonic clock the screen feeds to {@link #maybeExpire}
+     *  (Util.getMillis / getMeasuringTimeMs) — arming with the wall clock made
+     *  the ARM_MS window uncomparable and the confirm unexpired forever. */
+    public int handleClick(int mx, int my, int panelX, int panelW, int barTop, int iconS, long now) {
         if (!visible) return -1;
         int gearX = panelX + 4;
         int iconY = barTop + (ChatBubbleScreen.BAR_H - iconS) / 2;
@@ -121,8 +124,9 @@ public class ChatSettingsMenu {
         int row = (my - py - 2) / ROW_H;
         if (row >= 0 && row < COUNT) {
             if (row == CLEAR_ROW) {
-                if (clearArmed) {
-                    // Confirming second click — close the menu and execute.
+                long armedFor = now - clearArmedAt;
+                if (clearArmed && armedFor >= 0 && armedFor <= ARM_MS) {
+                    // Confirming second click inside the window — close and execute.
                     resetClearArmed();
                     requestClose();
                     return ACTION_CLEAR;
@@ -131,9 +135,9 @@ public class ChatSettingsMenu {
                     // Nothing to clear: keep the menu open, tell the screen to toast.
                     return ACTION_CLEAR_EMPTY;
                 }
-                // Arm the two-click confirm; the menu stays open.
+                // Arm (or re-arm after an expired window); the menu stays open.
                 clearArmed = true;
-                clearArmedAt = System.currentTimeMillis();
+                clearArmedAt = now;
                 return -1;
             }
             resetClearArmed();

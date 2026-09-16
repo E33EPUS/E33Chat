@@ -27,7 +27,10 @@ public class NetworkHandler {
 
     @SubscribeEvent
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        // optional: joining servers without this mod must not be rejected
+        // optional: joining servers without this mod must not be rejected.
+        // The version string follows Forge's PROTOCOL: bump it whenever a
+        // packet's wire shape changes, or a mixed pair connects and then
+        // silently drops undecodable packets. See NetworkHandler there.
         PayloadRegistrar registrar = event.registrar("1").optional();
         registrar.playToServer(QuoteSyncPayload.TYPE, QuoteSyncPayload.STREAM_CODEC, QuoteSyncPayload::handleServer);
         registrar.playToClient(ChatMetaPayload.TYPE, ChatMetaPayload.STREAM_CODEC, ChatMetaPayload::handleClient);

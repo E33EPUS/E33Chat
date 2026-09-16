@@ -24,10 +24,10 @@ public record MediaResponsePayload(String mediaId, int index, int totalChunks, b
             buf.writeByteArray(value.chunk);
         },
         buf -> new MediaResponsePayload(
-            buf.readString(),
+            buf.readString(64),
             buf.readInt(),
             buf.readInt(),
-            buf.readByteArray()
+            buf.readByteArray(com.niuqu.chatbubble.server.DiskMediaStore.CHUNK_BYTES)
         )
     );
 

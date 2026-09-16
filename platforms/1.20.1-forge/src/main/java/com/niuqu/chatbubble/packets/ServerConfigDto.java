@@ -28,6 +28,20 @@ public record ServerConfigDto(boolean useTpa, boolean historyEnabled, boolean te
         buf.writeCollection(dto.whisperTemplates, FriendlyByteBuf::writeUtf);
     }
 
+    /** Preallocation bound: the count comes off the wire, so an unclamped
+     *  collection read lets one hostile packet OOM the receiver (1.20.1's
+     *  readCollection preallocates without a cap). Template lists are a
+     *  handful of entries; both lists end the payload, so leftover entries
+     *  from an oversized count are harmless trailing bytes. */
+    private static final int MAX_LIST_ENTRIES = 256;
+
+    private static List<String> readCappedList(FriendlyByteBuf buf) {
+        int count = Math.min(Math.max(buf.readVarInt(), 0), MAX_LIST_ENTRIES);
+        List<String> out = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) out.add(buf.readUtf());
+        return out;
+    }
+
     public static ServerConfigDto decode(FriendlyByteBuf buf) {
         boolean useTpa = buf.readBoolean();
         boolean history = buf.readBoolean();
@@ -36,8 +50,8 @@ public record ServerConfigDto(boolean useTpa, boolean historyEnabled, boolean te
         boolean autoClean = buf.readBoolean();
         boolean easyBot = buf.readBoolean();
         boolean groups = buf.readBoolean();
-        List<String> chat = new ArrayList<>(buf.readCollection(ArrayList::new, FriendlyByteBuf::readUtf));
-        List<String> whisper = new ArrayList<>(buf.readCollection(ArrayList::new, FriendlyByteBuf::readUtf));
+        List<String> chat = readCappedList(buf);
+        List<String> whisper = readCappedList(buf);
         return new ServerConfigDto(useTpa, history, debug, media, autoClean, easyBot, groups, chat, whisper);
     }
 }

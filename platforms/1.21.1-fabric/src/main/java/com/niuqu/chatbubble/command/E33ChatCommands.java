@@ -306,11 +306,22 @@ public class E33ChatCommands {
         var path = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT)
             .resolve("serverconfig").resolve("e33chat-server.json");
         ServerConfig cfg = new ServerConfig();
+        // Every field must come from the live values: a partial snapshot gets
+        // persisted, and primitives like media_enabled would poison the file
+        // with false (nulls are omitted by Gson and fall back to defaults, a
+        // primitive boolean is not).
         cfg.use_tpa = ChatBubbleMod.useTpa();
         cfg.history_enabled = ChatBubbleMod.historyEnabled();
         cfg.template_debug = ChatBubbleMod.templateDebug();
         cfg.chat_templates = new ArrayList<>(ChatBubbleMod.chatTemplates());
         cfg.whisper_templates = new ArrayList<>(ChatBubbleMod.whisperTemplates());
+        cfg.media_enabled = ChatBubbleMod.mediaEnabled();
+        cfg.media_auto_clean = ChatBubbleMod.mediaAutoClean();
+        cfg.easy_bot_compat = ChatBubbleMod.easyBotCompat();
+        cfg.groups_enabled = ChatBubbleMod.groupsEnabled();
+        cfg.group_max_count = ChatBubbleMod.groupMaxCount();
+        cfg.group_max_members = ChatBubbleMod.groupMaxMembers();
+        cfg.group_create_op_only = ChatBubbleMod.groupCreateOpOnly();
         ServerConfigManager.save(path, cfg);
         ChatBubbleMod.broadcastServerConfig(server);
     }

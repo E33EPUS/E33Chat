@@ -295,6 +295,7 @@
   "e33chat.group.not_owner": "Only the owner can delete [%s]",
   "e33chat.group.already_in": "You are already in group [%s]",
   "e33chat.group.cooldown": "You are sending messages too fast",
+  "e33chat.group.save_failed": "Failed to save group data; check the server disk",
   "e33chat.group.empty": "Message must not be empty",
   "e33chat.group.list_header": "Groups (%s total):",
   "e33chat.group.list_empty": "No groups yet — create the first with /e33chat group create <name>",
@@ -322,5 +323,9 @@
   "e33chat.profile.gamemode": "Mode",
   "e33chat.profile.copy_uuid": "Copy UUID",
   "e33chat.server.groups_enabled": "Enable chat groups",
-  "e33chat.server.groups_enabled.desc": "Turn on in-mod chat groups (client tab strip + member-only routing); stored in serverconfig/e33chat-groups.json"
+  "e33chat.server.groups_enabled.desc": "Turn on in-mod chat groups (client tab strip + member-only routing); stored in serverconfig/e33chat-groups.json",
+  "e33chat.config.upload_field": "Upload field",
+  "e33chat.config.upload_extra": "Upload extra fields",
+  "e33chat.config.upload_response": "Upload response path",
+  "e33chat.config.panel_bg_crop": "Background crop"
 }

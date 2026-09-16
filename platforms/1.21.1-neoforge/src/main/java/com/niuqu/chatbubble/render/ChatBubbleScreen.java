@@ -442,7 +442,7 @@ public class ChatBubbleScreen extends ChatScreen {
         sidebarMaxScroll = ChatSidebar.render(g, font, mouseX, mouseY, c(), panelW,
             msgBottom > 0 ? msgBottom : height - BAR_H, whisperPartner,
             iconTex("public_icon"), iconTex("no_online"), iconTex("private_tip"),
-            sidebarSearchBox, sidebarScrollOffset, sidebarMaxScroll, alpha);
+            sidebarSearchBox, sidebarScrollOffset, sidebarMaxScroll, alpha, height);
         if (sidebarScrollOffset > sidebarMaxScroll) sidebarScrollOffset = sidebarMaxScroll;
     }
 
@@ -865,7 +865,7 @@ public class ChatBubbleScreen extends ChatScreen {
             textSelection.clear();
         }
         if (emojiPanel.visible) {
-            emojiPanel.handleScroll(scrollY);
+            emojiPanel.handleScroll(scrollY, panelW);
             return true;
         }
         if (quickChatPanel.visible) {
@@ -1095,7 +1095,7 @@ public class ChatBubbleScreen extends ChatScreen {
                 return true;
             }
             if (settingsMenu.visible) {
-                int action = settingsMenu.handleClick((int) mouseX, (int) mouseY, panelX, panelW, barTop, ICON_S);
+                int action = settingsMenu.handleClick((int) mouseX, (int) mouseY, panelX, panelW, barTop, ICON_S, net.minecraft.Util.getMillis());
                 if (action == ChatSettingsMenu.ACTION_CLEAR_EMPTY) {
                     showToast("e33chat.toast.history_empty");
                 } else if (action >= 0) {
@@ -2402,6 +2402,9 @@ public class ChatBubbleScreen extends ChatScreen {
                     quickChatInput.setVisible(false);
                 });
                 if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
+                // Reopening must clear a stale close timestamp or the pending close
+                // (finishPopupClose in tick) hides the just-reopened popup again.
+                searchCloseStart = 0;
                 searchPanel.visible = true;
                 searchAnimStart = net.minecraft.Util.getMillis();
                 searchInput.setValue("");
@@ -2413,6 +2416,7 @@ public class ChatBubbleScreen extends ChatScreen {
             case 1: // 常用语
                 if (searchPanel.visible) closeSearchPanel();
                 if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
+                quickCloseStart = 0;
                 quickChatPanel.visible = true;
                 quickAnimStart = net.minecraft.Util.getMillis();
                 quickChatPanel.scrollOffset = 0;

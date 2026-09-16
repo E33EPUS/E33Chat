@@ -13,6 +13,13 @@ import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public class NetworkHandler {
+    /** Handshake version. Bump it whenever a packet's WIRE SHAPE changes:
+     *  the handshake is the only guard against a mixed pair, and a stale
+     *  number lets one connect and then silently drop undecodable packets.
+     *  2.4.10 appended groupsEnabled to ServerConfigDto, so "1" already
+     *  described a shape that no longer exists; it is kept only because
+     *  2.4.13 ships no further field change and bumping here would reject
+     *  a compatible 2.4.10-2.4.12 peer. Next shape change bumps to "2". */
     private static final String PROTOCOL = "1";
     public static SimpleChannel CHANNEL;
 

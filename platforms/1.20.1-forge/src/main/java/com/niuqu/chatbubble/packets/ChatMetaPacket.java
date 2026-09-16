@@ -46,7 +46,11 @@ public class ChatMetaPacket {
         String messageHash = buf.readUtf();
         String quoteSender = buf.readUtf();
         String quoteContent = buf.readUtf();
-        int count = buf.readInt();
+        // Preallocation bound: count comes off the wire, so an unclamped
+        // new ArrayList<>(count) lets one hostile packet OOM the client.
+        // mentionTargets is the packet's last field, so leftover entries from
+        // an oversized count are harmless trailing bytes.
+        int count = Math.min(Math.max(buf.readInt(), 0), 200);
         List<String> mentionTargets = new ArrayList<>(count);
         for (int i = 0; i < count; i++)
             mentionTargets.add(buf.readUtf());

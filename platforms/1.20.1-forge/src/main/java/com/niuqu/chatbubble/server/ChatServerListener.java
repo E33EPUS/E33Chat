@@ -128,7 +128,13 @@ public class ChatServerListener {
         if (s != null) s.discardAllUploads();
         mediaStore = null;
         com.niuqu.chatbubble.server.GroupManager.onServerStopping();
+            // Singleplayer world switches reuse this JVM: stale quotes could
+        // attach to messages in the next world and the backlog would be
+        // delivered as "history" there.
+        pendingQuotes.clear();
+        historyBuffer.clear();
     }
+
 
     @SubscribeEvent
     public void onServerStarted(net.minecraftforge.event.server.ServerStartedEvent event) {

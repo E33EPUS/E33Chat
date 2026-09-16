@@ -295,6 +295,7 @@
   "e33chat.group.not_owner": "只有群主可以解散 [%s]",
   "e33chat.group.already_in": "你已经在群组 [%s] 中",
   "e33chat.group.cooldown": "发言太快，稍候再试",
+  "e33chat.group.save_failed": "群组数据保存失败，请检查服务器磁盘",
   "e33chat.group.empty": "消息不能为空",
   "e33chat.group.list_header": "群组列表（共 %s 个）：",
   "e33chat.group.list_empty": "服务器还没有群组，用 /e33chat group create <名称> 创建第一个",
@@ -322,5 +323,9 @@
   "e33chat.profile.gamemode": "模式",
   "e33chat.profile.copy_uuid": "复制UUID",
   "e33chat.server.groups_enabled": "启用群组功能",
-  "e33chat.server.groups_enabled.desc": "开启聊天群组（客户端页签 + 成员定向路由）；群组存于 serverconfig/e33chat-groups.json"
+  "e33chat.server.groups_enabled.desc": "开启聊天群组（客户端页签 + 成员定向路由）；群组存于 serverconfig/e33chat-groups.json",
+  "e33chat.config.upload_field": "上传字段",
+  "e33chat.config.upload_extra": "上传附加字段",
+  "e33chat.config.upload_response": "上传响应路径",
+  "e33chat.config.panel_bg_crop": "背景取景"
 }

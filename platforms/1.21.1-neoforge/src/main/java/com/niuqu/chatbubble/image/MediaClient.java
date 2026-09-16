@@ -79,23 +79,37 @@ public final class MediaClient {
         });
     }
 
+    /** Shared failure path: drop per-id assembly state and surface the error. */
+    private static void failFetch(String id, String message) {
+        FETCH_BUFFERS.remove(id);
+        FETCH_COUNTS.remove(id);
+        CompletableFuture<byte[]> f = FETCHES.remove(id);
+        if (f != null) f.completeExceptionally(new RuntimeException(message));
+    }
+
     /** Client-side receiver (registered from NetworkHandler, dist-guarded). */
     public static void handleResponse(MediaResponsePayload payload, IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
             String id = payload.mediaId();
             if (payload.totalChunks() == 1 && payload.chunk().length == 0) {
                 // Not-found sentinel
-                FETCH_BUFFERS.remove(id);
-                FETCH_COUNTS.remove(id);
-                CompletableFuture<byte[]> f = FETCHES.remove(id);
-                if (f != null) f.completeExceptionally(new RuntimeException("media not found: " + id));
+                failFetch(id, "media not found: " + id);
                 return;
             }
-            byte[][] buf = FETCH_BUFFERS.computeIfAbsent(id, k -> new byte[payload.totalChunks()][]);
+            // Allocation bounds: totalChunks and the reassembled size both come
+            // off the wire, so an unclamped array lets one hostile response OOM
+            // the client. The legitimate max is whatever the server allows per
+            // upload (8 MB in 512 KB chunks).
+            int totalChunks = payload.totalChunks();
+            if (totalChunks < 1 || totalChunks > DiskMediaStore.totalChunksFor(DiskMediaStore.MAX_SINGLE_BYTES)) {
+                failFetch(id, "media chunk count out of range: " + id);
+                return;
+            }
+            byte[][] buf = FETCH_BUFFERS.computeIfAbsent(id, k -> new byte[totalChunks][]);
             if (payload.index() < 0 || payload.index() >= buf.length) return;
             buf[payload.index()] = payload.chunk();
             int got = FETCH_COUNTS.merge(id, 1, Integer::sum);
-            if (got == payload.totalChunks()) {
+            if (got == totalChunks) {
                 FETCH_BUFFERS.remove(id);
                 FETCH_COUNTS.remove(id);
                 CompletableFuture<byte[]> f = FETCHES.remove(id);
@@ -108,6 +122,8 @@ public final class MediaClient {
                     }
                     if (!complete) {
                         f.completeExceptionally(new RuntimeException("media chunk missing: " + id));
+                    } else if (total > DiskMediaStore.MAX_SINGLE_BYTES) {
+                        f.completeExceptionally(new RuntimeException("media too large: " + id));
                     } else {
                         byte[] all = new byte[total];
                         int off = 0;
@@ -188,7 +204,7 @@ public final class MediaClient {
             FETCH_BUFFERS.remove(mediaId);
             FETCH_COUNTS.remove(mediaId);
             LOGGER.info("[e33chat] server media fetch {} refused: {} (most likely the per-player "
-                + "transfer rate limit, 4 per 10s)", mediaId, e.getMessage());
+                + "transfer rate limit, 16 per 10s)", mediaId, e.getMessage());
             return null;
         }
     }

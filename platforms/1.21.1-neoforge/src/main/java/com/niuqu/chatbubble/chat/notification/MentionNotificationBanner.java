@@ -1,7 +1,6 @@
 package com.niuqu.chatbubble.chat.notification;
 
 import com.mojang.authlib.GameProfile;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.niuqu.chatbubble.render.Animation;
 import com.niuqu.chatbubble.render.AnimationStyle;
 import com.niuqu.chatbubble.render.Appearance;
@@ -353,9 +352,10 @@ public class MentionNotificationBanner {
         if (b.hasAvatar) {
             int avatarY = iy + (bannerH - AVATAR_HAT) / 2;
             ResourceLocation skin = getSkin(b.senderUUID, b.senderName.getString());
-            RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+            // drawPlayerHead already carries alpha via vertex color; wrapping it
+            // in setShaderColor multiplied the two together (alpha squared —
+            // the avatar faded darker than everything else).
             drawPlayerHead(g, skin, x + AVATAR_X, avatarY, AVATAR, AVATAR_HAT, alpha);
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
             // Name (prefix already baked into nameSeq in enqueue)
             int nameY = iy + 6;
             int nameAlpha = (int)((theme.textPrimary() >>> 24) * alpha);

@@ -31,8 +31,11 @@ public record MediaUploadPayload(long uploadId, int index, int totalChunks,
             buf.readInt(),
             buf.readInt(),
             buf.readInt(),
-            buf.readString(),
-            buf.readByteArray()
+            // Read bounds aligned with the NeoForge payload: a hostile client
+            // must not be able to push oversized strings or chunks past the
+            // decoder (out-of-range throws, so the packet is dropped whole).
+            buf.readString(128),
+            buf.readByteArray(com.niuqu.chatbubble.server.DiskMediaStore.CHUNK_BYTES)
         )
     );
 

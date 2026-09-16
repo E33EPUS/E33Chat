@@ -115,7 +115,15 @@ public final class EasyBotParser {
         String rawPlayerName = qq != null ? qq : displayName;
 
         Text contentComp = ChatMessageStore.sliceStyled(message, m.start(3), m.end(3));
-        Text nameComp = Text.literal(displayName);
+        // Colon shape resolves a real online player: rebuild the styled
+        // label (channel/title prefix included) from the original line, so
+        // claiming the line no longer costs the sender's decoration. A
+        // genuine relay nick that merely collides with an online name keeps
+        // its skin via rawPlayerName below, and the name cache stays clean
+        // either way (rawPlayerName is the bare name / QQ number).
+        Text nameComp = (uuid != null && !uuid.equals(new UUID(0, 0)))
+            ? ChatPipeline.extractDecoratedName(message, content, displayName, Text.literal(displayName))
+            : Text.literal(displayName);
         return new ChatMessageStore.SenderMeta(
             uuid, nameComp, contentComp, false,
             rawPlayerName, false, null);

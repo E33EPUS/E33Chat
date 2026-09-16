@@ -419,15 +419,13 @@ public class ChatBubbleConfig {
 
     public static boolean isSidebarHidden(String name) {
         if (name == null || name.isEmpty()) return false;
-        String lower = name.toLowerCase();
         for (String pattern : SIDEBAR_HIDE_PATTERNS.get()) {
             if (pattern == null || pattern.isBlank()) continue;
-            String regex = Pattern.quote(pattern.trim())
-                .replace("\\*", ".*");
-            if (lower.matches(regex)) return true;
+            if (com.niuqu.chatbubble.chat.WildcardPatterns.matches(name, pattern)) return true;
         }
         return false;
     }
+
 
     // 总音量比例 0.0-1.0，乘到各提示音的 volume 上
     public static float soundVolume() {

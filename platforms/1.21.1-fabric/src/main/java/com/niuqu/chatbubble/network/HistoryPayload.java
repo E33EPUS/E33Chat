@@ -37,16 +37,25 @@ public record HistoryPayload(List<HistoryPayload.HistoryEntry> entries)
             b.writeString(e.replySender() != null ? e.replySender() : "");
             b.writeString(e.group() != null ? e.group() : "");
         }),
-        buf -> new HistoryPayload(buf.readList(b -> new HistoryEntry(
-            UUID.fromString(b.readString()),
-            b.readString(),
-            b.readString(),
-            b.readLong(),
-            b.readBoolean(),
-            nullOrEmpty(b.readString()),
-            nullOrEmpty(b.readString()),
-            nullOrEmpty(b.readString())
-        )))
+        buf -> {
+            // Entry bound aligned with Forge/Neo (200): the count comes off the
+            // wire, and even 1.21.1's readList still allows a 65536-entry
+            // allocation per packet. Entries is the payload's only field, so
+            // leftover bytes from an oversized count are harmless.
+            int count = Math.min(Math.max(buf.readVarInt(), 0), 200);
+            List<HistoryEntry> entries = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) entries.add(new HistoryEntry(
+                UUID.fromString(buf.readString()),
+                buf.readString(),
+                buf.readString(),
+                buf.readLong(),
+                buf.readBoolean(),
+                nullOrEmpty(buf.readString()),
+                nullOrEmpty(buf.readString()),
+                nullOrEmpty(buf.readString())
+            ));
+            return new HistoryPayload(entries);
+        }
     );
 
     private static String nullOrEmpty(String s) { return s == null || s.isEmpty() ? null : s; }

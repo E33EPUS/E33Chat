@@ -21,8 +21,7 @@ public record MediaRequestPayload(String mediaId) implements CustomPacketPayload
 
         @Override
         public void encode(ByteBuf buf, MediaRequestPayload payload) {
-            buf.writeInt(payload.mediaId().length());
-            buf.writeCharSequence(payload.mediaId(), java.nio.charset.StandardCharsets.UTF_8);
+            MediaUploadPayload.writeUtf(buf, payload.mediaId());
         }
     };
 

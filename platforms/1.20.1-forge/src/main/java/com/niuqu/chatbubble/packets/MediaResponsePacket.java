@@ -33,7 +33,8 @@ public class MediaResponsePacket {
     }
 
     public static MediaResponsePacket decode(FriendlyByteBuf buf) {
-        return new MediaResponsePacket(buf.readUtf(), buf.readInt(), buf.readInt(), buf.readByteArray());
+        return new MediaResponsePacket(buf.readUtf(64), buf.readInt(), buf.readInt(),
+            buf.readByteArray(com.niuqu.chatbubble.server.DiskMediaStore.CHUNK_BYTES));
     }
 
     public String mediaId() { return mediaId; }

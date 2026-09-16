@@ -36,7 +36,8 @@ public final class NativeFileDialog {
                     FileDialog fd = new FileDialog((Frame) null, "Select emote image");
                     fd.setFilenameFilter((dir, name) -> {
                         String n = name.toLowerCase();
-                        return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg");
+                        return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg")
+                            || n.endsWith(".gif");
                     });
                     fd.setVisible(true);
                     File[] files = fd.getFiles();

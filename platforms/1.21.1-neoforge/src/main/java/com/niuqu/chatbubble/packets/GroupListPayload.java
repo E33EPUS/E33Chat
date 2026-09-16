@@ -23,6 +23,24 @@ public record GroupListPayload(boolean enabled, List<String> names,
 
     // Decode-side caps: a hostile server must not balloon client memory
     private static final int MAX_GROUPS = 200;
+    private static final int MAX_PREALLOC = 1024;
+
+    /** Read a length-prefixed list fully (so later fields stay aligned), with a
+     *  preallocation cap: the count comes off the wire, so an unclamped
+     *  allocation lets one hostile packet OOM the client. Entries beyond the
+     *  prealloc cap are still consumed; a padded fake count dies on EOF, which
+     *  drops the packet as malformed. The logical cap is applied afterwards,
+     *  mirroring the legitimate group_max_count range (up to 500). */
+    private static <T> List<T> readList(ByteBuf buf, java.util.function.Function<FriendlyByteBuf, T> reader) {
+        int count = Math.max(new FriendlyByteBuf(buf).readVarInt(), 0);
+        List<T> out = new ArrayList<>(Math.min(count, MAX_PREALLOC));
+        for (int i = 0; i < count; i++) out.add(reader.apply(new FriendlyByteBuf(buf)));
+        return out;
+    }
+
+    private static <T> List<T> cap(List<T> list) {
+        return list.size() > MAX_GROUPS ? new ArrayList<>(list.subList(0, MAX_GROUPS)) : list;
+    }
 
     public static final Type<GroupListPayload> TYPE =
         new Type<>(ResourceLocation.fromNamespaceAndPath("e33chat", "group_list"));
@@ -31,16 +49,12 @@ public record GroupListPayload(boolean enabled, List<String> names,
         @Override
         public GroupListPayload decode(ByteBuf buf) {
             boolean enabled = buf.readBoolean();
-            int nameCount = Math.min(Math.max(new FriendlyByteBuf(buf).readVarInt(), 0), MAX_GROUPS);
-            List<String> names = new ArrayList<>(nameCount);
-            for (int i = 0; i < nameCount; i++) names.add(readString(buf, 64));
-            int countCount = Math.min(Math.max(new FriendlyByteBuf(buf).readVarInt(), 0), MAX_GROUPS);
-            List<Integer> counts = new ArrayList<>(countCount);
-            for (int i = 0; i < countCount; i++) counts.add(new FriendlyByteBuf(buf).readVarInt());
-            int mineCount = Math.min(Math.max(new FriendlyByteBuf(buf).readVarInt(), 0), MAX_GROUPS);
-            List<String> mine = new ArrayList<>(mineCount);
-            for (int i = 0; i < mineCount; i++) mine.add(readString(buf, 64));
-            return new GroupListPayload(enabled, names, counts, mine);
+            // Read every list in full, then cap: capping before reading leaves
+            // the surplus entries' bytes in the buffer and desyncs later fields.
+            List<String> names = readList(buf, b -> readString(b, 64));
+            List<Integer> counts = readList(buf, FriendlyByteBuf::readVarInt);
+            List<String> mine = readList(buf, b -> readString(b, 64));
+            return new GroupListPayload(enabled, cap(names), cap(counts), cap(mine));
         }
 
         @Override

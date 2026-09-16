@@ -934,7 +934,7 @@ public class ChatBubbleScreen extends ChatScreen {
         if (scrollY != 0 && textSelection.hasSelection()) {
             textSelection.clear();
         }
-        if (emojiPanel.visible) { emojiPanel.handleScroll(scrollY); return true; }
+        if (emojiPanel.visible) { emojiPanel.handleScroll(scrollY, panelW); return true; }
         if (quickChatPanel.visible) { quickChatPanel.handleScroll(scrollY); return true; }
         if (searchPanel.visible && !searchMatches.isEmpty()) {
             searchMatchIdx = MathHelper.clamp(searchMatchIdx - (int) scrollY, 0, searchMatches.size() - 1);
@@ -1111,7 +1111,7 @@ public class ChatBubbleScreen extends ChatScreen {
             if (mouseX >= panelX + panelW - 18 && mouseX <= panelX + panelW - 6
                 && mouseY >= titleY + 6 && mouseY <= titleY + 18) { onClose(); return true; }
             if (settingsMenu.visible) {
-                int action = settingsMenu.handleClick((int) mouseX, (int) mouseY, panelX, panelW, barTop, ICON_S);
+                int action = settingsMenu.handleClick((int) mouseX, (int) mouseY, panelX, panelW, barTop, ICON_S, Util.getMeasuringTimeMs());
                 if (action == ChatSettingsMenu.ACTION_CLEAR_EMPTY) {
                     showToast("e33chat.toast.history_empty");
                 } else if (action >= 0) {
@@ -3114,6 +3114,9 @@ public class ChatBubbleScreen extends ChatScreen {
                     quickChatInput.setVisible(false);
                 });
                 if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
+                // Reopening must clear a stale close timestamp or the pending close
+                // (finishPopupClose in tick) hides the just-reopened popup again.
+                searchCloseStart = 0;
                 searchPanel.visible = true;
                 searchAnimStart = Util.getMeasuringTimeMs();
                 searchInput.setText("");
@@ -3123,6 +3126,7 @@ public class ChatBubbleScreen extends ChatScreen {
             case 1: // quick_chat
                 if (searchPanel.visible) closeSearchPanel();
                 if (emojiPanel.visible) beginPopupClose(s -> emojiCloseStart = s, () -> emojiPanel.visible = false);
+                quickCloseStart = 0;
                 quickChatPanel.visible = true;
                 quickAnimStart = Util.getMeasuringTimeMs();
                 quickChatPanel.scrollOffset = 0;

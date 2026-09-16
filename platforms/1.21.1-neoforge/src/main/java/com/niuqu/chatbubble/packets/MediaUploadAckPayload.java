@@ -39,9 +39,7 @@ public record MediaUploadAckPayload(long uploadId, String mediaId, String error)
     }
 
     private static void writeUtf(ByteBuf buf, String s) {
-        String v = s != null ? s : "";
-        buf.writeInt(v.length());
-        buf.writeCharSequence(v, java.nio.charset.StandardCharsets.UTF_8);
+        MediaUploadPayload.writeUtf(buf, s != null ? s : "");
     }
 
     private static String nullOrEmpty(String s) { return s == null || s.isEmpty() ? null : s; }

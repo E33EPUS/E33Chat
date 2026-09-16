@@ -32,8 +32,13 @@ public record ConfigSyncV2Payload(boolean useTpa, List<String> chatTemplates,
         )
     );
 
+    /** Template lists are a handful of entries; anything beyond the cap is a
+     *  hostile or corrupt payload — the count comes off the wire, so an
+     *  unclamped new ArrayList<>(count) lets one packet OOM the receiver. */
+    static final int MAX_LIST_ENTRIES = 256;
+
     static List<String> readList(PacketByteBuf buf) {
-        int count = buf.readInt();
+        int count = Math.min(Math.max(buf.readInt(), 0), MAX_LIST_ENTRIES);
         List<String> out = new ArrayList<>(count);
         for (int i = 0; i < count; i++) out.add(buf.readString());
         return out;

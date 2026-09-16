@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 2.4.11 regression guard for the media fetch de-duplication.
  *
  * Every e33chat://media URL is requested twice (animated probe + static
- * loader); the server rate-limits downloads per player (4 per 10s), so
+ * loader); the server rate-limits downloads per player (16 per 10s), so
  * concurrent un-deduplicated fetches burnt the quota and the 4th image failed
  * with "image load failed". {@link MediaClient#fetch} now shares one in-flight
  * request per mediaId — this test pins the helper that decides whether a fetch

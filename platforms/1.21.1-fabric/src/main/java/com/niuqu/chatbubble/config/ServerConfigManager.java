@@ -2,6 +2,7 @@ package com.niuqu.chatbubble.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.mojang.logging.LogUtils;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -18,7 +19,8 @@ public final class ServerConfigManager {
                 ServerConfig loaded = GSON.fromJson(r, ServerConfig.class);
                 if (loaded != null) return loaded;
             } catch (Exception e) {
-                // log and fall through to defaults
+                LogUtils.getLogger().warn("[e33chat] Failed to read server config {}, keeping a backup", path, e);
+                backupBrokenFile(path);
             }
         }
         ServerConfig def = ServerConfig.defaults();
@@ -26,12 +28,34 @@ public final class ServerConfigManager {
         return def;
     }
 
-    public static void save(Path path, ServerConfig config) {
+    /** Keep a corrupt file on disk for recovery instead of letting the
+     *  defaults overwrite the only copy (mirrors the client ConfigManager). */
+    private static void backupBrokenFile(Path path) {
+        try {
+            Path backup = path.resolveSibling(path.getFileName() + ".broken-" + System.currentTimeMillis());
+            Files.move(path, backup);
+            LogUtils.getLogger().warn("[e33chat] Kept broken server config as {}", backup);
+        } catch (Exception ignored) {}
+    }
+
+    public static boolean save(Path path, ServerConfig config) {
         try {
             Files.createDirectories(path.getParent());
-            try (Writer w = new OutputStreamWriter(Files.newOutputStream(path), StandardCharsets.UTF_8)) {
+            // Write-then-move so a crash mid-write cannot truncate the file.
+            Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
+            try (Writer w = new OutputStreamWriter(Files.newOutputStream(tmp), StandardCharsets.UTF_8)) {
                 GSON.toJson(config, w);
             }
-        } catch (Exception ignored) {}
+            try {
+                Files.move(tmp, path, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
+                Files.move(tmp, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (Exception e) {
+            LogUtils.getLogger().warn("[e33chat] Failed to save server config {}", path, e);
+            return false;
+        }
     }
 }

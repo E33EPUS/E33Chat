@@ -2,6 +2,7 @@ package com.niuqu.chatbubble.config;
 
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public record ChatBubbleConfig(
     boolean enabled,
@@ -110,7 +111,7 @@ public record ChatBubbleConfig(
             blurEnabled, panelOpacity, soundVolume, ownMentionNotify, ownQuoteNotify, ownWhisperNotify, bannerCornerRadius, bannerOffsetX, bannerOffsetY, bannerMaxStack,
             panelAnimStyle, bannerAnimStyle, popupAnimStyle, messageAnimStyle, imageRenderEnabled, receiveImages,
             uploadUrl, uploadField, uploadExtra, uploadResponse, messageGap, avatarSize, hideRepeatedAvatars, closeChatOnSend, bannerOpacity, bubbleSize,
-            "", 100, null);
+            panelBgImage, panelBgOpacity, panelBgCrop);
     }
 
     public ChatBubbleConfig withQuickChatPhrases(List<String> phrases) {
@@ -163,14 +164,11 @@ public record ChatBubbleConfig(
     }
 
     public boolean isSidebarHidden(String playerName) {
+        if (playerName == null || playerName.isEmpty()) return false;
         if (sidebarHidePatterns == null || sidebarHidePatterns.isEmpty()) return false;
-        String lowerName = playerName.toLowerCase();
         for (String pattern : sidebarHidePatterns) {
             if (pattern == null || pattern.isEmpty()) continue;
-            String regex = "^" + pattern.toLowerCase()
-                .replace("*", ".*")
-                .replace("?", ".") + "$";
-            if (lowerName.matches(regex)) return true;
+            if (com.niuqu.chatbubble.chat.WildcardPatterns.matches(playerName, pattern)) return true;
         }
         return false;
     }

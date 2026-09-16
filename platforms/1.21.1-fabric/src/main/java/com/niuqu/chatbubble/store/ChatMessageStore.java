@@ -121,6 +121,12 @@ public class ChatMessageStore {
 
     public static boolean serverTemplateDebug() { return serverTemplateDebug; }
 
+    /** Drop the name cache on disconnect: entries from server A must not
+     *  resolve whisper/template attribution on server B (cross-server residue). */
+    public static void clearSeenPlayers() {
+        seenPlayers.clear();
+    }
+
     public static void rememberPlayer(UUID uuid, String profileName, String displayName) {
         if (uuid == null || uuid.equals(new UUID(0, 0)) || profileName == null || profileName.isEmpty()) return;
         SeenPlayer existing = seenPlayers.get(uuid);

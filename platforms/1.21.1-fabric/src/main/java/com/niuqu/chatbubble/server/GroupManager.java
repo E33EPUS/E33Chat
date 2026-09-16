@@ -123,7 +123,7 @@ public final class GroupManager {
         LinkedHashSet<UUID> members = new LinkedHashSet<>();
         members.add(player.getUuid());
         groups.put(name, new Group(player.getUuid(), members));
-        save(server);
+        if (!save(server)) { fail(player, "e33chat.group.save_failed"); return; }
         ok(player, "e33chat.group.created", name);
         broadcastGroupList(server);
     }
@@ -139,7 +139,7 @@ public final class GroupManager {
         int max = ChatBubbleMod.groupMaxMembers();
         if (g.members.size() >= max) { fail(player, "e33chat.group.full", name, max); return; }
         g.members.add(player.getUuid());
-        save(server);
+        if (!save(server)) { fail(player, "e33chat.group.save_failed"); return; }
         ok(player, "e33chat.group.joined", name);
         broadcastGroupList(server);
     }
@@ -154,16 +154,18 @@ public final class GroupManager {
             fail(player, "e33chat.group.not_member_short", name);
             return;
         }
+        boolean disbanded = false;
         if (g.members.isEmpty()) {
             groups.remove(name);
-            ok(player, "e33chat.group.disbanded_empty", name);
-        } else {
-            if (player.getUuid().equals(g.owner)) {
-                g.owner = g.members.iterator().next();
-            }
-            ok(player, "e33chat.group.left", name);
+            disbanded = true;
+        } else if (player.getUuid().equals(g.owner)) {
+            g.owner = g.members.iterator().next();
         }
-        save(server);
+        if (!save(server)) {
+            fail(player, "e33chat.group.save_failed");
+            return;
+        }
+        ok(player, disbanded ? "e33chat.group.disbanded_empty" : "e33chat.group.left", name);
         broadcastGroupList(server);
     }
 
@@ -179,7 +181,7 @@ public final class GroupManager {
             return;
         }
         groups.remove(name);
-        save(server);
+        if (!save(server)) { fail(player, "e33chat.group.save_failed"); return; }
         ok(player, "e33chat.group.deleted", name);
         broadcastGroupList(server);
     }
@@ -239,6 +241,9 @@ public final class GroupManager {
     }
 
     public static void sendGroupList(ServerPlayerEntity player) {
+        // Parity with Forge/Neo: the JOIN-time push can precede ClientHello, so
+        // it must not send an empty directory from a not-yet-loaded store.
+        ensureLoaded(player.getServer());
         boolean enabled = ChatBubbleMod.groupsEnabled();
         List<String> names = new ArrayList<>(groups.keySet());
         List<Integer> counts = new ArrayList<>();
@@ -302,11 +307,14 @@ public final class GroupManager {
             }
         } catch (Exception ex) {
             com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to load groups", ex);
+            backupBrokenFile(f);
         }
     }
 
-    private static void save(MinecraftServer server) {
-        if (server == null) return;
+    /** @return false when the write failed; callers report the failure instead
+     *  of acknowledging an operation that never reached disk. */
+    private static boolean save(MinecraftServer server) {
+        if (server == null) return true;
         try {
             Path f = file(server);
             Files.createDirectories(f.getParent());
@@ -318,10 +326,32 @@ public final class GroupManager {
                 sg.members = new ArrayList<>(e.getValue().members);
                 root.groups.put(e.getKey(), sg);
             }
-            Files.writeString(f, GSON.toJson(root), StandardCharsets.UTF_8);
+            // Write-then-move: a crash mid-write must not truncate the only
+            // copy of the group directory (a truncated file makes the next
+            // load() come back empty and the next save() wipes everything).
+            Path tmp = f.resolveSibling(f.getFileName() + ".tmp");
+            Files.writeString(tmp, GSON.toJson(root), StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, f, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
+                Files.move(tmp, f, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
         } catch (IOException ex) {
             com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Failed to save groups", ex);
+            return false;
         }
+    }
+
+    /** Keep a corrupt groups file on disk for recovery instead of letting the
+     *  next save() overwrite the only copy with an empty in-memory state. */
+    private static void backupBrokenFile(Path f) {
+        try {
+            Path backup = f.resolveSibling(f.getFileName() + ".broken-" + System.currentTimeMillis());
+            Files.move(f, backup);
+            com.mojang.logging.LogUtils.getLogger().warn("[e33chat] Kept broken groups file as {}", backup);
+        } catch (Exception ignored) {}
     }
 
     public static void onServerStopping(MinecraftServer server) {

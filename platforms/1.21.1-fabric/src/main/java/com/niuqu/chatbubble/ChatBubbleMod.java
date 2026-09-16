@@ -175,6 +175,9 @@ public class ChatBubbleMod implements ModInitializer {
                     ServerConfigManager.save(path, cfg);
                     loadConfig(cfg);
                     broadcastServerConfig(context.server());
+                    // Parity with Forge/Neo: toggling groups_enabled must push a
+                    // fresh directory, or online clients keep a stale tab strip.
+                    com.niuqu.chatbubble.server.GroupManager.broadcastGroupList(context.server());
                 });
             });
         });
@@ -240,6 +243,12 @@ public class ChatBubbleMod implements ModInitializer {
             if (s != null) s.discardAllUploads();
             mediaStore = null;
             com.niuqu.chatbubble.server.GroupManager.onServerStopping(server);
+            // Singleplayer world switches reuse this JVM: without these, the
+            // next world inherits the previous world's config-loaded flag,
+            // quote attach window and history backlog.
+            configLoaded = false;
+            pendingQuotes.clear();
+            historyBuffer.clear();
         });
 
         // Discard a leaving player's in-flight upload session (and temp file).

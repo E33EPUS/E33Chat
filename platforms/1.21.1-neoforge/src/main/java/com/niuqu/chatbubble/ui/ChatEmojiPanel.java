@@ -319,12 +319,17 @@ public class ChatEmojiPanel {
             int cw = (pw - 8) / KAO_COLS;
             int col = (mx - px - 4) / cw;
             int row = (my - cy - 2 + scroll) / KAO_ITEM_H;
+            // The right edge of a shrunken panel is padding, not a grid cell:
+            // integer division lets col reach KAO_COLS there, and the unclamped
+            // index then wrapped onto the next row's first item.
+            if (col < 0 || col >= KAO_COLS) return null;
             int idx = row * KAO_COLS + col;
             if (idx >= 0 && idx < KAO.length) return KAO[idx];
         } else if (isCustom) {
             int cols = Math.max(1, (pw - 8) / EMOTE_SLOT);
             java.util.List<java.io.File> emotes = EmoteStore.list();
             int col = (mx - px - 4) / EMOTE_SLOT;
+            if (col < 0 || col >= cols) return null;
             int row = (my - cy - 2 + scroll) / EMOTE_SLOT;
             int idx = row * cols + col;
             if (idx < 0) return null;
@@ -342,6 +347,9 @@ public class ChatEmojiPanel {
         } else {
             int cols = gridCols(pw);
             int col = (mx - px - 4) / SLOT;
+            // Same padding-band guard as the emote grid: col can reach cols on
+            // the shrunken right edge and land on the next row's first emoji.
+            if (col < 0 || col >= cols) return null;
             int row = (my - cy - 2 + scroll) / SLOT;
             int idx = row * cols + col;
             if (idx >= 0 && idx < EMOTES.length) return EMOTES[idx];
@@ -349,18 +357,22 @@ public class ChatEmojiPanel {
         return null;
     }
 
-    public void handleScroll(double scrollY) {
+    /** @param panelW real panel width — the grid column count shrinks with it,
+     *  and scroll math derived from a hardcoded width never reached the
+     *  bottom of the list on narrow panels. */
+    public void handleScroll(double scrollY, int panelW) {
         boolean isKaomoji = tab == 1;
         boolean isCustom = tab == 2;
         int totalH;
         if (isKaomoji) {
             totalH = ((KAO.length + KAO_COLS - 1) / KAO_COLS) * KAO_ITEM_H + 4;
         } else if (isCustom) {
-            int cols = Math.max(1, (fitWidth(EMOTE_COLS * EMOTE_SLOT + 8, 400) - 8) / EMOTE_SLOT);
+            int cols = Math.max(1, (fitWidth(EMOTE_COLS * EMOTE_SLOT + 8, panelW) - 8) / EMOTE_SLOT);
             int rows = (EmoteStore.list().size() + 1 + cols - 1) / cols;
             totalH = rows * EMOTE_SLOT + 4;
         } else {
-            int rows = (EMOTES.length + COLS - 1) / COLS;
+            int cols = gridCols(fitWidth(COLS * SLOT + 8, panelW));
+            int rows = (EMOTES.length + cols - 1) / cols;
             totalH = rows * SLOT + 4;
         }
         int ch = PANEL_H - TAB_H - 1;

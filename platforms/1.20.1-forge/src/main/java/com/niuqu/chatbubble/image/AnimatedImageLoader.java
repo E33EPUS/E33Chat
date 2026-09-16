@@ -21,9 +21,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -43,7 +44,18 @@ import java.util.concurrent.Executors;
  */
 public final class AnimatedImageLoader {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Map<String, Entry> CACHE = new ConcurrentHashMap<>();
+    /**
+     * Decoded animations are the heaviest objects in the mod: one GPU texture
+     * per frame, up to the 8M-pixel budget each. The cache is therefore
+     * access-ordered LRU with a hard ceiling on entry count and total decoded
+     * frames; eviction releases the textures (ImageLoader's 64-entry still
+     * cache was the precedent). MAX_TOTAL_FRAMES must stay >= MAX_FRAMES so a
+     * single full-length animation always fits.
+     */
+    private static final int MAX_ENTRIES = 24;
+    private static final int MAX_TOTAL_FRAMES = 192;
+    private static final Map<String, Entry> CACHE =
+        Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true));
     private static final int MAX_FRAMES = 120;
     private static final int MAX_DIMENSION = 512;
     private static final long MAX_BYTES = 8L * 1024 * 1024;
@@ -202,7 +214,17 @@ public final class AnimatedImageLoader {
     /** Client tick: advance all live entries. */
     public static void tick() {
         long now = System.currentTimeMillis();
-        for (Entry entry : CACHE.values()) entry.advance(now);
+        synchronized (CACHE) {
+            for (Entry entry : CACHE.values()) entry.advance(now);
+        }
+    }
+
+    /** Drop every cached animation and release its textures (disconnect / world switch). */
+    public static void resetAll() {
+        synchronized (CACHE) {
+            for (Entry entry : CACHE.values()) releaseTextures(entry);
+            CACHE.clear();
+        }
     }
 
     private static Entry cachedOrStart(String url) {
@@ -212,10 +234,49 @@ public final class AnimatedImageLoader {
             Entry retry = new Entry(url);
             if (CACHE.replace(url, current, retry)) {
                 EXEC.execute(() -> load(retry));
+                evictOverBudget(retry);
                 return retry;
             }
         }
-        return CACHE.computeIfAbsent(url, AnimatedImageLoader::start);
+        Entry entry = CACHE.computeIfAbsent(url, AnimatedImageLoader::start);
+        evictOverBudget(entry);
+        return entry;
+    }
+
+    /** Evict least-recently-used entries while over the size/frame budget.
+     *  Still-loading entries are kept (evicting them would orphan the
+     *  in-flight download); failed and static-image markers are cheap and
+     *  evictable at any time. Must run while holding CACHE's monitor (the
+     *  access-ordered map is not weakly consistent). */
+    private static void evictOverBudget(Entry keep) {
+        synchronized (CACHE) {
+            int totalFrames = 0;
+            for (Entry entry : CACHE.values()) totalFrames += entry.frameCount();
+            if (CACHE.size() <= MAX_ENTRIES && totalFrames <= MAX_TOTAL_FRAMES) return;
+            Iterator<Entry> it = CACHE.values().iterator();
+            while (it.hasNext()
+                    && (CACHE.size() > MAX_ENTRIES || totalFrames > MAX_TOTAL_FRAMES)) {
+                Entry entry = it.next();
+                if (entry == keep) continue;
+                if (!entry.ready && !entry.failed && !entry.staticImage) continue;
+                it.remove();
+                totalFrames -= entry.frameCount();
+                releaseTextures(entry);
+            }
+        }
+    }
+
+    /** Free one entry's per-frame GPU textures; safe from any thread (the
+     *  release itself is marshalled to the render thread). */
+    private static void releaseTextures(Entry entry) {
+        ResourceLocation[] ids = entry.frames;
+        entry.frames = null;
+        entry.ready = false;
+        if (ids == null || ids.length == 0) return;
+        Minecraft.getInstance().execute(() -> {
+            var textureManager = Minecraft.getInstance().getTextureManager();
+            for (ResourceLocation id : ids) textureManager.release(id);
+        });
     }
 
     private static Entry start(String url) {
@@ -327,14 +388,21 @@ public final class AnimatedImageLoader {
                 ArrayList<NativeImage> frames = new ArrayList<>();
                 int[] delays = new int[count];
                 int width = 0, height = 0;
-                for (int i = 0; i < count; i++) {
-                    var frame = reader.read(i);
-                    if (frame == null || frame.getWidth() <= 0 || frame.getHeight() <= 0
-                        || frame.getWidth() > MAX_DIMENSION || frame.getHeight() > MAX_DIMENSION) break;
-                    width = frame.getWidth();
-                    height = frame.getHeight();
-                    frames.add(RasterImageDecoder.fromBufferedImage(frame));
-                    delays[i] = frameDelay(reader.getImageMetadata(i));
+                try {
+                    for (int i = 0; i < count; i++) {
+                        var frame = reader.read(i);
+                        if (frame == null || frame.getWidth() <= 0 || frame.getHeight() <= 0
+                            || frame.getWidth() > MAX_DIMENSION || frame.getHeight() > MAX_DIMENSION) break;
+                        width = frame.getWidth();
+                        height = frame.getHeight();
+                        frames.add(RasterImageDecoder.fromBufferedImage(frame));
+                        delays[i] = frameDelay(reader.getImageMetadata(i));
+                    }
+                } catch (Throwable t) {
+                    // Mirror the GIF path: a mid-stream failure must not leak
+                    // the frames decoded so far.
+                    closeFrames(frames);
+                    throw t;
                 }
                 if (frames.size() < 2) {
                     for (NativeImage image : frames) image.close();
@@ -546,6 +614,11 @@ public final class AnimatedImageLoader {
 
         public long sizeBytes() {
             return sizeBytes;
+        }
+
+        private int frameCount() {
+            ResourceLocation[] current = frames;
+            return current == null ? 0 : current.length;
         }
 
         public int width() {

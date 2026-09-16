@@ -10,6 +10,13 @@ import java.util.Optional;
  * (Steve >> hi, &lt;Steve&gt; hi) produced by NCR and other server plugins.
  */
 public final class MessagePresentation {
+
+    // Hoisted: these ran on every chat line, and replaceAll re-compiles the
+    // pattern on each call. LEGACY_COLOR matches a section sign plus any char.
+    private static final java.util.regex.Pattern BRACKET_OR_PAREN =
+        java.util.regex.Pattern.compile("\\[[^\\]]*\\]|\\([^\\)]*\\)");
+    private static final java.util.regex.Pattern LEGACY_COLOR =
+        java.util.regex.Pattern.compile("§.");
     private MessagePresentation() {}
 
     public record PlayerLine(String playerName, String displayLabel, String content,
@@ -43,7 +50,7 @@ public final class MessagePresentation {
         if (text == null || name == null) return Optional.empty();
         // 名字可能嵌 legacy 色码（S§6t§beve），text 侧也可能嵌——双侧剥 §，
         // 在 clean 文本上做锚点匹配，偏移经映射表转回原文（供样式切片）。
-        String cleanName = name.replaceAll("§.", "");
+        String cleanName = LEGACY_COLOR.matcher(name).replaceAll("");
         if (cleanName.isEmpty()) return Optional.empty();
         // stripColor(text) + 偏移映射：map[cleanIdx] = 原文 idx
         int[] map = new int[text.length()];
@@ -187,7 +194,7 @@ public final class MessagePresentation {
         // 短英文词（pm/msg/tell/message）易撞玩家名/前缀（Msg: hi、[PM]Steve）——
         // 剥掉 []() 装饰块后，词命中且 zone 里还有别的 token 才算真私聊格式
         // （"Steve PM you"/"PM Steve" 有名字+词；名字恰是词或 [PM] 纯前缀不算）
-        String zoneNoBrackets = zone.replaceAll("\\[[^\\]]*\\]|\\([^\\)]*\\)", "");
+        String zoneNoBrackets = BRACKET_OR_PAREN.matcher(zone).replaceAll("");
         if (!WhisperSignal.EN.matcher(zoneNoBrackets.toLowerCase()).find()) return false;
         String rest = WhisperSignal.EN.matcher(zoneNoBrackets.toLowerCase()).replaceAll(" ").trim();
         return !rest.isEmpty();

@@ -131,10 +131,15 @@ public class ChatBubbleClientSetup implements ClientModInitializer {
         // as payloads + pushes the group directory); reset state on disconnect.
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             com.niuqu.chatbubble.chat.GroupChannelState.reset();
+            com.niuqu.chatbubble.store.ChatMessageStore.clearSeenPlayers();
             com.niuqu.chatbubble.network.ClientHelloPayload.send();
         });
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
-            com.niuqu.chatbubble.chat.GroupChannelState.reset());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            com.niuqu.chatbubble.chat.GroupChannelState.reset();
+            // Animated GIFs hold one GPU texture per frame; a new server must
+            // not inherit the old one's texture set.
+            com.niuqu.chatbubble.image.AnimatedImageLoader.resetAll();
+        });
         ClientPlayNetworking.registerGlobalReceiver(com.niuqu.chatbubble.network.GroupChatPayload.ID, (payload, context) -> {
             context.client().execute(() -> com.niuqu.chatbubble.network.GroupChatPayload.handleClient(payload));
         });

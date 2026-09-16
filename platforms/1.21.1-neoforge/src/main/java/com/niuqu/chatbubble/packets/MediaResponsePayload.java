@@ -29,8 +29,7 @@ public record MediaResponsePayload(String mediaId, int index, int totalChunks, b
 
         @Override
         public void encode(ByteBuf buf, MediaResponsePayload payload) {
-            buf.writeInt(payload.mediaId().length());
-            buf.writeCharSequence(payload.mediaId(), java.nio.charset.StandardCharsets.UTF_8);
+            MediaUploadPayload.writeUtf(buf, payload.mediaId());
             buf.writeInt(payload.index());
             buf.writeInt(payload.totalChunks());
             buf.writeInt(payload.chunk().length);

@@ -50,7 +50,6 @@ public final class BracketCodec {
         List<ImageRef> images = new ArrayList<>();
         MutableText out = Text.empty();
         boolean[] hasText = {false};
-        int[] segIndex = {0};
         // Walk the styled tree once, copying every character range that is not
         // part of a bracket block (bracket blocks are stripped, styles kept).
         text.visit((style, part) -> {
@@ -60,7 +59,6 @@ public final class BracketCodec {
                 if (local.start() > partStart) {
                     out.append(Text.literal(part.substring(partStart, local.start())).fillStyle(style));
                     hasText[0] = true;
-                    segIndex[0]++;
                 }
                 ImageRef ref = parseAttrs(local.group(2), local.group(1));
                 if (ref != null) images.add(ref);
@@ -69,7 +67,6 @@ public final class BracketCodec {
             if (partStart < part.length()) {
                 out.append(Text.literal(part.substring(partStart)).fillStyle(style));
                 hasText[0] = true;
-                segIndex[0]++;
             }
             return Optional.empty();
         }, Style.EMPTY);

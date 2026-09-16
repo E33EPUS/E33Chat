@@ -105,6 +105,7 @@ public class ChatBubbleClientListener {
         // Fresh server = fresh group state; then announce the mod so the
         // server routes group chat as packets and pushes the group directory.
         com.niuqu.chatbubble.chat.GroupChannelState.reset();
+        com.niuqu.chatbubble.store.ChatMessageStore.clearSeenPlayers();
         com.niuqu.chatbubble.packets.ClientHelloPacket.send();
     }
 
@@ -112,6 +113,9 @@ public class ChatBubbleClientListener {
     public void onLoggingOut(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
         com.niuqu.chatbubble.chat.GroupChannelState.reset();
         com.niuqu.chatbubble.render.HudVisibility.reset();
+        // Animated GIFs hold one GPU texture per frame; a new server must not
+        // inherit the old one's texture set.
+        com.niuqu.chatbubble.image.AnimatedImageLoader.resetAll();
     }
 
     @SubscribeEvent

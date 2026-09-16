@@ -41,10 +41,14 @@ public class MediaUploadPacket {
         buf.writeByteArray(chunk);
     }
 
+    // Read bounds aligned with the NeoForge payload: a hostile client must not
+    // be able to push oversized strings or chunks past the decoder.
+    private static final int MAX_STRING_LEN = 128;
+
     public static MediaUploadPacket decode(FriendlyByteBuf buf) {
         return new MediaUploadPacket(
             buf.readLong(), buf.readInt(), buf.readInt(), buf.readInt(),
-            buf.readUtf(), buf.readByteArray());
+            buf.readUtf(MAX_STRING_LEN), buf.readByteArray(DiskMediaStore.CHUNK_BYTES));
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {

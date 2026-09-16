@@ -38,9 +38,7 @@ public record MediaUploadPayload(long uploadId, int index, int totalChunks,
             buf.writeInt(payload.index());
             buf.writeInt(payload.totalChunks());
             buf.writeInt(payload.totalBytes());
-            String ct = payload.contentType() != null ? payload.contentType() : "";
-            buf.writeInt(ct.length());
-            buf.writeCharSequence(ct, java.nio.charset.StandardCharsets.UTF_8);
+            writeUtf(buf, payload.contentType() != null ? payload.contentType() : "");
             buf.writeInt(payload.chunk().length);
             buf.writeBytes(payload.chunk());
         }
@@ -49,15 +47,31 @@ public record MediaUploadPayload(long uploadId, int index, int totalChunks,
     private static final int MAX_CHUNK_BYTES = DiskMediaStore.CHUNK_BYTES;
     private static final int MAX_STRING_LEN = 256;
 
+    /** Wire format: int length + UTF-8 bytes. The length prefix is BYTES —
+     *  writing char counts desynced the reader on non-ASCII text. Out-of-range
+     *  lengths throw so the packet is dropped whole; clamping and reading on
+     *  used to leave surplus bytes in the buffer and misalign later fields. */
+    static void writeUtf(ByteBuf buf, String s) {
+        byte[] utf = s.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        buf.writeInt(utf.length);
+        buf.writeBytes(utf);
+    }
+
     static byte[] readByteArray(ByteBuf buf) {
-        int len = Math.min(Math.max(buf.readInt(), 0), MAX_CHUNK_BYTES);
+        int len = buf.readInt();
+        if (len < 0 || len > MAX_CHUNK_BYTES) {
+            throw new io.netty.handler.codec.DecoderException("e33chat media chunk length out of range: " + len);
+        }
         byte[] out = new byte[len];
         buf.readBytes(out);
         return out;
     }
 
     static String readUtf(ByteBuf buf) {
-        int len = Math.min(Math.max(buf.readInt(), 0), MAX_STRING_LEN);
+        int len = buf.readInt();
+        if (len < 0 || len > MAX_STRING_LEN) {
+            throw new io.netty.handler.codec.DecoderException("e33chat media string length out of range: " + len);
+        }
         return buf.readCharSequence(len, java.nio.charset.StandardCharsets.UTF_8).toString();
     }
 

@@ -58,9 +58,12 @@ public final class ChatSidebar {
                               ChatBubbleTheme.Colors c, int panelW, int msgBottom,
                               String whisperPartner, ResourceLocation publicIcon,
                               ResourceLocation noOnlineIcon, ResourceLocation privateTipIcon,
-                              EditBox searchBox, int scrollOffset, int maxScroll, float alpha) {
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, WIDTH, 999, alpha);
-        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), WIDTH - 1, 0, 1, 999, alpha);
+                              EditBox searchBox, int scrollOffset, int maxScroll, float alpha,
+                              int screenH) {
+        // Background/divider span the real screen height: a hardcoded cap
+        // disappears below y=999 on large GUIs (scale 1 at 1080p+).
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.SIDEBAR_BG), 0, 0, WIDTH, screenH, alpha);
+        com.niuqu.chatbubble.texture.ColoredTextureRenderer.drawWithAlpha(g, UiTextureManager.rl(UiElement.DIVIDER), WIDTH - 1, 0, 1, screenH, alpha);
 
         Minecraft mc = Minecraft.getInstance();
         int y = 2;
