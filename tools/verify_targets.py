@@ -660,6 +660,9 @@ def main() -> int:
                 "java": t["java"],
                 "buildable": bool(t["buildable"]),
                 "suffix": "" if t["buildable"] else "-未验证",
+                # 商店版本号的组成段（发布后校验闸用）：{loader}-{mc}-{mod_version}
+                "loader": t["loader"],
+                "minecraft": t["minecraft"],
             }
             for name, t in targets.items()
             if isinstance(t, dict) and (ROOT / t.get("project", "")).is_dir()
